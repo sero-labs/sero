@@ -229,6 +229,10 @@ export interface OrchestratorBoardRoomView {
    */
   activeMs?: number;
   activeSince?: string | null;
+  /** Working time that may have passed after the last saved checkpoint before an unexpected shutdown. Not in `activeMs`. */
+  activeUncertainMs?: number;
+  /** True when `activeMs` began as wall-clock time recorded before working time was kept. */
+  activeSeeded?: boolean;
   startedAt: string | null;
   updatedAt: string;
   /** Open approvals plus a Room stopped waiting for one. */

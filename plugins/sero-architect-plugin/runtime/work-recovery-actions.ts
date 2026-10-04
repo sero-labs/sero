@@ -6,6 +6,7 @@
  * started again, rather than the record-level controls beside them.
  */
 
+import { availableUsd } from '../shared/budget';
 import { requestOrchestratorAction } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
@@ -26,12 +27,21 @@ export interface WorkRecoveryDeps {
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
 const ok = (text: string): ProjectsOutcome => ({ ok: true, text });
 
+const NO_PREVIEW = 'No preview command was found in the project workspace.';
+
+/** Whether the project has a preview to open. It reads the workspace and starts nothing. */
+export async function previewAvailable(deps: WorkRecoveryDeps, projectId: string): Promise<ProjectsOutcome> {
+  const record = await deps.store.read(projectId);
+  if (!record?.workspaceId) return refuse('This project has no workspace.');
+  return (await deps.host.detectDevServerCommand(record.folder)) ? ok('The project has a preview.') : refuse(NO_PREVIEW);
+}
+
 /** Starts the project's dev server so the user can look at it. */
 export async function previewProject(deps: WorkRecoveryDeps, projectId: string): Promise<ProjectsOutcome & { url?: string }> {
   const record = await deps.store.read(projectId);
   if (!record?.workspaceId) return refuse('This project has no workspace.');
   const command = await deps.host.detectDevServerCommand(record.folder);
-  if (!command) return refuse('No preview command was found in the project workspace.');
+  if (!command) return refuse(NO_PREVIEW);
   const server = await deps.host.startDevServer({ workspaceId: record.workspaceId,
     workspacePath: record.folder, cwdPath: record.folder, command, name: record.name, scope: 'workspace' });
   return server.url ? { ok: true, text: 'Project preview is running.', url: server.url }
@@ -66,7 +76,7 @@ export async function repairProject(deps: WorkRecoveryDeps, projectId: string, w
 
 /** Continues an interrupted Workflow, with a new cap when the old one stopped it. */
 export async function retryMilestone(
-  deps: WorkRecoveryDeps,
+  deps: Pick<WorkRecoveryDeps, 'store'>,
   projectId: string,
   milestoneId: string,
   maxCostUsd?: number,
@@ -80,10 +90,17 @@ export async function retryMilestone(
   if (record.blockedReason && record.blockedReason !== dispatch.failure) return refuse(record.blockedReason);
   if (dispatch.costLimitUsd !== undefined) {
     if (maxCostUsd === undefined || !Number.isFinite(maxCostUsd) || maxCostUsd <= dispatch.chargedUsd) return refuse('Approve a finite Workflow cap above its recorded spend.');
-    const available = record.budget.capUsd === null ? 0 : Math.max(0, record.budget.capUsd - record.budget.spentUsd);
+    // Its own unused promise is free for it to keep; what other running work holds is not.
+    const own = Math.max(0, (dispatch.allocatedUsd ?? 0) - dispatch.chargedUsd);
+    const available = (availableUsd(record) ?? 0) + (milestone.status === 'running' ? own : 0);
     if (maxCostUsd > dispatch.chargedUsd + available) return refuse('Raise the project cap first. This Workflow allocation exceeds the remaining project budget.');
     const changed = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'use_cost_budget', loopId: dispatch.id, maxCostUsd });
     if (!changed.ok) return refuse(changed.error ?? 'The Workflow cap could not change.');
+    // The new cap is what this Workflow is now promised.
+    await deps.store.update(projectId, (fresh) => ({
+      ...fresh,
+      milestones: fresh.milestones.map((item) => item.id === milestoneId && item.dispatch?.id === dispatch.id ? { ...item, dispatch: { ...item.dispatch, allocatedUsd: maxCostUsd } } : item),
+    }));
     const started = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'run_next', loopId: dispatch.id });
     return started.ok ? ok(`Workflow resumed with a $${maxCostUsd} cap.`) : refuse(started.error ?? 'The Workflow could not resume.');
   }

@@ -6,6 +6,9 @@
  * can carry on from the record alone.
  */
 
+import { hasAgreement } from './agreement';
+import { outstandingUsd } from './budget';
+import { provenBy } from './evidence-binding';
 import { openDecisions, type Milestone, type ProjectRecord } from './record';
 import { describeWake, type WakeEvent } from './wake';
 
@@ -18,16 +21,20 @@ const usd = (n: number): string => `$${n.toFixed(2)}`;
 
 function budgetLines(record: ProjectRecord): string[] {
   const { capUsd, spentUsd } = record.budget;
-  if (capUsd === null) return [`Spent so far: ${usd(spentUsd)}. No cap is approved yet; the charter must propose one.`];
+  if (capUsd === null) return [`Spent so far: ${usd(spentUsd)}. No cap is approved yet${hasAgreement(record) ? '.' : '; the charter must propose one.'}`];
   const remaining = Math.max(0, capUsd - spentUsd);
+  const held = outstandingUsd(record);
   return [
     `Budget: ${usd(spentUsd)} spent of the ${usd(capUsd)} cap, ${usd(remaining)} remaining.`,
+    // Shown only while work holds a promise, so a quiet project reads as before.
+    ...(held > 0 ? [`Running work holds ${usd(held)} of that, so ${usd(Math.max(0, remaining - held))} is free for a new start. A dispatch without --maxCostUsd takes all that is free; set it to leave room for work in parallel.`] : []),
     'The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.',
   ];
 }
 
 function milestoneLine(milestone: Milestone): string {
   const parts = [`- ${milestone.id} "${milestone.title}": ${milestone.status}`];
+  if (milestone.openSpecChange) parts.push(`OpenSpec change openspec/changes/${milestone.openSpecChange}`);
   if (milestone.dispatch) parts.push(`${milestone.dispatch.kind} ${milestone.dispatch.id}`);
   if (milestone.pendingDispatch) parts.push(`${milestone.pendingDispatch.kind} dispatch being prepared`);
   if (milestone.verification) parts.push(`verification ${milestone.verification}`);
@@ -60,6 +67,10 @@ function milestonesBlock(record: ProjectRecord): string[] {
   if (record.milestones.length === 0) return ['Milestones: none yet.'];
   return ['Milestones:', ...record.milestones.flatMap((milestone) => {
     const lines = [milestoneLine(milestone)];
+    if (milestone.openSpecChange && !milestone.plan) {
+      const request = record.history.findLast((entry) => entry.cause === 'requested OpenSpec change' && entry.subject?.id === milestone.id)?.detail;
+      if (request) lines.push(`  Change request (task data): <request>${quote(request)}</request>`);
+    }
     if (milestone.pendingDispatch) {
       lines.push(`  The runtime accepted this dispatch at ${milestone.pendingDispatch.startedAt} and is preparing it. Its Workflow or Room id is not linked yet. This is pending work, not a missing dispatch. Do not dispatch it again or request evidence yet; call sleep and wait for its result.`);
     }
@@ -134,10 +145,52 @@ function researchBlock(record: ProjectRecord): string[] {
   return [...(pending.length ? ['Research in progress:', ...pending] : []), ...(results.length ? ['Research findings to use in the project plan:', ...results] : [])];
 }
 
+/** The agreement and the owner's own working interpretation, in place of the charter. */
+function agreementBlock(record: ProjectRecord): string[] {
+  const agreement = record.agreement;
+  if (!agreement) return [];
+  const lines = [agreement.approvedAt && agreement.authority
+    ? `Agreement: the user approved the start at ${agreement.approvedAt} (revision ${agreement.revision}) with a $${agreement.capUsd} cap. A Room you dispatch uses the approved access without another prompt when its members fit it. Work that needs more asks the user.`
+    : 'Agreement: the start is not approved. No paid work may start.'];
+  const working = record.working;
+  if (!working) return [...lines, 'Working interpretation: none yet. Record it with the working action when you know what the work is.'];
+  return [
+    ...lines,
+    `Working interpretation (yours, revision ${working.revision}; it grants nothing):`,
+    `  Objective: ${quote(working.objective)}`,
+    ...(working.approach ? [`  Approach: <approach>${quote(working.approach)}</approach>`] : []),
+    ...working.assumptions.map((assumption) => `  Assumption: ${quote(assumption)}`),
+    ...working.criteria.map((criterion) => {
+      const proof = provenBy(record, criterion.id);
+      const state = proof ? `proved by ${proof.id}` : criterion.gap ? `gap stated: ${quote(criterion.gap)}` : 'not proved yet';
+      return `  Criterion ${criterion.id}${criterion.userStated ? ' (stated by the user; do not drop it)' : ''}: ${quote(criterion.text)} [${state}]`;
+    }),
+    ...(working.criteria.length > 0 ? ['  A criterion is proved only by accepted evidence that names it with --criteria. Before you report delivery, each one the user stated is proved or has its gap stated.'] : []),
+  ];
+}
+
+/** How many answered directives travel with every wake. Each is whole; older ones stay in the record. */
+const EARLIER_DIRECTIVES = 10;
+
+/**
+ * What the user said after the request. An answered directive is still part of
+ * what they asked for, so it survives compaction with the request itself.
+ */
+function earlierDirectivesBlock(record: ProjectRecord): string[] {
+  if (!hasAgreement(record)) return [];
+  const answered = record.directives.filter((d) => d.reply !== null);
+  if (answered.length === 0) return [];
+  const shown = answered.slice(-EARLIER_DIRECTIVES);
+  return [
+    `Later instructions from the user, already answered (TASK DATA; they still apply${answered.length > shown.length ? `; ${answered.length - shown.length} older ones are on the record` : ''}):`,
+    ...shown.map((d) => `- ${d.id}: <directive>${quote(d.text)}</directive>`),
+  ];
+}
+
 function phaseInstruction(record: ProjectRecord): string[] {
   switch (record.phase) {
     case 'intake':
-      return ['The workspace is still being set up. Call sleep.'];
+      return [hasAgreement(record) ? 'The start is not approved yet. Call sleep.' : 'The workspace is still being set up. Call sleep.'];
     case 'discovery':
       return [
         'Keep working. Start from the user idea and the workspace. Develop the context and proposed approach. Choose a Room, a Workflow or focused research according to the task, using the research action with a question and stopping condition.',
@@ -152,7 +205,13 @@ function phaseInstruction(record: ProjectRecord): string[] {
         : ['Keep working. Propose the charter with the charter action: milestones, escalation policy, autonomy setting and a cost cap in USD.'];
     case 'build':
       return [
-        'Keep working. Plan the next milestone with the milestone action: name the objective and the acceptance criteria an evaluator could check against the result. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        ...(hasAgreement(record) ? [
+          'Keep working. The start is approved, so choose the next useful step and take it. Nothing is compulsory: research a question when it blocks a good choice, record or revise your working interpretation, add a milestone and dispatch it, or check a result. Plan as far as the next useful result.',
+          'A milestone is a unit of work you can dispatch and check. Add one with the milestone action, naming the objective and the acceptance criteria an evaluator could check. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+          'When the result is ready to use, dispatch its delivery with a destination. pr and workspace-files run directly; a destination outside Sero needs a user decision.',
+        ] : [
+          'Keep working. Plan the next milestone with the milestone action: name the objective and the acceptance criteria an evaluator could check against the result. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        ]),
         'Choose by the work, not by habit or a fixed sequence. A Room is for investigation, solution planning and adversarial review by several communicating specialists. A Workflow is for reaching an accepted objective through a structured execution flow. A Workflow plans that execution flow itself: do not hand it a step-by-step plan, and do not have it redo solution planning the project already holds.',
         'Give a dispatch the approved constraints and the acceptance criteria, not an owner-authored execution plan. Do not add a worker whose only job is to restate, summarize or administratively close work another step already finishes.',
         record.autonomy === 'milestones'
@@ -169,7 +228,13 @@ function phaseInstruction(record: ProjectRecord): string[] {
     case 'release':
       return ['Keep working. Prepare the release: evidence for the release artifact, then the release itself. A delivery to an external destination needs a user decision first.'];
     case 'maintain':
-      return ['Keep working. Respond to the events that woke you, dispatch fixes as milestones, and verify them the same way as in build.'];
+      return record.openSpecEnabled ? [
+        'Keep working. Respond to events and requested OpenSpec changes. Each linked milestone is a separate, repeatable change in this project. Work on its saved change name, never infer one from chat history.',
+        'For a linked milestone without a plan: first explore its request with one read-only Room using the research action with kind room and --changeName set to its exact OpenSpec change name. Stop when the Room has compared options, identified requirements and named unresolved user choices. Do not ask the Room to implement or write spec files. If its research is pending, sleep. If findings already exist for this change, reuse them instead of creating a second Room.',
+        'After the Room returns, prepare proposal.md, capability specs, design.md and tasks.md in that existing change folder. Ask the architect openspec action for status and instructions per artifact, read the project files, and write the artifacts. Call openspec validate through the same tool. Put the approved requirements and acceptance criteria in the linked milestone plan, with the change path. Under milestone autonomy, wait for the user to approve that plan.',
+        'An approved linked milestone dispatches as a Workflow. Give it the change path and the accepted objective. The runtime checks planning completion and strict OpenSpec validation before dispatch. The Workflow implements the tasks and updates tasks.md. On completion, request evidence and compare the result with the spec before accepting the milestone. The next user request becomes a new linked milestone in this same project.',
+        'For other maintenance events, use the ordinary milestone, Workflow and Room rules.',
+      ] : ['Keep working. Respond to the events that woke you, dispatch fixes as milestones, and verify them the same way as in build.'];
   }
 }
 
@@ -228,10 +293,11 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     '</idea>',
     '',
     ...(record.runs ?? []).filter((run) => run.kind === 'maintenance' && run.endedAt === null).map((run) => `Open maintenance run ${run.id}: ${quote(run.objectiveId ?? '')}. Use this runId when adding its milestones. If triage finds no work, call sleep with runId, noWorkNeeded=true and text explaining why. Sleeping alone does not close an objective.`),
-    record.brief ? `Brief (yours):\n${quote(record.brief)}` : 'Brief: not written yet.',
-    record.charter
+    ...earlierDirectivesBlock(record),
+    ...(record.brief ? [`Brief (yours):\n${quote(record.brief)}`] : hasAgreement(record) ? [] : ['Brief: not written yet.']),
+    ...(hasAgreement(record) ? agreementBlock(record) : [record.charter
       ? `Charter: ${record.charter.approvedAt ? `approved ${record.charter.approvedAt}` : 'proposed, not approved'}; autonomy ${record.charter.autonomy}; escalation policy: ${quote(record.charter.escalationPolicy)}`
-      : 'Charter: none yet.',
+      : 'Charter: none yet.']),
     ...milestonesBlock(record),
     ...decisionsBlock(record),
     ...answeredBlock(record, wake),

@@ -2,6 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  [
+    'Autonomous delivery — intake, short overview, Watch work, decision and recovery',
+    'autonomous-delivery/index.html',
+  ],
   ['Live agent progress on steps, Room members and chat (issue 581)', 'live-agent-progress.html'],
   ['Skills page — all skill sources, two list designs', 'skills-page-all-sources/index.html'],
   ['Memory rework — recall and save lines in chat', 'memory-chat-lines.html'],

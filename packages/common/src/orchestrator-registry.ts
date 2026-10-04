@@ -12,6 +12,7 @@ import type {
   OrchestratorUsageView,
 } from './orchestrator-contract';
 import type { OrchestratorProjectContext } from './orchestrator-project-context';
+import type { FeedbackSnapshotReply } from './work-feedback';
 
 // ── Coordinator registry seam (Electron main) ──
 //
@@ -94,6 +95,13 @@ export interface OrchestratorRoomCreateRequest {
   limits?: OrchestratorRoomCreateLimits;
   /** Project/run attribution and the tier defaults resolved before planning. */
   project?: OrchestratorProjectContext;
+  /**
+   * A host-stored delegation policy the caller's user already approved. The
+   * Room names it when it asks for its grant; the host decides whether the
+   * grant fits. It is a reference, never authority: a Room created without it,
+   * or with an id the host does not hold, is approved by the user as before.
+   */
+  delegationPolicyId?: string;
 }
 
 export type OrchestratorRoomCreateResult =
@@ -101,16 +109,80 @@ export type OrchestratorRoomCreateResult =
   /** `questions` is present when the planner needs an answer, so the caller can ask its user instead of failing. */
   | { ok: false; error: string; questions?: string[]; usage?: OrchestratorUsageView };
 
+/** Why a Room is not taking turns, as its own runtime recorded it. */
+export interface OrchestratorRoomHold {
+  kind: string;
+  detail: string;
+}
+
+export interface OrchestratorRoomInspection {
+  status: OrchestratorRoomStatus;
+  result: string | null;
+  models: { name: string; model: string; thinking: string }[];
+  /** Set while the Room is stopped for a recorded reason. */
+  hold?: OrchestratorRoomHold;
+  /** The Room's total working-time limit and what it has used, when it keeps them. */
+  maxWallClockMs?: number;
+  activeMs?: number;
+}
+
+/**
+ * What a control call did. `status` is read back from the Room after the call,
+ * so a caller reports the state the Room is in, not the command it sent.
+ */
+export type OrchestratorRoomControlResult =
+  | { ok: true; status: OrchestratorRoomStatus }
+  | { ok: false; error: string; status: OrchestratorRoomStatus | null };
+
 /** The narrow Room surface a plugin runtime may call. */
 export interface OrchestratorRoomHandle {
   /** Read durable findings and actual roster choices without opening member sessions. */
-  inspect(roomId: string): Promise<{
-    status: OrchestratorRoomStatus;
-    result: string | null;
-    models: { name: string; model: string; thinking: string }[];
-  } | null>;
+  inspect(roomId: string): Promise<OrchestratorRoomInspection | null>;
   /** Plans the team, then starts the Room, which raises the grant prompt. */
   create(request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult>;
+  /** Stops new turns. Turns in flight finish; nothing is lost. */
+  pause(roomId: string): Promise<OrchestratorRoomControlResult>;
+  /**
+   * Continues the same Room. `maxWallClockMs` is a new TOTAL working-time
+   * limit, not an increment, and may only be larger than the current one.
+   * It changes no spending limit.
+   */
+  resume(roomId: string, options?: { maxWallClockMs?: number }): Promise<OrchestratorRoomControlResult>;
+  cancel(roomId: string): Promise<OrchestratorRoomControlResult>;
+  /**
+   * What the work in this workspace is doing now, as bounded metadata. A caller
+   * keeps the entries whose scope names its own project. Absent on a runtime
+   * that keeps none.
+   */
+  feedback?(): Promise<FeedbackSnapshotReply>;
+  /**
+   * Opens one observer's watch on a Room and returns where each member's turn
+   * stands now. Later changes are pushed on `ORCHESTRATOR_ROOM_LIVE_TOPIC` in
+   * the Room's workspace. The caller checks first that the Room is its own.
+   */
+  watch?(roomId: string, observerId: string): Promise<OrchestratorRoomMemberLive[]>;
+  /** Ends that observer's watch. Other observers and the Room are not affected. */
+  unwatch?(roomId: string, observerId: string): Promise<void>;
+}
+
+/** The topic a Room's live member turns are pushed on while a watch is open. */
+export const ORCHESTRATOR_ROOM_LIVE_TOPIC = 'orchestrator-room-live';
+/** The topic the Orchestrator pushes work feedback on. */
+export const ORCHESTRATOR_FEEDBACK_TOPIC = 'orchestrator-feedback';
+
+/** One member's current turn, as a Watch view shows it. Transient, never saved. */
+export interface OrchestratorRoomMemberLive {
+  roomId: string;
+  memberId: string;
+  turnId: string | null;
+  text: string;
+  truncated: boolean;
+  toolInFlight: { toolName: string; summary: string; startedAt: string } | null;
+  lastTurnStatus: 'completed' | 'aborted' | 'error' | null;
+  watching: boolean;
+  updatedAt: string;
+  /** Counts up with every change. A reader keeps the higher one. */
+  revision: number;
 }
 
 export interface OrchestratorRoomRegistryEntryView {

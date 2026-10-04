@@ -22,6 +22,8 @@ vi.mock('@sero-ai/app-runtime', () => ({
   // The state line listens to the app's own runtime; these tests render it
   // directly, so the listener is inert.
   useAppRuntimeEvents: () => {},
+  // The first read of running calls answers with none.
+  useAppTools: () => ({ run: async () => ({ text: '', details: { ok: true, calls: [] } }) }),
 }));
 
 const NOW = '2026-09-20T10:00:00.000Z';

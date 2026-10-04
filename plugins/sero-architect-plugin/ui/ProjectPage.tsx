@@ -1,33 +1,34 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
+import { ChevronRight, ExternalLink, Eye } from 'lucide-react';
 
-import { sessionStartedAt } from '@sero-ai/common';
+import { sessionStartedAt, type FeedbackSummary } from '@sero-ai/common';
+import { useProjectFeedback } from './lib/use-project-feedback';
 import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch, type Disclosures } from './lib/page-helpers';
 import { CapInput, type CapInputProps } from './components/CapInput';
-import { DirectiveComposer, Directives } from './components/Directives';
-import { MilestoneRail } from './components/MilestoneRail';
+import { DirectiveComposer } from './components/Directives';
 import { NeedsYou } from './components/NeedsYou';
-import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
-import { ProjectPreview } from './components/ProjectPreview';
+import { PreviewFrame } from './components/PreviewFrame';
+import { usePreviewAvailable, useProjectPreview } from './lib/use-project-preview';
+import { agreementApproved, hasAgreement } from '../shared/agreement';
+import type { WorkTab } from './lib/navigation';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
-import { SideColumn } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
-import { Quiet, SectionHead } from './components/Pill';
 
 export interface ProjectPageProps {
   permissionPending?: boolean;
+  /** Why the start that followed intake did not happen, until a later action replaces it. */
+  startRefusal?: string | null;
   record: ProjectRecord;
   /** Whether the Architect runtime is running in this session. */
   runtimeRunning: boolean;
   actions: ArchitectActions;
-  narrow: boolean;
-  disclosures: Disclosures;
   onBack(): void;
   /** Opens the project model defaults view. */
   onOpenModels(): void;
@@ -35,8 +36,8 @@ export interface ProjectPageProps {
   onOpenInspector(): void;
   /** Opens the project's History view. */
   onOpenHistory(): void;
-  /** The milestone whose evidence opens on arrival, from a History link. */
-  focusMilestoneId?: string;
+  /** Opens the work behind the overview, on one of its tabs. */
+  onOpenWork(tab: WorkTab): void;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
@@ -63,6 +64,7 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
     stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
     raiseCap: () => { setNotice(null); setCapOpen(true); },
     setExecutionMode: (next) => void report(actions.setExecutionMode(id, next)),
+    enableOpenSpec: () => void report(actions.enableOpenSpec(id)),
     setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
       setHistoryOpen(true);
@@ -102,70 +104,6 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
   };
 }
 
-function IntakeSetup({ record, actions, permissionPending, onNotice }: {
-  record: ProjectRecord;
-  actions: ArchitectActions;
-  permissionPending: boolean;
-  onNotice(notice: string | null): void;
-}) {
-  const [settingUp, setSettingUp] = useState(false);
-  const continueSetup = async () => {
-    if (settingUp || permissionPending) return;
-    setSettingUp(true);
-    onNotice(null);
-    try {
-      const outcome = await actions.resume(record.id);
-      if (!outcome.ok) onNotice(outcome.text);
-    } catch (error) {
-      onNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSettingUp(false);
-    }
-  };
-  return (
-    <section>
-      <SectionHead title="Setting up" count={record.blockedReason ? 'waiting' : 'in progress'} />
-      <Quiet>{record.blockedReason ?? 'Allow the Architect to run in this workspace to start planning your project.'}</Quiet>
-      <Button className="mt-3" disabled={settingUp || permissionPending} onClick={() => void continueSetup()}>
-        {settingUp || permissionPending ? 'Waiting for permission…' : record.workspaceId ? 'Request permission' : 'Retry setup'}
-      </Button>
-    </section>
-  );
-}
-
-function ProjectMainColumn({ record, actions, needsActions, permissionPending, onNotice, focusMilestoneId }: {
-  record: ProjectRecord;
-  actions: ArchitectActions;
-  needsActions: ReturnType<typeof useProjectPageControls>['needsActions'];
-  permissionPending: boolean;
-  onNotice(notice: string | null): void;
-  focusMilestoneId?: string;
-}) {
-  const id = record.id;
-  return (
-    <div className="ar-col">
-      {record.phase === 'intake' ? (
-        <IntakeSetup record={record} actions={actions} permissionPending={permissionPending} onNotice={onNotice} />
-      ) : (
-        <>
-          <NeedsYou record={record} actions={needsActions} />
-          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
-        </>
-      )}
-      <ProjectResearch record={record} />
-      <MilestoneRail record={record} onOpenDispatch={openDispatch} focusMilestoneId={focusMilestoneId} />
-      {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
-      {record.phase === 'intake' && (
-        <section>
-          <SectionHead title="Idea" count="verbatim" />
-          <div className="ar-card"><p className="ar-idea">{record.idea}</p></div>
-        </section>
-      )}
-      <Directives record={record} />
-    </div>
-  );
-}
-
 /**
  * What the header offers, and what each control runs.
  *
@@ -178,8 +116,14 @@ function useHeaderActions(
   record: ProjectRecord,
   runtimeRunning: boolean,
   focusDirective: () => void,
+  feedback: FeedbackSummary | null,
+  reviewAccess: (() => void) | null,
 ): HeaderAction[] {
-  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
+
+  // The start approval is the host's own question. This raises it again; while
+  // it is already on screen there is nothing to press.
+  if (activity.action === 'Review access') return reviewAccess ? [{ label: 'Review access', primary: true, run: reviewAccess }] : [];
 
   // A cap is not a button: it needs a number, so the header carries the field
   // instead and this returns nothing for it.
@@ -197,16 +141,23 @@ function useHeaderActions(
     ];
   }
 
-  if (!activity.action) return [];
+  return activity.action ? recoveryActions(record, activity.action, reviewAccess) : [];
+}
 
+/** The control for a project that stopped and names what recovers it. */
+function recoveryActions(record: ProjectRecord, action: string, reviewAccess: (() => void) | null): HeaderAction[] {
   // A stopped dispatch's recovery is the header's OWN control, not a button
   // here. A cap needs a field to type in, and no cap needs the busy state and
   // the refusal — neither of which a bare action can show. `ProjectPage`
   // renders it in the `form` slot; this returns nothing so it appears once.
   if (record.milestones.some((milestone) => milestone.dispatch?.failure)) return [];
 
+  // The Architect stopped and says to resume. The control it names is here, not
+  // only in the menu.
+  if (record.blockedReason) return reviewAccess ? [{ label: 'Resume', primary: true, run: reviewAccess }] : [];
+
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
-  if (activity.action === 'Open the Room to answer' && room?.dispatch) {
+  if (action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;
     return [{ label: 'Open Room to answer', primary: true, run: () => openDispatch({ kind, id, workspaceId }) }];
   }
@@ -227,16 +178,17 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
   );
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+/** The state header and the control that recovers its cap or Workflow. */
+function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning, feedback, links }: {
+  links: ReactNode;
+  feedback: FeedbackSummary | null;
+  record: ProjectRecord;
+  actions: ArchitectActions;
+  onNotice(notice: string | null): void;
+  headerActions: HeaderAction[];
+  runtimeRunning: boolean;
+}) {
   const id = record.id;
-  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
-  // Focusing a node is an external side effect, so it is a ref and a call, not
-  // derived state. The header's "Tell Architect what to do next" runs it.
-  const directiveRef = useRef<HTMLTextAreaElement>(null);
-  // Focusing the box scrolls it into view on its own, so there is nothing else
-  // to do here.
-  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
-  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective);
   // At the cap the header carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
@@ -270,57 +222,104 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
   const stoppedWorkflow = record.milestones.find(
     (item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined,
   );
-  let headerForm: ReactNode;
+  let form: ReactNode;
   if (capForm) {
-    headerForm = <CapInput {...capForm} onError={page.setNotice} onDone={() => page.setNotice(null)} />;
+    form = <CapInput {...capForm} onError={onNotice} onDone={() => onNotice(null)} />;
   } else if (stoppedWorkflow) {
-    headerForm = (
+    form = (
       <RetryWorkflowControl
         label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'}
         retry={() => actions.retry(id, stoppedWorkflow.id)}
-        onError={page.setNotice}
+        onError={onNotice}
       />
     );
   }
+  return <StateLine record={record} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} links={links} />;
+}
+
+/** The ways into the work behind the overview: the preview, the live work and the checks. */
+function OverviewLinks({ record, preview, onOpenWork }: { record: ProjectRecord; preview: ReturnType<typeof useProjectPreview>; onOpenWork(tab: WorkTab): void }) {
+  const checked = record.milestones.some((milestone) => milestone.evidence);
+  // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
+  const hasPreview = usePreviewAvailable(record.id, record.milestones.map((milestone) => milestone.status).join(','));
+  return (
+    <>
+      {hasPreview && (
+        <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
+          <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
+        </Button>
+      )}
+      <Button size="sm" variant="outline" className="ar-btn" onClick={() => onOpenWork('live')}><Eye className="ar-i" />Watch work</Button>
+      {checked && <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>}
+    </>
+  );
+}
+
+/** Before the start is approved there is no work to watch and nothing to note. */
+const hasStarted = (record: ProjectRecord): boolean => !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+
+/** What the last action said, and the cap field while it is open. The block reason has its own place. */
+function PageNotice({ record, actions, notice, page }: { record: ProjectRecord; actions: ProjectPageProps['actions']; notice: string | null; page: ReturnType<typeof useProjectPageControls> }) {
+  const text = notice !== null && notice !== record.blockedReason ? notice : null;
+  if (text === null && !page.capOpen) return null;
+  return (
+    <div className="ar-notice">
+      {text !== null && <p role="alert">{text}</p>}
+      {page.capOpen && (
+        <CapInput
+          cap={record.budget.capUsd}
+          inputId="ar-raise-cap-in"
+          submitLabel="Raise cap"
+          onRaise={(capUsd) => actions.raiseCap(record.id, capUsd)}
+          onError={page.setNotice}
+          onDone={() => page.setCapOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
+  const id = record.id;
+  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
+  const directiveRef = useRef<HTMLTextAreaElement>(null);
+  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
+  const feedback = useProjectFeedback(record, actions);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
+  // A refused start is shown until the project starts or a later action says something newer.
+  const notice = page.notice ?? (hasAgreement(record) && !agreementApproved(record) ? startRefusal : null);
+  const preview = useProjectPreview(id);
+  const started = hasStarted(record);
+  const links = started && <OverviewLinks record={record} preview={preview} onOpenWork={onOpenWork} />;
 
   return (
     <>
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
-          {((page.notice !== null && page.notice !== record.blockedReason) || page.capOpen) && (
-            <div className="ar-notice">
-              {page.notice !== null && page.notice !== record.blockedReason && <p role="alert">{page.notice}</p>}
-              {page.capOpen && (
-                <CapInput
-                  cap={record.budget.capUsd}
-                  inputId="ar-raise-cap-in"
-                  submitLabel="Raise cap"
-                  onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
-                  onError={page.setNotice}
-                  onDone={() => page.setCapOpen(false)}
-                />
-              )}
-            </div>
-          )}
-          <StateLine
+          <PageNotice record={record} actions={actions} notice={notice} page={page} />
+          <ProjectStateHeader
             record={record}
-            home={null}
-            actions={headerActions}
-            form={headerForm}
+            actions={actions}
+            onNotice={page.setNotice}
+            headerActions={headerActions}
             runtimeRunning={runtimeRunning}
+            feedback={feedback}
+            links={links}
           />
-          <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
-            <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} focusMilestoneId={focusMilestoneId} />
-            <SideColumn record={record} disclosures={disclosures} />
-          </div>
+          {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
+          {preview.url && <PreviewFrame url={preview.url} />}
+          {started && <NeedsYou record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
+          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
         </div>
       </div>
       <div className="ar-dock">
+        {record.overview?.acknowledgement && <p className="ar-ack" role="status">{record.overview.acknowledgement.text}</p>}
         <DirectiveComposer
-          disabled={record.phase === 'intake'}
+          disabled={!started}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
+          onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}
         />
       </div>
       <SessionHistoryDialog

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 
 import type { Decision, Milestone, ProjectRecord } from '../../shared/record';
 import { usd } from '../lib/format';
 import { AUTONOMY_LABEL, needsYouItems, parkedTitles, recommendedOption } from '../lib/view-model';
 import type { ActionOutcome } from '../lib/actions';
-import { ModelChoices } from './ModelChoices';
-import { SectionHead } from './Pill';
+import type { WorkTab } from '../lib/navigation';
+
+type OpenWork = (tab: WorkTab) => void;
 
 export interface NeedsYouActions {
   answer(decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;
@@ -33,7 +34,7 @@ function useSubmit() {
   return { busy, error, submit };
 }
 
-export function DecisionCard({ decision, record, actions }: { decision: Decision; record: ProjectRecord; actions: NeedsYouActions }) {
+export function DecisionCard({ decision, record, actions, onOpenWork }: { decision: Decision; record: ProjectRecord; actions: NeedsYouActions; onOpenWork?: OpenWork }) {
   const recommended = recommendedOption(decision);
   const [selected, setSelected] = useState(recommended?.id ?? '');
   const [note, setNote] = useState('');
@@ -42,21 +43,22 @@ export function DecisionCard({ decision, record, actions }: { decision: Decision
   return (
     <article className="ar-card ar-decision" aria-label="Decision">
       <h3 className="ar-q">{decision.question}</h3>
-      <p className="ar-why"><b>Why this needs you</b> {decision.reason}</p>
-      <ul className="ar-opts" role="radiogroup" aria-label="Options">
+      <p className="ar-why">{decision.reason}</p>
+      <div className="ar-opts" role="radiogroup" aria-label="Options">
         {decision.options.map((option) => (
-          <li key={option.id}>
-            <label className="ar-opt" data-on={option.id === selected ? 1 : 0}>
+            <label key={option.id} className="ar-opt" data-on={option.id === selected ? 1 : 0}>
               <input type="radio" name={decision.id} value={option.id} checked={option.id === selected} onChange={() => setSelected(option.id)} />
               <span className="ar-radio" />
               <span className="ar-opt-text"><b>{option.label}</b><span>{option.consequence}</span></span>
               {option.id === decision.recommendation ? <span className="ar-rec"><Check className="ar-i" />Recommended</span> : <span />}
             </label>
-          </li>
         ))}
-      </ul>
+      </div>
       <div className="ar-dfoot">
         <input className="ar-note-in" type="text" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a note for the Architect (optional)" aria-label="Note" />
+        {onOpenWork && record.milestones.some((milestone) => milestone.evidence)
+          ? <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>
+          : <span />}
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy || !selected} onClick={() => void submit(() => actions.answer(decision.id, selected, note))}>
           <Check className="ar-i" />Answer
         </Button>
@@ -69,24 +71,19 @@ export function DecisionCard({ decision, record, actions }: { decision: Decision
   );
 }
 
-export function CharterCard({ record, actions }: { record: ProjectRecord; actions: NeedsYouActions }) {
+/** The saved charter gate of a project on the deprecated charter flow. The full charter is in Work, under Plan. */
+export function CharterCard({ record, actions, onOpenWork }: { record: ProjectRecord; actions: NeedsYouActions; onOpenWork?: OpenWork }) {
   const { busy, error, submit } = useSubmit();
   const charter = record.charter;
   if (!charter) return null;
+  const count = charter.milestoneIds.length;
   return (
     <article className="ar-card" aria-label="Charter approval">
       <h3 className="ar-q">Approve the charter</h3>
-      <ModelChoices record={record} />
-      {record.brief && <p className="ar-brief">{record.brief}</p>}
-      <div className="ar-terms">
-        <div className="ar-term"><span className="ar-k">Cost cap</span><span className="ar-v ar-mono">{usd(charter.capUsd)}</span></div>
-        <div className="ar-term"><span className="ar-k">Milestones</span><span className="ar-v">{charter.milestoneIds.length}, in the rail below</span></div>
-        <div className="ar-term"><span className="ar-k">Autonomy</span><span className="ar-v">{AUTONOMY_LABEL[charter.autonomy]}</span></div>
-        <div className="ar-term"><span className="ar-k">Always asks you</span><span className="ar-v">Charter changes, external delivery, spend over cap</span></div>
-      </div>
-      {charter.escalationPolicy && <p className="ar-plan">{charter.escalationPolicy}</p>}
+      <p className="ar-why">Cost cap {usd(charter.capUsd)} · {count} {count === 1 ? 'milestone' : 'milestones'} · {AUTONOMY_LABEL[charter.autonomy]}</p>
       <div className="ar-dfoot">
-        <span className="ar-why">Want to change it? Send a directive below.</span>
+        <span />
+        {onOpenWork ? <button type="button" className="ar-btn-link" onClick={() => onOpenWork('plan')}>Read the charter<ChevronRight className="ar-i" /></button> : <span />}
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(actions.approveCharter)}>
           <Check className="ar-i" />Approve charter
         </Button>
@@ -96,15 +93,15 @@ export function CharterCard({ record, actions }: { record: ProjectRecord; action
   );
 }
 
-export function MilestoneApprovalCard({ milestone, actions, record }: { milestone: Milestone; actions: NeedsYouActions; record: ProjectRecord }) {
+/** A saved plan gate. The plan itself is in Work, under Plan, so this card stays short. */
+export function MilestoneApprovalCard({ milestone, actions, onOpenWork }: { milestone: Milestone; actions: NeedsYouActions; onOpenWork?: OpenWork }) {
   const { busy, error, submit } = useSubmit();
   return (
     <article className="ar-card" aria-label="Milestone plan approval">
       <h3 className="ar-q">Approve the plan for {milestone.title}</h3>
-      {milestone.plan && <p className="ar-plan">{milestone.plan}</p>}
-      <ModelChoices record={record} />
       <div className="ar-dfoot">
-        <span className="ar-why">Approve this plan to let Architect start the milestone.</span>
+        <span />
+        {onOpenWork ? <button type="button" className="ar-btn-link" onClick={() => onOpenWork('plan')}>Read the plan<ChevronRight className="ar-i" /></button> : <span />}
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(() => actions.approveMilestone(milestone.id))}>
           <Check className="ar-i" />Approve plan
         </Button>
@@ -114,27 +111,16 @@ export function MilestoneApprovalCard({ milestone, actions, record }: { mileston
   );
 }
 
-/**
- * Open decisions and approvals.
- *
- * It is absent while it is empty, and returns with its controls as soon as it
- * holds something. It used to say nothing three times over: a heading, a
- * "none" count and a card reading "You have nothing to review." Whether the
- * project is paused is on the header and on the projects list already.
- */
-export function NeedsYou({ record, actions }: { record: ProjectRecord; actions: NeedsYouActions }) {
+/** Open decisions and saved approvals. Absent while there are none. */
+export function NeedsYou({ record, actions, onOpenWork }: { record: ProjectRecord; actions: NeedsYouActions; onOpenWork?: OpenWork }) {
   const items = needsYouItems(record);
-  if (items.length === 0) return null;
   return (
-    <section aria-labelledby="ar-needs-h">
-      <SectionHead id="ar-needs-h" title="Needs you" count={String(items.length)} warn />
-      <div className="ar-col">
-        {items.map((item) => {
-          if (item.kind === 'decision') return <DecisionCard key={item.decision.id} decision={item.decision} record={record} actions={actions} />;
-          if (item.kind === 'charter') return <CharterCard key="charter" record={record} actions={actions} />;
-          return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} record={record} />;
-        })}
-      </div>
-    </section>
+    <>
+      {items.map((item) => {
+        if (item.kind === 'decision') return <DecisionCard key={item.decision.id} decision={item.decision} record={record} actions={actions} onOpenWork={onOpenWork} />;
+        if (item.kind === 'charter') return <CharterCard key="charter" record={record} actions={actions} onOpenWork={onOpenWork} />;
+        return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} onOpenWork={onOpenWork} />;
+      })}
+    </>
   );
 }

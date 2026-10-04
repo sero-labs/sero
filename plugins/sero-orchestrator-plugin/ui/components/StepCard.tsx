@@ -12,7 +12,7 @@
  * would carry the same line.
  */
 
-import { Fragment, useState } from 'react';
+import { Fragment, useContext, useState } from 'react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { SubagentLiveBlock } from '@sero-ai/ui/components/live-agent/live-block';
 import { ChevronDown, Eye, RefreshCw, SlidersHorizontal } from 'lucide-react';
@@ -24,7 +24,9 @@ import { splitFileRefs } from '../lib/file-refs';
 import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
 import { fanOutSummaryLabel, type FanOutItemView, type FanOutView } from '../lib/fan-out-summary';
-import { stepLiveView, type StepLiveView } from '../lib/step-live';
+import { requestWaitOf, runningAttemptId, stepLiveView, type StepLiveView } from '../lib/step-live';
+import { WorkViewContext } from '../lib/use-work-activity';
+import { AttemptLine } from './AttemptLine';
 import { WorkspaceFileLink } from './WorkspaceFileLink';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
@@ -155,23 +157,37 @@ function watchableItems(canTune: boolean, fanOut: FanOutView | undefined): FanOu
  * The live blocks a running step shows: one per running fan-out item when the
  * step expands into many, otherwise the one block for the step's own work.
  */
-function StepLiveBlocks({ watching, items, live }: {
+function StepLiveBlocks({ watching, items, live, attemptId }: {
   watching: boolean;
   items: readonly FanOutItemView[];
   live: StepLiveView | undefined;
+  attemptId: string | undefined;
 }) {
+  const { byAttempt, epoch } = useContext(WorkViewContext);
   if (!watching) return null;
   if (items.length > 0) {
     return (
       <div className="mt-2 flex flex-col gap-2">
         {items.map((item) => (
-          <SubagentLiveBlock key={item.key} runId={item.runId!} agentName={item.key} />
+          <SubagentLiveBlock
+            key={item.key}
+            runId={item.runId!}
+            agentName={item.key}
+            requestWait={requestWaitOf(item.attemptId ? byAttempt.get(item.attemptId) : undefined, epoch)}
+          />
         ))}
       </div>
     );
   }
   if (!live) return null;
-  return <SubagentLiveBlock className="mt-2" runId={live.runId} quietLabel={live.quietLabel} />;
+  return (
+    <SubagentLiveBlock
+      className="mt-2"
+      runId={live.runId}
+      quietLabel={live.quietLabel}
+      requestWait={requestWaitOf(attemptId ? byAttempt.get(attemptId) : undefined, epoch)}
+    />
+  );
 }
 
 /** What a finished step produced. */
@@ -211,6 +227,7 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
   const live = stepLive(canTune, loop, activeRun, step.id, state?.status);
   const liveItems = watchableItems(canTune, fanOut);
   const canWatch = !!live || liveItems.length > 0;
+  const attemptId = state?.status === 'running' ? runningAttemptId(activeRun, step.id) : undefined;
 
   return (
     <div className={cardClass(notTaken, tint)}>
@@ -230,7 +247,9 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
         onRetry={onRetry}
       />
 
-      <StepLiveBlocks watching={watching} items={liveItems} live={live} />
+      {attemptId && <AttemptLine attemptId={attemptId} />}
+
+      <StepLiveBlocks watching={watching} items={liveItems} live={live} attemptId={attemptId} />
 
       {fanOut && <div className="mt-2"><FanOutActivations view={fanOut} /></div>}
 
@@ -376,6 +395,7 @@ function FanOutActivations({ view }: { view: FanOutView }) {
               <StepStatusPill status={item.status} />
               <span className="font-medium">{item.key}</span>
               {item.summary && <span className="truncate text-muted-foreground" title={item.summary}>{item.summary}</span>}
+              {item.attemptId && <AttemptLine attemptId={item.attemptId} className="truncate text-muted-foreground" />}
             </li>
           ))}
         </ul>

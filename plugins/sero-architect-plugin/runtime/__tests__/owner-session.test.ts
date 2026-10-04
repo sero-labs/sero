@@ -48,14 +48,22 @@ describe('owner session', () => {
     const pending = sessions.runTurn(record, wake);
     await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce());
     await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
-    const result = await pending;
-    expect(abort).toHaveBeenCalledOnce();
+    // The first turn over the limit is stopped and tried again, with no block.
+    const first = await pending;
+    expect(first).toMatchObject({ status: 'error', retry: true });
+    expect(first.record.blockedReason).toBeNull();
+    const again = sessions.runTurn(first.record, wake);
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2));
+    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
+    const result = await again;
+    expect(abort).toHaveBeenCalledTimes(2);
     expect(result.status).toBe('error');
+    expect(result.retry).toBeUndefined();
     expect(result.record.blockedReason).toContain('exceeded 10 minutes');
     expect(result.record.session.workingSince).toBeNull();
     expect(result.record.milestones).toEqual(record.milestones);
     expect(result.record.session.silentTurns).toBe(0);
-    expect(result.record.session.turns).toBe(record.session.turns + 1);
+    expect(result.record.session.turns).toBe(record.session.turns + 2);
   });
 
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {

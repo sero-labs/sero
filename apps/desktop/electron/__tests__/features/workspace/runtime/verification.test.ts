@@ -201,6 +201,16 @@ describe('detectDevServerCommand', () => {
     await expect(detectDevServerCommand(tmpDir)).resolves.toBe('npm run dev');
   });
 
+  it('uses a preview script, then a start script, when there is no dev script', async () => {
+    const write = (scripts: Record<string, string>) => fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ scripts }));
+    await write({ start: 'node server.mjs', preview: 'node server.mjs' });
+    await expect(detectDevServerCommand(tmpDir)).resolves.toBe('npm run preview');
+    await write({ start: 'node server.mjs' });
+    await expect(detectDevServerCommand(tmpDir)).resolves.toBe('npm run start');
+    await write({ start: 'node server.mjs', dev: 'vite' });
+    await expect(detectDevServerCommand(tmpDir)).resolves.toBe('npm run dev');
+  });
+
   it('returns null when no dev script exists', async () => {
     await fs.writeFile(
       path.join(tmpDir, 'package.json'),

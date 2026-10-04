@@ -15,6 +15,7 @@ import type {
 import {
   GrantStore,
   type GrantStatePersistence,
+  type StoredDelegationPolicy,
   type StoredGrant,
 } from '@electron/features/apps/runtime/capabilities/persistent-sessions/grant-store';
 
@@ -28,19 +29,21 @@ export interface FakePersistence {
   persistence: GrantStatePersistence;
   /** What survives a restart. */
   stored(): Record<string, StoredGrant> | null;
+  storedPolicies(): Record<string, StoredDelegationPolicy>;
   writes(): number;
 }
 
 export function createPersistence(): FakePersistence {
   let snapshot: Record<string, StoredGrant> | null = null;
+  let policies: Record<string, StoredDelegationPolicy> = {};
   let writes = 0;
   // A JSON round-trip on purpose: the real store writes these grants to a JSON
   // file, so this drops exactly what a restart drops. `structuredClone` would
   // keep `undefined` and `Date`s that never survive the real file, and the fake
   // would stop matching the thing it stands in for.
-  const clone = (grants: Record<string, StoredGrant>): Record<string, StoredGrant> => {
+  const clone = <T,>(grants: T): T => {
     // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone
-    return JSON.parse(JSON.stringify(grants)) as Record<string, StoredGrant>;
+    return JSON.parse(JSON.stringify(grants)) as T;
   };
 
   return {
@@ -52,8 +55,14 @@ export function createPersistence(): FakePersistence {
         snapshot = clone(grants);
         writes += 1;
       },
+      readPolicies: async () => clone(policies),
+      writePolicies: async (next) => {
+        await Promise.resolve();
+        policies = clone(next);
+      },
     },
     stored: () => snapshot,
+    storedPolicies: () => policies,
     writes: () => writes,
   };
 }

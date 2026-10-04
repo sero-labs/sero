@@ -6,14 +6,17 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createFeedbackProjection } from '@sero-ai/common';
 import type {
+  OrchestratorRoomHandle,
   PersistentSessionEvent,
+  PersistentSessionLiveSnapshot,
   PersistentSessionGrantHandle,
   PersistentSessionGrantProposal,
   PersistentSessionRequest,
   PersistentSessionsApi,
 } from '@sero-ai/common';
-import { advancePhase, approveCharter, settle } from '../../shared/lifecycle';
+import { advancePhase, approveCharter, settle, startAgreedWork } from '../../shared/lifecycle';
 import { createProjectRecord, type Milestone, type ProjectRecord } from '../../shared/record';
 import type { ArchitectIndex } from '../../shared/types';
 import type { ArchitectHost, CommandRun } from '../host';
@@ -28,10 +31,13 @@ export interface FakeSessionsApi extends PersistentSessionsApi {
   steers: { handleId: string; content: string }[];
   disposed: string[];
   deletedGrants: string[];
+  revokedPolicies: string[];
   /** What happens during a turn; the test drives owner actions from here. */
   onTurn: ((handleId: string, content: string) => Promise<void>) | null;
   /** Emits an event to every subscriber of a handle (compaction, for instance). */
   emit(handleId: string, event: PersistentSessionEvent): void;
+  /** What `liveSnapshot` returns for a handle. Unset means no turn in flight. */
+  partials: Map<string, PersistentSessionLiveSnapshot>;
   costUsd: number;
   denyGrant: boolean;
   sessionPath: string;
@@ -47,7 +53,10 @@ export function fakeSessionsApi(sessionPath = '/sessions/owner.jsonl'): FakeSess
     steers: [],
     disposed: [],
     deletedGrants: [],
+    revokedPolicies: [],
     onTurn: null,
+    partials: new Map(),
+    liveSnapshot: (handleId) => api.partials.get(handleId) ?? null,
     costUsd: 0,
     denyGrant: false,
     sessionPath,
@@ -63,11 +72,14 @@ export function fakeSessionsApi(sessionPath = '/sessions/owner.jsonl'): FakeSess
         maxLiveSessions: proposal.maxLiveSessions,
         maxTotalSessions: proposal.maxTotalSessions,
         issuedAt: T0,
+        // The host stores what a proposal asks to pass on and hands the policy back.
+        ...(proposal.delegation ? { delegation: { ...proposal.delegation, policyId: 'policy-1', workspaceId: proposal.workspaceId, issuedAt: T0 } } : {}),
       };
       return handle;
     },
     async revokeGrant() {},
     async deleteGrant(grantId) { api.deletedGrants.push(grantId); },
+    async revokeDelegationPolicy(policyId) { api.revokedPolicies.push(policyId); },
     async create(request) {
       api.requests.push(request);
       return { handleId: 'h1', subject: request.subject, sessionId: 'sess-1', sessionPath };
@@ -133,6 +145,9 @@ export async function cleanupHosts(): Promise<void> {
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 10 })));
 }
 
+/** The session the fake host's feedback belongs to. */
+export const FEEDBACK_EPOCH = '2026-10-03T09:00:00.000Z';
+
 export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; sessions?: FakeSessionsApi } = {}): Promise<FakeHost> {
   const homeDir = await mkdtemp(path.join(os.tmpdir(), 'architect-'));
   dirs.push(homeDir);
@@ -154,6 +169,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     listModels: async () => [{ provider: 'anthropic', displayName: 'Anthropic', logo: '', models: [
       { provider: 'anthropic', modelId: 'claude-fable-5-1', name: 'Fable', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     ] }],
+    listWorkerCapabilities: async () => ({ tools: ['read', 'grep', 'bash', 'write', 'edit', 'web_search'], skills: [] }),
     runStructured: async () => ({ response: 'research answer', usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2, costUsd: 0.5 } }),
     runCommand: async (workspaceId, cwd, command) => {
       host.commandRuns.push({ workspaceId, cwd, command });
@@ -176,6 +192,8 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     fileInfo: async () => null,
     pathExists: async (filePath) => host.existingPaths.has(filePath),
     notify: (message) => { host.notices.push(message); },
+    feedback: createFeedbackProjection(FEEDBACK_EPOCH),
+    emitUi: () => undefined,
     now: () => host.clock.shift() ?? T0,
     newId: (prefix) => `${prefix}_${++ids}`,
     log: (message) => { host.logs.push(message); },
@@ -225,4 +243,34 @@ export function buildingProject(overrides: Partial<ProjectRecord> = {}, sessionP
   if (!build.ok) throw new Error(build.error);
   // Overrides change the flags the overlay is derived from, so settle again.
   return settle({ ...build.record, ...overrides }, T0);
+}
+
+/** A project working under an approved delivery agreement, with an owner grant and an open session. */
+export function agreedProject(overrides: Partial<ProjectRecord> = {}, sessionPath = '/sessions/owner.jsonl'): ProjectRecord {
+  const base = createProjectRecord({ id: 'proj_1', name: 'Hollow', idea: 'A roguelike.', folder: '/home/dan/projects/hollow', capUsd: 5, now: T0 });
+  const reader = { allowedCwds: [base.folder], allowedModels: ['anthropic/claude-fable-5-1'], allowedThinkingLevels: ['medium'], allowedTools: ['read'], allowedSkills: [], permissionProfile: { filesystem: 'read' as const, commands: 'readOnly' as const, network: 'fetch' as const, vcs: 'read' as const }, maxSystemPromptAdditionBytes: 16_384 };
+  const approved: ProjectRecord = {
+    ...base,
+    workspaceId: 'ws-1',
+    executionMode: 'workspace',
+    budget: { ...base.budget, capUsd: 5 },
+    agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: T0, authority: { policyId: 'policy-1', workspaceId: 'ws-1', roles: { reader }, maxLiveSessions: 8, maxTotalSessions: 64 } },
+    session: { ...base.session, grantId: 'grant-1', sessionId: 'sess-1', sessionPath, grantedTools: ['read', 'bash', 'write', 'edit', 'sero-cli'], model: 'anthropic/claude-fable-5-1', thinking: 'medium' },
+  };
+  const started = startAgreedWork(approved, T0);
+  if (!started.ok) throw new Error(started.error);
+  return settle({ ...started.record, ...overrides }, T0);
+}
+
+/** A Room handle for a test. A method the test does not supply refuses, so an unexpected call is seen. */
+export function roomHandle(overrides: Partial<OrchestratorRoomHandle> = {}): OrchestratorRoomHandle {
+  const refused = async () => ({ ok: false as const, error: 'this test does not expect the call', status: null });
+  return {
+    inspect: async () => null,
+    create: async () => ({ ok: false, error: 'this test does not expect the call' }),
+    pause: refused,
+    resume: refused,
+    cancel: refused,
+    ...overrides,
+  };
 }

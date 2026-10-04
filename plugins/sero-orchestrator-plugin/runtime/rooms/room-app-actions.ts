@@ -1,3 +1,4 @@
+import { elapsedActiveMs } from '../../shared/room-active-time';
 import { applyProjectSnapshot, roomSnapshotLimits } from '../project-models';
 /**
  * The USER's Room control surface (phase 7).
@@ -181,6 +182,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         // the same durable transaction that stops execution.
         result: record.runtime.status === 'completed' ? record.members.find((member) => member.isConductor)?.statusDetail ?? null : null,
         models: record.members.map((member) => ({ name: member.displayName, model: member.configuration.model, thinking: member.configuration.thinking })),
+        ...(record.runtime.stopReason ? { hold: { kind: record.runtime.stopReason.kind, detail: record.runtime.stopReason.detail } } : {}),
+        maxWallClockMs: record.definition.envelope.maxWallClockMs,
+        ...(record.runtime.startedAt ? { activeMs: elapsedActiveMs(record.runtime, Date.parse(host.now())) } : {}),
       };
     },
 
@@ -236,6 +240,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         originSessionId: input.originSessionId ?? null,
         planningUsage,
         ...(input.project ? { project: input.project } : {}),
+        ...(input.delegationPolicyId ? { delegationPolicyId: input.delegationPolicyId } : {}),
       });
       if (!created.ok || !created.room) {
         return { ok: false, error: created.error ?? 'The team was planned but the Room could not be drafted.', usage: reportedUsage(planningUsage) };

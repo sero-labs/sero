@@ -10,7 +10,14 @@ import type { ExecutionMode } from './record';
  */
 export interface CreateProjectInput {
   idea: string;
+  /**
+   * The start cap in USD. With it the project runs under a delivery agreement:
+   * the user approves the start once and no charter is proposed. Without it the
+   * project uses the charter flow, which is deprecated.
+   */
+  capUsd?: number;
   executionMode?: ExecutionMode;
+  openSpecEnabled?: boolean;
   models?: { tier: ModelTier; model: string; thinking?: ThinkingLevel }[];
   /** New folder: the folder the Architect creates. */
   folder?: string;

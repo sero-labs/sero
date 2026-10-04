@@ -89,12 +89,15 @@ export async function detectDependencyInstallCommand(workspacePath: string): Pro
 }
 
 /**
- * Detect the best dev-server startup command for smoke review.
+ * Detect the best dev-server startup command for smoke review. A `dev` script
+ * comes first. An app with no build step often serves itself from `preview` or
+ * `start` only, so those are used next, in that order.
  */
 export async function detectDevServerCommand(workspacePath: string): Promise<string | null> {
   const pm = detectPackageManager(workspacePath);
   const pkg = await readPackageJson(workspacePath);
-  return pkg?.scripts?.dev ? `${pm} run dev` : null;
+  const script = (['dev', 'preview', 'start'] as const).find((name) => pkg?.scripts?.[name]);
+  return script ? `${pm} run ${script}` : null;
 }
 
 /**

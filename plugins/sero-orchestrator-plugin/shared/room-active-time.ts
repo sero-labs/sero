@@ -51,7 +51,7 @@ export function seedActiveTime(runtime: RoomRuntimeState, now: string): RoomRunt
   if (runtime.activeMs !== undefined) return runtime;
   const activeMs = accumulated(runtime, Date.parse(now));
   const open = isActiveStatus(runtime.status) && !TERMINAL_ROOM_STATUSES.includes(runtime.status);
-  return { ...runtime, activeMs, activeSince: open ? now : null };
+  return { ...runtime, activeMs, activeSince: open ? now : null, ...(runtime.startedAt ? { activeSeeded: true } : {}) };
 }
 
 /** Time the Room has been active: what is banked, plus the period open now. */
@@ -89,4 +89,64 @@ export function withActiveTime(
   if (!wasActive && willBeActive) return { activeMs: banked, activeSince: now };
   if (wasActive) return { activeMs: banked, activeSince: runtime.activeSince };
   return { activeMs: banked, activeSince: null };
+}
+
+/**
+ * The longest a running Room goes between saved checkpoints. The runtime's
+ * recovery tick writes one, so it must not run slower than this.
+ */
+export const ACTIVE_CHECKPOINT_MS = 60_000;
+
+/**
+ * Banks the open period and starts the next one at `now`. A process that dies
+ * afterwards leaves an open period no older than the last checkpoint, instead
+ * of one that began when the Room last changed status.
+ */
+export function checkpointActiveTime(runtime: RoomRuntimeState, now: string): RoomRuntimeState {
+  if (runtime.activeSince == null) return runtime;
+  const open = Math.max(0, Date.parse(now) - Date.parse(runtime.activeSince));
+  return { ...runtime, activeMs: accumulated(runtime, Date.parse(now)) + open, activeSince: now };
+}
+
+/**
+ * Banks the open period and leaves none open. For a graceful shutdown: the
+ * Room keeps its status, and recovery opens a new period if it resumes.
+ */
+export function bankActiveTime(runtime: RoomRuntimeState, now: string): RoomRuntimeState {
+  if (runtime.activeSince == null) return runtime;
+  return { ...checkpointActiveTime(runtime, now), activeSince: null };
+}
+
+/**
+ * For restart recovery. A period still open in a loaded record belonged to a
+ * runtime that stopped without banking it. The time since its checkpoint is
+ * mostly the closed interval, so none of it is counted. What the Room may have
+ * worked after that checkpoint is at most one checkpoint interval, and it is
+ * kept as an uncertain amount, not added to the measured figure.
+ */
+export function closeInterruptedPeriod(runtime: RoomRuntimeState, now: string): RoomRuntimeState {
+  if (runtime.activeSince == null) return runtime;
+  const gap = Math.max(0, Date.parse(now) - Date.parse(runtime.activeSince));
+  return {
+    ...runtime,
+    activeSince: null,
+    activeUncertainMs: (runtime.activeUncertainMs ?? 0) + Math.min(gap, ACTIVE_CHECKPOINT_MS),
+  };
+}
+
+/**
+ * What a surface must say beside the figure when it is not a plain measured
+ * time. `short` sits next to the number; `full` is the sentence behind it.
+ * Null when the figure is measured working time and nothing is uncertain.
+ */
+export function activeTimeNote(
+  runtime: Pick<RoomRuntimeState, 'activeSeeded' | 'activeUncertainMs'>,
+): { short: string; full: string } | null {
+  const uncertainMin = Math.ceil((runtime.activeUncertainMs ?? 0) / 60_000);
+  const uncertain = uncertainMin > 0
+    ? { short: `up to ${uncertainMin}m uncounted`, full: `Sero closed unexpectedly. Up to ${uncertainMin} min of work after the last saved time is not counted.` }
+    : null;
+  if (!runtime.activeSeeded) return uncertain;
+  const seeded = { short: 'before tracking', full: 'This time was recorded before working time was tracked, so it includes time the Room was not working.' };
+  return uncertain ? { short: `${seeded.short}, ${uncertain.short}`, full: `${seeded.full} ${uncertain.full}` } : seeded;
 }

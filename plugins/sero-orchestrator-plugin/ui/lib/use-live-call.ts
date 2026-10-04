@@ -11,8 +11,8 @@
  * first one's end clear the second.
  */
 
-import { useState } from 'react';
-import { useAppRuntimeEvents } from '@sero-ai/app-runtime';
+import { useEffect, useRef, useState } from 'react';
+import { useAppRuntimeEvents, useAppTools } from '@sero-ai/app-runtime';
 // The key helper is a value, and shared/types.ts re-exports types only, so it
 // comes from its own module.
 import { liveCallKey } from '../../shared/live-call-types';
@@ -26,9 +26,16 @@ import type {
 /** Every call running in this app, keyed by identity. */
 function useLiveCalls(): Map<string, LiveCallNotice> {
   const [running, setRunning] = useState<Map<string, LiveCallNotice>>(new Map());
+  const { run } = useAppTools();
+  // Calls that ended since this view opened. The first read is taken after the
+  // subscription, so it can return a call whose end already arrived; that call
+  // must not come back.
+  const ended = useRef(new Set<string>());
 
   useAppRuntimeEvents<LiveCallUpdate>('orchestrator-live-call', (update) => {
     if (!update || (update.status !== 'running' && update.status !== 'ended')) return;
+    if (update.status === 'ended') ended.current.add(liveCallKey(update.identity));
+    else ended.current.delete(liveCallKey(update.call));
     setRunning((current) => {
       const next = new Map(current);
       if (update.status === 'running') next.set(liveCallKey(update.call), update.call);
@@ -36,6 +43,25 @@ function useLiveCalls(): Map<string, LiveCallNotice> {
       return next;
     });
   });
+
+  // A call that started before this view opened was announced to nobody here,
+  // so the calls running now are read once.
+  useEffect(() => {
+    let current = true;
+    void run('rooms', { action: 'live_calls' }).then((result) => {
+      const calls = (result?.details as { calls?: LiveCallNotice[] } | null)?.calls;
+      if (!current || !calls?.length) return;
+      setRunning((held) => {
+        const next = new Map(held);
+        for (const call of calls) {
+          const key = liveCallKey(call);
+          if (!ended.current.has(key) && !next.has(key)) next.set(key, call);
+        }
+        return next.size === held.size ? held : next;
+      });
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [run]);
 
   return running;
 }

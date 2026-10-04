@@ -8,7 +8,6 @@ import path from 'node:path';
 
 import { FIXTURES } from '../__preview__/fixture';
 import { HistoryView } from '../components/HistoryView';
-import { SideColumn } from '../components/SideColumn';
 import { useDisclosures } from '../lib/page-helpers';
 
 /** Stands in for the host layout service: a profile-wide store that outlives the page. */
@@ -36,11 +35,6 @@ function HistoryHarness() {
       folds={disclosures.folds}
     />
   );
-}
-
-function DirectivesHarness() {
-  const disclosures = useDisclosures();
-  return <SideColumn record={FIXTURES.build!} disclosures={disclosures} />;
 }
 
 let container: HTMLDivElement;
@@ -76,18 +70,6 @@ describe('layout preferences', () => {
     expect(layoutStore.historyFolded).toBeTruthy();
     remount(<HistoryHarness />);
     expect(container.textContent).toContain(NOTE);
-  });
-
-  it('keeps older directives open across a restart through the host layout service', () => {
-    act(() => root.render(<DirectivesHarness />));
-    const older = () => container.querySelector<HTMLDetailsElement>('[data-testid="older-directives"]')!;
-    expect(older().open).toBe(false);
-
-    act(() => { older().open = true; older().dispatchEvent(new Event('toggle')); });
-    expect(layoutStore.olderOpen).toBe(true);
-
-    remount(<DirectivesHarness />);
-    expect(older().open).toBe(true);
   });
 
   it('never touches browser storage', () => {

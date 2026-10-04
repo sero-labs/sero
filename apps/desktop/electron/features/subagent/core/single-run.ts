@@ -231,7 +231,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         },
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
-        onTextDelta: (delta) => tracker.appendLiveOutput(runId, delta),
+        onTextDelta: (delta, reasoning) => tracker.appendLiveOutput(runId, delta, reasoning),
         onObservation: observe,
         onUpdate,
       },

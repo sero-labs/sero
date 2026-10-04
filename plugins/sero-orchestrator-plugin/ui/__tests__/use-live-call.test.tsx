@@ -13,13 +13,26 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const bridge = vi.hoisted(() => ({ handler: null as ((update: unknown) => void) | null }));
-
-vi.mock('@sero-ai/app-runtime', () => ({
-  useAppRuntimeEvents: (_topic: string, handler: (update: unknown) => void) => {
-    bridge.handler = handler;
-  },
+const bridge = vi.hoisted(() => ({
+  handler: null as ((update: unknown) => void) | null,
+  /** The calls the runtime says are running, and the reply the test releases. */
+  calls: [] as unknown[],
+  release: null as (() => void) | null,
+  run: null as (() => Promise<unknown>) | null,
 }));
+
+vi.mock('@sero-ai/app-runtime', () => {
+  // One stable `run`, as the real hook returns, so the first read happens once.
+  bridge.run = () => new Promise((resolve) => {
+    bridge.release = () => resolve({ text: '', details: { ok: true, calls: bridge.calls } });
+  });
+  return {
+    useAppRuntimeEvents: (_topic: string, handler: (update: unknown) => void) => {
+      bridge.handler = handler;
+    },
+    useAppTools: () => ({ run: bridge.run }),
+  };
+});
 
 import { useLiveCall } from '../lib/use-live-call';
 import type { LiveCallNotice } from '../../shared/types';
@@ -36,6 +49,8 @@ function Probe({ loopId, kind = 'reflect' }: { loopId: string; kind?: 'reflect' 
 beforeEach(() => {
   Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
   bridge.handler = null;
+  bridge.calls = [];
+  bridge.release = null;
   seen = undefined;
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -102,6 +117,26 @@ describe('a running one-answer call, by identity', () => {
     deliver({ status: 'running', call: { kind: 'reflect', runId: 'run-new', loopId: 'loop-new' } });
 
     // The probe names loopId, so it does not take another loop's call...
+    expect(seen).toBeUndefined();
+  });
+});
+
+describe('a view that opens after the call started', () => {
+  const settle = async () => act(async () => { bridge.release?.(); await Promise.resolve(); await Promise.resolve(); });
+
+  it('reads the call running now instead of waiting for an announcement it missed', async () => {
+    bridge.calls = [{ kind: 'reflect', runId: 'run-a', loopId: 'loop-a' }];
+    await act(async () => root.render(<Probe loopId="loop-a" />));
+    expect(seen).toBeUndefined();
+    await settle();
+    expect(seen?.runId).toBe('run-a');
+  });
+
+  it('does not bring back a call that ended while the first read was in flight', async () => {
+    bridge.calls = [{ kind: 'reflect', runId: 'run-a', loopId: 'loop-a' }];
+    await act(async () => root.render(<Probe loopId="loop-a" />));
+    deliver({ status: 'ended', identity: { kind: 'reflect', loopId: 'loop-a' } });
+    await settle();
     expect(seen).toBeUndefined();
   });
 });

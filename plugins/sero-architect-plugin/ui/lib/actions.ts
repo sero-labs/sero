@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
-import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
+import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel, type FeedbackSnapshotReply } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
 import type { CreateProjectInput } from '../../shared/create-project';
@@ -103,8 +103,12 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 
 export interface ArchitectActions {
   create(input: CreateProjectInput): Promise<ActionOutcome>;
+  requestChange(projectId: string, text: string): Promise<ActionOutcome>;
+  enableOpenSpec(projectId: string): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
+  /** What the project's work is doing now, as bounded metadata. Null when it cannot be read. */
+  feedback(projectId?: string): Promise<FeedbackSnapshotReply | null>;
   lifetime(projectId: string, knownSpendUsd: number): Promise<LifetimeOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
@@ -147,6 +151,9 @@ export function useArchitectActions(): ArchitectActions {
         action: 'create',
         idea: input.idea,
         executionMode: input.executionMode ?? 'workspace',
+        openSpecEnabled: input.openSpecEnabled ?? false,
+        // With a start cap the project runs under a delivery agreement.
+        ...(input.capUsd !== undefined ? { capUsd: input.capUsd } : {}),
         ...(input.models && input.models.length > 0 ? { models: input.models } : {}),
         ...(input.workspaceId ? { workspaceId: input.workspaceId } : input.folder ? { folder: input.folder } : {}),
       }),
@@ -164,6 +171,14 @@ export function useArchitectActions(): ArchitectActions {
           return { ...toOutcome(result), page: readTracePage(result) };
         } catch (error) {
           return { ok: false, text: error instanceof Error ? error.message : String(error), page: null };
+        }
+      },
+      feedback: async (projectId) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'feedback', ...(projectId ? { projectId } : {}) });
+          return (result.details as { feedback?: FeedbackSnapshotReply } | undefined)?.feedback ?? null;
+        } catch {
+          return null;
         }
       },
       lifetime: async (projectId, knownSpendUsd) => {
@@ -198,6 +213,8 @@ export function useArchitectActions(): ArchitectActions {
       answer: (projectId, decisionId, optionId, note) =>
         call({ action: 'answer', projectId, decisionId, optionId, ...(note.trim() ? { note: note.trim() } : {}) }),
       directive: (projectId, text) => call({ action: 'directive', projectId, text }),
+      requestChange: (projectId, text) => call({ action: 'request_change', projectId, text }),
+      enableOpenSpec: (projectId) => call({ action: 'enable_openspec', projectId }),
     }),
     [call, run],
   );

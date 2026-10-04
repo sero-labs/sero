@@ -9,13 +9,17 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { AppRuntimeContext } from '@sero-ai/common';
+import { createFeedbackProjection, openRunFeedback, sessionStartedAt, type AppRuntimeContext } from '@sero-ai/common';
 import type { OrchestratorHost } from './host';
-import type { LiveCallUpdate } from '../shared/types';
+import type { LiveCallNotice, LiveCallUpdate } from '../shared/types';
+import { liveCallKey } from '../shared/live-call-types';
 import type { RoomMemberLiveNotice } from '../shared/room-live-types';
 import { createCatalogStore } from './catalog-store';
 import { createLoopStore } from './loop-store';
 import { createLibraryStore } from './library-store';
+
+/** The topic this app's views subscribe to for work feedback. */
+export const ORCHESTRATOR_FEEDBACK_TOPIC = 'orchestrator-feedback';
 
 /**
  * Resolves `relativePath` under `baseDir` and confirms the result stays inside
@@ -34,6 +38,13 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
   const store = createLoopStore(ctx);
   const library = createLibraryStore(ctx);
   const catalog = createCatalogStore(ctx);
+  const liveCalls = new Map<string, LiveCallNotice>();
+  // Bounded metadata about the work in this workspace. It is pushed to the
+  // app's views as it changes and never written to a record, so a list can
+  // follow a run without a transcript watch.
+  const feedback = createFeedbackProjection(sessionStartedAt(), (snapshot) => {
+    ctx.host.ui.emit(ORCHESTRATOR_FEEDBACK_TOPIC, snapshot);
+  });
 
   return {
     workspaceId: ctx.workspaceId,
@@ -44,8 +55,13 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     // designed, a Workflow being planned for the first time), so the running
     // call is pushed to this app's views instead. Nothing is persisted.
     notifyLiveCall: (update: LiveCallUpdate) => {
+      // Kept in memory so a view that opens mid-call can read it. It goes
+      // when the call ends, and nothing is written.
+      if (update.status === 'running') liveCalls.set(liveCallKey(update.call), update.call);
+      else liveCalls.delete(liveCallKey(update.identity));
       ctx.host.ui.emit('orchestrator-live-call', update);
     },
+    liveCalls: () => [...liveCalls.values()],
 
     // A Room tile has to show the current turn as it arrives; the Room record
     // only changes at its own boundaries, so it cannot carry that.
@@ -53,32 +69,46 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       ctx.host.ui.emit('orchestrator-room-live', notice);
     },
 
+    feedback,
+
     readState: () => store.readState(),
     updateState: (updater) => store.updateState(updater),
 
-    runStructured: (params) =>
-      ctx.host.subagents.runStructured({
-        task: params.task,
-        agent: params.agent,
-        systemPrompt: params.systemPrompt,
-        appendSystemPrompt: params.appendSystemPrompt,
-        systemPromptOverride: params.systemPromptOverride,
-        model: params.model ?? 'MED',
-        thinking: params.thinking,
-        parentSessionId: params.parentSessionId,
-        workspaceId: ctx.workspaceId,
-        cwd: params.cwd,
-        platformTools: params.platformTools,
-        tools: params.tools,
-        disabledTools: params.disabledTools,
-        disabledSkills: params.disabledSkills,
-        signal: params.signal,
-        timeoutMs: params.timeoutMs,
-        repair: params.repair,
-        onUpdate: params.onUpdate,
-        onUsage: params.onUsage,
-        onObservation: params.onObservation,
-      }),
+    runStructured: async (params) => {
+      const report = params.feedback
+        ? openRunFeedback(feedback, { ...params.feedback, scope: { ...params.feedback.scope, appId: ctx.appId, workspaceId: ctx.workspaceId } })
+        : null;
+      const now = (): string => new Date().toISOString();
+      try {
+        const result = await ctx.host.subagents.runStructured({
+          task: params.task,
+          agent: params.agent,
+          systemPrompt: params.systemPrompt,
+          appendSystemPrompt: params.appendSystemPrompt,
+          systemPromptOverride: params.systemPromptOverride,
+          model: params.model ?? 'MED',
+          thinking: params.thinking,
+          parentSessionId: params.parentSessionId,
+          workspaceId: ctx.workspaceId,
+          cwd: params.cwd,
+          platformTools: params.platformTools,
+          tools: params.tools,
+          disabledTools: params.disabledTools,
+          disabledSkills: params.disabledSkills,
+          signal: params.signal,
+          timeoutMs: params.timeoutMs,
+          repair: params.repair,
+          onUpdate: params.onUpdate,
+          onUsage: (usage) => { report?.onUsage(usage); params.onUsage?.(usage); },
+          onObservation: (record) => { report?.onObservation(record); params.onObservation?.(record); },
+        });
+        report?.end(result, now());
+        return result;
+      } catch (error) {
+        report?.end({ error: String(error) }, now());
+        throw error;
+      }
+    },
 
     listAvailableModels: () => ctx.host.models.list(),
 

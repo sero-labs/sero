@@ -4,6 +4,9 @@ import { Compass, Plus } from 'lucide-react';
 
 import type { ArchitectIndex, ArchitectIndexEntry } from '../../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../../shared/types';
+import { observedActivity } from '../../shared/feedback';
+import { useArchitectActions } from '../lib/actions';
+import { useProjectsFeedback } from '../lib/use-project-feedback';
 import { needsYouTotal, widgetMeta } from '../lib/widget-model';
 import '../styles.css';
 
@@ -11,11 +14,15 @@ const ROWS = 5;
 const openProject = (entry: ArchitectIndexEntry) => void openSeroApp('architect', { projectId: entry.id });
 const openIntake = () => void openSeroApp('architect', { intake: true });
 
-/** The one Architect widget. It reads only the index: the list rows and the needs-you total. */
+/**
+ * The one Architect widget. It reads the index for its rows and the needs-you
+ * total, and bounded work feedback for what runs now. It loads no project.
+ */
 export function ArchitectWidget() {
   const [stored] = useAppState<ArchitectIndex>(DEFAULT_INDEX);
   const index = normalizeIndex(stored);
   const total = needsYouTotal(index);
+  const work = useProjectsFeedback(index.projects, useArchitectActions());
 
   return (
     <WidgetContent>
@@ -44,7 +51,7 @@ export function ArchitectWidget() {
                 <ItemListItem
                   key={entry.id}
                   primary={entry.name}
-                  secondary={entry.activity.headline}
+                  secondary={observedActivity(entry.activity, work.get(entry.id)).headline}
                   trailing={entry.needsYou > 0 ? <span className="ar-count">{entry.needsYou}</span> : <span className="ar-kind">{widgetMeta(entry)}</span>}
                   onClick={() => openProject(entry)}
                 />

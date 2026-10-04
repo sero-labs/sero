@@ -150,6 +150,21 @@ describe('Room creation through the typed handle', () => {
     expect(host.persistentSessions.proposals[0].workspaceId).toBe('ws-1');
     // The user's limit reached the planner as it does from the panel.
     expect(host.modelCalls[0].task).toContain('read-only');
+    // A Room created without a stored approval asks the host as it always did.
+    expect(host.persistentSessions.proposals[0].delegationPolicyId).toBeUndefined();
+  });
+
+  it('names the caller\'s stored approval when the Room asks for its grant', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const result = await createRoomDispatchHandle(app).create({
+      mandate: 'Ship items, combat and permadeath.',
+      limits: { access: 'read-only', maxCostUsd: 5 },
+      delegationPolicyId: 'policy-7',
+    });
+
+    expect(result.ok).toBe(true);
+    // The id is only a reference: the host checks the proposal against the policy it stored.
+    expect(host.persistentSessions.proposals[0].delegationPolicyId).toBe('policy-7');
   });
 
   it('reuses a saved Room request across repeated handles without planning or granting again', async () => {
@@ -224,6 +239,35 @@ describe('Room creation through the typed handle', () => {
     // Typed as well as in the text, so a caller can put it to its own user.
     expect(result.questions).toEqual(['Which engine?']);
     expect(host.persistentSessions.proposals).toHaveLength(0);
+  });
+
+  it('pauses, resumes and cancels a Room, and reports the state the Room is in after each call', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const handle = createRoomDispatchHandle(app);
+    const created = await handle.create({ mandate: 'Ship items, combat and permadeath.' });
+    if (!created.ok) throw new Error(created.error);
+    const { roomId } = created;
+
+    // A turn is in flight, so the Room drains first and then settles.
+    const pausing = await handle.pause(roomId);
+    expect(pausing.ok).toBe(true);
+    expect(['pausing', 'paused']).toContain(pausing.status);
+    await vi.waitFor(async () => expect((await handle.inspect(roomId))?.status).toBe('paused'));
+    const paused = await handle.inspect(roomId);
+    expect(paused?.hold?.kind).toBe('user-paused');
+    const limit = paused?.maxWallClockMs ?? 0;
+    expect(limit).toBeGreaterThan(0);
+
+    // A new total may only be larger; a refusal still reports the actual state.
+    expect(await handle.resume(roomId, { maxWallClockMs: limit - 1 })).toMatchObject({ ok: false, status: 'paused' });
+    expect(await handle.resume(roomId, { maxWallClockMs: limit * 2 })).toEqual({ ok: true, status: 'running' });
+    expect((await handle.inspect(roomId))?.maxWallClockMs).toBe(limit * 2);
+
+    expect(await handle.cancel(roomId)).toEqual({ ok: true, status: 'cancelled' });
+    // A cancelled Room is not resumed, and no second Room was made.
+    expect(await handle.resume(roomId)).toMatchObject({ ok: false, status: 'cancelled' });
+    expect(await handle.pause('room-missing')).toMatchObject({ ok: false, status: null });
+    expect(host.persistentSessions.proposals).toHaveLength(1);
   });
 
   it('fails by workspace name when no Room coordinator is registered', async () => {

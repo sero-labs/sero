@@ -1,17 +1,17 @@
 /**
- * The child agents a member started.
+ * The child agents a session started.
  *
- * A member that runs `subagent` calls has no live view of its own children: the
- * tile shows the member's text and nothing about the agents it delegated to.
- * Children are matched by `parentSessionId`, which is the member's own session,
- * so a tile lists exactly the runs that member started.
+ * An agent that runs `subagent` calls has no live view of its own children: its
+ * row shows its own text and nothing about the agents it delegated to. Children
+ * are matched by `parentSessionId`, which is the parent's own session, so a row
+ * lists exactly the runs that agent started and never joins one by its name.
  *
  * A run is watched only while this hook is mounted — the host sends live text
  * to windows that ask for it and to no others.
  */
 
 import { useEffect, useState } from 'react';
-import { getSeroApi, type SubagentLiveEntry, type SubagentLiveEvent, type SeroSubagentBridge } from '@sero-ai/app-runtime';
+import { getSeroApi, type SeroSubagentBridge, type SubagentLiveEntry, type SubagentLiveEvent } from './sero-bridge';
 
 /** The shell's subagent bridge, or null when this host has none. */
 function subagentBridge(): SeroSubagentBridge | null {
@@ -26,13 +26,16 @@ function subagentBridge(): SeroSubagentBridge | null {
  * Every running child of the given sessions, newest start last, keyed by the
  * parent session id.
  */
-export function useRoomChildren(
+export function useChildRuns(
   workspaceId: string | null,
   parentSessionIds: readonly string[],
 ): Map<string, SubagentLiveEntry[]> {
   const [entries, setEntries] = useState<SubagentLiveEntry[]>([]);
   const parentKey = parentSessionIds.join('\u0000');
 
+  // The cleanup below ends the listener and every run watch; the rule does not
+  // follow the unwatch calls inside the loop over `watched`.
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
     if (!workspaceId || parentKey.length === 0) return;
     const bridge = subagentBridge();

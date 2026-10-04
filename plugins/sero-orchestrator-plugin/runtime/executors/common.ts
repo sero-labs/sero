@@ -166,6 +166,18 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     signal,
     timeoutMs: remainingMs !== undefined && Number.isFinite(remainingMs) ? Math.max(1, remainingMs) : undefined,
     repair: outcomeRepair(loop, step),
+    // One producer per attempt, so parallel steps and fan-out items each report
+    // their own request and tool state instead of one overwriting another.
+    feedback: {
+      key: `attempt:${pendingAttempt.id}`,
+      kind: 'workflow-attempt',
+      owner: agent ?? 'agent',
+      subject: input.fanOut ? `${step.title} (${input.fanOut.key})` : step.title,
+      scope: {
+        workId: loop.id, runId: run.id, attemptId: pendingAttempt.id,
+        ...(loop.project ? { projectId: loop.project.projectId } : {}),
+      },
+    },
     onObservation: (record) => {
       // The run's own first observation carries the tracker run id; later records
       // carry the subagent session's id, which the tracker does not know.

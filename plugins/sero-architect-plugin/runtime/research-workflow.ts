@@ -1,3 +1,4 @@
+import { RESEARCH_START_USD } from '../shared/budget';
 import { closeDeliveredObjectives } from './objective-completion';
 import { activeRise, recordCharge, reportedActiveMs } from './project-usage';
 import type { RunJournal } from './run-journal';
@@ -6,12 +7,13 @@ import { setAccountingIncomplete } from '../shared/accounting';
 import path from 'node:path';
 import { workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getOrchestratorRegistry, requestOrchestratorAction, ORCHESTRATOR_INDEX_FILE, type OrchestratorBoardLoopView } from '@sero-ai/common';
+import { getOrchestratorRegistry, isLive, requestOrchestratorAction, ORCHESTRATOR_INDEX_FILE, type OrchestratorBoardLoopView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
 import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { SESSION_STARTED_AT } from './session-state';
 import { attachResearchArtifact } from './research-artifact';
 
 interface ResearchWorkflowDeps {
@@ -39,14 +41,16 @@ export async function startResearchWorkflow(deps: ResearchWorkflowDeps, record: 
     if (!loopId) {
       if (record.paused || record.blockedReason) return;
       const project = await ensureResearchContext(deps, record, pending);
-      const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
+      // The start was promised its budget when the request was saved. An entry
+      // saved before promises existed is measured against what the project has left.
+      const remaining = pending.allocatedUsd ?? (record.budget.capUsd === null ? RESEARCH_START_USD : record.budget.capUsd - record.budget.spentUsd);
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       const result = await requestOrchestratorAction(record.workspaceId, {
         kind: 'create',
         title: pending.question,
         prompt: `Investigate this project question in a bounded sequence of steps.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nProduce findings, evidence and unresolved user decisions. Save the final research report as a local artifact and include its path in the final step summary. Do not implement the product or change its source files.`,
         options: { project, requestId: `${record.id}:${pending.id}`, activate: false, disableTokenLimit: true,
-          limits: { maxCostUsd: Math.min(5, remaining) }, workspace: workflowWorkspace(record), delivery: { destination: 'workspace-files' } },
+          limits: { maxCostUsd: Math.min(RESEARCH_START_USD, remaining) }, workspace: workflowWorkspace(record), delivery: { destination: 'workspace-files' } },
       });
       if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The research Workflow was not created.');
       loopId = result.loopId;
@@ -114,7 +118,8 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
           research: [...next.research, { id: pending.id, workflowId: loop.id, question: pending.question, stoppingCondition: pending.stoppingCondition, result, costUsd, completedAt: deps.host.now() }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd, countedActiveMs: time.counted } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd, countedActiveMs: time.counted,
+        observedLiveAt: loop.status === 'active' && isLive(loop.liveRun, SESSION_STARTED_AT) ? deps.host.now() : undefined } : entry) };
       if (loop.status === 'blocked') {
         const reason = `Research Workflow ${loop.id} is blocked. Open it to review the next action.`;
         const held = block(next, deps.host.now(), reason);

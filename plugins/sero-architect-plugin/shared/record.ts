@@ -2,12 +2,15 @@
 // project. JSON-serialisable only. The runtime is its only writer.
 
 import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
+import type { DeliveryAgreement, OverviewSummary, WorkingInterpretation } from './agreement';
+import type { EvidenceBinding } from './evidence-binding';
 import type { DispatchDestination } from './owner-actions';
 import { milestoneCounts, projectActivity } from './activity';
 import type { SelectionSource } from './model-config';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
 export type { ArchitectOverlay, ArchitectPhase } from './types';
+export type { DeliveryAgreement, OverviewSummary, WorkingInterpretation } from './agreement';
 
 export const PHASE_ORDER: readonly ArchitectPhase[] = ['intake', 'discovery', 'charter', 'build', 'release', 'maintain'];
 
@@ -45,6 +48,8 @@ export interface EvidenceRecord {
   passed: boolean;
   /** Set when the milestone's files changed after this evidence was taken. */
   stale: boolean;
+  /** What the check covers. Absent on evidence saved before bindings. */
+  binding?: EvidenceBinding;
 }
 
 export interface MilestoneDispatch {
@@ -54,6 +59,8 @@ export interface MilestoneDispatch {
   dispatchedAt: string;
   /** Reported usage already charged to the project, so an index re-read never double-charges. */
   chargedUsd: number;
+  /** The start budget promised to this run. See `shared/budget.ts`. */
+  allocatedUsd?: number;
   /** Reported working time already journaled, on the same rule as `chargedUsd`. */
   countedActiveMs?: number;
   /** Where the run delivers, for a release milestone. */
@@ -84,6 +91,8 @@ export interface MilestoneDispatch {
    * leaves alone any the user turned off by hand.
    */
   disarmedTriggerIds?: string[];
+  /** Who paused this run, so only the same hand resumes it. See `runtime/linked-work.ts`. */
+  heldBy?: 'project' | 'owner';
 }
 
 export interface PendingMilestoneDispatch {
@@ -98,6 +107,8 @@ export interface PendingMilestoneDispatch {
   kind: 'workflow' | 'room';
   destination: DispatchDestination | null;
   startedAt: string;
+  /** The start budget promised to this dispatch, sized when it was reserved. */
+  allocatedUsd?: number;
 }
 
 export type ProjectRunKind = 'initial' | 'maintenance';
@@ -141,6 +152,8 @@ export interface Milestone {
   runId?: string;
   id: string;
   title: string;
+  /** An OpenSpec change in the project repository, owned by this milestone. */
+  openSpecChange?: string;
   status: MilestoneStatus;
   plan: string | null;
   /** A preview milestone must close with a smoke check and a capture. */
@@ -170,6 +183,8 @@ export type DecisionProposal =
   | { kind: 'charter'; charter: Charter; milestones: Milestone[] }
   | { kind: 'dispatch'; milestoneId: string; dispatchKind: 'workflow' | 'room'; prompt: string; destination: string }
   | { kind: 'cap'; capUsd: number }
+  | { kind: 'room-time'; target: string; maxMinutes: number }
+  | { kind: 'workflow-budget'; milestoneId: string; maxCostUsd: number }
   /** A research Room's planner asked a question the runtime can answer by widening access. */
   | { kind: 'research-access'; researchId: string };
 
@@ -278,6 +293,8 @@ export interface OwnerSessionState {
 
 export interface ProjectRecord {
   version: 1;
+  /** Architect-level opt-in for later OpenSpec changes. */
+  openSpecEnabled?: boolean;
   /** Absent on older projects until the user saves the execution setting. */
   executionMode?: ExecutionMode;
   /** Admin selections shown before work approval; refreshed by the owner runtime. */
@@ -288,6 +305,16 @@ export interface ProjectRecord {
   modelConfigRevision?: number;
   /** Run identity per objective. Absent on older projects, which stay readable. */
   runs?: ProjectRun[];
+  /**
+   * What the user asked for and allowed. Absent on a project made under the
+   * charter flow, which is deprecated: such a record is read as it is, keeps
+   * its saved charter gates, and is never given an agreement on load.
+   */
+  agreement?: DeliveryAgreement;
+  /** The Architect's current reading of the work. It grants nothing. */
+  working?: WorkingInterpretation;
+  /** Short sentences for the overview. Display only. */
+  overview?: OverviewSummary;
   id: string;
   name: string;
   /** The user's idea, verbatim, never edited. */
@@ -357,18 +384,22 @@ export interface BlockedWorkCause {
 
 export interface NewProjectInput {
   executionMode?: ExecutionMode;
+  openSpecEnabled?: boolean;
   id: string;
   name: string;
   idea: string;
   folder: string;
   /** Set when the project starts on a workspace that already exists. */
   workspaceId?: string | null;
+  /** The start cap. Its presence makes this an agreement project. */
+  capUsd?: number;
   now: string;
 }
 
 export function createProjectRecord(input: NewProjectInput): ProjectRecord {
   return {
     version: 1,
+    openSpecEnabled: input.openSpecEnabled ?? false,
     executionMode: input.executionMode ?? 'workspace',
     id: input.id,
     name: input.name,
@@ -382,7 +413,12 @@ export function createProjectRecord(input: NewProjectInput): ProjectRecord {
     stateLine: 'Setting up the workspace.',
     brief: null,
     charter: null,
-    autonomy: 'milestones',
+    // An agreement project continues on its own inside its approved limits. The
+    // saved word is the charter flow's; it is not shown as a mode.
+    autonomy: input.capUsd === undefined ? 'milestones' : 'charter-only',
+    ...(input.capUsd === undefined ? {} : {
+      agreement: { revision: 1, capUsd: input.capUsd, proposedAt: input.now, approvedAt: null, authority: null },
+    }),
     budget: { capUsd: null, spentUsd: 0, incomplete: false, sources: { owner: 0, research: 0, dispatched: 0 } },
     milestones: [],
     decisions: [],
@@ -425,6 +461,11 @@ export function needsYouCount(record: ProjectRecord): number {
   return openDecisions(record).length + charterApproval + planApprovals;
 }
 
+/** The summary sentences alone. Sources and times stay on the record. */
+function overviewTexts(overview: OverviewSummary): Partial<Record<keyof OverviewSummary, string>> {
+  return Object.fromEntries(Object.entries(overview).map(([field, summary]) => [field, summary.text]));
+}
+
 /**
  * The index row the UI, the widget and the management tool read. Derived, never
  * edited by hand.
@@ -450,5 +491,7 @@ export function toIndexEntry(
     capUsd: record.budget.capUsd,
     needsYou: needsYouCount(record),
     updatedAt: record.updatedAt,
+    flow: record.agreement ? 'agreement' : 'charter',
+    ...(record.overview ? { overview: overviewTexts(record.overview) } : {}),
   };
 }

@@ -25,7 +25,7 @@
  */
 
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
-import { seedActiveTime } from '../../shared/room-active-time';
+import { bankActiveTime, checkpointActiveTime, closeInterruptedPeriod, seedActiveTime } from '../../shared/room-active-time';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { reconcileMemberSessions, type MemberSessionDeps } from './member-session';
@@ -64,7 +64,10 @@ export function reconcileRoomRecord(host: OrchestratorHost, found: RoomRecord): 
   // A record written before active-time accounting is seeded once, here, so
   // every branch below (including the early return for a paused Room) saves
   // a fixed figure instead of one that grows with the wall clock.
-  const seeded = seedActiveTime(found.runtime, now);
+  // A period still open here belonged to the runtime that stopped. Closing it
+  // first keeps the closed interval out of every figure saved below; a Room
+  // that resumes opens a new period at `now`.
+  const seeded = closeInterruptedPeriod(seedActiveTime(found.runtime, now), now);
   const record = seeded === found.runtime ? found : { ...found, runtime: seeded };
   const roomId = record.definition.id;
   const events: RoomTimelineEvent[] = [];
@@ -215,4 +218,21 @@ export async function reconcileAllRooms(deps: MemberSessionDeps): Promise<RoomRe
     if (result.resume) resumable.push({ roomId, replayMemberIds: result.replayMemberIds, settledWaitMemberIds });
   }
   return resumable;
+}
+
+/**
+ * Saves each active Room's time so far. `closing` is the graceful shutdown:
+ * no period stays open, so recovery has nothing uncertain to label. Otherwise
+ * it is the running checkpoint, which bounds what an abrupt shutdown can lose.
+ */
+export async function saveActiveTime(deps: Pick<MemberSessionDeps, 'host' | 'store'>, closing: boolean): Promise<void> {
+  const state = await deps.store.readState();
+  for (const room of state.rooms) {
+    if (room.runtime.activeSince == null) continue;
+    await deps.store.updateRoom(room.definition.id, (record) => {
+      const save = closing ? bankActiveTime : checkpointActiveTime;
+      const runtime = save(record.runtime, deps.host.now());
+      return runtime === record.runtime ? record : { ...record, runtime };
+    });
+  }
 }

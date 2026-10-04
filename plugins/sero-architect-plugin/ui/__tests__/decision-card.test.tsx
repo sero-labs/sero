@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 import { DECISION, FIXTURES } from '../__preview__/fixture';
-import { DecisionCard, NeedsYou } from '../components/NeedsYou';
+import { CharterCard, DecisionCard, MilestoneApprovalCard, NeedsYou } from '../components/NeedsYou';
 
 vi.mock('@sero-ai/ui', () => ({
   Button: ({ children, ...props }: { children: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -64,18 +64,55 @@ describe('the decision card', () => {
   });
 });
 
-describe('the needs-you section', () => {
-  it('is absent on a quiet build, and returns with its card when a decision opens', () => {
-    // It used to say nothing three times: a heading, a "none" count and a card
-    // reading "You have nothing to review."
+describe('the approval cards', () => {
+  it('keeps the charter card to one line and sends the reader to the plan', async () => {
+    const approveCharter = vi.fn(async () => ({ ok: false, text: 'Approval was refused.' }));
+    const onOpenWork = vi.fn();
+    const record = {
+      ...FIXTURES.charter!,
+      brief: '## Goal\n\nBuild a small synth.',
+      charter: { ...FIXTURES.charter!.charter!, capUsd: 5, escalationPolicy: '- Ask before external delivery.' },
+    };
+    act(() => root.render(<CharterCard record={record} onOpenWork={onOpenWork} actions={{ answer: vi.fn(), approveCharter, approveMilestone: vi.fn() }} />));
+
+    expect(container.textContent).toContain('Approve the charter');
+    expect(container.textContent).toContain(`Cost cap $5 · ${record.charter.milestoneIds.length} milestones`);
+    // The brief and the policy are read in Work, under Plan, not on the card.
+    expect(container.textContent).not.toContain('Build a small synth.');
+    expect(container.textContent).not.toContain('Ask before external delivery.');
+
+    act(() => [...container.querySelectorAll('button')].find((node) => node.textContent?.includes('Read the charter'))!.click());
+    expect(onOpenWork).toHaveBeenCalledWith('plan');
+
+    act(() => [...container.querySelectorAll('button')].find((node) => node.textContent?.includes('Approve charter'))!.click());
+    await flush();
+    expect(approveCharter).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('Approval was refused.');
+    expect(record.charter.approvedAt).toBeNull();
+  });
+
+  it('approves a milestone plan from a short card', async () => {
+    const approveMilestone = vi.fn(async () => ({ ok: true, text: 'approved' }));
+    const onOpenWork = vi.fn();
+    const milestone = { ...FIXTURES.charter!.milestones[0]!, plan: '## Steps\n\n1. Build the core.' };
+    act(() => root.render(<MilestoneApprovalCard milestone={milestone} onOpenWork={onOpenWork} actions={{ answer: vi.fn(), approveCharter: vi.fn(), approveMilestone }} />));
+
+    expect(container.textContent).not.toContain('Build the core.');
+    act(() => [...container.querySelectorAll('button')].find((node) => node.textContent?.includes('Read the plan'))!.click());
+    expect(onOpenWork).toHaveBeenCalledWith('plan');
+    act(() => [...container.querySelectorAll('button')].find((node) => node.textContent?.includes('Approve plan'))!.click());
+    await flush();
+    expect(approveMilestone).toHaveBeenCalledWith(milestone.id);
+  });
+});
+
+describe('the needs-you cards', () => {
+  it('render nothing on a quiet build, and a card when a decision opens', () => {
     const actions = { answer: vi.fn(), approveCharter: vi.fn(), approveMilestone: vi.fn() };
     act(() => root.render(<NeedsYou record={FIXTURES.build!} actions={actions} />));
-    expect(container.querySelector('.ar-sec-head')).toBeNull();
-    expect(container.querySelector('.ar-decision')).toBeNull();
     expect(container.textContent).toBe('');
 
     act(() => root.render(<NeedsYou record={FIXTURES.decision!} actions={actions} />));
-    expect(container.querySelector('.ar-decision')).not.toBeNull();
-    expect(container.querySelector('.ar-sec-head .ar-n')?.textContent).toBe('1');
+    expect(container.querySelector('[aria-label="Decision"]')).not.toBeNull();
   });
 });

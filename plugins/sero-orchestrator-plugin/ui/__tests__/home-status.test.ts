@@ -8,6 +8,7 @@ import type { LoopSummary } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
 import { homeStatus, workspaceName } from '../lib/home-status';
 import { loopActivity } from '../lib/loop-activity';
+import { roomActivity } from '../lib/room-activity';
 
 const SESSION = '2026-09-19T10:00:00.000Z';
 
@@ -49,13 +50,29 @@ describe('homeStatus', () => {
     expect(status.headline).toBe('1 Workflow working in ws');
   });
 
-  it('counts a running Room beside the Workflows', () => {
-    const room = { id: 'room-1', status: 'running', costUsd: 0.31, attentionCount: 0 } as unknown as RoomSummary;
+  it('counts a Room whose member reports, beside the Workflows, and names its wait', () => {
+    const room = { id: 'room-1', title: 'Build the synth', status: 'running', memberCount: 2, costUsd: 0.31, attentionCount: 0 } as unknown as RoomSummary;
+    const feedback = new Map([['room-1', {
+      activeCount: 1,
+      current: [{ key: 'm1', owner: 'Adversary', wait: { kind: 'tool' as const, toolName: 'bash', since: null } }],
+      lastActivityAt: null,
+      contactObservedAt: null,
+    }]]);
 
-    const status = homeStatus({ loops: [], rooms: [room], goals: [], workspaceName: 'ws', sessionStartedAt: SESSION });
+    const status = homeStatus({ loops: [], rooms: [room], goals: [], workspaceName: 'ws', sessionStartedAt: SESSION, feedback });
 
     expect(status.activeCount).toBe(1);
     expect(status.headline).toBe('1 Room working in ws');
+    expect(status.detail).toContain('Build the synth: Adversary · bash');
+  });
+
+  it('does not count a Room that is only saved as running, which is what its row says too', () => {
+    const room = { id: 'room-1', title: 'Build the synth', status: 'running', memberCount: 2, costUsd: 0.31, attentionCount: 0 } as unknown as RoomSummary;
+
+    const status = homeStatus({ loops: [], rooms: [room], goals: [], workspaceName: 'ws', sessionStartedAt: SESSION });
+
+    expect(status.activeCount).toBe(0);
+    expect(roomActivity(room, SESSION).state).toBe('last-known');
   });
 
   it('takes the workspace name from the end of its path', () => {

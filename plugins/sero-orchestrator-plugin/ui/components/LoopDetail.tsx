@@ -22,6 +22,7 @@ import { LoopControls } from './LoopControls';
 import { LoopSettingsLine } from './LoopSettingsLine';
 import { LoopResult } from './LoopResult';
 import { LoopStateLine } from './LoopStateLine';
+import { useWorkView, WorkViewContext } from '../lib/use-work-activity';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { SkillDraftControl } from './SkillDraftControl';
 import { LiveCallPopover } from './LiveCallPopover';
@@ -83,6 +84,9 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
   // state files; the line shows them only when the loop uses the source.
   const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
   const webhookHealth = useWatchedJson<WebhookSourceHealth | null>(`${stateDir}/events/webhook.json`, null);
+  // One read of the live feedback for the whole page: the state line and each
+  // running step take their part from it.
+  const work = useWorkView(`${loop.id}:${loop.status}:${loop.runtime.activeRunId ?? ''}`);
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
   const insights = loop.insights ?? [];
   const runs = runIndex.runs.length;
@@ -106,7 +110,7 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         <header className="flex flex-col gap-3">
-          <LoopStateLine loop={loop} summary={summary} runCount={runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
+          <LoopStateLine loop={loop} summary={summary} runCount={runs} githubHealth={githubHealth} webhookHealth={webhookHealth} feedback={work.byWork.get(loop.id)} />
           {/* The result of the ending, for every ending, above the settings.
               The request that started the Workflow opens from the objective's
               own disclosure, which the plan carries — so the paragraph that
@@ -128,17 +132,19 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
           </CollapsibleSection>
         )}
 
-        <section className="flex flex-col gap-3">
-          <MemoizedPlanPresentation
-            key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
-            loop={loop}
-            onAction={onAction}
-            activeRun={activeRun}
-          />
-          {REFINABLE.has(loop.status) && (
-            <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} loopId={loop.id} />
-          )}
-        </section>
+        <WorkViewContext.Provider value={work}>
+          <section className="flex flex-col gap-3">
+            <MemoizedPlanPresentation
+              key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
+              loop={loop}
+              onAction={onAction}
+              activeRun={activeRun}
+            />
+            {REFINABLE.has(loop.status) && (
+              <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} loopId={loop.id} />
+            )}
+          </section>
+        </WorkViewContext.Provider>
 
         <div className="flex flex-col">
           <CollapsibleSection title="Attempt history" hint={`${runs} run${runs === 1 ? '' : 's'}`}>

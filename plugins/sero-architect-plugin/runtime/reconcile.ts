@@ -17,16 +17,21 @@ export interface ReconcileResult {
 }
 
 /**
- * Drops every dispatch's observed-liveness stamp.
+ * Drops every dispatch and research task's observed-liveness stamp.
  *
  * The stamp means "this runtime session watched that work report". A session
  * that has just started has watched nothing, so keeping a saved stamp would let
  * a dead Workflow read as Working, which is the fault this exists to prevent.
  */
 function clearObservedLiveness(record: ProjectRecord): ProjectRecord {
-  if (!record.milestones.some((milestone) => milestone.dispatch?.observedLiveAt)) return record;
+  if (!record.milestones.some((milestone) => milestone.dispatch?.observedLiveAt)
+    && !record.pendingResearch?.some((entry) => entry.observedLiveAt)) return record;
   return {
     ...record,
+    pendingResearch: record.pendingResearch?.map((entry) => {
+      const { observedLiveAt: _dropped, ...pending } = entry;
+      return pending;
+    }),
     milestones: record.milestones.map((milestone) => {
       if (!milestone.dispatch?.observedLiveAt) return milestone;
       const { observedLiveAt: _dropped, ...dispatch } = milestone.dispatch;

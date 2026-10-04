@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { allocateStart } from '../shared/budget';
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import type { OrchestratorProjectContext } from '@sero-ai/common';
@@ -66,16 +67,26 @@ export async function performDispatch(
   const intent = { kind: request.kind, destination: request.destination, startedAt: now, project,
     ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: scopedRequest.prompt, maxCostUsd: request.maxCostUsd } } : {}),
   };
+  let refusal = '';
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
-    if (!current || current.dispatch || current.pendingDispatch) return null;
+    // A set-aside milestone keeps the link to its cancelled Room until it runs again.
+    if (!current || (current.dispatch && current.status !== 'parked') || current.pendingDispatch) return null;
     if (usesProjectFiles(fresh, request) && (fresh.pendingEvidence?.length || projectWriter(fresh, milestone.id))) return null;
+    // Sized in the write that reserves the dispatch, so a second start that
+    // lands beside this one is measured against what this one left free.
+    const allocation = allocateStart(fresh, request.maxCostUsd);
+    if (!allocation.ok) {
+      refusal = allocation.error;
+      return null;
+    }
+    const reserved = allocation.allocatedUsd === undefined ? intent : { ...intent, allocatedUsd: allocation.allocatedUsd };
     const milestones = fresh.milestones.map((item) =>
-      item.id === milestone.id ? { ...item, pendingDispatch: intent } : item,
+      item.id === milestone.id ? { ...item, pendingDispatch: reserved } : item,
     );
     return settle({ ...fresh, milestones, stateLine: `Preparing ${milestone.title}.` }, now);
   });
-  if (!prepared) throw new Error(`Milestone ${milestone.id} could not reserve its dispatch.`);
+  if (!prepared) throw new Error(refusal || `Milestone ${milestone.id} could not reserve its dispatch.`);
   const preparedMilestone = prepared.milestones.find((item) => item.id === milestone.id);
   if (!preparedMilestone) throw new Error(`Milestone ${milestone.id} is no longer on this project.`);
 
@@ -83,6 +94,14 @@ export async function performDispatch(
   if (!background) return completion;
   void completion.catch(async (error: unknown) => {
     const reason = `Could not start ${milestone.title}: ${error instanceof Error ? error.message : String(error)}`;
+    // A start that left nothing to recover is the owner's to correct: it made
+    // the request, so it gets the reason and the milestone back. A Workflow
+    // request that is saved may have started, so that one still blocks.
+    const current = (await store.read(record.id))?.milestones.find((item) => item.id === milestone.id);
+    if (services.startFailed && current && !current.pendingDispatch && current.status !== 'running') {
+      services.startFailed(record.id, `milestone ${milestone.id} did not start, and nothing is running for it: ${reason}. Correct the request and dispatch it again, do the work another way, or call blocked if you cannot go on`);
+      return;
+    }
     await store.update(record.id, (fresh) => {
       const stopped = block(fresh, new Date().toISOString(), reason);
       return stopped.ok ? { ...stopped.record, stateLine: reason } : null;
@@ -152,6 +171,7 @@ async function linkDispatch(
     status: 'running',
     verification: null,
     pendingDispatch: undefined,
+    parkedFrom: null,
     dispatch: {
       kind: request.kind,
       id: link.id,
@@ -160,6 +180,7 @@ async function linkDispatch(
       chargedUsd: link.chargedUsd ?? 0,
       destination: request.destination,
       baseCommit: link.baseCommit,
+      ...(preparedMilestone.pendingDispatch?.allocatedUsd !== undefined ? { allocatedUsd: preparedMilestone.pendingDispatch.allocatedUsd } : {}),
       ...(request.project?.runId ? { runId: request.project.runId } : {}),
     },
   };

@@ -38,17 +38,19 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
   const [idea, setIdea] = useState('');
   const [mode, setMode] = useState<IntakeMode>(initialMode);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('workspace');
+  const [openSpecEnabled, setOpenSpecEnabled] = useState(false);
   const [models, setModels] = useState<ModelChoice[]>([]);
   const [name, setName] = useState('');
   const [location, setLocation] = useState(() => defaultFolder.replace(/\/+$/, ''));
   const folder = `${location}/${name.trim()}`;
   const [workspaces, setWorkspaces] = useState<IntakeWorkspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
+  const [cap, setCap] = useState('5');
+  const capUsd = Number(cap);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const validName = name.trim().length > 0 && !/[\\/]/.test(name) && !['.', '..'].includes(name.trim());
   const chosen = workspaces.find((workspace) => workspace.id === workspaceId);
-  const ready = idea.trim().length > 0 && !busy && (mode === 'existing' ? Boolean(chosen) : validName);
 
   // The picker reads the profile's workspaces through the host bridge, the same
   // seam `pickFolder` uses. A list that cannot be read leaves Existing workspace
@@ -77,14 +79,31 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
     }
   };
 
+  // Each empty field is named when the user continues, so the button is never
+  // disabled without a reason on screen.
+  const problem = (): string | null => {
+    if (!idea.trim()) return 'Tell Architect what you want.';
+    if (mode === 'new' && !validName) return 'Enter a folder name.';
+    if (mode === 'existing' && !chosen) return 'Choose a workspace.';
+    if (!cap.trim() || !Number.isFinite(capUsd) || capUsd <= 0) return 'Enter a start cap.';
+    return null;
+  };
+
   const submit = async () => {
-    if (!ready) return;
+    if (busy) return;
+    const missing = problem();
+    if (missing) {
+      setError(missing);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const input: CreateProjectInput = {
         idea: idea.trim(),
+        capUsd,
         executionMode,
+        openSpecEnabled,
         models,
         ...(mode === 'existing' ? { workspaceId } : { folder: folder.trim() }),
       };
@@ -109,18 +128,18 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      {/* The scope root itself is outside the plugin's @scope, so every class and
-          token lives on the wrapper inside it. The width is inline for the same reason. */}
-      <DialogContent data-sero-plugin="architect" className="p-0" style={{ maxWidth: 'min(760px, 92vw)' }}>
+      <DialogContent className="p-0" style={{ maxWidth: 'min(760px, 92vw)' }}>
         <div className="ar-dialog ar-intake">
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
-            Describe what you want to build and choose where to save it.
+            Say what you want and set a start cap. Sero then asks you to approve the access before paid work starts.
           </DialogDescription>
         </DialogHeader>
         <form
           className="ar-intake-form"
+          // A message about a field goes when the user edits any field.
+          onChange={() => setError(null)}
           onSubmit={(event) => {
             event.preventDefault();
             void submit();
@@ -131,14 +150,14 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
             <button type="button" className="ar-intake-choice-option" aria-pressed={mode === 'existing'} onClick={() => setMode('existing')} disabled={busy}>Existing workspace</button>
           </div>
           <div className="ar-field">
-            <label htmlFor="ar-idea">Description</label>
-            <Textarea className="ar-intake-description" id="ar-idea" value={idea} onChange={(event) => setIdea(event.target.value)} disabled={busy} required />
+            <label htmlFor="ar-idea">What do you want?</label>
+            <Textarea className="ar-intake-description" id="ar-idea" value={idea} onChange={(event) => setIdea(event.target.value)} disabled={busy} />
           </div>
           {mode === 'new' ? (
             <div className="ar-intake-row">
               <div className="ar-field">
                 <label htmlFor="ar-name">Name</label>
-                <Input id="ar-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My Project" disabled={busy} required />
+                <Input id="ar-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="my-project" disabled={busy} />
               </div>
               <div className="ar-field">
                 <label htmlFor="ar-location">Location</label>
@@ -157,7 +176,7 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
                   <span className="ar-workspace-name">{chosen?.name ?? 'Choose a workspace'}</span>
                   {chosen && <span className="ar-workspace-path">{chosen.path}</span>}
                 </SelectTrigger>
-                <SelectContent className="ar-intake-workspace-menu">
+                <SelectContent position="popper" align="start" className="ar-intake-workspace-menu">
                   {free.map((workspace) => (
                     <SelectItem key={workspace.id} value={workspace.id} textValue={workspace.name}>
                       <span className="ar-workspace-name">{workspace.name}</span>
@@ -174,15 +193,24 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
               </Select>
             </div>
           )}
+          <div className="ar-field ar-intake-cap">
+            <label htmlFor="ar-cap">Start cap ($)</label>
+            <Input id="ar-cap" type="number" min="1" step="1" inputMode="decimal" value={cap} onChange={(event) => setCap(event.target.value)} disabled={busy} />
+          </div>
           <label className="ar-intake-switch">
-            <Switch checked={executionMode === 'worktree'} onCheckedChange={(on) => setExecutionMode(on ? 'worktree' : 'workspace')} disabled={busy} />
+            <Switch checked={executionMode === 'worktree'} onCheckedChange={(on) => setExecutionMode(on ? 'worktree' : 'workspace')} disabled={busy || openSpecEnabled} />
             <span>Use worktree</span>
           </label>
+          <label className="ar-intake-switch">
+            <Switch checked={openSpecEnabled} onCheckedChange={(on) => { setOpenSpecEnabled(on); if (on) setExecutionMode('workspace'); }} disabled={busy} />
+            <span>Use OpenSpec for coding changes</span>
+          </label>
+          {openSpecEnabled && <p className="ar-why">This proof of concept runs changes in the project workspace. You can request further changes after the first delivery.</p>}
           <IntakeModelOverrides choices={models} onChange={setModels} disabled={busy} />
           {error && <p role="alert" className="ar-error">{error}</p>}
           <div className="ar-foot">
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-            <Button type="submit" disabled={!ready}>{busy ? 'Creating…' : 'Create project'}</Button>
+            <Button type="submit" disabled={busy}>{busy ? 'Creating…' : 'Continue'}</Button>
           </div>
         </form>
         </div>

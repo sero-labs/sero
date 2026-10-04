@@ -23,6 +23,8 @@ export interface PrepareRoomInput {
   problem: string;
   /** Project/run attribution from a typed dispatch handle. Retention only. */
   project?: import('@sero-ai/common').OrchestratorProjectContext;
+  /** From the typed dispatch handle only. The `rooms` tool and the panel never set it. */
+  delegationPolicyId?: string;
   /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
   presetId?: string;
   limits?: RoomUserLimits;

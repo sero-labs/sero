@@ -1,3 +1,4 @@
+import { RESEARCH_START_USD } from '../shared/budget';
 import { closeDeliveredObjectives } from './objective-completion';
 import type { RunJournal } from './run-journal';
 import { ensureResearchContext } from './research-context';
@@ -6,15 +7,17 @@ import { activeRise, chargeRoomPlanning, recordCharge, reportedActiveMs } from '
 import path from 'node:path';
 import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createOrchestratorRoom, getOrchestratorRoomRegistry, ORCHESTRATOR_ROOM_INDEX_FILE, type OrchestratorBoardRoomView } from '@sero-ai/common';
+import { createOrchestratorRoom, getOrchestratorRoomRegistry, isLive, ORCHESTRATOR_ROOM_INDEX_FILE, type OrchestratorBoardRoomView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
 import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { SESSION_STARTED_AT } from './session-state';
 import { attachResearchArtifact } from './research-artifact';
+import { agreementAllowsCommands, delegationPolicyId } from '../shared/agreement';
 import { roomModelLimits } from './model-selection';
-import { hasOpenResearchAccessDecision, raiseResearchAccessDecision, researchBlockCause } from './research-access';
+import { hasOpenResearchAccessDecision, raiseResearchAccessDecision, researchBlockCause, widenResearchAccess } from './research-access';
 
 interface ResearchRoomDeps {
   host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'readJson' | 'now' | 'log' | 'newId'>;
@@ -51,7 +54,9 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
       if (hasOpenResearchAccessDecision(record, pending.id)) return;
       if ((pending.attempts ?? 0) >= 2) throw new Error('Research Room planning was interrupted twice. Its saved request needs review.');
       const project = await ensureResearchContext(deps, record, pending);
-      const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
+      // The start was promised its budget when the request was saved. An entry
+      // saved before promises existed is measured against what the project has left.
+      const remaining = pending.allocatedUsd ?? (record.budget.capUsd === null ? RESEARCH_START_USD : record.budget.capUsd - record.budget.spentUsd);
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       await deps.store.update(record.id, (fresh) => ({ ...fresh, pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, attempts: (entry.attempts ?? 0) + 1 } : entry) }));
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id });
@@ -64,19 +69,37 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
         : '';
       const result = await createOrchestratorRoom(snapshot.workspaceId, {
         project, requestId: `${record.id}:${pending.id}`,
-        mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
+        ...(delegationPolicyId(record) ? { delegationPolicyId: delegationPolicyId(record) } : {}),
+        mandate: pending.openSpecChange
+          ? `Explore OpenSpec change ${pending.openSpecChange} in this project. Read the existing openspec/ specs and the relevant code. Investigate the request, compare viable approaches, challenge assumptions and identify concrete requirements, acceptance scenarios, design choices, risks and unresolved user decisions. Report findings to Architect for openspec/changes/${pending.openSpecChange}/. Question: ${pending.question}\nStop when: ${pending.stoppingCondition}\nDo not implement, edit files or write OpenSpec artifacts. This is an investigation, not an implementation run.`
+          : `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
         // Commands need isolation whatever the project's own mode: in Workspace
         // mode an editing member would otherwise run in the shared working tree.
-        limits: { ...await roomModelLimits(deps.host, project.modelSnapshot), ...roomWorkspace(record), ...(access === 'edit-workspace' ? { executionMode: 'worktree' as const } : {}), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
+        limits: { ...await roomModelLimits(deps.host, project.modelSnapshot), ...roomWorkspace(record), ...(access === 'edit-workspace' ? { executionMode: 'worktree' as const } : {}), maxCostUsd: Math.min(RESEARCH_START_USD, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
       });
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
       if (!result.ok && result.questions?.length) {
         // A planner question is the user's to answer, on the project page,
         // not a failure that blocks the project with nothing to click.
+        if (access === 'read-only' && agreementAllowsCommands(record)) {
+          // The approved start covers commands, so the Room is planned again
+          // with them and the user is not asked a second time.
+          await deps.store.update(record.id, (fresh) => settle(widenResearchAccess(fresh, pending.id), deps.host.now()));
+          slot.again = true;
+          return;
+        }
         await raiseResearchAccessDecision(deps, record.id, pending, result.questions);
         return;
       }
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        // The Room plan was refused. The owner asked for this research, so it
+        // gets the reason and the entry is closed: it can ask again in another
+        // way. The user cannot correct a Room plan, so the project does not block.
+        const refused = result.error;
+        await deps.store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: fresh.pendingResearch?.filter((entry) => entry.id !== pending.id) }, deps.host.now()));
+        deps.wake(record.id, { kind: 'dispatch-blocked', at: deps.host.now(), items: [`research ${pending.id} did not start, and nothing is running for it: ${refused}. Ask for the research again in a way that avoids this, do the work another way, or call blocked if you cannot go on`] });
+        return;
+      }
       await deps.store.update(record.id, (fresh) => settle({ ...fresh,
         pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, roomId: result.roomId, chargedUsd: entry.chargedUsd ?? 0 } : entry),
         stateLine: 'A Room is working on the project question.',
@@ -129,11 +152,14 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
         completed = true;
         return closeDeliveredObjectives(settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
-          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now() }],
+          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now(), ...(pending.openSpecChange ? { openSpecChange: pending.openSpecChange } : {}) }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models } : entry) };
-      if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models,
+        observedLiveAt: room.status === 'running' && isLive(room.liveRun, SESSION_STARTED_AT) ? deps.host.now() : undefined } : entry) };
+      // A Room this project paused itself is waiting, not failing.
+      const stopped = room.status === 'failed' || room.status === 'cancelled' || (room.status === 'paused' && !current.heldBy);
+      if (stopped || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
         // The Room's title and the cause are both in hand here. Saving them is
         // what lets the project page name the Room and say what happened,

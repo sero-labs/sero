@@ -407,7 +407,12 @@ async function recordOpened(
   const now = deps.host.now();
   // Attached to the NEW handle: a reopened member runs on a different session
   // object, and the previous subscription would report one it no longer uses.
-  deps.observation?.attach(room.definition.id, member.id, handle.handleId);
+  deps.observation?.attach(room.definition.id, member.id, handle.handleId, {
+    label: member.displayName,
+    // A child agent names this session as its parent, so a view can place it.
+    sessionId: handle.sessionId,
+    ...(room.definition.projectContext ? { projectId: room.definition.projectContext.projectId } : {}),
+  });
   await deps.store.updateMember(room.definition.id, member.id, (current) => ({
     ...current,
     // `starting` holds an execution slot. A member that now has a session is

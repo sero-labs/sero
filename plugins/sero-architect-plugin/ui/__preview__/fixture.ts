@@ -132,6 +132,7 @@ export const FIXTURES: Record<string, ProjectRecord> = {
     directives: [{ id: 'dir0', text: 'Keep the brief short.', sentAt: T('09:30'), reply: { text: 'I will keep the brief to one page and name the cap in the charter. Expect it in a few minutes.', repliedAt: T('09:31') } }],
   }),
   charter: base({
+    brief: '## What we will build\n\nA browser roguelike with procedural levels, permadeath and a small item set built for interactions. Runs are under 20 minutes and shareable by seed.\n\n## Out of scope\n\n- Accounts\n- A server\n\n## Build plan\n\n1. Grid, movement and field of view\n2. Procedural level generator with a seed\n3. Items, combat and permadeath\n4. Browser build and a playable demo page\n5. Release to GitHub Pages\n\n## Choice still open\n\nRendering is left open. Architect will ask you before milestone 3.',
     phase: 'charter',
     stateLine: 'The charter is ready for your approval.',
     budget: { capUsd: 40, spentUsd: 2.3, sources: { owner: 1.4, research: 0.9, dispatched: 0 } },

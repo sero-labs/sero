@@ -1,4 +1,4 @@
-import { createRunIdCapture } from '@sero-ai/common';
+import { ARCHITECT_APP_ID, createRunIdCapture, openRunFeedback } from '@sero-ai/common';
 import type { AppRuntimeSubagentResult, AppRuntimeSubagentRunParams, ObservationUsage, OrchestratorBoardRoomView, OrchestratorUsageView } from '@sero-ai/common';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { charge } from '../shared/lifecycle';
@@ -11,7 +11,7 @@ import type { AppendInput, RunJournal } from './run-journal';
 type Operation = { kind: 'research'; id: string } | { kind: 'capture'; id: string };
 type AppRuntimeSubagentUsage = NonNullable<AppRuntimeSubagentResult['usage']>;
 interface UsageDeps {
-  host: Pick<ArchitectHost, 'now' | 'newId' | 'runStructured'>;
+  host: Pick<ArchitectHost, 'now' | 'newId' | 'runStructured'> & Partial<Pick<ArchitectHost, 'feedback'>>;
   store: RecordStore;
   /**
    * The trace journal. Budget and trace then consume the same source deltas, so
@@ -139,24 +139,40 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
     params.onObservation?.(observation);
     if (operation.kind !== 'research') return;
     const runId = captureRunId(observation);
-    if (!runId) return;
+    const live = ['turn-start', 'request-start', 'tool-start'].includes(observation.kind);
+    if (!runId && !live) return;
     writes = writes.then(async () => {
       await deps.store.update(record.id, (fresh) => ({
         ...fresh,
-        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === operation.id ? { ...entry, runId } : entry),
+        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === operation.id
+          ? { ...entry, ...(runId ? { runId } : {}), ...(live ? { observedLiveAt: deps.host.now() } : {}) } : entry),
       }));
     });
   };
 
+  // The run reports its request and tool state as it goes, so the project view
+  // can follow it without a record write and before it returns.
+  const feedback = deps.host.feedback ? openRunFeedback(deps.host.feedback, {
+    key: `${operation.kind}:${record.id}:${operation.id}`,
+    kind: operation.kind === 'research' ? 'research' : 'evidence',
+    owner: operation.kind === 'research' ? 'Research agent' : 'Evidence check',
+    scope: { appId: ARCHITECT_APP_ID, workspaceId: record.workspaceId, projectId: record.id, workId: operation.id },
+  }) : null;
   const result = await deps.host.runStructured({
     ...params,
-    onObservation: noteRunId,
-    onUsage: (usage) => { params.onUsage?.(usage); report(usage); },
+    onObservation: (observation) => { feedback?.onObservation(observation); noteRunId(observation); },
+    onUsage: (usage) => { feedback?.onUsage(usage); params.onUsage?.(usage); report(usage); },
   })
     .catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }));
+  feedback?.end(result, deps.host.now());
   if (result.usage) report(result.usage);
   await writes;
-  await deps.store.update(record.id, (fresh) => setAccountingIncomplete(fresh, source, !!result.error || result.usage?.costUsd === undefined || !!result.usage.incomplete));
+  await deps.store.update(record.id, (fresh) => {
+    const next = setAccountingIncomplete(fresh, source, !!result.error || result.usage?.costUsd === undefined || !!result.usage.incomplete);
+    return operation.kind === 'research'
+      ? { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === operation.id ? { ...entry, observedLiveAt: undefined } : entry) }
+      : next;
+  });
   return { ...result, recordedCostUsd };
 }
 

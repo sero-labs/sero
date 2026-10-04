@@ -246,6 +246,14 @@ export interface RoomRuntimeState {
   activeMs?: number;
   /** When the open active period began, or null while the Room is not active. */
   activeSince?: string | null;
+  /**
+   * Time the Room may have worked after its last saved checkpoint, before a
+   * shutdown that banked nothing. It is not in `activeMs`: the exact moment
+   * the process stopped is not known, so the figure is shown as uncertain.
+   */
+  activeUncertainMs?: number;
+  /** True when `activeMs` began as wall-clock time recorded before active-time accounting. */
+  activeSeeded?: boolean;
   /** Members currently holding an execution slot. */
   activeMemberIds: string[];
   usage: RoomUsage;
@@ -330,6 +338,12 @@ export interface RoomDefinition {
    * a saved request to a different project.
    */
   projectContext?: import('@sero-ai/common').OrchestratorProjectContext;
+  /**
+   * The delegation policy a linked caller named at creation. The Room presents
+   * it with its grant proposal and the host checks the proposal against the
+   * policy it stored. Absent on a Room the user created directly.
+   */
+  delegationPolicyId?: string;
   id: string;
   title: string;
   /** The user's original words. Kept verbatim for the audit trail. */
@@ -381,6 +395,11 @@ export interface RoomSummary extends OrchestratorBoardRoomView {
   activeMemberCount: number;
   costUsd: number;
   maxCostUsd: number;
+  /**
+   * The Room's total active-time limit, so a row can say `12 min of 30 min
+   * active` beside the header's figure. Absent in an index written before it.
+   */
+  maxWallClockMs?: number;
   startedAt: string | null;
   updatedAt: string;
   /** The user's problem, for list-row subtitles. */

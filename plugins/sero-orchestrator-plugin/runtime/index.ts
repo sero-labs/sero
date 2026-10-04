@@ -26,7 +26,7 @@ import {
   unregisterRoomCoordinator,
 } from './registry';
 
-/** Coarse scheduler tick — cron triggers are minute-resolution. */
+/** Coarse scheduler tick — cron triggers are minute-resolution. Also the Room active-time checkpoint, so keep it at or under ACTIVE_CHECKPOINT_MS. */
 const TICK_INTERVAL_MS = 60_000;
 
 export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
@@ -86,8 +86,14 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
     handleStateChange: () => {
       // State is the authoritative source; the coordinator reads it on demand.
     },
-    dispose: () => {
+    dispose: async () => {
       if (tickTimer) clearInterval(tickTimer);
+      // Nothing reports once the runtime is gone, so open views stop reading
+      // its work as attached.
+      host.feedback?.lose(() => true);
+      // The time a Room has worked is saved before the runtime goes, so the
+      // closed interval is never counted when it comes back.
+      if (rooms) await rooms.shutdown().catch((error) => host.log(`room active time was not saved at shutdown: ${String(error)}`));
       manager.dispose();
       unregisterCoordinator(ctx.workspaceId);
       unregisterRoomCoordinator(ctx.workspaceId);

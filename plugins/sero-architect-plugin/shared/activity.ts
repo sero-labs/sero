@@ -8,7 +8,8 @@
 // Times stay as timestamps. The index is written once and read for days, so a
 // rendered "5 days ago" inside it would freeze; the UI formats them at render.
 
-import { isLive, type ActivityState } from '@sero-ai/common';
+import { agreementApproved, hasAgreement } from './agreement';
+import { isLive, type ActivityState, type FeedbackSummary } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from './record';
 import { openDecisions } from './record';
 import { MAINTENANCE_MILESTONE_ID } from './maintenance';
@@ -49,7 +50,7 @@ function maintenance(record: ProjectRecord): Milestone | undefined {
 function currentMilestone(record: ProjectRecord): Milestone | undefined {
   const working = record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.status === 'verifying'));
   if (working) return working;
-  return record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && m.dispatch?.failure);
+  return record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && m.status !== 'parked' && m.dispatch?.failure);
 }
 
 /** What the owner itself is doing, for the end of the second line. */
@@ -72,6 +73,29 @@ function dispatchWord(milestone: Milestone): string {
   return milestone.dispatch?.kind === 'room' ? 'Room' : 'Workflow';
 }
 
+/** Research is visible before there are any implementation milestones. */
+function researchActivity(record: ProjectRecord, sessionStartedAt: string, runtimeRunning: boolean, feedback?: FeedbackSummary | null): ProjectActivity | null {
+  const pending = record.pendingResearch ?? [];
+  const marked = runtimeRunning ? pending.find((entry) => isLive(entry.observedLiveAt
+    ? { runId: entry.runId ?? entry.roomId ?? entry.workflowId ?? entry.id, startedAt: entry.startedAt, reportedAt: entry.observedLiveAt }
+    : undefined, sessionStartedAt)) : undefined;
+  // A producer attached now is observed work even before a record write says so.
+  const live = marked ?? (runtimeRunning && (feedback?.activeCount ?? 0) > 0 ? pending[0] : undefined);
+  const entry = live ?? pending[0];
+  if (!entry) return null;
+  const name = entry.kind === 'room' ? 'Room' : entry.kind === 'workflow' ? 'Workflow' : 'research agent';
+  if (live) return {
+    state: 'working', headline: 'Researching a project question',
+    owner: entry.kind ? `${name} is running` : 'Research agent is running', ownerAt: live.observedLiveAt ?? feedback?.lastActivityAt ?? undefined,
+  };
+  if (entry.roomId || entry.workflowId || entry.runId || !runtimeRunning) return {
+    state: 'last-known', headline: 'Last known: researching a project question',
+    owner: `No live report from the ${name}`,
+    ownerAt: entry.observedLiveAt ?? entry.startedAt, lastReportAt: entry.observedLiveAt ?? entry.startedAt,
+  };
+  return { state: 'idle', headline: 'Preparing research', owner: `Architect is preparing the ${entry.kind ? name : 'research task'}` };
+}
+
 /**
  * The project's activity.
  *
@@ -80,11 +104,33 @@ function dispatchWord(milestone: Milestone): string {
  * armed. `working` comes last of the run states because it is the only one that
  * has to be earned with an observed report.
  */
+/** A milestone the Architect set aside when its Room was cancelled. No decision holds it. */
+export function isSetAside(milestone: Milestone): boolean {
+  return milestone.status === 'parked' && !milestone.parkedBy;
+}
+
+function setAsideCount(record: ProjectRecord): number {
+  return record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID && isSetAside(m)).length;
+}
+
+/** Every milestone is accepted, or set aside with at least one accepted. */
+function deliveredAll(record: ProjectRecord): boolean {
+  const counts = milestoneCounts(record);
+  return counts.accepted > 0 && counts.accepted + setAsideCount(record) === counts.total;
+}
+
+/** "Delivered", or both facts when part of the plan was set aside. */
+function deliveredHeadline(record: ProjectRecord): string {
+  const counts = milestoneCounts(record);
+  const aside = setAsideCount(record);
+  return aside > 0 ? `${counts.accepted} of ${counts.total} delivered, ${aside} set aside` : 'Delivered';
+}
+
 export function projectActivity(
   record: ProjectRecord,
-  options: { sessionStartedAt: string; runtimeRunning: boolean },
+  options: { sessionStartedAt: string; runtimeRunning: boolean; feedback?: FeedbackSummary | null },
 ): ProjectActivity {
-  const { sessionStartedAt, runtimeRunning } = options;
+  const { sessionStartedAt, runtimeRunning, feedback } = options;
   const suffix = ownerSuffix(record, runtimeRunning);
   const maint = maintenance(record);
   const current = currentMilestone(record);
@@ -94,6 +140,12 @@ export function projectActivity(
   const waitingRoom = record.milestones.find(
     (m) => m.dispatch?.kind === 'room' && m.status === 'running' && m.dispatch.failure,
   );
+
+  // Nothing paid starts before the user approves the start. The control that
+  // raises the approval again sits beside this line.
+  if (hasAgreement(record) && !agreementApproved(record)) {
+    return { state: 'idle', headline: 'Not started', owner: 'Access is not approved', action: 'Review access' };
+  }
 
   if (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd) {
     return {
@@ -174,10 +226,14 @@ export function projectActivity(
 
   if (record.paused) {
     const armed = maint?.dispatch;
+    // A pause lets the turns in flight finish. Until they do, the line says so.
+    const finishing = runtimeRunning ? feedback?.activeCount ?? 0 : 0;
     return {
       state: 'paused',
       headline: 'Paused by you',
-      owner: armed
+      owner: finishing > 0
+        ? (finishing === 1 ? '1 turn is still finishing' : `${finishing} turns are still finishing`)
+        : armed
         ? 'Maintenance Workflow paused with the project'
         : 'Nothing runs until you resume',
       ownerAt: armed?.lastRunAt,
@@ -187,21 +243,45 @@ export function projectActivity(
 
   // Nobody updates the liveness mark while the Architect runtime is off, so a
   // mark it wrote earlier in this session cannot prove a run is reporting now.
-  const live = runtimeRunning && current?.dispatch && isLive(
+  const live = runtimeRunning && current?.dispatch && (isLive(
     current.dispatch.observedLiveAt
       ? { runId: current.dispatch.runId ?? current.dispatch.id, startedAt: current.dispatch.dispatchedAt, reportedAt: current.dispatch.observedLiveAt }
       : undefined,
     sessionStartedAt,
-  );
+  ) || (feedback?.activeCount ?? 0) > 0);
 
   if (current?.dispatch && live) {
     return {
       state: 'working',
       headline: `Working on ${current.title}`,
       owner: `${dispatchWord(current)} is running`,
-      ownerAt: current.dispatch.observedLiveAt,
+      ownerAt: current.dispatch.observedLiveAt ?? feedback?.lastActivityAt ?? undefined,
       ownerSuffix: suffix,
     };
+  }
+
+  const research = researchActivity(record, sessionStartedAt, runtimeRunning, feedback);
+  if (research) return { ...research, ownerSuffix: suffix };
+
+  // The runtime accepted a dispatch and is preparing its Workflow or Room. The
+  // record says so before any run exists to report, so the line does too.
+  const preparing = record.milestones.find((m) => m.pendingDispatch && !m.dispatch);
+  if (preparing?.pendingDispatch) {
+    const at = preparing.pendingDispatch.startedAt;
+    const name = preparing.pendingDispatch.kind === 'room' ? 'Room' : 'Workflow';
+    return runtimeRunning && at >= sessionStartedAt
+      ? { state: 'working', headline: `Starting ${preparing.title}`, owner: `${name} is being prepared`, ownerAt: at, ownerSuffix: suffix }
+      : { state: 'last-known', headline: `Last known: starting ${preparing.title}`, owner: 'No report since', ownerAt: at, ownerSuffix: suffix, lastReportAt: at };
+  }
+
+  // The work reported and its result is being checked. That is the Architect's
+  // own step, so it reads as work only while this session shows it at work.
+  if (current?.status === 'verifying') {
+    const turnSince = record.session.workingSince;
+    const checking = runtimeRunning && ((turnSince != null && turnSince >= sessionStartedAt) || (feedback?.activeCount ?? 0) > 0);
+    return checking
+      ? { state: 'working', headline: `Checking ${current.title}`, owner: 'Architect is checking the result', ownerAt: turnSince ?? feedback?.lastActivityAt ?? undefined }
+      : { state: 'last-known', headline: `Last known: checking ${current.title}`, owner: 'No report since', ownerAt: current.dispatch?.lastRunAt ?? current.dispatch?.dispatchedAt, ownerSuffix: suffix, lastReportAt: current.dispatch?.lastRunAt ?? current.dispatch?.dispatchedAt };
   }
 
   if (current?.dispatch) {
@@ -213,6 +293,18 @@ export function projectActivity(
       ownerAt: at,
       ownerSuffix: suffix,
       lastReportAt: at,
+    };
+  }
+
+  // An agreement is one request. Once every part of it is accepted, that is the
+  // news; the standing maintenance Workflow is the detail under it.
+  if (hasAgreement(record) && record.phase === 'maintain' && deliveredAll(record)) {
+    return {
+      state: 'complete',
+      headline: deliveredHeadline(record),
+      owner: maint?.dispatch ? 'Maintenance is waiting for a trigger' : 'Nothing is running',
+      ownerAt: maint?.dispatch?.lastRunAt,
+      ownerSuffix: suffix,
     };
   }
 
@@ -228,14 +320,22 @@ export function projectActivity(
 
   const counts = milestoneCounts(record);
   if (record.phase === 'maintain' || record.phase === 'release') {
-    if (counts.total > 0 && counts.accepted === counts.total) {
+    if (deliveredAll(record)) {
       return {
         state: 'complete',
-        headline: `${counts.accepted} of ${counts.total} milestones accepted`,
+        // Accepted work in release is not delivered yet: the release step has still to land.
+        headline: hasAgreement(record) && record.phase === 'maintain' ? deliveredHeadline(record) : `${counts.accepted} of ${counts.total} milestones accepted`,
         owner: 'Nothing is running',
         ownerSuffix: suffix,
       };
     }
+  }
+
+  // The Architect's own turn, with nothing delegated yet. The mark is from this
+  // session, so a turn that an earlier session left open does not read as work.
+  const turnSince = record.session.workingSince;
+  if (runtimeRunning && turnSince && turnSince >= sessionStartedAt) {
+    return { state: 'working', headline: 'Architect is working', owner: 'Its turn started', ownerAt: turnSince };
   }
 
   return {

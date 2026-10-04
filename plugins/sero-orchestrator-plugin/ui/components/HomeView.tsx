@@ -18,6 +18,8 @@ import type { LoopSummary, OrchestratorAction } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
 import type { GoalIndexEntry } from '../../shared/goal-types';
 import { homeStatus, workspaceName } from '../lib/home-status';
+import { useNow } from '../lib/use-now';
+import { useWorkActivity } from '../lib/use-work-activity';
 import { ActivityGlyphChip } from './ActivityWord';
 import { AttentionQueue, type RoomApprovalDecision } from './AttentionQueue';
 import { LoopsOverview } from './LoopsOverview';
@@ -109,9 +111,12 @@ export function HomeView({
   const [query, setQuery] = useState('');
   const { workspacePath } = useAppInfo();
   const session = useMemo(() => sessionStartedAt(), []);
+  // The same observed work the lists below read, so the line and the rows agree.
+  const work = useWorkActivity([...loops, ...rooms].map((entry) => `${entry.id}:${entry.status}`).join('|'));
+  const now = useNow([...work.values()].some((summary) => summary.activeCount > 0));
   const status = useMemo(
-    () => homeStatus({ loops, rooms, goals, workspaceName: workspaceName(workspacePath), sessionStartedAt: session }),
-    [loops, rooms, goals, workspacePath, session],
+    () => homeStatus({ loops, rooms, goals, workspaceName: workspaceName(workspacePath), sessionStartedAt: session, feedback: work, nowMs: now }),
+    [loops, rooms, goals, workspacePath, session, work, now],
   );
 
   const hasAttention =

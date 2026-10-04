@@ -8,9 +8,11 @@
  * Split out of record.ts (500-LOC limit); re-exported from there.
  */
 
+import type { EvidenceBinding } from './evidence-binding';
 import type { OrchestratorProjectContext } from '@sero-ai/common';
 
 export interface PendingResearch {
+  openSpecChange?: string;
   project?: OrchestratorProjectContext;
   kind?: 'room' | 'workflow';
   /**
@@ -23,7 +25,13 @@ export interface PendingResearch {
   workflowId?: string;
   attempts?: number;
   chargedUsd?: number;
+  /** The start budget promised to this research. See `shared/budget.ts`. */
+  allocatedUsd?: number;
+  /** Who paused its Room, so only the same hand resumes it. */
+  heldBy?: 'project' | 'owner';
   countedActiveMs?: number;
+  /** This runtime observed a live research report; cleared on stop and restart. */
+  observedLiveAt?: string;
   /**
    * The tracker run of the one agent this research runs as, saved while it runs
    * so the project page can show its live block. Absent for a Room or Workflow,
@@ -43,9 +51,12 @@ export interface PendingEvidence {
   commands: string[];
   route: string | null;
   startedAt: string;
+  /** What the check covers, taken when it was requested. */
+  binding?: EvidenceBinding;
 }
 
 export interface ResearchResult {
+  openSpecChange?: string;
   roomId?: string;
   workflowId?: string;
   models?: { name: string; model: string; thinking: string }[];

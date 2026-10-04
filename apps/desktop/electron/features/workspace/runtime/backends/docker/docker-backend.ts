@@ -136,7 +136,7 @@ export class DockerBackend implements RuntimeBackend {
       dockerContainerName(this.workspaceId), 'sh', '-lc', input.command,
     ];
     if (input.outputSink) {
-      return streamDocker(args, { timeoutMs: input.timeoutMs ?? 120_000 }, input.outputSink);
+      return streamDocker(args, { timeoutMs: input.timeoutMs ?? 120_000 }, input.outputSink, input.signal);
     }
     return this.run(args, { timeoutMs: input.timeoutMs ?? 120_000 });
   }

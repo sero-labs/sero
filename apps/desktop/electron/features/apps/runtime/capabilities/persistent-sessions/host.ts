@@ -23,6 +23,7 @@ import type {
   PersistentSessionSubjectPolicy,
   PersistentSessionContextUsage,
   PersistentSessionEvent,
+  PersistentSessionLiveSnapshot,
   PersistentSessionGrantHandle,
   PersistentSessionGrantProposal,
   PersistentSessionHandle,
@@ -32,6 +33,7 @@ import type {
   PersistentSessionsApi,
 } from '@sero-ai/common';
 
+import type { DelegationLink } from './delegation-policy';
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
@@ -64,7 +66,9 @@ export interface PersistentSessionHostDeps {
    */
   approveGrant(
     proposal: PersistentSessionGrantProposal,
-  ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null>;
+    /** The stored policy the proposal names, when it names one that exists. */
+    link?: DelegationLink,
+  ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null>;
   /** Model ids currently resolvable through the one host ModelRuntime (AD-026). */
   listAvailableModelIds(): Promise<Set<string>>;
   /** The thinking level Pi applies when a request omits one. */
@@ -95,24 +99,54 @@ export interface PersistentSessionHostDeps {
 export class PersistentSessionHost implements PersistentSessionsApi {
   private readonly live = new LiveSessionRegistry();
 
-  constructor(private readonly deps: PersistentSessionHostDeps) {}
+  constructor(private readonly deps: PersistentSessionHostDeps) {
+    // A policy is revoked by the app it was issued to, and its grants belong to
+    // another app's host instance. Each instance tears down what it holds.
+    deps.grantStore.onGrantRevoked((grantId) => {
+      void this.tearDown(grantId).catch((error: unknown) => {
+        deps.log(`could not close sessions of revoked grant ${grantId}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    });
+  }
 
   async requestGrant(proposal: PersistentSessionGrantProposal): Promise<PersistentSessionGrantHandle> {
     // Snapshot on ENTRY. Approval is asynchronous and the caller runs in this
     // same process, so without a copy taken here it could mutate its own
     // proposal object while the approval dialog is open and the host would
     // store the mutation.
-    const decision = await this.deps.approveGrant(structuredClone(proposal));
+    const snapshot = structuredClone(proposal);
+    // The policy is read from the host's own store by the id the proposal
+    // names. An unknown id is no policy at all, so the user is asked as usual.
+    const policy = typeof snapshot.delegationPolicyId === 'string'
+      ? this.deps.grantStore.getPolicy(snapshot.delegationPolicyId)
+      : null;
+    // A revoked policy does not become a question. Work queued before the
+    // revocation must not start because someone clicked Allow on a dialog.
+    if (policy?.status === 'revoked') throw new Error('the approval this work ran under was revoked');
+    const decision = await this.deps.approveGrant(snapshot, policy ? { policy, callerAppId: this.deps.appId } : undefined);
     // The caller shows this to the user, so it must say what happened. "Not
     // approved" reads as a refusal even when nobody was ever asked.
     if (!decision) throw new Error('you did not allow agent sessions for this app');
 
-    const grant = await this.deps.grantStore.issue(
-      this.deps.appId,
-      (grantId) => this.deps.resolveSessionDir(grantId),
-      decision.approvalId,
-      decision.approved,
-    );
+    let grant;
+    try {
+      grant = await this.deps.grantStore.issue(
+        this.deps.appId,
+        (grantId) => this.deps.resolveSessionDir(grantId),
+        decision.approvalId,
+        decision.approved,
+        decision.delegatedByPolicyId,
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === 'delegation-policy-revoked') {
+        throw new Error('the approval this work ran under was revoked');
+      }
+      throw error;
+    }
+    // Only a grant the user approved in a dialog can pass authority on.
+    const issued = decision.delegatedByPolicyId
+      ? null
+      : await this.deps.grantStore.issuePolicy(this.deps.appId, decision.approvalId, decision.approved);
 
     return {
       grantId: grant.grantId,
@@ -122,6 +156,18 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       maxLiveSessions: grant.maxLiveSessions,
       maxTotalSessions: grant.maxTotalSessions,
       issuedAt: grant.issuedAt,
+      ...(issued ? {
+        delegation: {
+          policyId: issued.policyId,
+          workspaceId: issued.workspaceId,
+          issuedAt: issued.issuedAt,
+          delegateAppIds: [...issued.delegateAppIds],
+          roles: structuredClone(issued.roles),
+          maxLiveSessions: issued.maxLiveSessions,
+          maxTotalSessions: issued.maxTotalSessions,
+        },
+      } : {}),
+      ...(grant.delegatedBy ? { delegatedByPolicyId: grant.delegatedBy.policyId } : {}),
     };
   }
 
@@ -130,13 +176,29 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     // so a crash mid-revocation leaves the grant revoked — the safe direction.
     const grant = await this.deps.grantStore.markRevoked(grantId);
     if (!grant) return;
+    await this.tearDown(grantId);
+    this.deps.grantStore.clearLive(grantId);
+  }
 
-    for (const entry of this.live.forGrant(grantId)) {
+  async revokeDelegationPolicy(policyId: string): Promise<void> {
+    const policy = this.deps.grantStore.getPolicy(policyId);
+    // Only the app the policy was issued to. Another app naming the id learns
+    // nothing and changes nothing.
+    if (!policy || policy.appId !== this.deps.appId) return;
+    for (const grantId of await this.deps.grantStore.markPolicyRevoked(policyId)) {
+      this.deps.grantStore.notifyRevoked(grantId);
+    }
+  }
+
+  /** Closes the sessions THIS instance holds for a revoked grant. */
+  private async tearDown(grantId: string): Promise<void> {
+    const entries = this.live.forGrant(grantId);
+    for (const entry of entries) {
       await entry.session.abort().catch(() => undefined);
       this.live.remove(entry.handleId);
       await shutdownAndDispose(entry.session, `persistent session ${entry.handleId}`);
+      this.deps.grantStore.releaseLive(grantId, entry.handleId);
     }
-    this.deps.grantStore.clearLive(grantId);
   }
 
   async deleteGrant(grantId: string): Promise<void> {
@@ -258,6 +320,12 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     // same as one that is watched.
     this.requireLive(handleId);
     return this.live.watch(handleId, cb);
+  }
+
+  liveSnapshot(handleId: string): PersistentSessionLiveSnapshot | null {
+    // Read-only like `subscribe`. A handle that is not live has no turn in
+    // flight, so there is nothing to show and nothing to refuse.
+    return this.live.get(handleId)?.partial ?? null;
   }
 
   async compact(handleId: string): Promise<void> {

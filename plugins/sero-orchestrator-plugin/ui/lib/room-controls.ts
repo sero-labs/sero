@@ -6,7 +6,8 @@
  * matches what the runtime accepts, so no control is offered only to fail.
  */
 
-import type { RoomRuntimeState } from '../../shared/room-types';
+import type { RoomRuntimeState, RoomStopReason } from '../../shared/room-types';
+import type { RoomFeedDispatch } from './use-room-feed';
 
 export interface RoomControls {
   message: boolean;
@@ -31,5 +32,28 @@ export function roomControls(
     message: live,
     resume: status === 'paused' && !approvalOpen,
     stop: live && !delivering,
+  };
+}
+
+/**
+ * The hold the page shows. A Room that completed, for example while it was
+ * pausing, is finished: its saved stop reason is history, so no hold and no
+ * resume is offered for it.
+ */
+export function shownStopReason(runtime: Pick<RoomRuntimeState, 'status' | 'stopReason'>): RoomStopReason | null {
+  return runtime.status === 'completed' ? null : runtime.stopReason;
+}
+
+export type ResumeOutcome = { ok: true } | { ok: false; error: string };
+
+/**
+ * Resumes the same Room with a larger total active-time limit, in minutes.
+ * It names the Room and the total and nothing else, so the spend cap and the
+ * Room's access cannot change with it. A refusal keeps the tool's own words.
+ */
+export function addRoomTime(dispatch: RoomFeedDispatch, roomId: string): (maxMinutes: number) => Promise<ResumeOutcome> {
+  return async (maxMinutes) => {
+    const details = await dispatch({ action: 'resume', roomId, maxMinutes });
+    return details?.ok ? { ok: true } : { ok: false, error: details?.error ?? 'The Room could not be resumed.' };
   };
 }

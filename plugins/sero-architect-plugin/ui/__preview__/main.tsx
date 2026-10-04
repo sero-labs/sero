@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { AppContext } from '@sero-ai/app-runtime';
 import { PluginStyleScope } from '@sero-ai/ui';
 // The host supplies the design tokens in the real app. The harness has no
 // host, so it injects the host stylesheet raw: routed through Vite it would
@@ -31,7 +32,15 @@ import { InspectorPreview } from './InspectorPreview';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
 import type { Disclosures } from '../lib/page-helpers';
 import type { ProjectRecord } from '../../shared/record';
-import { FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT, listRows } from './fixture';
+import { FIXTURES as CHARTER_FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT, listRows } from './fixture';
+import { DELIVERY_FIXTURES, deliveryFeedback } from './delivery-fixture';
+import { WorkPage } from '../WorkPage';
+import { WORK_TABS, type WorkTab } from '../lib/navigation';
+import { toIndexEntry } from '../../shared/record';
+import { feedbackByProject, observedActivity } from '../../shared/feedback';
+import { sessionStartedAt } from '@sero-ai/common';
+
+const FIXTURES: Record<string, ProjectRecord> = { ...CHARTER_FIXTURES, ...DELIVERY_FIXTURES };
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 
@@ -47,8 +56,10 @@ const TIERS = {
 } as const;
 
 const actions: ArchitectActions = {
+  // The harness has no runtime, so the state in the address names what the work reports.
+  feedback: async () => deliveryFeedback(new URLSearchParams(window.location.search).get('state') ?? ''),
   create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), trace: async () => ({ ok: true, text: 'ok', page: null }), lifetime: async () => ({ ok: true, text: 'ok', lifetime: null }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
-  approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
+  approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok, requestChange: ok, enableOpenSpec: ok,
   setModelDefault: ok, clearModelDefault: ok,
   refreshModelTiers: async () => (new URLSearchParams(window.location.search).get('runtime') === 'off'
     ? { ok: false, text: 'The Architect runtime is not running.' }
@@ -88,11 +99,8 @@ const runtimeRunning = params.get('runtime') !== 'off';
  * open.
  */
 function usePreviewDisclosures(): Disclosures {
-  const [olderOpen, setOlderOpen] = useState(false);
   const [openedNotes, setOpenedNotes] = useState<ReadonlySet<string>>(new Set());
   return {
-    olderOpen,
-    setOlderOpen,
     folds: {
       opened: openedNotes,
       toggle: (key: string) => setOpenedNotes((current) => {
@@ -143,22 +151,34 @@ function ModelSettingsPreview({ runtimeRunning }: { runtimeRunning: boolean }) {
   );
 }
 
-function ProjectPreview({ record, runtimeRunning, width, disclosures }: {
+/** `?view=work&tab=plan` opens the Work view. The tabs and the way back work as in the app. */
+function ProjectPreview({ record, runtimeRunning }: {
   record: ProjectRecord;
   runtimeRunning: boolean;
-  width: number;
-  disclosures: Disclosures;
 }) {
+  const [tab, setTab] = useState<WorkTab | null>(() => params.get('view') === 'work' ? WORK_TABS.find((item) => item === params.get('tab')) ?? 'live' : null);
+  if (tab) return <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={setTab} onBack={() => setTab(null)} onProject={() => setTab(null)} onOpenHistory={() => undefined} />;
   return (
-    <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
+    <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} onOpenWork={setTab} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
   );
+}
+
+/** The charter-flow rows, led by the agreement project in the state `?delivery=` names. */
+function previewRows(runtimeRunning: boolean) {
+  const key = `delivery-${params.get('delivery') ?? 'working'}`;
+  const record = DELIVERY_FIXTURES[key];
+  if (!record) return listRows(runtimeRunning);
+  const reply = deliveryFeedback(key);
+  const entry = toIndexEntry(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const work = feedbackByProject(reply.snapshots, reply.epoch).get(record.id);
+  return [{ ...entry, activity: observedActivity(entry.activity, work) }, ...listRows(runtimeRunning)];
 }
 
 function ProjectsOverview({ state, runtimeRunning }: { state: string; runtimeRunning: boolean }) {
   return (
     <>
-      <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: listRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />
-      <ProjectsList needsOnly={false} projects={state === 'empty' ? [] : listRows(runtimeRunning)} runtime={{ running: runtimeRunning, startedAt: new Date().toISOString() }} onOpen={() => undefined} onNewProject={() => undefined} />
+      <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: previewRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />
+      <ProjectsList needsOnly={false} projects={state === 'empty' ? [] : previewRows(runtimeRunning)} runtime={{ running: runtimeRunning, startedAt: new Date().toISOString() }} onOpen={() => undefined} onNewProject={() => undefined} />
     </>
   );
 }
@@ -181,7 +201,7 @@ function PreviewStage({ state, width, runtimeRunning, disclosures }: {
       ) : state === 'models' ? (
         <ModelSettingsPreview runtimeRunning={runtimeRunning} />
       ) : record ? (
-        <ProjectPreview record={record} runtimeRunning={runtimeRunning} width={width} disclosures={disclosures} />
+        <ProjectPreview record={record} runtimeRunning={runtimeRunning} />
       ) : (
         <ProjectsOverview state={state} runtimeRunning={runtimeRunning} />
       )}
@@ -195,6 +215,7 @@ function Preview() {
   // menus a container inside the plugin's `@scope`. Without it the harness's
   // Radix popovers portal to `document.body` and lose every plugin style.
   return (
+    <AppContext value={{ appId: 'architect', workspaceId: 'global', workspacePath: '', stateFilePath: '' }}>
     <PluginStyleScope pluginId="architect" surfaceId="preview">
       <div data-sero-plugin="architect">
         <div className="dark" style={{ padding: 24 }}>
@@ -204,6 +225,7 @@ function Preview() {
         </div>
       </div>
     </PluginStyleScope>
+    </AppContext>
   );
 }
 

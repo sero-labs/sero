@@ -135,6 +135,15 @@ describe('SubagentTracker', () => {
     expect(handler).toHaveBeenCalledWith('run-1', output);
   });
 
+  it('marks the live text as reasoning only while the newest text is reasoning', () => {
+    const tracker = new SubagentTracker();
+    tracker.start(makeEntry());
+    tracker.appendLiveOutput('run-1', 'weighing options', true);
+    expect(tracker.get('run-1')?.liveReasoning).toBe(true);
+    tracker.appendLiveOutput('run-1', 'final answer');
+    expect(tracker.get('run-1')?.liveReasoning).toBe(false);
+  });
+
   it('caps tool argument summaries retained for renderer updates', () => {
     const tracker = new SubagentTracker();
     const handler = vi.fn();

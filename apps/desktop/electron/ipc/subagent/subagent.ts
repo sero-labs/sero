@@ -91,11 +91,16 @@ const sendToolActivity = new PerRunThrottle<SubagentToolActivity[]>(
   150,
 );
 
+/** Says when the newest live text is reasoning, so a view never shows it as the answer. */
+function reasoningMark(runId: string): { reasoning?: true } {
+  return subagentManager.tracker.get(runId)?.liveReasoning ? { reasoning: true } : {};
+}
+
 const sendLiveOutput = new PerRunThrottle<string>(
   (id, text) => {
     const watchers = watchRegistry.watchers(id);
     if (watchers.length === 0) return;
-    sendEventToWindows(new Set(watchers), { type: 'subagent_live_output', id, text });
+    sendEventToWindows(new Set(watchers), { type: 'subagent_live_output', id, text, ...reasoningMark(id) });
   },
   200,
 );
@@ -199,6 +204,7 @@ export function registerSubagentHandlers(): void {
           type: 'subagent_live_output',
           id: runId,
           text: liveText,
+          ...reasoningMark(runId),
         });
       }
       if (entry.toolActivity.length > 0) {

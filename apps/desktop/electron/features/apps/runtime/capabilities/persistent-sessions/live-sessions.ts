@@ -11,7 +11,7 @@
  */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { PersistentSessionEvent } from '@sero-ai/common';
+import type { PersistentSessionEvent, PersistentSessionLiveSnapshot } from '@sero-ai/common';
 
 export interface LiveSession {
   handleId: string;
@@ -32,8 +32,49 @@ export interface LiveSession {
   aborting: boolean;
   /** Turns completed since this session was opened. Pi counts messages, not turns. */
   turnsTaken: number;
+  /** Where the current turn stands, kept whether or not anything watches. */
+  partial: PersistentSessionLiveSnapshot;
   /** Detaches the Pi listener when the session is disposed. */
   detach(): void;
+}
+
+/** The most answer text kept for a turn in flight. The same bound a Room view uses. */
+export const MAX_PARTIAL_CHARS = 8_000;
+
+function emptyPartial(revision = 0): PersistentSessionLiveSnapshot {
+  return { turnId: null, text: '', truncated: false, request: null, tool: null, revision, updatedAt: null };
+}
+
+/**
+ * Folds one event into the session's partial. A new turn starts empty, so an
+ * earlier reply is never shown as current output, and the end of a turn clears
+ * the text because the reply is then in the session history.
+ */
+function applyToPartial(partial: PersistentSessionLiveSnapshot, event: PersistentSessionEvent): PersistentSessionLiveSnapshot {
+  const revision = partial.revision + 1;
+  const updatedAt = 'at' in event ? event.at : partial.updatedAt;
+  switch (event.type) {
+    case 'turn_start':
+      return { ...emptyPartial(revision), turnId: event.turnId || null, updatedAt };
+    case 'text': {
+      const text = partial.text + event.text;
+      const over = text.length > MAX_PARTIAL_CHARS;
+      return { ...partial, text: over ? text.slice(-MAX_PARTIAL_CHARS) : text, truncated: partial.truncated || over, revision };
+    }
+    case 'request_start':
+      return { ...partial, request: { requestId: event.requestId, startedAt: event.at, ...(event.model ? { model: event.model } : {}) }, revision, updatedAt };
+    case 'request_end':
+      return { ...partial, request: null, revision, updatedAt };
+    case 'tool_start':
+      return { ...partial, tool: { toolName: event.toolName, summary: event.summary, callId: event.callId, startedAt: event.at }, revision, updatedAt };
+    case 'tool_end':
+      return partial.tool && partial.tool.callId === event.callId ? { ...partial, tool: null, revision, updatedAt } : { ...partial, revision, updatedAt };
+    case 'turn_end':
+      return { ...emptyPartial(revision), updatedAt };
+    // Compaction rewrites the context, not the answer in flight.
+    case 'compacted':
+      return partial;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -136,7 +177,7 @@ export class LiveSessionRegistry {
     return `${grantId}::${subject}`;
   }
 
-  add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting' | 'turnsTaken'>): LiveSession {
+  add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting' | 'turnsTaken' | 'partial'>): LiveSession {
     const detach = entry.session.subscribe((event) => {
       // The model that actually runs, so a request record names it rather than
       // a tier label.
@@ -147,6 +188,7 @@ export class LiveSessionRegistry {
       if (entry.session.model) turnContext.model = `${entry.session.model.provider}/${entry.session.model.id}`;
       const mapped = toPersistentSessionEvent(event, turnContext);
       if (!mapped) return;
+      live.partial = applyToPartial(live.partial, mapped);
       // The turn is over: the next one gets its own id, and a cancellation
       // applies to the turn it cancelled, not to the one after it.
       if (mapped.type === 'turn_end') {
@@ -164,7 +206,7 @@ export class LiveSessionRegistry {
       }
     });
 
-    const live: LiveSession = { ...entry, currentTurnId: null, aborting: false, turnsTaken: 0, detach };
+    const live: LiveSession = { ...entry, currentTurnId: null, aborting: false, turnsTaken: 0, partial: emptyPartial(), detach };
     this.byHandle.set(entry.handleId, live);
     this.handleBySubject.set(LiveSessionRegistry.subjectKey(entry.grantId, entry.subject), entry.handleId);
     return live;

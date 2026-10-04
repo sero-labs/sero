@@ -15,8 +15,10 @@ import {
   type ActivityDetail,
   type ActivityState,
 } from '@sero-ai/common';
+import type { FeedbackSummary } from '@sero-ai/common';
 import type { LoopSummary } from '../../shared/types';
 import { formatRelative } from './format';
+import { freshness, loopCurrentWork } from './live-facts';
 
 export interface LoopActivity {
   state: ActivityState;
@@ -31,6 +33,20 @@ export interface LoopActivity {
   nextStep: string | null;
   /** The action a row offers when the state asks something of the user. */
   action?: string;
+  /**
+   * How fresh the observation is, for the row's facts column: `Last activity 8s
+   * ago` while working, `... · cannot be confirmed` when last known.
+   */
+  freshness: string | null;
+  /** What it does now: the step and its wait. Only while working. */
+  work: string | null;
+}
+
+/** "Step 2 of 4" from the saved progress, or the first running step's title. */
+function stepPosition(loop: LoopSummary): string | null {
+  const progress = loop.progress;
+  if (progress && progress.total > 0) return `Step ${Math.min(progress.done + 1, progress.total)} of ${progress.total}`;
+  return loop.activeStepTitles?.[0] ?? null;
 }
 
 /** Plain words for the event sources a maintenance Workflow listens to. */
@@ -84,8 +100,13 @@ export function armedTriggerWords(loop: LoopSummary): string | undefined {
  * a live mark. A saved active run with no mark falls to `last-known`, which is
  * the fault this change exists to fix.
  */
-export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopActivity {
-  const live = isLive(loop.liveRun, sessionStartedAt);
+/**
+ * `feedback` is what the Workflow's steps and calls report now. `nowMs` times
+ * the open call and the age of the last activity, so a caller that ticks passes
+ * its own clock.
+ */
+export function loopActivity(loop: LoopSummary, sessionStartedAt: string, feedback?: FeedbackSummary, nowMs = Date.now()): LoopActivity {
+  const live = isLive(loop.liveRun, sessionStartedAt) || (feedback?.activeCount ?? 0) > 0;
   const ran = loop.lastRunAt ? formatRelative(loop.lastRunAt) : undefined;
 
   const steps = loop.progress;
@@ -99,6 +120,8 @@ export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopA
         word,
         line: ran ? `${word} · no report since ${ran}` : word,
         nextStep: activityNextStep('last-known', { lastReport: ran ?? 'its last run' }),
+        freshness: freshness(feedback, 'last-known', nowMs),
+        work: null,
       };
     }
     const word = ACTIVITY_STATE_WORD[state];
@@ -108,6 +131,8 @@ export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopA
       line: tail ? `${word} · ${tail}` : word,
       nextStep,
       ...(action ? { action } : {}),
+      freshness: freshness(feedback, state, nowMs),
+      work: state === 'working' && tail ? tail : null,
     };
   };
 
@@ -122,7 +147,11 @@ export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopA
     return resolve('stopped', { cause: claim.cause, action: claim.action }, claim.action, claim.cause);
   }
   if (claim) return resolve('waiting-for-you', { action: claim.action }, claim.action, claim.action);
-  if (live) return resolve('working', { subject: loop.activeStepTitles?.[0] }, undefined, loop.activeStepTitles?.[0]);
+  if (live) {
+    const position = stepPosition(loop);
+    const work = loopCurrentWork(feedback, nowMs, position) ?? position ?? undefined;
+    return resolve('working', { subject: loop.activeStepTitles?.[0] }, undefined, work);
+  }
   if (loop.progress?.running || loop.liveRun) {
     return resolve('last-known', { lastReport: ran ?? 'its last run' });
   }
@@ -132,7 +161,19 @@ export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopA
   return resolve('idle');
 }
 
+/**
+ * The row's facts column. An observed run says how fresh the observation is;
+ * otherwise `base` says when it last ran. Last-known work always says that it
+ * cannot be confirmed.
+ */
+export function loopFacts(activity: LoopActivity, base: string): string {
+  const fresh = activity.freshness;
+  if (!fresh || (activity.state !== 'working' && activity.state !== 'last-known')) return base;
+  if (activity.state === 'working' || fresh.startsWith('Last activity')) return fresh;
+  return [base, fresh].filter(Boolean).join(' · ');
+}
+
 /** Whether this Workflow counts as active work happening now. One rule for every surface. */
-export function isLoopActive(loop: LoopSummary, sessionStartedAt: string): boolean {
-  return loopActivity(loop, sessionStartedAt).state === 'working';
+export function isLoopActive(loop: LoopSummary, sessionStartedAt: string, feedback?: FeedbackSummary): boolean {
+  return loopActivity(loop, sessionStartedAt, feedback).state === 'working';
 }

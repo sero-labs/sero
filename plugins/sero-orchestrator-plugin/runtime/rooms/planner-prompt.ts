@@ -87,6 +87,7 @@ CAPABILITIES.
 - Give each member the LEAST it needs. A reviewer that only reads does not get an edit tool. Every extra capability widens the access summary the user has to approve for the whole team.
 - The Room protocol bridge (messages, roster, mandates, work items, artifacts, path claims) is added to every member automatically. Never list it as a tool.
 - "permissions" is the member's authority over files: "read-only" (reads only), "edit-workspace" (changes files in its own working copy) or "edit-and-push" (also pushes a branch or opens a pull request). Set "needsWorktree": true for any member that changes files, so its work is isolated from the others.
+- A tool that runs commands (a shell, for example) needs "permissions": "edit-workspace" or higher on the SAME member, because a command can change files. A member that runs tests or builds is not "read-only", even when its role is to review. Below that level the tool is refused, so give the member the level or leave the tool out.
 - A tool that reaches a remote (git or GitHub write, for example) needs "permissions": "edit-and-push" on the SAME member. Below that level the tool is refused, so give the member the level or leave the tool out.
 - "thinking" is how hard the member reasons per turn. Use a high level only for the members that genuinely need it — it costs time and money on every turn.
 

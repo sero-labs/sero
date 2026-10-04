@@ -50,6 +50,14 @@ export async function runTrackedModel(
   try {
     const result = await host.runStructured({
       ...params,
+      // A planner, evaluator or stop call on a Workflow is work the list can
+      // name, so it reports under that Workflow like a step does.
+      ...(watch?.loop && !params.feedback ? { feedback: {
+        key: `call:${watch.loop.loopId}:${watch.loop.kind}:${watch.loop.stepId ?? ''}`,
+        kind: 'planning' as const,
+        owner: watch.loop.label ?? watch.loop.kind,
+        scope: { workId: watch.loop.loopId },
+      } } : {}),
       onObservation: (record) => {
         const runId = captureRunId(record);
         if (runId) {

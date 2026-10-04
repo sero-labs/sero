@@ -23,6 +23,7 @@ import { activeRise, recordCharge, reportedActiveMs } from './project-usage';
 import type { RecordStore } from './record-store';
 import type { RunJournal } from './run-journal';
 import { applyRunHealth } from './run-health';
+import { hasSettledHeldRoom } from './linked-work';
 import { observeResearchRooms } from './research-room';
 import { observeResearchWorkflows } from './research-workflow';
 
@@ -83,6 +84,8 @@ export interface DispatchWatchDeps {
    * so this is where the largest charge in a project enters the trace.
    */
   journal?: RunJournal;
+  /** Resumes the Rooms a project pause stopped, once they have settled. */
+  releaseHeld?(projectId: string): Promise<void>;
 }
 
 export interface DispatchWatch {
@@ -154,7 +157,9 @@ function roomTransition(milestone: Milestone, room: RoomView, seen: Seen | undef
   if (room.status === 'completed' && seen?.status !== 'completed' && milestone.status !== 'done') {
     return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, reported: true };
   }
-  if ((room.status === 'failed' || room.status === 'cancelled' || room.status === 'paused') && seen?.status !== room.status) {
+  // A Room this project paused itself is waiting, not blocked.
+  const ownPause = room.status === 'paused' && milestone.dispatch?.heldBy !== undefined;
+  if ((room.status === 'failed' || room.status === 'cancelled' || room.status === 'paused') && !ownPause && seen?.status !== room.status) {
     return { kind: 'dispatch-blocked', item: `${label} is ${room.status}`, reported: false };
   }
   if (room.attentionCount > 0 && (seen?.pending ?? 0) === 0) {
@@ -221,6 +226,12 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
      */
     const charges: { source: string; delta: number; activeMs: number; runId?: string }[] = [];
     if (rooms) await observeResearchRooms(deps, projectId, rooms);
+    if (rooms && deps.releaseHeld) {
+      const current = await store.read(projectId);
+      if (current && hasSettledHeldRoom(current, rooms)) {
+        await deps.releaseHeld(projectId).catch((error: unknown) => host.log(`could not resume the held Rooms of ${projectId}: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }
     if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
       charges.length = 0;

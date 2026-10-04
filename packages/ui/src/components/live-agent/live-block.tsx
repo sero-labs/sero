@@ -22,10 +22,20 @@ import {
 export interface LiveBlockProps extends React.ComponentProps<"div"> {
   /** Agent name. Shown only where one place lists several agents. */
   agentName?: string;
-  /** The tool running now. Omitted while the agent writes its answer. */
+  /** The tool running now. Omitted while no tool runs. */
   activity?: { toolName: string; argsSummary: string } | null;
   /** A quiet line that replaces the tool line, e.g. `checking the result`. */
   quietLabel?: string;
+  /**
+   * An in-flight model request the producer reports while no tool runs. It
+   * names a quiet request only: once text has arrived the block drops it.
+   * `since` is the start time in epoch ms, or null when the source did not
+   * measure it, which shows no duration. Without this or a tool, the block
+   * claims nothing about what the agent does.
+   */
+  requestWait?: { since: number | null } | null;
+  /** True when the newest text is the model's reasoning, not its answer. */
+  reasoning?: boolean;
   /** Text the agent wrote. The newest line stays in view. */
   text: string;
   /** Fixed-width face, for a raw reply. */
@@ -36,29 +46,34 @@ export interface LiveBlockProps extends React.ComponentProps<"div"> {
   startedAt?: number;
 }
 
-/** Keep the elapsed time moving while the block is mounted. */
-function useElapsedLabel(startedAt: number): string {
+/** Re-render every second while the block is mounted, so its timer keeps moving. */
+function useSecondTick(): void {
   const [, tick] = React.useState(0);
 
   React.useEffect(() => {
     const timer = setInterval(() => tick((count) => count + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  return formatElapsed(Date.now() - startedAt);
 }
 
-/** The line naming what the agent does now. */
+/**
+ * The line naming what the agent does now. No tool and no known request wait
+ * gives an empty line: the block makes no claim about what the agent does.
+ */
 function nowLine(
   quietLabel: string | undefined,
   activity: LiveBlockProps["activity"],
-): { text: string; quiet: boolean } {
-  if (quietLabel) return { text: quietLabel, quiet: true };
+  requestWait: LiveBlockProps["requestWait"],
+  hasText: boolean,
+): { text: string; quiet: boolean; wait: boolean } {
+  if (quietLabel) return { text: quietLabel, quiet: true, wait: false };
   if (activity) {
     const args = activity.argsSummary.trim();
-    return { text: args ? `${activity.toolName} ${args}` : activity.toolName, quiet: false };
+    return { text: args ? `${activity.toolName} ${args}` : activity.toolName, quiet: false, wait: false };
   }
-  return { text: "writing its answer", quiet: true };
+  // A request that has already produced text is not a quiet one.
+  if (requestWait && !hasText) return { text: "waiting for the model", quiet: true, wait: true };
+  return { text: "", quiet: true, wait: false };
 }
 
 /** What a running agent does now, then the last lines it wrote. */
@@ -66,6 +81,8 @@ export function LiveBlock({
   agentName,
   activity,
   quietLabel,
+  requestWait,
+  reasoning = false,
   text,
   monospace = false,
   live = true,
@@ -77,8 +94,11 @@ export function LiveBlock({
   // not recomputed — and thrown away — on every later render.
   const [fallbackStart] = React.useState(() => Date.now());
   const started = startedAt ?? fallbackStart;
-  const elapsed = useElapsedLabel(started);
-  const now = nowLine(quietLabel, activity);
+  useSecondTick();
+  const now = nowLine(quietLabel, activity, requestWait, text.trim().length > 0);
+  // A request wait is timed from the request's own start. With no start, or
+  // with no line at all, there is no duration to show, never a zero.
+  const elapsedMs = !now.text ? null : now.wait ? (requestWait?.since != null ? Date.now() - requestWait.since : null) : Date.now() - started;
 
   return (
     <div
@@ -104,13 +124,18 @@ export function LiveBlock({
         >
           {now.text}
         </span>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-[var(--text-muted)]">
-          {elapsed}
-        </span>
+        {reasoning ? (
+          <span className="shrink-0 text-xs font-medium text-[var(--text-secondary)]">Reasoning</span>
+        ) : null}
+        {elapsedMs !== null ? (
+          <span className="shrink-0 font-mono text-xs tabular-nums text-[var(--text-muted)]">
+            {formatElapsed(elapsedMs)}
+          </span>
+        ) : null}
       </div>
       <div
         className={cn(
-          "flex max-h-16 flex-col justify-end overflow-hidden px-2.5 py-2",
+          "flex max-h-32 flex-col justify-end overflow-hidden px-2.5 py-2",
           monospace
             ? "font-mono text-xs break-all text-[var(--text-muted)]"
             : "text-xs leading-relaxed text-[var(--text-muted)]",
@@ -134,7 +159,7 @@ export function LiveBlock({
 export function SubagentLiveBlock({
   runId,
   ...props
-}: Omit<LiveBlockProps, "text" | "activity" | "startedAt"> & { runId: string }) {
+}: Omit<LiveBlockProps, "text" | "activity" | "reasoning" | "startedAt"> & { runId: string }) {
   const snapshot = useSubagentLive(runId);
 
   return (
@@ -142,6 +167,7 @@ export function SubagentLiveBlock({
       {...props}
       text={snapshot.text}
       activity={snapshot.tool}
+      reasoning={snapshot.reasoning}
       startedAt={snapshot.startedAt}
     />
   );

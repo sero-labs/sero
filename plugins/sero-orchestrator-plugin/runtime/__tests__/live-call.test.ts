@@ -69,6 +69,19 @@ describe('live call on the loop runtime', () => {
     expect(liveCallOf(host, loop.id)).toBeUndefined();
   });
 
+  it('reports a one-answer call as work of its Workflow, so the planner is named before a step runs', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: 'done' }, { response: 'done' });
+
+    await runTrackedModel(host, { task: 'plan', parentSessionId: loop.runtime.parentSessionId }, undefined, { loop: { loopId: loop.id, kind: 'planner' } });
+    // A call with no Workflow to name reports nothing under one.
+    await runTrackedModel(host, { task: 'plan', parentSessionId: loop.runtime.parentSessionId });
+
+    expect(host.modelCalls[0].feedback).toMatchObject({ key: `call:${loop.id}:planner:`, kind: 'planning', owner: 'planner', scope: { workId: loop.id } });
+    expect(host.modelCalls[1].feedback).toBeUndefined();
+  });
+
   it('clears the call even when the model call fails', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

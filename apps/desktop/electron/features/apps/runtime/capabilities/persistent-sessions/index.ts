@@ -25,8 +25,8 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { SERO_HOME } from '@electron/platform/env';
 
 import { evaluateBuiltinGate } from './builtin-gate';
-import { GrantStore, type StoredGrant } from './grant-store';
-import { PersistentSessionHost, type SessionInputs } from './host';
+import { GrantStore, type StoredDelegationPolicy, type StoredGrant } from './grant-store';
+import { PersistentSessionHost, type PersistentSessionHostDeps, type SessionInputs } from './host';
 
 export { evaluateBuiltinGate, isPersistentSessionBuiltin, PERSISTENT_SESSION_BUILTIN_APPS } from './builtin-gate';
 export { GrantStore } from './grant-store';
@@ -49,10 +49,13 @@ export async function getGrantStore(): Promise<GrantStore> {
   if (sharedGrantStorePromise) return sharedGrantStorePromise;
 
   const file = grantStateFile();
+  const policyFile = path.join(path.dirname(file), 'delegation-policies.json');
   const store = new GrantStore({
     persistence: {
       read: async () => (await appStateManager.read(file)) as Record<string, StoredGrant> | null,
       write: (grants) => appStateManager.update<Record<string, StoredGrant>>(file, () => grants),
+      readPolicies: async () => (await appStateManager.read(policyFile)) as Record<string, StoredDelegationPolicy> | null,
+      writePolicies: (policies) => appStateManager.update<Record<string, StoredDelegationPolicy>>(policyFile, () => policies),
     },
     now: () => new Date().toISOString(),
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
@@ -105,9 +108,7 @@ export interface PersistentSessionWiring {
   log(message: string): void;
 }
 
-type PersistentSessionHostDepsApproval = (
-  proposal: PersistentSessionGrantProposal,
-) => Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null>;
+type PersistentSessionHostDepsApproval = PersistentSessionHostDeps['approveGrant'];
 
 /**
  * Returns the capability, or **null** when the calling app is not a permitted

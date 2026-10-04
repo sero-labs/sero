@@ -26,6 +26,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
   useAppTools: () => ({ run: vi.fn() }),
 }));
 
+import { openSeroApp } from '@sero-ai/app-runtime';
 import { FIXTURES } from '../__preview__/fixture';
 import { ProjectResearch } from '../components/ProjectResearch';
 import { projectActivity } from '../lib/view-model';
@@ -49,6 +50,30 @@ afterEach(() => {
 });
 
 const base = FIXTURES.build!;
+
+describe('linked research on the project page', () => {
+  it.each(['room', 'workflow'] as const)('opens pending %s research in its workspace, then keeps the link with its findings', async (kind) => {
+    const entry = {
+      id: 'res-linked', kind, question: 'Which audio graph should we use?',
+      stoppingCondition: 'A cited signal chain.', startedAt: '2026-10-03T16:00:00.000Z',
+      ...(kind === 'room' ? { roomId: 'room-research' } : { workflowId: 'loop-research' }),
+    };
+    const record = { ...base, phase: 'discovery' as const, milestones: [], research: [], pendingResearch: [entry] };
+    act(() => root.render(<ProjectResearch record={record} />));
+    const label = kind === 'room' ? 'Open Room' : 'Open Workflow';
+    const button = Array.from(container.querySelectorAll('button')).find((item) => item.textContent === label);
+    expect(button).toBeDefined();
+    await act(async () => button?.click());
+    expect(openSeroApp).toHaveBeenCalledWith('orchestrator',
+      kind === 'room' ? { roomId: 'room-research' } : { loopId: 'loop-research' }, record.workspaceId);
+
+    act(() => root.render(<ProjectResearch record={{ ...record, pendingResearch: [], research: [{
+      ...entry, result: 'Use an oscillator and gain envelope.', costUsd: 0.3, completedAt: '2026-10-03T16:05:00.000Z',
+    }] }} />));
+    expect(Array.from(container.querySelectorAll('button')).some((item) => item.textContent === label)).toBe(true);
+    expect(container.textContent).toContain('Use an oscillator and gain envelope.');
+  });
+});
 
 describe('direct research on the project page', () => {
   it('shows the question, the wait and the eye while it runs', () => {

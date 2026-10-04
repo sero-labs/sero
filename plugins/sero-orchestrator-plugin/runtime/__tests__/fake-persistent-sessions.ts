@@ -17,6 +17,7 @@ import type {
   PersistentSessionHandle,
   PersistentSessionRequest,
   PersistentSessionUsage,
+  PersistentSessionLiveSnapshot,
   PersistentSessionsApi,
 } from '@sero-ai/common';
 
@@ -49,6 +50,8 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   sessions: Map<string, FakeSession>;
   /** Open handles. Empty after every session is disposed. */
   liveHandles: Map<string, FakeSession>;
+  /** What `liveSnapshot` returns, by subject. Unset means no turn in flight. */
+  partials: Map<string, PersistentSessionLiveSnapshot>;
   /** Set to reject the next grant request, as a user decline would. */
   refuseGrant: boolean;
   /** Set to fail the next prompt with this message, as a dead route would. */
@@ -128,6 +131,8 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       api.deleted.push(grantId);
     },
 
+    async revokeDelegationPolicy() {},
+
     async create(request): Promise<PersistentSessionHandle> {
       api.requests.push(request);
       if (api.failNextCreate) {
@@ -187,6 +192,12 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       if (!session) return;
       api.aborted.push(session.subject);
       if (openTurnIds.has(session.subject)) api.endTurn(session.subject, 'aborted');
+    },
+
+    partials: new Map(),
+    liveSnapshot(handleId) {
+      const session = byHandle.get(handleId);
+      return session ? api.partials.get(session.subject) ?? null : null;
     },
 
     subscribe(handleId, callback) {

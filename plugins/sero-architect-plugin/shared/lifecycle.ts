@@ -4,6 +4,7 @@
  * caller that persists the result, which keeps the single-writer rule simple.
  */
 
+import { agreementApproved, hasAgreement } from './agreement';
 import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type HistorySubject, type ProjectRecord } from './record';
 
 export type Refusal = { ok: false; error: string };
@@ -69,7 +70,23 @@ export function advancePhase(record: ProjectRecord, to: ArchitectPhase, now: str
   return { ok: true, record: appendHistory({ ...record, phase: to }, now, cause) };
 }
 
+/**
+ * Starts work under an approved delivery agreement. The project goes from
+ * intake to build in one step: the agreement is the authority, so no discovery
+ * or charter phase stands between. The phase is a status word here, not a route.
+ */
+export function startAgreedWork(record: ProjectRecord, now: string): Outcome {
+  if (!record.agreement || !agreementApproved(record)) return refuse('Cannot start: the delivery agreement is not approved.');
+  if (record.phase !== 'intake') return refuse(`The project already started; it is in ${record.phase}.`);
+  if (record.workspaceId === null) return refuse('Cannot start: the workspace is not registered yet.');
+  return {
+    ok: true,
+    record: appendHistory({ ...record, phase: 'build' }, now, `you approved the start (agreement revision ${record.agreement.revision}, $${record.agreement.capUsd} cap); work starts`),
+  };
+}
+
 export function approveCharter(record: ProjectRecord, now: string): Outcome {
+  if (hasAgreement(record)) return refuse('This project runs under a delivery agreement; it has no charter.');
   if (record.charter === null) return refuse('There is no charter to approve.');
   if (record.charter.approvedAt !== null) return refuse('The charter is already approved.');
   const charter = { ...record.charter, approvedAt: now };
@@ -142,7 +159,11 @@ export function charge(
 export function setCap(record: ProjectRecord, capUsd: number, now: string): Outcome {
   if (!(capUsd > 0)) return refuse('The cost cap must be a positive amount.');
   const wasLimited = deriveOverlay(record) === 'limited';
-  const next = { ...record, budget: { ...record.budget, capUsd }, charter: record.charter ? { ...record.charter, capUsd } : null };
+  // A cap the user changes is changed authority, so the agreement records it.
+  const agreement = record.agreement && record.agreement.capUsd !== capUsd
+    ? { agreement: { ...record.agreement, capUsd, revision: record.agreement.revision + 1 } }
+    : {};
+  const next = { ...record, ...agreement, budget: { ...record.budget, capUsd }, charter: record.charter ? { ...record.charter, capUsd } : null };
   const cause = wasLimited && deriveOverlay(next) !== 'limited'
     ? `user raised the cap to $${capUsd}, limit cleared`
     : `user set the cap to $${capUsd}`;
@@ -166,5 +187,7 @@ export function mayDispatch(record: ProjectRecord): boolean {
   const stopped = record.blockedReason !== null
     || record.paused
     || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd);
-  return working && !stopped;
+  // An agreement whose authority is not approved, or was revoked, starts nothing.
+  const authorized = !hasAgreement(record) || agreementApproved(record);
+  return working && !stopped && authorized;
 }

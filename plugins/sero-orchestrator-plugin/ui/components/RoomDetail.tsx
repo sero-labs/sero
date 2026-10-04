@@ -11,13 +11,18 @@
  * something to find by scrolling.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { sessionStartedAt } from '@sero-ai/common';
 import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
+import { elapsedActiveMs } from '../../shared/room-active-time';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
 import { defaultRoomView, roomSignal, type RoomView } from '../lib/room-view';
-import { roomControls } from '../lib/room-controls';
+import { addRoomTime, roomControls, shownStopReason } from '../lib/room-controls';
+import { roomActivity } from '../lib/room-activity';
+import { useNow } from '../lib/use-now';
+import { useWorkView, WorkViewContext } from '../lib/use-work-activity';
 import { useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
 import { MEMBER_DOT, memberGlyph } from '../lib/member-glyph';
 import { Face } from './room-kit';
@@ -78,6 +83,11 @@ export function RoomDetail({
   const members = useRoomMembers(roomId, room?.memberIds ?? []);
   const names = memberNames(members);
   const signal = roomSignal(room);
+  // The same observed work the Rooms list reads, so the header and the row agree.
+  const work = useWorkView(`${roomId}:${room?.runtime.status ?? ''}`);
+  const roomWork = work.byWork.get(roomId);
+  const now = useNow((roomWork?.activeCount ?? 0) > 0);
+  const session = useMemo(() => sessionStartedAt(), []);
   const events = useRoomTimeline(roomId, dispatch, signal);
   // Live text is retained only while a Watch view asks for it, so the demand
   // follows the view rather than the open Room.
@@ -125,8 +135,12 @@ export function RoomDetail({
     });
   // The hold card carries Message the team, Resume and Stop while it is on
   // screen, so the header offers none of them: one copy of each control.
-  const holding = !!room.runtime.stopReason || needsUser.length > 0;
+  // A Room that completed while it was pausing is finished: its real state is
+  // the result, not a hold, and nothing offers to resume it.
+  const stopReason = shownStopReason(room.runtime);
+  const holding = !!stopReason || needsUser.length > 0;
   const controls = roomControls(room.runtime, approvals.length);
+  const activity = summary ? roomActivity(summary, session, roomWork, now) : null;
   // A Room can be stopped without anyone asking anything: a limit was reached,
   // or the user paused it. Only a question makes the header say so.
   const waitingForYou = needsUser.length > 0
@@ -134,192 +148,203 @@ export function RoomDetail({
     || room.runtime.stopReason?.kind === 'awaiting-approval';
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <RoomTopBar
-        room={room}
-        view={shownView}
-        busy={busy}
-        panelOpen={panelOpen}
-        holding={holding}
-        controls={controls}
-        waitingForYou={waitingForYou}
-        onTogglePanel={() => setPanelOpen((open) => !open)}
-        onBack={onBack}
-        onView={(next) => {
-          onLocationChange(next, null);
-        }}
-        onMessage={() => setComposing({ memberIds: [] })}
-        onPause={() => send('pause')}
-        onResume={() => send('resume')}
-        onStop={() => send('cancel')}
-        onDelete={() => void deleteRoom()}
-      />
+    <WorkViewContext.Provider value={work}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <RoomTopBar
+          room={room}
+          view={shownView}
+          busy={busy}
+          panelOpen={panelOpen}
+          holding={holding}
+          controls={controls}
+          waitingForYou={waitingForYou}
+          activity={activity}
+          onTogglePanel={() => setPanelOpen((open) => !open)}
+          onBack={onBack}
+          onView={(next) => {
+            onLocationChange(next, null);
+          }}
+          onMessage={() => setComposing({ memberIds: [] })}
+          onPause={() => send('pause')}
+          onResume={() => send('resume')}
+          onStop={() => send('cancel')}
+          onDelete={() => void deleteRoom()}
+        />
 
-      {/* Below 900px the roster rail collapses to this face strip (F3). */}
-      <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-room-line px-[18px] py-2 @min-[900px]/panel:hidden">
-        {room.memberIds.map((memberId) => {
-          const member = members.get(memberId);
-          const name = member?.displayName ?? memberId;
-          return (
-            <button
-              key={memberId}
-              type="button"
-              title={name}
-              aria-pressed={memberId === selectedId}
-              onClick={() => selectMember(memberId === selectedId ? null : memberId)}
-              className={`rounded-[7px] ${memberId === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
-            >
-              <Face
-                seed={memberId}
-                size={26}
-                tone={member?.isConductor ? 'conductor' : 'member'}
-                label={memberGlyph(name, member?.isConductor)}
-                status={MEMBER_DOT[member?.status ?? 'offline']}
-              />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* One card for the whole hold: why it stopped, who asked, what they
-          wrote, and the three things the user can do about it. The header
-          carries none of those three while this is on screen. */}
-      <RoomHoldCard
-        stopReason={room.runtime.stopReason}
-        members={needsUser}
-        controls={controls}
-        busy={busy}
-        onMessage={() => setComposing({ memberIds: [] })}
-        onResume={() => send('resume')}
-        onStop={() => send('cancel')}
-      />
-
-      {approvals.length > 0 && summary && (
-        <div className="grid gap-3 border-b border-room-line p-3 @min-[900px]/panel:grid-cols-2">
-          {approvals.map((approval) => (
-            <RoomApprovalCard
-              key={approval.approvalId}
-              room={summary}
-              approval={approval}
-              busy={busy}
-              onDecide={onApproval}
-            />
-          ))}
+        {/* Below 900px the roster rail collapses to this face strip (F3). */}
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-room-line px-[18px] py-2 @min-[900px]/panel:hidden">
+          {room.memberIds.map((memberId) => {
+            const member = members.get(memberId);
+            const name = member?.displayName ?? memberId;
+            return (
+              <button
+                key={memberId}
+                type="button"
+                title={name}
+                aria-pressed={memberId === selectedId}
+                onClick={() => selectMember(memberId === selectedId ? null : memberId)}
+                className={`rounded-[7px] ${memberId === selectedId ? 'ring-1 ring-room-line-strong' : ''}`}
+              >
+                <Face
+                  seed={memberId}
+                  size={26}
+                  tone={member?.isConductor ? 'conductor' : 'member'}
+                  label={memberGlyph(name, member?.isConductor)}
+                  status={MEMBER_DOT[member?.status ?? 'offline']}
+                />
+              </button>
+            );
+          })}
         </div>
-      )}
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        <RoomDesktopLayout
-          roster={(
-            <RoomRoster
-              memberIds={room.memberIds}
-              members={members}
-              selectedId={selectedId}
-              onSelect={(memberId) => selectMember(memberId === selectedId ? null : memberId)}
-              className="w-full border-r-0"
-            />
-          )}
-          details={shownView === 'timeline' && !selected ? (
-            <RoomSidePanel room={room} names={names} members={members} className="w-full border-l-0" />
-          ) : undefined}
-        >
-          {selected ? (
-          <RoomMemberPanel
-            // Each member gets its own panel state: a half-typed answer or an
-            // opened fold must not follow the user to the next member.
-            key={`${roomId}:${selected.id}`}
-            roomId={roomId}
-            member={selected}
-            live={live.get(selected.id) ?? null}
-            maxCostUsd={room.definition.envelope.maxCostUsdPerMember}
-            busy={busy}
-            dispatch={dispatch}
-            onWake={() => send('wake', { memberId: selected.id })}
-            onMessage={() => setComposing({ memberIds: [selected.id] })}
-            onAnswer={(body) => send('answer', { memberId: selected.id, body })}
-            onRelease={() => send('release', { memberId: selected.id })}
-            onTell={(body) => send('intervene', { body, memberIds: selected.id, deliver: 'now' })}
-            onClose={() => selectMember(null)}
-          />
-        ) : shownView === 'result' ? (
-          <RoomCompletion
-            room={room}
-            members={members}
-            finalLine={events.find((event) => event.kind === 'room-status')?.summary ?? null}
-            onOpenMember={selectMember}
-          />
-        ) : shownView === 'watch' ? (
-          <RoomWatch
-            roomId={room.definition.id}
-            memberIds={room.memberIds}
-            members={members}
-            live={live}
-            dispatch={dispatch}
-            onOpen={selectMember}
-          />
-          ) : (
-            <RoomActivity events={events} members={members} savedEvents={room.runtime.timelineSequence} />
-          )}
-        </RoomDesktopLayout>
+        {/* One card for the whole hold: why it stopped, who asked, what they
+            wrote, and the three things the user can do about it. The header
+            carries none of those three while this is on screen. */}
+        <RoomHoldCard
+          key={roomId}
+          stopReason={stopReason}
+          members={needsUser}
+          controls={controls}
+          busy={busy}
+          onMessage={() => setComposing({ memberIds: [] })}
+          onResume={() => send('resume')}
+          onStop={() => send('cancel')}
+          time={{
+            title: room.definition.title,
+            usedMs: elapsedActiveMs(room.runtime, Date.now()),
+            limitMs: room.definition.envelope.maxWallClockMs,
+            maxCostUsd: room.definition.envelope.maxCostUsd,
+          }}
+          onAddTime={addRoomTime(dispatch, roomId)}
+        />
 
-        {/* The drawer the top-bar Brief control opens below 1200px. Its Team
-            tab exists only below 900px, where the roster rail is gone too. */}
-        {panelOpen && !selected && (
-          <div className="absolute inset-y-0 right-0 z-10 flex w-80 max-w-full flex-col border-l border-room-line bg-room-bg shadow-xl @min-[1200px]/panel:hidden">
-            <div role="tablist" aria-label="Room panel" className="flex h-9 shrink-0 border-b border-room-line @min-[900px]/panel:hidden">
-              {(['brief', 'team'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="tab"
-                  aria-selected={drawerTab === option}
-                  onClick={() => setDrawerTab(option)}
-                  className={`grid flex-1 place-items-center text-[11px] ${
-                    drawerTab === option
-                      ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
-                      : 'text-room-text4 hover:text-room-text3'
-                  }`}
-                >
-                  {option === 'brief' ? 'Brief' : 'Team'}
-                </button>
-              ))}
-            </div>
-            <RoomRoster
-              memberIds={room.memberIds}
-              members={members}
-              selectedId={selectedId}
-              onSelect={(memberId) => {
-                selectMember(memberId === selectedId ? null : memberId);
-                setPanelOpen(false);
-              }}
-              className={drawerTab === 'team' ? 'w-full flex-1 border-r-0 @min-[900px]/panel:hidden' : 'hidden'}
-            />
-            <RoomSidePanel
-              room={room}
-              names={names}
-              members={members}
-              className={drawerTab === 'team' ? 'hidden w-full flex-1 border-l-0 @min-[900px]/panel:flex' : 'w-full flex-1 border-l-0'}
-            />
+        {approvals.length > 0 && summary && (
+          <div className="grid gap-3 border-b border-room-line p-3 @min-[900px]/panel:grid-cols-2">
+            {approvals.map((approval) => (
+              <RoomApprovalCard
+                key={approval.approvalId}
+                room={summary}
+                approval={approval}
+                busy={busy}
+                onDecide={onApproval}
+              />
+            ))}
           </div>
         )}
-      </div>
 
-      {/* Mounted only while open, and keyed by who it addresses: a cancelled
-          draft must not reappear the next time, addressed to somebody else. */}
-      {composing && (
-        <RoomMessageDialog
-          key={composing.memberIds.join(',') || 'everyone'}
-          open
-          busy={busy}
-          addressed={composing.memberIds}
-          members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
-          onSend={(body, memberIds, now) => {
-            send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
-            setComposing(null);
-          }}
-          onClose={() => setComposing(null)}
-        />
-      )}
-    </div>
+        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <RoomDesktopLayout
+            roster={(
+              <RoomRoster
+                memberIds={room.memberIds}
+                members={members}
+                selectedId={selectedId}
+                onSelect={(memberId) => selectMember(memberId === selectedId ? null : memberId)}
+                className="w-full border-r-0"
+              />
+            )}
+            details={shownView === 'timeline' && !selected ? (
+              <RoomSidePanel room={room} names={names} members={members} className="w-full border-l-0" />
+            ) : undefined}
+          >
+            {selected ? (
+            <RoomMemberPanel
+              // Each member gets its own panel state: a half-typed answer or an
+              // opened fold must not follow the user to the next member.
+              key={`${roomId}:${selected.id}`}
+              roomId={roomId}
+              member={selected}
+              live={live.get(selected.id) ?? null}
+              maxCostUsd={room.definition.envelope.maxCostUsdPerMember}
+              busy={busy}
+              dispatch={dispatch}
+              onWake={() => send('wake', { memberId: selected.id })}
+              onMessage={() => setComposing({ memberIds: [selected.id] })}
+              onAnswer={(body) => send('answer', { memberId: selected.id, body })}
+              onRelease={() => send('release', { memberId: selected.id })}
+              onTell={(body) => send('intervene', { body, memberIds: selected.id, deliver: 'now' })}
+              onClose={() => selectMember(null)}
+            />
+          ) : shownView === 'result' ? (
+            <RoomCompletion
+              room={room}
+              members={members}
+              finalLine={events.find((event) => event.kind === 'room-status')?.summary ?? null}
+              onOpenMember={selectMember}
+            />
+          ) : shownView === 'watch' ? (
+            <RoomWatch
+              roomId={room.definition.id}
+              memberIds={room.memberIds}
+              members={members}
+              live={live}
+              dispatch={dispatch}
+              onOpen={selectMember}
+            />
+            ) : (
+              <RoomActivity events={events} members={members} savedEvents={room.runtime.timelineSequence} />
+            )}
+          </RoomDesktopLayout>
+
+          {/* The drawer the top-bar Brief control opens below 1200px. Its Team
+              tab exists only below 900px, where the roster rail is gone too. */}
+          {panelOpen && !selected && (
+            <div className="absolute inset-y-0 right-0 z-10 flex w-80 max-w-full flex-col border-l border-room-line bg-room-bg shadow-xl @min-[1200px]/panel:hidden">
+              <div role="tablist" aria-label="Room panel" className="flex h-9 shrink-0 border-b border-room-line @min-[900px]/panel:hidden">
+                {(['brief', 'team'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="tab"
+                    aria-selected={drawerTab === option}
+                    onClick={() => setDrawerTab(option)}
+                    className={`grid flex-1 place-items-center text-[11px] ${
+                      drawerTab === option
+                        ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
+                        : 'text-room-text4 hover:text-room-text3'
+                    }`}
+                  >
+                    {option === 'brief' ? 'Brief' : 'Team'}
+                  </button>
+                ))}
+              </div>
+              <RoomRoster
+                memberIds={room.memberIds}
+                members={members}
+                selectedId={selectedId}
+                onSelect={(memberId) => {
+                  selectMember(memberId === selectedId ? null : memberId);
+                  setPanelOpen(false);
+                }}
+                className={drawerTab === 'team' ? 'w-full flex-1 border-r-0 @min-[900px]/panel:hidden' : 'hidden'}
+              />
+              <RoomSidePanel
+                room={room}
+                names={names}
+                members={members}
+                className={drawerTab === 'team' ? 'hidden w-full flex-1 border-l-0 @min-[900px]/panel:flex' : 'w-full flex-1 border-l-0'}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Mounted only while open, and keyed by who it addresses: a cancelled
+            draft must not reappear the next time, addressed to somebody else. */}
+        {composing && (
+          <RoomMessageDialog
+            key={composing.memberIds.join(',') || 'everyone'}
+            open
+            busy={busy}
+            addressed={composing.memberIds}
+            members={room.memberIds.map((id) => ({ id, name: names.get(id) ?? id }))}
+            onSend={(body, memberIds, now) => {
+              send('intervene', { body, memberIds: memberIds.join(','), deliver: now ? 'now' : 'next-turn' });
+              setComposing(null);
+            }}
+            onClose={() => setComposing(null)}
+          />
+        )}
+      </div>
+    </WorkViewContext.Provider>
   );
 }

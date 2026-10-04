@@ -5,12 +5,14 @@
  * "Show more" (paginate, don't scroll).
  */
 
+import { useWorkActivity } from '../lib/use-work-activity';
+import { useNow } from '../lib/use-now';
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Users } from 'lucide-react';
 import { sessionStartedAt } from '@sero-ai/common';
 import type { RoomStatus, RoomSummary } from '../../shared/room-types';
-import { formatCost, formatElapsed, formatRelative } from '../lib/format';
+import { formatCost, formatRelative } from '../lib/format';
 import { ROOM_DOT } from '../lib/list-row-status';
 import { roomActivity, type RoomActivity } from '../lib/room-activity';
 import { memberGlyph } from '../lib/member-glyph';
@@ -40,16 +42,6 @@ interface RoomsOverviewProps {
   onNew: () => void;
 }
 
-/** `2 members · 15 min of work` — who is in it and how long they worked. */
-function roomWho(room: RoomSummary): string {
-  const members = `${room.memberCount} member${room.memberCount === 1 ? '' : 's'}`;
-  const end = room.status === 'running' || room.status === 'completing' ? Date.now() : Date.parse(room.updatedAt);
-  // Wall-clock between its first and last report. It is not time spent working,
-  // which nothing records, so the row does not claim it is.
-  const elapsed = room.startedAt ? formatElapsed(end - Date.parse(room.startedAt)) : formatRelative(room.updatedAt);
-  return `${members} · ${elapsed}`;
-}
-
 /** `$0.31 of $2.00` — spend alone on the right, as the drawing puts it. */
 function roomMoney(room: RoomSummary): string {
   return room.maxCostUsd > 0
@@ -59,21 +51,19 @@ function roomMoney(room: RoomSummary): string {
 
 /** What the Room asks the user for, in words. A count alone says nothing. */
 function roomAsk(room: RoomSummary, activity: RoomActivity): string | null {
-  if (room.attentionCount <= 0) return null;
+  // An exhausted time limit is said by the row's own state and answered by the
+  // hold inside the Room, so no second pill repeats it.
+  if (room.attentionCount <= 0 || activity.timeLimit) return null;
   return activity.action ?? `${room.attentionCount} ${room.attentionCount === 1 ? 'item needs' : 'items need'} you`;
-}
-
-/**
- * The row's second line: the state word, then how long it has waited. The brief
- * the Room was given is complete inside the Room, never on the row.
- */
-function roomLine(activity: RoomActivity): string {
-  return activity.waitingFor ? `${activity.word} · ${activity.waitingFor}` : activity.word;
 }
 
 export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) {
   const [shown, setShown] = useState(PAGE);
   const session = useMemo(() => sessionStartedAt(), []);
+  // Re-read when a row's status moves. Everything between arrives as a push.
+  const work = useWorkActivity(rooms.map((entry) => `${entry.id}:${entry.status}`).join('|'));
+  // A duration on screen needs a tick; with no member working, nothing runs.
+  const now = useNow([...work.values()].some((summary) => summary.activeCount > 0));
   const sorted = useMemo(() => {
     const rank = new Map(STATUS_ORDER.map((status, i) => [status, i]));
     return rooms.toSorted((a, b) =>
@@ -86,16 +76,19 @@ export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) 
     <div className="flex flex-col">
       <SectionHead count={rooms.length}>Rooms</SectionHead>
       {sorted.slice(0, shown).map((room) => {
-        const activity = roomActivity(room, session);
+        // The row's second line is the shared word and the actual work or wait.
+        // The brief the Room was given is complete inside the Room, never here.
+        const activity = roomActivity(room, session, work.get(room.id), now);
+        const ask = roomAsk(room, activity);
         return (
         <ListRow
           key={room.id}
           title={room.title}
-          attention={roomAsk(room, activity) !== null}
-          activity={<ActivityWord state={activity.state} word={roomLine(activity)} nextStep={activity.nextStep} />}
+          attention={ask !== null || activity.timeLimit}
+          activity={<ActivityWord state={activity.state} word={activity.line} nextStep={activity.nextStep} />}
           middle={
             <span className="flex flex-col items-start gap-1.5">
-              {roomAsk(room, activity) !== null && <NeedsPill>{roomAsk(room, activity)}</NeedsPill>}
+              {ask !== null && <NeedsPill>{ask}</NeedsPill>}
               <span className="flex items-center gap-2">
                 {room.members?.length ? (
                   <FaceStack
@@ -108,7 +101,7 @@ export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) 
                     }))}
                   />
                 ) : null}
-                {roomWho(room)}
+                {activity.facts ?? formatRelative(room.updatedAt)}
               </span>
             </span>
           }

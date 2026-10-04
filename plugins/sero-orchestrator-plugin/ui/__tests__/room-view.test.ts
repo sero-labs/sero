@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { PersistentSessionHistoryEntry } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { PersistedRoom } from '../../shared/room-types';
+import { mergeLiveSnapshots } from '../lib/use-room-feed';
 import type { PathClaim } from '../../shared/room-message-types';
 import { claimOverlaps, defaultRoomView, memberPaneText, mergeHistory, roomSignal, toSessionTurns } from '../lib/room-view';
 
@@ -34,6 +35,7 @@ const snapshot = (over: Partial<MemberLiveSnapshot>): MemberLiveSnapshot => ({
   lastTurnStatus: null,
   watching: true,
   updatedAt: '2026-01-01T00:00:00.000Z',
+  revision: 1,
   ...over,
 });
 
@@ -155,5 +157,23 @@ describe('who is about to edit the same file', () => {
     // Same member, and the two patterns DO meet — it is only overlapping itself.
     expect(claimOverlaps([claim('impl-1', 'src/auth'), claim('impl-1', 'src/auth/session.ts')])).toEqual([]);
     expect(claimOverlaps([claim('impl-1', 'src/a.ts'), claim('impl-2', 'src/b.ts')])).toEqual([]);
+  });
+});
+
+describe('mergeLiveSnapshots', () => {
+  it('keeps the newer push when the reply to watch arrives after it', () => {
+    const pushed = snapshot({ turnId: 'turn-2', text: 'new turn', revision: 9 });
+    const held = mergeLiveSnapshots(new Map(), [pushed]);
+    // The reply was read before the new turn started and lands late.
+    const merged = mergeLiveSnapshots(held, [snapshot({ turnId: 'turn-1', text: 'old turn', revision: 4 })]);
+    expect(merged).toBe(held);
+    expect(merged.get('lead')?.text).toBe('new turn');
+  });
+
+  it('takes a newer snapshot and leaves the other members alone', () => {
+    const held = mergeLiveSnapshots(new Map(), [snapshot({ revision: 2 }), snapshot({ memberId: 'critic', text: 'critic text', revision: 3 })]);
+    const merged = mergeLiveSnapshots(held, [snapshot({ text: 'fresh', revision: 5 })]);
+    expect(merged.get('lead')?.text).toBe('fresh');
+    expect(merged.get('critic')?.text).toBe('critic text');
   });
 });

@@ -12,11 +12,14 @@
  * under it rather than rewritten here.
  */
 
+import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { relativeTime } from '@sero-ai/common';
 import type { RoomStopReason } from '../../shared/room-types';
-import type { RoomControls } from '../lib/room-controls';
+import type { ResumeOutcome, RoomControls } from '../lib/room-controls';
 import { holdText, type HoldMember } from '../lib/room-hold';
+import { RoomTimeDialog } from './RoomTimeDialog';
+import { type RoomTimeLimit } from '../lib/room-time';
 
 interface RoomHoldCardProps {
   /** Why the runtime stopped starting turns, when it did. */
@@ -29,9 +32,16 @@ interface RoomHoldCardProps {
   onMessage: () => void;
   onResume: () => void;
   onStop: () => void;
+  /**
+   * The Room's time, when it is known. A Room that used all of it offers Add
+   * time, which opens a dialog, in place of a plain Resume.
+   */
+  time?: RoomTimeLimit;
+  /** Resumes the same Room with a larger total, in minutes. */
+  onAddTime?: (totalMinutes: number) => Promise<ResumeOutcome>;
 }
 
-export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, onResume, onStop }: RoomHoldCardProps) {
+export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, onResume, onStop, time, onAddTime }: RoomHoldCardProps) {
   if (!stopReason && members.length === 0) return null;
 
   const { eyebrow, headline, since, note } = holdText(stopReason, members);
@@ -51,7 +61,7 @@ export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, o
 
       {members.length > 0 && <HoldMembersFold members={members} />}
 
-      <HoldControls controls={controls} busy={busy} onMessage={onMessage} onResume={onResume} onStop={onStop} />
+      <HoldControls controls={controls} busy={busy} onMessage={onMessage} onResume={onResume} onStop={onStop} time={time} onAddTime={onAddTime} />
     </section>
   );
 }
@@ -73,12 +83,20 @@ function HoldMembersFold({ members }: { members: HoldMember[] }) {
   );
 }
 
-function HoldControls({ controls, busy, onMessage, onResume, onStop }: Pick<RoomHoldCardProps, 'controls' | 'busy' | 'onMessage' | 'onResume' | 'onStop'>) {
+function HoldControls({ controls, busy, onMessage, onResume, onStop, time, onAddTime }: Pick<RoomHoldCardProps, 'controls' | 'busy' | 'onMessage' | 'onResume' | 'onStop' | 'time' | 'onAddTime'>) {
+  const [adding, setAdding] = useState(false);
   if (!controls.message && !controls.resume && !controls.stop) return null;
+  // A Room that used all its time cannot just carry on: it needs a larger total.
+  const exhausted = !!time && !!onAddTime && time.usedMs >= time.limitMs;
   return (
-    <div className="mt-1 flex flex-wrap gap-2">
+    <div className="mt-1 flex flex-wrap items-end gap-2">
       {controls.message && <Button size="sm" disabled={busy} onClick={onMessage}>Message the team</Button>}
-      {controls.resume && <Button size="sm" variant="outline" disabled={busy} onClick={onResume}>Resume</Button>}
+      {controls.resume && (exhausted
+        ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setAdding(true)}>Add time…</Button>
+        : <Button size="sm" variant="outline" disabled={busy} onClick={() => onResume()}>Resume</Button>)}
+      {adding && controls.resume && exhausted && (
+        <RoomTimeDialog time={time} onApprove={onAddTime} onClose={() => setAdding(false)} />
+      )}
       {controls.stop && (
         <Button size="sm" variant="ghost" disabled={busy} className="text-destructive" onClick={onStop}>
           Stop the Room

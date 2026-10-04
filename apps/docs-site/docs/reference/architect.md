@@ -103,7 +103,10 @@ The user's chat and the project page use `architect_projects`.
 | --- | --- |
 | `list` | none |
 | `show` | `projectId` |
-| `create` | `idea`, `folder` |
+| `create` | `idea`, `folder` or `workspaceId`, `capUsd` (the start cap; with it the project runs under a delivery agreement) |
+| `feedback` | optional `projectId`. Returns what the project's owner, research, Workflows and Rooms do now, as bounded metadata with no output text |
+| `watch_owner`, `unwatch_owner` | `projectId`, `observerId`. Opens or ends one view's watch on the owner's current turn |
+| `watch_room`, `unwatch_room` | `projectId`, `roomId`, `observerId`. The same for a Room the project started; any other Room is refused |
 | `pause`, `resume`, `stop`, `delete` | `projectId` |
 | `raise_cap` | `projectId`, `capUsd` |
 | `set_autonomy` | `projectId`, `autonomy` (`milestones`, `charter-only`, `model-judged`) |

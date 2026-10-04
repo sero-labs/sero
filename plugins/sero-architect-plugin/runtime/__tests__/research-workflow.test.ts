@@ -5,6 +5,7 @@ import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type Orchest
 import { buildOwnerContract } from '../../shared/owner-contract';
 import { createServices } from '../services';
 import { observeResearchWorkflows } from '../research-workflow';
+import { SESSION_STARTED_AT } from '../session-state';
 import { buildingProject, cleanupHosts, fakeHost, storeFor, T0 } from './helpers';
 
 afterEach(async () => {
@@ -48,6 +49,29 @@ it.each(['discovery', 'build'] as const)('uses a Workflow for research or review
   expect(finished.phase).toBe(phase);
   expect(finished.milestones).toEqual([]);
   expect(wake).toHaveBeenCalledTimes(1);
+});
+
+it('sets research liveness only from a live Workflow report, and clears it when the run ends or blocks', async () => {
+  const host = await fakeHost();
+  const now = new Date(Date.parse(SESSION_STARTED_AT) + 1000).toISOString();
+  host.now = () => now;
+  const store = await storeFor(host);
+  const record = buildingProject({ pendingResearch: [{
+    id: 'res-live', kind: 'workflow', workflowId: 'loop-live', question: 'q', stoppingCondition: 's', startedAt: T0,
+  }] });
+  await store.write(record);
+  const loop: OrchestratorBoardLoopView = {
+    id: 'loop-live', title: 'Research', status: 'active', updatedAt: now,
+    liveRun: { runId: 'run-live', startedAt: T0, reportedAt: now },
+  };
+  const deps = { host, store, wake: vi.fn() };
+  await observeResearchWorkflows(deps, record.id, [loop]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBe(now);
+  await observeResearchWorkflows(deps, record.id, [{ ...loop, liveRun: undefined }]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
+  await observeResearchWorkflows(deps, record.id, [loop]);
+  await observeResearchWorkflows(deps, record.id, [{ ...loop, status: 'blocked' }]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
 });
 
 it('clears a stopped research Workflow and names it by the Workflow title', async () => {

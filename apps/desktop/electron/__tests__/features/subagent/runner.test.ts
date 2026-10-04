@@ -92,6 +92,7 @@ vi.mock('@electron/shared/settings/model-tiers', () => ({
 
 import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
 import { resolveSubagentPaths, runSubagent } from '@electron/features/subagent/runtime/runner';
+import { ABORT_GRACE_MS } from '@electron/features/subagent/runtime/abort-grace';
 import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
 
@@ -316,13 +317,17 @@ describe('runSubagent live output', () => {
     ]);
     mocks.createAgentSession.mockImplementationOnce(async () => ({ session }));
 
-    const deltas: string[] = [];
+    const deltas: { delta: string; reasoning: boolean }[] = [];
     const config = createConfig(new AbortController().signal);
-    config.onTextDelta = (delta) => deltas.push(delta);
+    config.onTextDelta = (delta, reasoning) => deltas.push({ delta, reasoning });
 
     await runSubagent(config, createDeps());
 
-    expect(deltas).toEqual(['weighing options…', 'final answer']);
+    // Reasoning stays in the live output and is marked, so a view can say so.
+    expect(deltas).toEqual([
+      { delta: 'weighing options…', reasoning: true },
+      { delta: 'final answer', reasoning: false },
+    ]);
   });
 });
 
@@ -376,6 +381,61 @@ describe('runSubagent abort handling', () => {
       expect(validate).not.toHaveBeenCalled();
       expect(result.usage).toMatchObject({ totalTokens: 160, cost: 0.42 });
       expect(session.dispose).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run after a stalled tool that does not stop on abort', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 600_000;
+      config.resolved.toolStallTimeoutMs = 50;
+      // A shell command that started a server: the call never returns, abort or not.
+      session.prompt.mockImplementation(() => {
+        session.subscribe.mock.calls.at(-1)?.[0]?.({ type: 'tool_execution_start', toolName: 'bash', args: {} });
+        return new Promise<void>(() => {});
+      });
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(50);
+      expect(session.abort).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(ABORT_GRACE_MS);
+      const result = await run;
+
+      expect(result.error).toContain("Tool 'bash' stalled");
+      expect(session.dispose).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still stops a stalled tool when a second tool call ends beside it', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 600_000;
+      config.resolved.toolStallTimeoutMs = 50;
+      // Two calls in one reply: a shell command that never returns, and a quick read.
+      session.prompt.mockImplementation(() => {
+        const emit = session.subscribe.mock.calls.at(-1)?.[0];
+        emit?.({ type: 'tool_execution_start', toolCallId: 'call-1', toolName: 'bash', args: {} });
+        emit?.({ type: 'tool_execution_start', toolCallId: 'call-2', toolName: 'read', args: {} });
+        emit?.({ type: 'tool_execution_end', toolCallId: 'call-2', toolName: 'read' });
+        return new Promise<void>(() => {});
+      });
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(50);
+      expect(session.abort).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(ABORT_GRACE_MS);
+
+      expect((await run).error).toContain("Tool 'bash' stalled");
     } finally {
       vi.useRealTimers();
     }

@@ -23,6 +23,8 @@ import { mergeHistory } from './room-view';
 
 interface FeedDetails {
   ok?: boolean;
+  /** The tool's own words when an action did not work. */
+  error?: string;
   events?: RoomTimelineEvent[];
   snapshots?: MemberLiveSnapshot[];
   entries?: PersistentSessionHistoryEntry[];
@@ -57,12 +59,36 @@ export function useRoomTimeline(
   return events;
 }
 
+const NO_MEMBERS = new Map<string, MemberLiveSnapshot>();
+
+/** How often an open Watch view renews its lease. Well inside the runtime's five minutes. */
+const WATCH_RENEW_MS = 2 * 60_000;
+
+/**
+ * Keeps the newer snapshot per member. The reply to `watch` and the pushed
+ * updates race, so a reply that lands after a newer push must not put an
+ * earlier turn back on the tile.
+ */
+export function mergeLiveSnapshots(
+  current: Map<string, MemberLiveSnapshot>,
+  incoming: readonly MemberLiveSnapshot[],
+): Map<string, MemberLiveSnapshot> {
+  let next: Map<string, MemberLiveSnapshot> | null = null;
+  for (const snapshot of incoming) {
+    const held = (next ?? current).get(snapshot.memberId);
+    if (held && held.revision >= snapshot.revision) continue;
+    next ??= new Map(current);
+    next.set(snapshot.memberId, snapshot);
+  }
+  return next ?? current;
+}
+
 /**
  * What every member is doing right now, by member id.
  *
- * Asking is also what makes the runtime retain streamed text — a member nobody
- * watches keeps none. The demand is dropped when the view closes, so a Room
- * left running with no Watch view open costs nothing.
+ * Asking is also what makes the runtime retain streamed text. Each view asks
+ * as its own observer, so closing one view leaves another on the same Room
+ * open, and a Room with no Watch view open costs nothing.
  */
 export function useRoomLive(
   roomId: string | null,
@@ -70,47 +96,57 @@ export function useRoomLive(
   active: boolean,
   signal: string,
 ): Map<string, MemberLiveSnapshot> {
-  const [live, setLive] = useState<Map<string, MemberLiveSnapshot>>(new Map());
+  const [live, setLive] = useState<{ roomId: string | null; members: Map<string, MemberLiveSnapshot> }>({ roomId: null, members: new Map() });
+  const [observerId] = useState(() => `view-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+  const merge = (forRoom: string, snapshots: readonly MemberLiveSnapshot[]): void => {
+    setLive((current) => {
+      const members = mergeLiveSnapshots(current.roomId === forRoom ? current.members : new Map(), snapshots);
+      return current.roomId === forRoom && members === current.members ? current : { roomId: forRoom, members };
+    });
+  };
 
   // Streaming: while the Watch view holds its lease the runtime pushes each
   // member's current turn, so a tile updates as the text arrives instead of
   // waiting for the Room record to change. Nothing arrives for another Room,
-  // and nothing arrives at all once the lease is released.
+  // and nothing arrives at all once the lease is released. The subscription is
+  // in place before the first read, so no update falls between the two.
   useAppRuntimeEvents<RoomMemberLiveNotice>('orchestrator-room-live', (notice) => {
-    if (!notice || notice.roomId !== roomId) return;
-    setLive((current) => {
-      const next = new Map(current);
-      next.set(notice.snapshot.memberId, notice.snapshot);
-      return next;
-    });
+    if (!notice || notice.roomId !== roomId || !active) return;
+    merge(notice.roomId, [notice.snapshot]);
   });
 
   useEffect(() => {
-    if (!roomId || !active) {
-      setLive(new Map());
-      return;
-    }
+    if (!roomId || !active) return;
     let current = true;
-    void dispatch({ action: 'watch', roomId }).then((details) => {
-      if (current && details?.snapshots) {
-        setLive(new Map(details.snapshots.map((snapshot) => [snapshot.memberId, snapshot])));
-      }
-    });
+    const read = (): void => {
+      void dispatch({ action: 'watch', roomId, observerId }).then((details) => {
+        if (current && details?.snapshots) merge(roomId, details.snapshots);
+      });
+    };
+    // `read` calls a runtime tool to hold the watch lease. It hands no state to
+    // a parent component.
+    // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent
+    read();
+    // The lease is renewed while the view is open. A view that reloads or
+    // crashes stops renewing, and the runtime then drops its demand.
+    const renew = setInterval(read, WATCH_RENEW_MS);
     return () => {
       current = false;
+      clearInterval(renew);
     };
-  }, [roomId, active, signal, dispatch]);
+  }, [roomId, active, signal, dispatch, observerId]);
 
   // Releasing is its own effect on purpose: it must run when the view closes,
   // not on every re-read.
   useEffect(() => {
     if (!roomId || !active) return;
     return () => {
-      void dispatch({ action: 'unwatch', roomId });
+      void dispatch({ action: 'unwatch', roomId, observerId });
     };
-  }, [roomId, active, dispatch]);
+  }, [roomId, active, dispatch, observerId]);
 
-  return live;
+  // A closed view, or one that moved to another Room, shows nothing held over.
+  return roomId && active && live.roomId === roomId ? live.members : NO_MEMBERS;
 }
 
 /** The end of a reply, as a tile shows it: the newest assistant text, tail only. */

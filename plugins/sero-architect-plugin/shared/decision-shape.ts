@@ -5,6 +5,9 @@
 
 import type { Decision, DecisionOption } from './record';
 
+/** The most options a decision the owner writes may offer. */
+export const MAX_AUTHORED_OPTIONS = 2;
+
 export interface DecisionDraft {
   question: string;
   options: DecisionOption[];
@@ -26,6 +29,9 @@ function parseOptions(raw: string | undefined): DecisionOption[] | string {
     return 'optionsJson is not valid JSON.';
   }
   if (!Array.isArray(parsed) || parsed.length < 2) return 'A decision needs at least two options.';
+  // A question the user can answer in one action has two outcomes. A decision
+  // the runtime raises itself, and every saved decision, keeps the options it has.
+  if (parsed.length > MAX_AUTHORED_OPTIONS) return `A decision has at most ${MAX_AUTHORED_OPTIONS} options, each with its consequence. Ask one question with two outcomes and put the detail in the reason.`;
   const options: DecisionOption[] = [];
   for (const [index, entry] of parsed.entries()) {
     const option = entry as Partial<DecisionOption> | null;

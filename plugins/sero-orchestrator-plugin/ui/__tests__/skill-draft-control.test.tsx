@@ -15,6 +15,8 @@ vi.mock('@sero-ai/app-runtime', () => ({
   // This control listens to the app's own runtime; the tests render it
   // directly, so the listener is inert.
   useAppRuntimeEvents: () => {},
+  // The first read of running calls answers with none.
+  useAppTools: () => ({ run: async () => ({ text: '', details: { ok: true, calls: [] } }) }),
   getSeroApi: () => ({
     appState: {
       onChange: () => () => {},

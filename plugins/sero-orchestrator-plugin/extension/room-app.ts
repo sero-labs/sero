@@ -38,6 +38,8 @@ export const ROOM_APP_ACTIONS = [
   'timeline',
   'watch',
   'unwatch',
+  'feedback',
+  'live_calls',
   'history',
   'read_artifact',
   'context',
@@ -71,6 +73,7 @@ export const RoomAppToolParams = Type.Object({
   limit: Type.Optional(Type.Number({ description: 'For timeline and history: how many entries to return' })),
   artifactId: Type.Optional(Type.String({ description: 'For read_artifact: the artifact id from the Room record, whose content the result view shows in place' })),
   cursor: Type.Optional(Type.String({ description: 'For history: the cursor from the previous page, to read further back' })),
+  observerId: Type.Optional(Type.String({ description: 'For watch and unwatch: the view that watches, so closing one view leaves another open' })),
   clarificationsJson: Type.Optional(Type.String({ description: 'For prepare: answers to the planner\'s questions, as JSON [{"prompt":"...","answer":"..."}]' })),
 });
 
@@ -95,6 +98,7 @@ export interface RoomAppToolParamsShape {
   limit?: number;
   artifactId?: string;
   cursor?: string;
+  observerId?: string;
   clarificationsJson?: string;
 }
 
@@ -183,6 +187,15 @@ async function run(
     );
   }
 
+  if (params.action === 'live_calls') {
+    const calls = await app.liveCalls();
+    return result(`${calls.length} call(s) running.`, { ok: true, calls });
+  }
+  if (params.action === 'feedback') {
+    const feedback = await app.feedback();
+    return result(`${feedback.snapshots.length} work item(s) reported.`, { ok: true, feedback });
+  }
+
   const roomId = params.roomId?.trim();
   if (!roomId) return failure(`roomId is required for ${params.action}`);
   return params.action === 'adjust'
@@ -240,12 +253,12 @@ async function settledResult(
       return result(`${events.length} event(s) in Room ${roomId}.`, { ok: true, roomId, events });
     }
     case 'watch': {
-      const snapshots = await app.watch(roomId);
+      const snapshots = await app.watch(roomId, params.observerId?.trim() || undefined);
       const live = snapshots.filter((snapshot) => snapshot.turnId !== null).length;
       return result(`${live} of ${snapshots.length} member(s) are mid-turn.`, { ok: true, roomId, snapshots });
     }
     case 'unwatch': {
-      await app.unwatch(roomId);
+      await app.unwatch(roomId, params.observerId?.trim() || undefined);
       return done(`Stopped watching Room ${roomId}.`);
     }
     case 'context': {

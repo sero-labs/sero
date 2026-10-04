@@ -48,6 +48,46 @@ function dispatch(overrides: Partial<NonNullable<Milestone['dispatch']>> = {}) {
   };
 }
 
+describe('research activity before milestones exist', () => {
+  const pending = { id: 'res-1', question: 'Which audio graph?', stoppingCondition: 'A cited answer.', startedAt: T0 };
+  const reportedAt = '2026-09-19T10:04:00.000Z';
+
+  it.each(['room', 'workflow', undefined] as const)('shows observed %s research as working', (kind) => {
+    const record = project({ phase: 'discovery', milestones: [], pendingResearch: [{
+      ...pending, kind, observedLiveAt: reportedAt,
+      ...(kind === 'room' ? { roomId: 'room-1' } : kind === 'workflow' ? { workflowId: 'loop-1' } : { runId: 'run-1' }),
+    }] });
+    const activity = projectActivity(record, RUNNING_SESSION);
+    expect(activity.state).toBe('working');
+    expect(activity.ownerAt).toBe(reportedAt);
+    expect(activity.ownerSuffix).toBe('Architect idle');
+  });
+
+  it.each([undefined, T0])('does not claim a saved Room is live without a report from this session (%s)', (observedLiveAt) => {
+    const record = project({ phase: 'discovery', milestones: [], pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt }] });
+    expect(projectActivity(record, RUNNING_SESSION).state).toBe('last-known');
+  });
+
+  it('does not claim research is live when the runtime is off', () => {
+    const record = project({ pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt: reportedAt }] });
+    expect(projectActivity(record, ARCHITECT_OFF).state).toBe('last-known');
+  });
+
+  it('shows preparation before research has a linked run', () => {
+    const activity = projectActivity(project({ pendingResearch: [{ ...pending, kind: 'room' }] }), RUNNING_SESSION);
+    expect(activity.state).toBe('idle');
+    expect(activity.headline).not.toBe('Nothing is running');
+  });
+
+  it('shows live research before a milestone with only a stale report', () => {
+    const record = project({
+      milestones: [milestone({ dispatch: dispatch({ observedLiveAt: T0 }) })],
+      pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt: reportedAt }],
+    });
+    expect(projectActivity(record, RUNNING_SESSION).state).toBe('working');
+  });
+});
+
 describe('projectActivity', () => {
   it('reads a dispatch this session watched report as working', () => {
     const record = project({
@@ -84,6 +124,24 @@ describe('projectActivity', () => {
     expect(activity.state).toBe('last-known');
     expect(activity.headline).toBe('Last known: working on M2 · Adversarial review');
     expect(activity.lastReportAt).toBe('2026-09-16T08:12:00.000Z');
+  });
+
+  it('reads a reported milestone as being checked only while this session shows the Architect at work', () => {
+    const reported = milestone({ status: 'verifying', verification: 'reported', dispatch: dispatch({ lastRunAt: '2026-09-16T08:12:00.000Z' }) });
+    const base = project({ milestones: [reported] });
+    const inTurn = { ...base, session: { ...base.session, workingSince: '2026-09-19T10:05:00.000Z' } };
+    const oldTurn = { ...base, session: { ...base.session, workingSince: '2026-09-16T08:13:00.000Z' } };
+
+    expect(projectActivity(inTurn, RUNNING_SESSION)).toMatchObject({ state: 'working', headline: 'Checking M2 · Adversarial review' });
+    expect(projectActivity(oldTurn, RUNNING_SESSION)).toMatchObject({ state: 'last-known', headline: 'Last known: checking M2 · Adversarial review' });
+    expect(projectActivity(inTurn, ARCHITECT_OFF).state).toBe('last-known');
+  });
+
+  it('says a dispatch is being prepared before its Workflow exists, and only this session can claim it', () => {
+    const pending = (startedAt: string) => project({ milestones: [milestone({ status: 'approved', pendingDispatch: { kind: 'workflow', destination: null, startedAt } })] });
+
+    expect(projectActivity(pending('2026-09-19T10:05:00.000Z'), RUNNING_SESSION)).toMatchObject({ state: 'working', headline: 'Starting M2 · Adversarial review', owner: 'Workflow is being prepared' });
+    expect(projectActivity(pending('2026-09-16T08:00:00.000Z'), RUNNING_SESSION).headline).toBe('Last known: starting M2 · Adversarial review');
   });
 
   it('refuses a stamp left by an earlier session', () => {
@@ -148,6 +206,37 @@ describe('projectActivity', () => {
     expect(activity.state).toBe('paused');
     expect(activity.headline).toBe('Paused by you');
     expect(activity.owner).toBe('Maintenance Workflow paused with the project');
+  });
+
+  it('says a paused project is still finishing the turns in flight, and counts them', () => {
+    const feedback = (activeCount: number) => ({ activeCount, current: [], lastActivityAt: null, contactObservedAt: null });
+    const paused = project({ paused: true });
+
+    expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(1) }).owner).toBe('1 turn is still finishing');
+    expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(3) }).owner).toBe('3 turns are still finishing');
+    expect(projectActivity(paused, RUNNING_SESSION).owner).toBe('Nothing runs until you resume');
+  });
+
+  it('reads an agreement whose start is not approved as not started, with Review access', () => {
+    const record = project({ agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: null, authority: null } });
+
+    expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'idle', headline: 'Not started', action: 'Review access' });
+  });
+
+  it('leads a delivered agreement with Delivered and keeps maintenance as the detail', () => {
+    const record = project({
+      phase: 'maintain',
+      agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: T0, authority: { policyId: 'policy-1', workspaceId: 'ws-1', roles: {}, maxLiveSessions: 8, maxTotalSessions: 64 } },
+      milestones: [
+        milestone({ status: 'done', verification: 'delivered' }),
+        milestone({ id: MAINTENANCE_MILESTONE_ID, title: 'Maintenance', status: 'running', dispatch: dispatch({ id: 'loop-maint', lastRunAt: '2026-09-14T08:00:00.000Z' }) }),
+      ],
+    });
+
+    expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'complete', headline: 'Delivered', owner: 'Maintenance is waiting for a trigger' });
+    // Accepted work that waits for its release step is not delivered yet.
+    const releasing = { ...record, phase: 'release' as const, milestones: [record.milestones[0]!] };
+    expect(projectActivity(releasing, RUNNING_SESSION).headline).toBe('1 of 1 milestones accepted');
   });
 
   it('reads an armed maintenance Workflow as waiting for a trigger', () => {

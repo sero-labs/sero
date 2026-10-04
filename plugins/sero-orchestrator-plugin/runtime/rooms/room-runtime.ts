@@ -17,6 +17,7 @@ import { createMemberSessionPool } from './member-session';
 import { createRoomAppActions, type RoomAppActions } from './room-app-actions';
 import { createRoomClaims, type RoomClaims } from './room-claims';
 import { RoomCoordinator } from './room-coordinator';
+import { saveActiveTime } from './room-reconcile';
 import { createRoomObservation } from './room-observation';
 import { createRoomStore } from './room-store';
 import { createRoomRuntimeTelemetry } from './room-telemetry';
@@ -45,6 +46,8 @@ export interface RoomRuntime {
   reconcile(): Promise<void>;
   /** Recovery pass only — the normal wake path is the coordinator's event path. */
   tick(): Promise<void>;
+  /** Banks every Room's active time before the runtime closes. */
+  shutdown(): Promise<void>;
 }
 
 /**
@@ -71,6 +74,7 @@ export function createRoomRuntime(
   const observation = createRoomObservation({
     sessions: ctx.host.persistentSessions,
     now: () => host.now(),
+    ...(host.feedback ? { feedback: { projection: host.feedback, scope: { appId: ctx.appId, workspaceId: ctx.workspaceId } } } : {}),
   });
   const sessions = createMemberSessionPool({ host, store, observation });
   const work = createRoomWork({ host, store });
@@ -144,6 +148,12 @@ export function createRoomRuntime(
     work,
     claims,
     reconcile: () => coordinator.reconcileRooms(),
-    tick: () => coordinator.tick(),
+    // The checkpoint rides the recovery tick that already runs, so a running
+    // Room needs no timer of its own.
+    tick: async () => {
+      await saveActiveTime({ host, store }, false);
+      await coordinator.tick();
+    },
+    shutdown: () => saveActiveTime({ host, store }, true),
   };
 }

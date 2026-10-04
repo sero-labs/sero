@@ -76,14 +76,34 @@ describe('a Room row', () => {
     expect(text).not.toContain('APPROVED ARCHITECT SCOPE');
   });
 
-  it('keeps the member faces and the member count', () => {
+  it('keeps the member faces', () => {
     act(() => {
       root.render(<RoomsOverview rooms={[waitingRoom()]} onOpenRoom={() => {}} onNew={() => {}} />);
     });
 
-    expect(host.textContent).toContain('2 members');
     // One avatar image per member: the row keeps its faces.
     expect(host.querySelectorAll('img')).toHaveLength(2);
+  });
+
+  it('shows the same working time as the Room header, not the time since it started', () => {
+    // Started nine days ago, worked twelve minutes: the header reads 12m.
+    const worked = { ...waitingRoom(), activeMs: 12 * 60_000, activeSince: null, maxWallClockMs: 30 * 60_000 } as RoomSummary;
+
+    act(() => {
+      root.render(<RoomsOverview rooms={[worked]} onOpenRoom={() => {}} onNew={() => {}} />);
+    });
+
+    expect(host.textContent).toContain('12 min of 30 min active');
+  });
+
+  it('says when the figure was recorded before working time was tracked', () => {
+    const seeded = { ...waitingRoom(), activeMs: 40 * 60_000, activeSince: null, activeSeeded: true, maxWallClockMs: 30 * 60_000 } as RoomSummary;
+
+    act(() => {
+      root.render(<RoomsOverview rooms={[seeded]} onOpenRoom={() => {}} onNew={() => {}} />);
+    });
+
+    expect(host.textContent).toContain('40 min of 30 min active (before tracking)');
   });
 
   it('does not call a Room working from a saved running status alone', () => {

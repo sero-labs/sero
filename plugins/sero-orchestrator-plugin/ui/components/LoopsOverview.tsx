@@ -7,12 +7,14 @@
  * instruction: the instruction is complete inside the Workflow.
  */
 
+import { useWorkActivity } from '../lib/use-work-activity';
+import { useNow } from '../lib/use-now';
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { sessionStartedAt } from '@sero-ai/common';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { formatCost, formatRelative } from '../lib/format';
-import { loopActivity } from '../lib/loop-activity';
+import { loopActivity, loopFacts } from '../lib/loop-activity';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 import { ActivityWord } from './ActivityWord';
 import { NeedsPill } from './NeedsPill';
@@ -40,6 +42,10 @@ function loopAsk(loop: LoopSummary): string | null {
 export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onOpenLoop: (loopId: string) => void }) {
   const [shown, setShown] = useState(PAGE);
   const session = useMemo(() => sessionStartedAt(), []);
+  // Re-read when a row's status moves. Everything between arrives as a push.
+  const work = useWorkActivity(loops.map((entry) => `${entry.id}:${entry.status}`).join('|'));
+  // A duration on screen needs a tick; with no step working, nothing runs.
+  const now = useNow([...work.values()].some((summary) => summary.activeCount > 0));
   const sorted = useMemo(() => {
     const rank = new Map(STATUS_ORDER.map((status, i) => [status, i]));
     return loops.toSorted((a, b) =>
@@ -54,7 +60,7 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
     <div className="flex flex-col">
       <SectionHead count={loops.length}>{WORKFLOWS_LABEL}</SectionHead>
       {sorted.slice(0, shown).map((loop) => {
-        const activity = loopActivity(loop, session);
+        const activity = loopActivity(loop, session, work.get(loop.id), now);
         const ask = loopAsk(loop);
         return (
           <ListRow
@@ -62,7 +68,7 @@ export function LoopsOverview({ loops, onOpenLoop }: { loops: LoopSummary[]; onO
             title={loop.title}
             attention={ask !== null}
             activity={<ActivityWord state={activity.state} word={activity.line} nextStep={activity.nextStep} />}
-            middle={ask !== null ? <NeedsPill>{ask}</NeedsPill> : loopWhen(loop)}
+            middle={ask !== null ? <NeedsPill>{ask}</NeedsPill> : loopFacts(activity, loopWhen(loop))}
             money={loop.usage?.costUsd != null ? formatCost(loop.usage.costUsd) : ''}
             onClick={() => onOpenLoop(loop.id)}
           />

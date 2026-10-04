@@ -97,6 +97,9 @@ describe('persistent session grant store singleton', () => {
 
     const recovered = await getGrantStore();
     expect(await getGrantStore()).toBe(recovered);
-    expect(mocks.read).toHaveBeenCalledTimes(2);
+    // One failed start and one successful one. The store reads its policies
+    // too, so the grants file is what counts a start.
+    const grantReads = mocks.read.mock.calls.filter(([file]) => String(file).endsWith('grants.json'));
+    expect(grantReads).toHaveLength(2);
   });
 });

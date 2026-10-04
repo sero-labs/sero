@@ -29,6 +29,8 @@ function member(id: string, displayName: string, statusDetail: string): HoldMemb
 const MORGAN = member('m-1', 'Morgan', 'Assisted recovery merge could not be attempted: the harness rejected git merge --ff-only.');
 const RILEY = member('m-2', 'Riley', 'System-directed recovery is blocked in the Riley worktree: clean status confirmed.');
 
+const EXPIRED = { title: 'Build the synth', usedMs: 35 * 60_000, limitMs: 15 * 60_000, maxCostUsd: 2 };
+
 const AWAITING: RoomStopReason = {
   kind: 'awaiting-user',
   detail: 'Two members asked for the saved snapshot to be applied through the harness.',
@@ -112,9 +114,35 @@ describe('the hold card', () => {
 
   it('names a stop nobody asked about from the runtime kind', () => {
     renderCard({ stopReason: { kind: 'limit-reached', detail: 'Cost limit of $2.00 reached.', at: AT }, members: [] });
-    expect(host.querySelector('h3')?.textContent).toBe('The Room reached a limit you set');
-    expect(host.textContent).toContain('Stopped at your limit');
+    expect(host.textContent).toContain('Cost limit of $2.00 reached.');
+    expect(host.textContent).not.toContain('you set');
     expect(host.querySelector('details')).toBeNull();
+  });
+
+  it('offers Add time for an expired budget in place of Resume, with no inline form', () => {
+    renderCard({
+      members: [], stopReason: { kind: 'limit-reached', detail: 'Time limit reached.', at: AT },
+      time: EXPIRED, onAddTime: async () => ({ ok: true }),
+    });
+    const labels = [...host.querySelectorAll('button')].map((node) => node.textContent);
+    expect(labels).toContain('Add time…');
+    expect(labels).not.toContain('Resume');
+    expect(host.querySelector('input')).toBeNull();
+  });
+
+  it('does not offer to add time while a Room action is busy', () => {
+    renderCard({ time: EXPIRED, onAddTime: async () => ({ ok: true }), busy: true });
+    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Add time…');
+    expect(button?.disabled).toBe(true);
+  });
+
+  it('resumes within the existing time budget without sending a new limit', () => {
+    const onResume = vi.fn();
+    renderCard({ time: { ...EXPIRED, usedMs: 5 * 60_000 }, onAddTime: async () => ({ ok: true }), onResume });
+    expect(host.querySelector('input')).toBeNull();
+    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Resume');
+    act(() => button?.click());
+    expect(onResume).toHaveBeenCalledWith();
   });
 
   it('renders nothing when the Room is neither stopped nor asked anything', () => {

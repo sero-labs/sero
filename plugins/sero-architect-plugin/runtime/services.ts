@@ -15,21 +15,23 @@ import type { ObservationOperationKind, OrchestratorBoardCreateOptions, Orchestr
 import { recoverDispatch } from './dispatch-link';
 import { chargeRoomPlanning, runProjectModel } from './project-usage';
 import { closeDeliveredObjectives } from './objective-completion';
-import { ensureResearchContext } from './research-context';
+import { runDirectResearch } from './research-direct';
 import { resolveProjectContext } from './model-resolution';
 import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
 import { startResearchWorkflow } from './research-workflow';
 
+import { delegationPolicyId, hasAgreement } from '../shared/agreement';
+import { bindEvidence, supersededBy } from '../shared/evidence-binding';
+import { allocateStart, availableUsd, RESEARCH_START_USD } from '../shared/budget';
 import { appendHistory, block, settle } from '../shared/lifecycle';
-import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord, ResearchResult } from '../shared/record';
+import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord } from '../shared/record';
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
-import { captureConfirmed, commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, researchTask, worktreeFingerprint } from './service-helpers';
+import { captureConfirmed, commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
-import { attachResearchArtifact } from './research-artifact';
 import type { RunJournal } from './run-journal';
 import type { SpanRecorder } from './spans';
 import { activeRun } from '../shared/runs';
@@ -96,7 +98,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     if (!workspaceId) return { route, smokePassed: false, capturePath: null, failure: 'The project has no registered workspace.' };
     const command = await host.detectDevServerCommand(record.folder);
     if (!command) {
-      const failure = `No dev server command was detected in ${record.folder}. Add a dev script for this app, then request fresh evidence.`;
+      const failure = `No dev server command was detected in ${record.folder}. The check starts the app with the dev, preview or start script of its package.json, in that order, and the app has none. Add a dev script for this app, then request fresh evidence.`;
       host.log(failure);
       return { route, smokePassed: false, capturePath: null, failure };
     }
@@ -221,18 +223,28 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const filesChanged = diffSummary !== null;
     const passed = ran.every((c) => c.exitCode === 0)
       && (preview === null || (preview.smokePassed && preview.capturePath !== null));
-    const evidence: EvidenceRecord = { commit, fingerprint, checkedAt: host.now(), commands: ran, diffSummary, filesChanged, preview, passed, stale: false };
+    const binding = record.pendingEvidence?.find((pending) => pending.milestoneId === milestoneId)?.binding;
+    const evidence: EvidenceRecord = { commit, fingerprint, checkedAt: host.now(), commands: ran, diffSummary, filesChanged, preview, passed, stale: false, ...(binding ? { binding } : {}) };
+    let superseded: string[] = [];
+    const failedCommand = ran.find((c) => c.exitCode !== 0);
+    const failedBecause = failedCommand ? `"${failedCommand.command}" exited ${failedCommand.exitCode}.`
+      : preview?.failure ?? (preview && !preview.capturePath ? 'The preview gave no capture.' : 'The preview check did not pass.');
     await store.update(projectId, (fresh) => {
       const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
+      // A criterion or the preview target changed while the check ran: the
+      // result is kept as history and verifies nothing current.
+      superseded = supersededBy(fresh, current, binding);
+      const stands = passed && superseded.length === 0;
       const verified: Milestone = {
         ...current,
-        status: current.status === 'done' && passed ? 'done' : 'verifying',
+        status: current.status === 'done' && stands ? 'done' : 'verifying',
         evidence,
-        verification: passed ? (current.status === 'done' ? current.verification : 'verified') : 'reported',
+        verification: stands ? (current.status === 'done' ? current.verification : 'verified') : 'reported',
       };
       const next = settle({
         ...replaceMilestone(fresh, verified),
-        stateLine: `${passed ? 'Checks passed' : 'Checks failed'}: ${current.title}.`,
+        // A failure names its cause, so the page does not say "failed" and stop there.
+        stateLine: passed ? `Checks passed: ${current.title}.` : `Checks failed: ${current.title}. ${failedBecause} The Architect has the reason and decides the next step.`,
         pendingEvidence: (fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestoneId),
       }, host.now());
       if (current.status !== 'done' || passed) return next;
@@ -244,7 +256,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     deps.wake(projectId, {
       kind: 'dispatch-complete',
       at: host.now(),
-      items: [`evidence for milestone ${milestoneId} ${passed ? 'passed' : 'failed'} at commit ${commit}${failures.length ? `: ${failures.join(', ')}` : ''}${previewNote ? ` (${previewNote})` : ''}`],
+      items: [`evidence for milestone ${milestoneId} ${passed ? 'passed' : 'failed'} at commit ${commit}${failures.length ? `: ${failures.join(', ')}` : ''}${previewNote ? ` (${previewNote})` : ''}${superseded.length ? `. It does not verify the current work: ${superseded.join('; ')}. Run evidence again for the current criteria` : ''}`],
     });
   };
 
@@ -269,46 +281,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       void startResearchRoom(deps, record, pending).catch((error: unknown) => host.log(`Discovery Room recovery failed: ${String(error)}`));
       return;
     }
-    void (async () => {
-      if (!record.executionMode) {
-        await store.update(record.id, (fresh) => {
-          const held = block(fresh, host.now(), 'Choose Workspace or Worktree in project settings before resuming research.');
-          return held.ok ? held.record : fresh;
-        });
-        return;
-      }
-      const project = await ensureResearchContext(deps, record, pending);
-      const model = project.modelSnapshot?.MED;
-      const result = await span(record, 'research', pending.id, () => runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
-        systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
-        model: model ? modelKey(model.provider, model.modelId) : undefined,
-        thinking: model?.thinkingLevel,
-        task: researchTask(record, pending.question, pending.stoppingCondition),
-        parentSessionId: `architect:${record.id}:research`,
-        workspaceId: record.workspaceId ?? 'global',
-        cwd: record.folder,
-        timeoutMs: 15 * 60_000,
-        platformTools: 'readOnly',
-      }));
-      const entry: ResearchResult = {
-        id: pending.id,
-        question: pending.question,
-        stoppingCondition: pending.stoppingCondition,
-        result: result.error ? `Research failed: ${result.error}` : result.response,
-        costUsd: result.recordedCostUsd,
-        completedAt: host.now(),
-      };
-      const written = await store.update(record.id, (fresh) => closeDeliveredObjectives({
-        ...fresh,
-        research: [...fresh.research, entry],
-        pendingResearch: (fresh.pendingResearch ?? []).filter((item) => item.id !== pending.id),
-      }, host.now()));
-      if (!written) return;
-      // The finding is already recorded, so saving the report only adds the
-      // reference a later contract points at.
-      await attachResearchArtifact(store, record.id, pending.id);
-      deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${pending.id} finished (started ${pending.startedAt}): ${pending.question}`] });
-    })().catch((error: unknown) => host.log(`Research ${pending.id} failed: ${String(error)}`));
+    void runDirectResearch(deps, span, record, pending).catch((error: unknown) => host.log(`Research ${pending.id} failed: ${String(error)}`));
   };
 
   const services: OwnerServices = {
@@ -319,13 +292,25 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
 
     async research(record, request) {
-      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
+      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && entry.openSpecChange === request.openSpecChange && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
       if (existing) return { id: existing.id };
       executionMode(record);
       const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now(), project: await services.resolveDispatchProject(record) };
-      const written = await store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: [...(fresh.pendingResearch ?? []), pending] }, host.now()));
-      if (!written) throw new Error(`No project ${record.id}.`);
-      runResearch(written, pending);
+      // A Room or Workflow carries a spending limit, so its start is promised
+      // that much. One direct researcher has no limit the host can enforce, so
+      // nothing is promised for it: it starts only while some budget is free.
+      let refusal = '';
+      const written = await store.update(record.id, (fresh) => {
+        const allocation = allocateStart(fresh, RESEARCH_START_USD);
+        if (!allocation.ok) {
+          refusal = allocation.error;
+          return null;
+        }
+        const entry = pending.kind && allocation.allocatedUsd !== undefined ? { ...pending, allocatedUsd: allocation.allocatedUsd } : pending;
+        return settle({ ...fresh, pendingResearch: [...(fresh.pendingResearch ?? []), entry] }, host.now());
+      });
+      if (!written) throw new Error(refusal || `No project ${record.id}.`);
+      runResearch(written, written.pendingResearch?.find((entry) => entry.id === pending.id) ?? pending);
       return { id: pending.id };
     },
 
@@ -337,8 +322,10 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const baseCommit = await commitOf(host, record.folder);
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('The project has no budget remaining.');
-      // Never more than the project has left; the owner may ask for less.
-      const maxCostUsd = request.maxCostUsd === null ? remaining : remaining === undefined ? request.maxCostUsd : Math.min(request.maxCostUsd, remaining);
+      // The reservation sized this start against what was free. A dispatch that
+      // carries none is measured against what the project has left.
+      const allocated = milestone.pendingDispatch?.allocatedUsd;
+      const maxCostUsd = allocated ?? (request.maxCostUsd === null ? remaining : remaining === undefined ? request.maxCostUsd : Math.min(request.maxCostUsd, remaining));
       const limits = maxCostUsd === undefined ? {} : { maxCostUsd };
       if (request.kind === 'workflow') {
         // Workspace runtimes start concurrently with the global Architect runtime.
@@ -382,6 +369,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         limits: { ...limits, ...await roomModelLimits(host, request.project?.modelSnapshot), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       };
       if (request.project) roomRequest.project = request.project;
+      // The host skips a repeat approval for a Room inside the approved start.
+      const policyId = delegationPolicyId(record);
+      if (policyId) roomRequest.delegationPolicyId = policyId;
       // A Room's planning is its own operation, before any member starts.
       const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => createOrchestratorRoom(projectWorkspaceId, roomRequest));
       const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
@@ -395,7 +385,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         throw new Error(`Maintenance cannot start while the project is ${record.overlay ?? record.phase}.`);
       }
       if (record.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return record;
-      const remaining = remainingUsd(record);
+      const remaining = availableUsd(record) ?? undefined;
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
       const workspace = workflowWorkspace(record);
       const project = record.maintenanceProject ?? await services.resolveDispatchProject(record);
@@ -472,6 +462,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
 
     evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
+    startFailed: (projectId, item) => deps.wake(projectId, { kind: 'dispatch-blocked', at: host.now(), items: [item] }),
 
     async evidence(record, milestone, request) {
       const startedAt = Date.now();
@@ -483,9 +474,13 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         const writer = projectWriter(fresh);
         if (writer) throw new Error(`The project folder is in use by ${writer.id}. Wait for its result before verification.`);
         const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
+        // What the check covers is fixed now, on the record as it stands. A
+        // result that lands after a criterion changed still names the old one.
+        const binding = hasAgreement(fresh) ? bindEvidence(fresh, marked, request.criteria ?? [], request.route) : null;
+        if (typeof binding === 'string') throw new Error(binding);
         const pendingEvidence = [
           ...(fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestone.id),
-          { milestoneId: milestone.id, commands: request.commands, route: request.route, startedAt: new Date(startedAt).toISOString() },
+          { milestoneId: milestone.id, commands: request.commands, route: request.route, startedAt: new Date(startedAt).toISOString(), ...(binding ? { binding } : {}) },
         ];
         return settle({ ...replaceMilestone(fresh, marked), pendingEvidence, stateLine: `Checking ${current.title}.` }, host.now());
       });
