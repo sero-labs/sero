@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useChildRuns, type SubagentLiveEntry } from '@sero-ai/app-runtime';
 import { feedbackActivity, feedbackWaitMs, type WorkFeedback } from '@sero-ai/common';
 import { LiveBlock, SubagentLiveBlock } from '@sero-ai/ui';
 import { ExternalLink, Eye } from 'lucide-react';
@@ -57,30 +58,57 @@ function watchOf(entry: WorkFeedback, record: ProjectRecord) {
   return null;
 }
 
-function WorkRow({ entry, record, live }: { entry: WorkFeedback; record: ProjectRecord; live: boolean }) {
+/** One agent a Room member started: its name, the tool it has open and its time. */
+function ChildRow({ child }: { child: SubagentLiveEntry }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const tool = child.toolActivity.filter((item) => item.running).at(-1);
+  return (
+    <div className="wk" data-child="">
+      <div className="wk-hd">
+        <span className="wk-who">{child.agentName}</span>
+        <span className="wk-what">{tool ? `${tool.toolName} ${tool.argsSummary}`.trim() : ''}</span>
+        <span className="wk-t">{clock(now - child.startedAt)}</span>
+      </div>
+    </div>
+  );
+}
+
+function WorkRow({ entry, record, live, childRuns }: { entry: WorkFeedback; record: ProjectRecord; live: boolean; childRuns: readonly SubagentLiveEntry[] }) {
   const [open, setOpen] = useState(false);
   const watch = live ? watchOf(entry, record) : null;
-  const what = entry.wait?.kind === 'tool' ? entry.wait.toolName ?? '' : entry.wait ? 'waiting for the model' : entry.subject ?? '';
+  // A Workflow step is known by its title; the agent that runs it has a generic name.
+  const who = entry.kind === 'workflow-attempt' && entry.subject ? entry.subject : entry.owner;
+  const what = entry.wait?.kind === 'tool' ? entry.wait.toolName ?? '' : entry.wait ? 'waiting for the model' : '';
   return (
-    <div className="wk" data-child={entry.scope.parentKey ? '' : undefined}>
-      <div className="wk-hd">
-        <span className="wk-who">{entry.owner}</span>
-        <span className={`wk-what ${entry.wait?.kind === 'tool' ? '' : 'quiet'}`}>{what}</span>
-        {live && <Waited entry={entry} />}
-        {watch && (
-          <button type="button" className="ib" aria-expanded={open} aria-label={`Watch ${entry.owner}`} onClick={() => setOpen((was) => !was)}>
-            <Eye className="ar-i" />
-          </button>
-        )}
+    <>
+      <div className="wk">
+        <div className="wk-hd">
+          <span className="wk-who">{who}</span>
+          <span className={`wk-what ${entry.wait?.kind === 'tool' ? '' : 'quiet'}`}>{what}</span>
+          {live && <Waited entry={entry} />}
+          {watch && (
+            <button type="button" className="ib" aria-expanded={open} aria-label={`Watch ${who}`} onClick={() => setOpen((was) => !was)}>
+              <Eye className="ar-i" />
+            </button>
+          )}
+        </div>
+        {open && watch}
       </div>
-      {open && watch}
-    </div>
+      {live && childRuns.map((child) => <ChildRow key={child.id} child={child} />)}
+    </>
   );
 }
 
 /** What is running now, by the Room or Workflow it runs in. Text only on request. */
 export function WorkLive({ record, work, epoch, runtimeRunning }: { record: ProjectRecord; work: readonly WorkFeedback[]; epoch: string | null; runtimeRunning: boolean }) {
-  const groups = workGroups(record, work);
+  const groups = workGroups(record, work, epoch);
+  // Agents a Room member started, matched by that member's own session and nothing else.
+  const sessions = work.flatMap((entry) => (entry.kind === 'room-member' && !entry.terminal && entry.scope.sessionId ? [entry.scope.sessionId] : []));
+  const childRuns = useChildRuns(record.workspaceId, sessions);
   if (groups.length === 0) return <p className="wk-line">No work is running.</p>;
   return (
     <>
@@ -97,7 +125,7 @@ export function WorkLive({ record, work, epoch, runtimeRunning }: { record: Proj
               )}
             </div>
             {!group.rows.some(live) && <p className="wk-line">Live work cannot be confirmed in this session.</p>}
-            {group.rows.map((entry) => <WorkRow key={entry.key} entry={entry} record={record} live={live(entry)} />)}
+            {group.rows.map((entry) => <WorkRow key={entry.key} entry={entry} record={record} live={live(entry)} childRuns={childRuns.get(entry.scope.sessionId ?? '') ?? []} />)}
           </section>
         );
       })}

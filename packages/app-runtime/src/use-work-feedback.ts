@@ -27,6 +27,15 @@ export interface WorkFeedbackView {
   snapshots: ReadonlyMap<string, WorkFeedback>;
 }
 
+/** The host bridge, or null where there is none (a preview page, a test). */
+function runtimeBridge(): ReturnType<typeof getSeroApi>['appRuntime'] | null {
+  try {
+    return getSeroApi().appRuntime ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const EMPTY: WorkFeedbackView = { epoch: null, snapshots: new Map() };
 
 /**
@@ -52,14 +61,11 @@ export function useWorkFeedback(
   const [view, setView] = useState<WorkFeedbackView>(EMPTY);
   const key = sources.map((source) => `${source.appId}\u0000${source.workspaceId}\u0000${source.topic}`).join('\u0001');
 
+  // The cleanup below ends the listener and every topic subscription; the rule
+  // does not follow the unsubscribe calls inside the loop.
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
-    if (!key) return;
-    let bridge: ReturnType<typeof getSeroApi>['appRuntime'];
-    try {
-      bridge = getSeroApi().appRuntime;
-    } catch {
-      return;
-    }
+    const bridge = key ? runtimeBridge() : null;
     if (!bridge) return;
     const wanted = key.split('\u0001').map((entry) => {
       const [appId, workspaceId, topic] = entry.split('\u0000');

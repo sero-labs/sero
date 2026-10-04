@@ -23,6 +23,8 @@ const NOW = '2026-10-03T09:30:00.000Z';
 
 /** What the feedback hook reports. Each test sets it before rendering. */
 let reported: WorkFeedback[] = [];
+/** The running child agents the host reports, by the session that started them. */
+let childRuns = new Map<string, { id: string; agentName: string; parentSessionId: string; startedAt: number; toolActivity: { toolName: string; argsSummary: string; running: boolean }[] }[]>();
 
 vi.mock('@sero-ai/ui', () => ({
   Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...props}>{children}</button>,
@@ -36,6 +38,7 @@ vi.mock('@sero-ai/app-runtime', async () => ({
   useWorkFeedback: () => ({ epoch: reported.length > 0 ? EPOCH : null, snapshots: new Map(reported.map((entry) => [entry.key, entry])) }),
   useAppTools: () => ({ run: vi.fn(async () => ({ text: '', details: null })) }),
   useAppRuntimeEvents: () => undefined,
+  useChildRuns: (_workspaceId: string | null, sessions: readonly string[]) => new Map([...childRuns].filter(([session]) => sessions.includes(session))),
   getSeroApi: () => ({ appRuntime: null }),
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
@@ -48,6 +51,7 @@ let root: Root;
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   reported = [];
+  childRuns = new Map();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -159,10 +163,13 @@ describe('the Live tab', () => {
       feedback('owner', { kind: 'owner-wake', scope: { appId: ARCHITECT_APP_ID, workspaceId: 'ws-hollow', projectId: record.id } }),
     ].map((entry) => ({ ...entry, scope: { ...entry.scope, projectId: record.id } }));
 
-    expect(workGroups(record, reported).map((group) => [group.title, group.rows.map((row) => row.key)])).toEqual([
+    expect(workGroups(record, reported, EPOCH).map((group) => [group.title, group.rows.map((row) => row.key)])).toEqual([
       ['Architect', ['owner']],
       ['Room · Build the synth', ['writer', 'reviewer']],
     ]);
+    // Between its turns the owner is idle, not lost, so it is not listed.
+    const resting = reported.map((entry) => entry.key === 'owner' ? { ...entry, attached: false, wait: null, openCalls: 0 } : entry);
+    expect(workGroups(record, resting, EPOCH).map((group) => group.title)).toEqual(['Room · Build the synth']);
 
     vi.useFakeTimers({ now: Date.parse(NOW), toFake: ['Date'] });
     try {
@@ -176,6 +183,23 @@ describe('the Live tab', () => {
     // A working member row can be watched; an ended one is not listed at all.
     expect(container.querySelector('[aria-label="Watch writer"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Watch done"]')).toBeNull();
+  });
+
+  it('lists an agent a member started under that member, matched by the member session', () => {
+    const record = roomProject();
+    const member = (key: string, sessionId: string) => ({ ...feedback(key), scope: { ...feedback(key).scope, projectId: record.id, sessionId } });
+    reported = [member('writer', 'session-writer'), member('reviewer', 'session-reviewer')];
+    const child = { id: 'run-1', agentName: 'scout', parentSessionId: 'session-reviewer', startedAt: Date.parse(NOW), toolActivity: [{ toolName: 'grep', argsSummary: 'oscillator', running: true }] };
+    childRuns = new Map([['session-reviewer', [child]], ['session-elsewhere', [{ ...child, id: 'run-2', agentName: 'stranger', parentSessionId: 'session-elsewhere' }]]]);
+    vi.useFakeTimers({ now: Date.parse(NOW), toFake: ['Date'] });
+    try {
+      render(record, 'live');
+    } finally {
+      vi.useRealTimers();
+    }
+    const rows = [...container.querySelectorAll('.wk')].map((row) => [row.querySelector('.wk-who')?.textContent, row.hasAttribute('data-child')]);
+    expect(rows).toEqual([['writer', false], ['reviewer', false], ['scout', true]]);
+    expect(container.textContent).toContain('grep oscillator');
   });
 
   it('says live work cannot be confirmed when the runtime is not running, and offers no watch', () => {

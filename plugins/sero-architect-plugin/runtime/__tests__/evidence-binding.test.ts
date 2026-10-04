@@ -159,4 +159,18 @@ describe('delivery accounts for what the user asked', () => {
     // The gap stays on the record for the user to read.
     expect(outcome.record.working?.criteria[1]?.gap).toBe('Not checked: no offline test exists yet.');
   });
+
+  it('removes what the overview said about work in progress once the result is delivered', () => {
+    const base = agreedProject({ working: working([c1]), milestones: [delivered] });
+    const record = { ...base, overview: {
+      outcome: { text: 'A playable synth.', at: T0 },
+      objective: { text: 'Release evidence is running.', at: T0 },
+      result: { text: 'Built. Release delivery is running.', at: T0, source: { kind: 'milestone' as const, id: delivered.id } },
+    } };
+    const outcome = applyDelivery(record, record.milestones[0]!, T0);
+    expect(outcome.record.phase).toBe('maintain');
+    expect(Object.keys(outcome.record.overview ?? {})).toEqual(['outcome']);
+    // The owner is told, so it writes the result again from what is true now.
+    expect(outcome.items.join(' ')).toContain('write the result summary again');
+  });
 });

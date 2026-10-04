@@ -58,6 +58,13 @@ export function applyDelivery(record: ProjectRecord, milestone: Milestone, now: 
       const initial = next.runs?.find((run) => run.kind === 'initial' && run.endedAt === null);
       if (initial) next = closeRun(next, initial.id, 'delivered', now);
       items.push('the release is delivered; maintain starts');
+      // What the overview said about work in progress is now out of date. It is
+      // removed here, so the page never claims a release still runs after it landed.
+      if (next.overview?.result || next.overview?.objective) {
+        const { result: _result, objective: _objective, ...kept } = next.overview;
+        next = { ...next, overview: kept };
+        items.push('the result and objective summaries were written before delivery and were removed; write the result summary again with the summary action, saying what the user has now');
+      }
     }
   }
   next = closeDeliveredObjectives(next, now);

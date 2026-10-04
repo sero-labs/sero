@@ -38,8 +38,6 @@ export interface WorkFeedbackScope {
   attemptId?: string;
   sessionId?: string;
   memberId?: string;
-  /** The producer this one works for. Set only when the runtime made that link itself. */
-  parentKey?: string;
 }
 
 /** The call the producer holds open. `since` is null when the source gave no start time. */

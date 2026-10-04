@@ -1,7 +1,7 @@
 // How the Work view groups what is running: the Architect's own work first,
 // then each Room and Workflow the project started.
 
-import { ARCHITECT_APP_ID, type WorkFeedback } from '@sero-ai/common';
+import { ARCHITECT_APP_ID, feedbackActivity, type WorkFeedback } from '@sero-ai/common';
 
 import type { ProjectRecord } from '../../shared/record';
 
@@ -22,9 +22,12 @@ function linkedTitle(record: ProjectRecord, id: string): string | null {
 }
 
 /** Work that has not ended, grouped by the Room or Workflow it runs in. */
-export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[]): WorkGroup[] {
+export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[], epoch: string | null = null): WorkGroup[] {
   const groups = new Map<string, WorkGroup>();
-  for (const entry of work.filter((item) => !item.terminal)) {
+  // The owner keeps one producer for the whole project. Between its turns it is
+  // idle, which the overview already says, so it is listed only while it works.
+  const resting = (item: WorkFeedback) => item.kind === 'owner-wake' && !(epoch !== null && feedbackActivity(item, epoch) === 'working');
+  for (const entry of work.filter((item) => !item.terminal && !resting(item))) {
     const own = entry.scope.appId === ARCHITECT_APP_ID;
     const id = entry.scope.workId ?? '';
     const kind = entry.kind === 'room-member' ? 'room' : 'workflow';
@@ -37,14 +40,6 @@ export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[])
     };
     group.rows.push(entry);
     groups.set(key, group);
-  }
-  // A child follows the work that started it, when the producer named one.
-  for (const group of groups.values()) {
-    const keys = new Set(group.rows.map((row) => row.key));
-    const isChild = (row: WorkFeedback) => Boolean(row.scope.parentKey && keys.has(row.scope.parentKey));
-    const children = group.rows.filter(isChild);
-    const parents = group.rows.filter((row) => !isChild(row));
-    group.rows = parents.flatMap((parent) => [parent, ...children.filter((child) => child.scope.parentKey === parent.key)]);
   }
   return [...groups.values()].sort((a, b) => (a.key === 'architect' ? -1 : b.key === 'architect' ? 1 : a.title.localeCompare(b.title)));
 }

@@ -126,6 +126,24 @@ describe('projectActivity', () => {
     expect(activity.lastReportAt).toBe('2026-09-16T08:12:00.000Z');
   });
 
+  it('reads a reported milestone as being checked only while this session shows the Architect at work', () => {
+    const reported = milestone({ status: 'verifying', verification: 'reported', dispatch: dispatch({ lastRunAt: '2026-09-16T08:12:00.000Z' }) });
+    const base = project({ milestones: [reported] });
+    const inTurn = { ...base, session: { ...base.session, workingSince: '2026-09-19T10:05:00.000Z' } };
+    const oldTurn = { ...base, session: { ...base.session, workingSince: '2026-09-16T08:13:00.000Z' } };
+
+    expect(projectActivity(inTurn, RUNNING_SESSION)).toMatchObject({ state: 'working', headline: 'Checking M2 · Adversarial review' });
+    expect(projectActivity(oldTurn, RUNNING_SESSION)).toMatchObject({ state: 'last-known', headline: 'Last known: checking M2 · Adversarial review' });
+    expect(projectActivity(inTurn, ARCHITECT_OFF).state).toBe('last-known');
+  });
+
+  it('says a dispatch is being prepared before its Workflow exists, and only this session can claim it', () => {
+    const pending = (startedAt: string) => project({ milestones: [milestone({ status: 'approved', pendingDispatch: { kind: 'workflow', destination: null, startedAt } })] });
+
+    expect(projectActivity(pending('2026-09-19T10:05:00.000Z'), RUNNING_SESSION)).toMatchObject({ state: 'working', headline: 'Starting M2 · Adversarial review', owner: 'Workflow is being prepared' });
+    expect(projectActivity(pending('2026-09-16T08:00:00.000Z'), RUNNING_SESSION).headline).toBe('Last known: starting M2 · Adversarial review');
+  });
+
   it('refuses a stamp left by an earlier session', () => {
     const record = project({
       milestones: [milestone({ dispatch: dispatch({ observedLiveAt: '2026-09-16T08:12:00.000Z' }) })],
@@ -203,6 +221,19 @@ describe('projectActivity', () => {
     const record = project({ agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: null, authority: null } });
 
     expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'idle', headline: 'Not started', action: 'Review access' });
+  });
+
+  it('leads a delivered agreement with Delivered and keeps maintenance as the detail', () => {
+    const record = project({
+      phase: 'maintain',
+      agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: T0, authority: { policyId: 'policy-1', workspaceId: 'ws-1', roles: {}, maxLiveSessions: 8, maxTotalSessions: 64 } },
+      milestones: [
+        milestone({ status: 'done', verification: 'delivered' }),
+        milestone({ id: MAINTENANCE_MILESTONE_ID, title: 'Maintenance', status: 'running', dispatch: dispatch({ id: 'loop-maint', lastRunAt: '2026-09-14T08:00:00.000Z' }) }),
+      ],
+    });
+
+    expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'complete', headline: 'Delivered', owner: 'Maintenance is waiting for a trigger' });
   });
 
   it('reads an armed maintenance Workflow as waiting for a trigger', () => {

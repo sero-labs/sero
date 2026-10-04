@@ -104,6 +104,11 @@ function researchActivity(record: ProjectRecord, sessionStartedAt: string, runti
  * armed. `working` comes last of the run states because it is the only one that
  * has to be earned with an observed report.
  */
+function deliveredAll(record: ProjectRecord): boolean {
+  const counts = milestoneCounts(record);
+  return counts.total > 0 && counts.accepted === counts.total;
+}
+
 export function projectActivity(
   record: ProjectRecord,
   options: { sessionStartedAt: string; runtimeRunning: boolean; feedback?: FeedbackSummary | null },
@@ -241,6 +246,27 @@ export function projectActivity(
   const research = researchActivity(record, sessionStartedAt, runtimeRunning, feedback);
   if (research) return { ...research, ownerSuffix: suffix };
 
+  // The runtime accepted a dispatch and is preparing its Workflow or Room. The
+  // record says so before any run exists to report, so the line does too.
+  const preparing = record.milestones.find((m) => m.pendingDispatch && !m.dispatch);
+  if (preparing?.pendingDispatch) {
+    const at = preparing.pendingDispatch.startedAt;
+    const name = preparing.pendingDispatch.kind === 'room' ? 'Room' : 'Workflow';
+    return runtimeRunning && at >= sessionStartedAt
+      ? { state: 'working', headline: `Starting ${preparing.title}`, owner: `${name} is being prepared`, ownerAt: at, ownerSuffix: suffix }
+      : { state: 'last-known', headline: `Last known: starting ${preparing.title}`, owner: 'No report since', ownerAt: at, ownerSuffix: suffix, lastReportAt: at };
+  }
+
+  // The work reported and its result is being checked. That is the Architect's
+  // own step, so it reads as work only while this session shows it at work.
+  if (current?.status === 'verifying') {
+    const turnSince = record.session.workingSince;
+    const checking = runtimeRunning && ((turnSince != null && turnSince >= sessionStartedAt) || (feedback?.activeCount ?? 0) > 0);
+    return checking
+      ? { state: 'working', headline: `Checking ${current.title}`, owner: 'Architect is checking the result', ownerAt: turnSince ?? feedback?.lastActivityAt ?? undefined }
+      : { state: 'last-known', headline: `Last known: checking ${current.title}`, owner: 'No report since', ownerAt: current.dispatch?.lastRunAt ?? current.dispatch?.dispatchedAt, ownerSuffix: suffix, lastReportAt: current.dispatch?.lastRunAt ?? current.dispatch?.dispatchedAt };
+  }
+
   if (current?.dispatch) {
     const at = current.dispatch.lastRunAt ?? current.dispatch.dispatchedAt;
     return {
@@ -250,6 +276,18 @@ export function projectActivity(
       ownerAt: at,
       ownerSuffix: suffix,
       lastReportAt: at,
+    };
+  }
+
+  // An agreement is one request. Once every part of it is accepted, that is the
+  // news; the standing maintenance Workflow is the detail under it.
+  if (hasAgreement(record) && record.phase === 'maintain' && deliveredAll(record)) {
+    return {
+      state: 'complete',
+      headline: 'Delivered',
+      owner: maint?.dispatch ? 'Maintenance is waiting for a trigger' : 'Nothing is running',
+      ownerAt: maint?.dispatch?.lastRunAt,
+      ownerSuffix: suffix,
     };
   }
 

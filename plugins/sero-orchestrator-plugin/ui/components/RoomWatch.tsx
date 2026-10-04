@@ -15,13 +15,12 @@
 import { use, useContext } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AppContext } from '@sero-ai/app-runtime';
+import { AppContext, useChildRuns } from '@sero-ai/app-runtime';
 import type { SubagentLiveEntry } from '@sero-ai/app-runtime';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatCost, formatElapsed, formatTimer } from '../lib/format';
 import { useMemberLastReplies, type RoomFeedDispatch } from '../lib/use-room-feed';
-import { useRoomChildren } from '../lib/use-room-children';
 import { memberGlyph } from '../lib/member-glyph';
 import { memberPaneText } from '../lib/room-view';
 import { quietNow } from '../lib/live-facts';
@@ -57,7 +56,7 @@ export function RoomWatch({ roomId, memberIds, members, live, dispatch, onOpen }
     const sessionId = members.get(memberId)?.session.sessionId;
     if (sessionId) sessionIds.push(sessionId);
   }
-  const children = useRoomChildren(workspaceId, sessionIds);
+  const children = useChildRuns(workspaceId, sessionIds);
   // What each member waits on, from the same feedback the Rooms list reads.
   const { byMember, epoch } = useContext(WorkViewContext);
   // A timer on screen needs a tick; with no turn in flight, nothing runs.
