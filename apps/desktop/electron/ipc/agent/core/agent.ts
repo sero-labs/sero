@@ -406,12 +406,13 @@ export function registerAgentHandlers(): void {
       // concurrent deletion sweep can therefore never miss a committed fork.
       const fork = await publishSessionFork(async () => {
         // `createBranchedSession` moves the manager it is called on to the new file. Call it
-        // on a second manager, so the open session keeps writing to its own file. A session
-        // with no assistant message has no file yet, so only its own manager holds its entries.
-        const forkSource = existsSync(entry.sessionPath)
+        // on a second manager, so the open session keeps writing to its own file. Before the
+        // first assistant message the file can be absent or behind, and then only the session's
+        // own manager holds the entry to fork from.
+        const onDisk = existsSync(entry.sessionPath)
           ? SessionManager.open(entry.sessionPath, SERO_SESSION_DIR)
-          : sm;
-        const newSessionPath = forkSource.createBranchedSession(leafId);
+          : undefined;
+        const newSessionPath = (onDisk?.getEntry(leafId) ? onDisk : sm).createBranchedSession(leafId);
         if (!newSessionPath) throw new Error('Failed to create forked session file');
 
         // Read metadata from the new session file (not fabricated timestamps)
