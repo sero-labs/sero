@@ -9,6 +9,7 @@ import {
   syncDataLoaderFeature,
 } from '@headless-tree/core';
 import { useTree } from '@headless-tree/react';
+import { isDevServerTab } from '../editor/DevServerPreview';
 import { moveItem, renameItem } from './file-tree-ops';
 
 interface FileItem {
@@ -171,7 +172,9 @@ export function useFileTreeModel({
   );
 
   useEffect(() => {
-    if (!activePath) return;
+    // Preview tabs are URLs, not files under a workspace root. They have no
+    // ancestor directories, and the host rejects them as unknown roots.
+    if (!activePath || isDevServerTab(activePath)) return;
     const parts = activePath.split('/').filter(Boolean);
     let current = '';
     const ancestors: string[] = [];
@@ -274,7 +277,10 @@ export function useFileTreeModel({
     isItemFolder: (item) => item.getItemData()?.isDirectory ?? false,
     indent: INDENT,
     canReorder: true,
-    state: { expandedItems, selectedItems: activePath ? [activePath] : [] },
+    state: {
+      expandedItems,
+      selectedItems: activePath && !isDevServerTab(activePath) ? [activePath] : [],
+    },
     setExpandedItems: handleSetExpandedItems,
     onPrimaryAction: (item) => {
       const data = item.getItemData();
