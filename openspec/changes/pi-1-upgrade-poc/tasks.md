@@ -67,4 +67,4 @@
 
 - [x] 9.1 Open a draft pull request for `poc/pi-1-native-features` with the tables from groups 6 to 8 and an adopt, retain or defer decision for candidates 1 to 5, each with its benefit and its migration cost. Verify every checkbox of candidates 2 to 5 in issue #594 maps to a table row or a stated limit.
 - [x] 9.2 Run `pnpm typecheck --force` on both branches. Verify both pass.
-- [ ] 9.3 After Dan confirms the decisions, open one follow-up issue for each adopt decision, and post a summary comment on issue #594 that links both pull requests and the issues. Verify the comment states that Pi Durable and remote agents stay open as separate changes.
+- [x] 9.3 After Dan confirms the decisions, open one follow-up issue for each adopt decision, and post a summary comment on issue #594 that links both pull requests and the issues. Verify the comment states that Pi Durable and remote agents stay open as separate changes.
