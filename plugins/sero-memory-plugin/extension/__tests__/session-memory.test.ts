@@ -13,6 +13,7 @@ vi.mock('../qmd-index', async (importOriginal) => ({
   refreshIndex: vi.fn(async () => undefined),
 }));
 
+import { runConversion } from '../conversion';
 import { getIdentityPath, getMemoryPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
 import { releaseIndex } from '../qmd-index';
 import { RECALL_MESSAGE_TYPE } from '../recall';
@@ -49,6 +50,11 @@ describe('memory in a chat session', () => {
   });
 
   afterEach(async () => {
+    // `session_start` starts the one-time MEMORY.md conversion in the background
+    // and `session.prompt` does not wait for it when the session has no sero-cli
+    // tool. The conversion writes its marker and state lock under `state/memory`,
+    // so wait for that write before the temporary home is removed.
+    await runConversion();
     process.env.SERO_HOME = originalEnv.SERO_HOME;
     process.env.PI_CODING_AGENT_DIR = originalEnv.PI_CODING_AGENT_DIR;
     await rm(seroHome, { recursive: true, force: true });
