@@ -1,3 +1,4 @@
+import { THINKING_LEVELS } from '@sero-ai/common';
 import { app } from 'electron';
 import {
   createAgentSession,
@@ -182,7 +183,16 @@ export async function openSessionInPool({
   await loader.reload();
 
   const sessionManager = SessionManager.open(sessionPath, SERO_SESSION_DIR);
+  // Pi restores the model only for a session that has messages. A session with none keeps
+  // the model the user chose for it, from the model entry in its file.
+  const saved = sessionManager.buildSessionContext();
+  const savedModel = saved.messages.length === 0 && saved.model
+    ? infra.modelRuntime.getModel(saved.model.provider, saved.model.modelId)
+    : undefined;
   const { session } = await createAgentSession({
+    ...(savedModel && infra.modelRuntime.hasConfiguredAuth(savedModel.provider)
+      ? { model: savedModel, thinkingLevel: THINKING_LEVELS.find((level) => level === saved.thinkingLevel) }
+      : {}),
     cwd: workspacePath,
     agentDir: SERO_AGENT_DIR,
     modelRuntime: infra.modelRuntime,

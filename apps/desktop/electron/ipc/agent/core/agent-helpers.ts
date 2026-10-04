@@ -149,3 +149,14 @@ export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): Ser
 // ── Context override helpers ────────────────────────────────
 
 export { stripDisabledSkills } from '@electron/features/apps/extensions/session-prompt-override';
+
+const SESSION_LEAF_CUSTOM_TYPE = 'sero-session-leaf';
+
+/**
+ * A session opens on the last entry in its file. A move to an earlier entry writes nothing,
+ * so after an undo, a restore or a clear, append a marker at the new position. Without it a
+ * reopened session shows the turns the user removed.
+ */
+export function persistSessionLeaf(session: AgentSession): void {
+  session.sessionManager.appendCustomEntry(SESSION_LEAF_CUSTOM_TYPE, null);
+}
