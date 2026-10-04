@@ -28,13 +28,13 @@
 - [x] 4.3 Check lifecycle and streaming: `agent_settled` ordering in the orchestrator goal loop, streamed tool arguments in the chat card, cancellation mid-tool, and auto-compaction between a tool result and the next response. Verify with `agent-session-events.test.ts`, `session-lifecycle.test.ts` and the orchestrator extension tests, and record any SDK event that differs from 0.84.2.
 - [x] 4.4 Run the Sero MCP plugin on the upgrade branch. Verify `e2e/mcp.contract.spec.ts` passes after a build, that no session registers a Pi `mcp` extension, and that the session tool list holds no second MCP tool surface.
 - [x] 4.5 Build the packaged app. Unset `ELECTRON_RUN_AS_NODE` and verify `--doctor --quick --json` reports healthy, that a chat turn with a `run_code` call completes, and that a plugin extension loads through jiti.
-- [ ] 4.6 List what external plugin repositories would meet, from a read of their tool definitions and provider code. Verify the list is in the pull request description. Do not change those repositories.
+- [x] 4.6 List what external plugin repositories would meet, from a read of their tool definitions and provider code. Verify the list is in the pull request description. Do not change those repositories.
 
 ## 5. Upgrade pull request
 
 - [x] 5.1 Run the closest existing checks after a build: the desktop unit tests for `agent/`, `features/code-mode/`, `features/subagent/` and `container/`, plus `e2e/session-tools.contract.spec.ts`, `e2e/agent-ipc.contract.spec.ts` and `e2e/memory.contract.spec.ts`. Verify all pass, or record each failure with its cause.
 - [x] 5.2 If the branch changed source in `@sero-ai/common` or `@sero-ai/extension-runtime`, bump that package's version. Verify with `git diff --stat main` on `packages/`.
-- [ ] 5.3 Open a draft pull request for `poc/pi-1-upgrade` with the compatibility matrix: one row for each item, with the break, the fix or open risk, and the command that shows it. Verify every checkbox of candidate 1 in issue #594 maps to a row.
+- [x] 5.3 Open a draft pull request for `poc/pi-1-upgrade` with the compatibility matrix: one row for each item, with the break, the fix or open risk, and the command that shows it. Verify every checkbox of candidate 1 in issue #594 maps to a row.
 
 ## 6. Native Code Mode (branch `poc/pi-1-native-features`, stacked)
 
