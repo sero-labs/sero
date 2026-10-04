@@ -155,12 +155,19 @@ test.beforeAll(async () => {
       [keyName]: key,
       // One model for the owner and for every agent it starts.
       SERO_ARCHITECT_MODEL: MODEL,
+      // Every session event of the run, kept beside the screenshots.
+      SERO_DEBUG_DIR: path.join(SHOTS, 'debug'),
     },
   }));
   const log = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'w' });
   for (const stream of [app.process().stdout, app.process().stderr]) stream?.pipe(log);
   page.on('pageerror', (error) => console.log(`[delivery] page error: ${String(error).slice(0, 300)}`));
   await waitForShell(page);
+  fs.rmSync(path.join(SHOTS, 'debug'), { recursive: true, force: true });
+  await page.evaluate(async () => {
+    const debug = (window as unknown as { sero?: { debug?: { getState(): Promise<boolean>; toggle(): Promise<boolean> } } }).sero?.debug;
+    if (debug && !(await debug.getState())) await debug.toggle();
+  });
 
   // The intake's Location control opens a native folder dialog, which a test
   // cannot press. The handler in main is replaced, so the dialog's own button
@@ -371,7 +378,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   expect(record.budget.spentUsd, 'spend is over the start cap').toBeLessThanOrEqual(CAP_USD);
   expect(seen.liveRows, 'Watch work never showed a running row before the result').toBeGreaterThan(0);
   expect(result.delivered, `the run did not deliver: ${record.blockedReason ?? record.stateLine}`).toBe(true);
-  // A delivered request says so first, and says nothing is still running.
-  expect(finalOverview).toContain('Delivered');
+  // A delivered request with no other work open says so first, and says nothing is still running.
+  if (record.milestones.every((milestone) => milestone.status === 'done')) expect(finalOverview).toContain('Delivered');
   expect(finalOverview).not.toMatch(/(?<!Nothing )is running/);
 });

@@ -234,6 +234,9 @@ describe('projectActivity', () => {
     });
 
     expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'complete', headline: 'Delivered', owner: 'Maintenance is waiting for a trigger' });
+    // Accepted work that waits for its release step is not delivered yet.
+    const releasing = { ...record, phase: 'release' as const, milestones: [record.milestones[0]!] };
+    expect(projectActivity(releasing, RUNNING_SESSION).headline).toBe('1 of 1 milestones accepted');
   });
 
   it('reads an armed maintenance Workflow as waiting for a trigger', () => {

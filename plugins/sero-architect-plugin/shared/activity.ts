@@ -306,7 +306,8 @@ export function projectActivity(
     if (counts.total > 0 && counts.accepted === counts.total) {
       return {
         state: 'complete',
-        headline: hasAgreement(record) ? 'Delivered' : `${counts.accepted} of ${counts.total} milestones accepted`,
+        // Accepted work in release is not delivered yet: the release step has still to land.
+        headline: hasAgreement(record) && record.phase === 'maintain' ? 'Delivered' : `${counts.accepted} of ${counts.total} milestones accepted`,
         owner: 'Nothing is running',
         ownerSuffix: suffix,
       };
