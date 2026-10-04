@@ -111,64 +111,8 @@ export async function runSubagent(
   // collide on the id, which keys container tools, debug logs, and the session.
   const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
-  const policy = config.platformTools ?? 'all';
-  let platformTools: ToolDefinition[] = [];
-  let containerState: ContainerPromptState | undefined;
-  if (policy !== 'none') {
-    const runtime = await runtimeManager.getRuntime(workspaceId);
-    try {
-      await runtime.ensure();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
-      return {
-        response: '',
-        usage: { ...EMPTY_USAGE },
-        error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
-      };
-    }
-    containerState = containerPromptState(runtime);
-    platformTools = filterPlatformTools(
-      await createRuntimeTools(runtime, subagentSessionId, containerCwd),
-      policy,
-    );
-  }
-  // User context override: drop disabled tools from the surface entirely.
-  const disabledTools = new Set(config.disabledTools ?? []);
-  const runCode = createRunCodeController();
-  const customTools = [...platformTools, ...(config.customTools ?? []), runCode.tool].filter(
-    (tool) => !disabledTools.has(tool.name),
-  );
-
-  // Build the child session's resource loader (shared with the tool-catalog
-  // enumeration). The agent prompt rides on appendSystemPrompt so it survives a
-  // base systemPromptOverride; disabled skills are hidden from the model. A
-  // caller's `appendSystemPrompt` (e.g. the Orchestrator's step contract) rides
-  // AFTER the agent body, so it survives even when a named agent is used.
-  const appendSystemPrompt = [agent.systemPrompt, ...(config.appendSystemPrompt ?? [])].filter(
-    (section): section is string => !!section,
-  );
-  const loader = createSubagentResourceLoader({
-    cwd: sessionPath,
-    workspaceManager,
-    workspaceId,
-    sessionId: subagentSessionId,
-    settingsManager: infra.settingsManager,
-    containerCwd,
-    containerState,
-    systemPromptOverride: config.systemPromptOverride,
-    appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
-    disabledSkills: config.disabledSkills,
-    restrictSearchTools: policy === 'readOnly',
-    bridgePluginTools: shouldBridgePluginTools(policy, config.tools, disabledTools),
-  });
-  await loader.reload();
-
-  if (signal.aborted) {
-    return { response: '', usage: { ...EMPTY_USAGE }, error: 'Aborted before start' };
-  }
-
-  let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
+  const usage: SubagentUsage = { ...EMPTY_USAGE };
+  let session: AgentSession | null = null;
   // `session_shutdown` goes only to extensions that received `session_start`.
   let extensionsStarted = false;
 
@@ -177,11 +121,10 @@ export async function runSubagent(
   let stopReason: string | undefined;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const grace = createAbortGrace();
-  const usage: SubagentUsage = { ...EMPTY_USAGE };
 
-  // A stop may arrive before the session exists (during setup). Abort the
-  // session at most once, and only when there is one to abort. `stopRun`
-  // always starts the grace, so setup is bounded like the prompt is.
+  // A stop may arrive before the session exists. Abort the session at most
+  // once, and only when there is one to abort. `stopRun` always starts the
+  // grace, so every bounded wait shares one stop signal.
   let sessionStopped = false;
   const stopSession = (): void => {
     if (sessionStopped || !session) return;
@@ -192,12 +135,36 @@ export async function runSubagent(
     stopSession();
     grace.start();
   };
+  const stopped = (): boolean => signal.aborted || stopReason !== undefined;
 
-  // The caller's stop and the run's time limit cover session setup as well.
-  // Setup used to run with no limit at all: a session that never finished being
-  // created, or a model that never resolved, held the run — and the Workflow
-  // step that waits on it — open for good. The limit now starts before
-  // `createAgentSession`.
+  // One disposal path, shared by the run and by a session that appears after
+  // the run gave up. It runs once, so a session is never disposed twice and is
+  // never left undisposed.
+  let disposed = false;
+  const disposeRunSession = async (): Promise<void> => {
+    if (disposed || !session) return;
+    disposed = true;
+    clearBridgedExtensionSessionStateForSession(subagentSessionId);
+    if (extensionsStarted) {
+      try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
+    } else {
+      try { session.dispose(); } catch { /* ignore */ }
+    }
+  };
+  const stoppedResult = (): RunResult => ({
+    response: '',
+    usage,
+    modelId: session?.model?.id,
+    providerId: session?.model?.provider,
+    error: stopReason ?? (session ? 'Aborted' : 'Aborted before start'),
+  });
+
+  // The caller's stop and the run's time limit cover ALL of setup: the
+  // workspace container, the resource loader, `createAgentSession`, the model
+  // lookup and the extension start. Setup used to run with no limit, so a
+  // container that never started, a plugin loader that hung, a session that was
+  // never created, or a model that never resolved held the run — and the
+  // Workflow step that waits on it — open for good.
   signal.addEventListener('abort', stopRun, { once: true });
   timeoutId = setTimeout(() => {
     stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
@@ -205,23 +172,92 @@ export async function runSubagent(
   }, resolved.timeoutMs);
 
   try {
-    const sessionOptions: CreateAgentSessionOptions = {
-      cwd: sessionPath,
-      agentDir: SERO_AGENT_DIR,
-      modelRuntime: infra.modelRuntime,
-      ...sessionToolOptions(policy, customTools, config.tools),
-      customTools,
-      resourceLoader: loader,
-      sessionManager: SessionManager.inMemory(sessionPath),
-      settingsManager: infra.settingsManager,
-      sessionStartEvent: { type: 'session_start', reason: 'startup' },
-    };
+    type SetupOutcome =
+      | { ok: true; session: AgentSession }
+      | { ok: false; stopped: true }
+      | { ok: false; result: RunResult };
 
-    // Setup is bounded by the same grace as the prompt: once the run is stopped,
-    // a setup step that does not end lets the run give up after ABORT_GRACE_MS.
-    const setup = (async () => {
+    // Setup is bounded by the same grace as the prompt: once the run is
+    // stopped, a step that does not end lets the run give up after
+    // ABORT_GRACE_MS. Every step reads the stop again, so a stop that arrives
+    // during one step does not pay for the rest of setup.
+    const setup = (async (): Promise<SetupOutcome> => {
+      const policy = config.platformTools ?? 'all';
+      let platformTools: ToolDefinition[] = [];
+      let containerState: ContainerPromptState | undefined;
+      if (policy !== 'none') {
+        const runtime = await runtimeManager.getRuntime(workspaceId);
+        if (stopped()) return { ok: false, stopped: true };
+        try {
+          await runtime.ensure();
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(`[subagent/runner] ${runtime.backend} runtime unavailable: ${message}`);
+          return {
+            ok: false,
+            result: {
+              response: '',
+              usage: { ...EMPTY_USAGE },
+              error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
+            },
+          };
+        }
+        if (stopped()) return { ok: false, stopped: true };
+        containerState = containerPromptState(runtime);
+        platformTools = filterPlatformTools(
+          await createRuntimeTools(runtime, subagentSessionId, containerCwd),
+          policy,
+        );
+        if (stopped()) return { ok: false, stopped: true };
+      }
+      // User context override: drop disabled tools from the surface entirely.
+      const disabledTools = new Set(config.disabledTools ?? []);
+      const runCode = createRunCodeController();
+      const customTools = [...platformTools, ...(config.customTools ?? []), runCode.tool].filter(
+        (tool) => !disabledTools.has(tool.name),
+      );
+
+      // Build the child session's resource loader (shared with the tool-catalog
+      // enumeration). The agent prompt rides on appendSystemPrompt so it survives a
+      // base systemPromptOverride; disabled skills are hidden from the model. A
+      // caller's `appendSystemPrompt` (e.g. the Orchestrator's step contract) rides
+      // AFTER the agent body, so it survives even when a named agent is used.
+      const appendSystemPrompt = [agent.systemPrompt, ...(config.appendSystemPrompt ?? [])].filter(
+        (section): section is string => !!section,
+      );
+      const loader = createSubagentResourceLoader({
+        cwd: sessionPath,
+        workspaceManager,
+        workspaceId,
+        sessionId: subagentSessionId,
+        settingsManager: infra.settingsManager,
+        containerCwd,
+        containerState,
+        systemPromptOverride: config.systemPromptOverride,
+        appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
+        disabledSkills: config.disabledSkills,
+        restrictSearchTools: policy === 'readOnly',
+        bridgePluginTools: shouldBridgePluginTools(policy, config.tools, disabledTools),
+      });
+      await loader.reload();
+      if (stopped()) return { ok: false, stopped: true };
+
+      const sessionOptions: CreateAgentSessionOptions = {
+        cwd: sessionPath,
+        agentDir: SERO_AGENT_DIR,
+        modelRuntime: infra.modelRuntime,
+        ...sessionToolOptions(policy, customTools, config.tools),
+        customTools,
+        resourceLoader: loader,
+        sessionManager: SessionManager.inMemory(sessionPath),
+        settingsManager: infra.settingsManager,
+        sessionStartEvent: { type: 'session_start', reason: 'startup' },
+      };
       const result = await createAgentSession(sessionOptions);
       session = result.session;
+      // A stop that arrived while the session was being created must not pay
+      // for a model switch or an extension start on a session the run will drop.
+      if (stopped()) return { ok: false, stopped: true };
       runCode.bind(session.agent);
       preserveBashFailureStatus(session.agent);
 
@@ -246,6 +282,7 @@ export async function runSubagent(
           const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
           if (!model) throw new Error(`Selected model ${resolvedModel.provider}/${resolvedModel.modelId} is unavailable.`);
           await session.setModel(model);
+          if (stopped()) return { ok: false, stopped: true };
         }
       }
 
@@ -255,25 +292,41 @@ export async function runSubagent(
       } catch {
         // Fall back to default
       }
+      if (stopped()) return { ok: false, stopped: true };
 
+      // From here on extensions may receive `session_start`, so they must be
+      // shut down even if the start does not finish.
+      extensionsStarted = true;
       // After the model is set, so `session_start` handlers see the run's model.
       await startSessionExtensions(session);
-      extensionsStarted = true;
-      return session;
+      return { ok: true, session };
     })();
 
     const prepared = await raceGrace(setup, grace);
     if (prepared === GAVE_UP) {
-      // A session that appears after the run gave up must still be disposed.
-      void setup.then((late) => { try { late.dispose(); } catch { /* ignore */ } }).catch(() => undefined);
-      return { response: '', usage, error: stopReason ?? 'Aborted' };
+      // Setup is abandoned but still running. Let it reach its next stop check,
+      // then dispose whatever it created — with `session_shutdown` when
+      // extensions had started.
+      void (async () => {
+        try { await setup; } catch { /* the run already ended; nothing to report */ }
+        await disposeRunSession();
+      })();
+      return stoppedResult();
     }
-    session = prepared;
+    if (!prepared.ok) {
+      if ('stopped' in prepared) {
+        // The stop may have arrived while the session did not exist yet.
+        stopSession();
+        return stoppedResult();
+      }
+      return prepared.result;
+    }
+    session = prepared.session;
 
-    if (signal.aborted || stopReason) {
+    if (stopped()) {
       // The stop may have arrived while the session did not exist yet.
       stopSession();
-      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
+      return stoppedResult();
     }
 
     // Track usage, tool activity, live output + debug logging
@@ -390,8 +443,9 @@ export async function runSubagent(
     // Final usage stats
     readSessionUsage(session, usage);
 
-    if (signal.aborted || stopReason) {
-      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
+    if (stopped()) {
+      stopSession();
+      return stoppedResult();
     }
     return { response, usage, modelId: session.model?.id, providerId: session.model?.provider };
   } catch (err: unknown) {
@@ -402,7 +456,7 @@ export async function runSubagent(
     const modelId = session?.model?.id;
     const providerId = session?.model?.provider;
 
-    if (signal.aborted || stopReason) {
+    if (stopped()) {
       return { response: '', usage, modelId, providerId, error: stopReason ?? 'Aborted' };
     }
 
@@ -412,12 +466,8 @@ export async function runSubagent(
     stalls?.clear();
     grace.clear();
     signal.removeEventListener('abort', stopRun);
+    await disposeRunSession();
     clearBridgedExtensionSessionStateForSession(subagentSessionId);
-    if (session && extensionsStarted) {
-      try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
-    } else if (session) {
-      try { session.dispose(); } catch { /* ignore */ }
-    }
   }
 }
 

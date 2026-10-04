@@ -471,6 +471,10 @@ describe('runSubagent abort handling', () => {
     expect(session.abort).toHaveBeenCalledTimes(1);
     expect(session.prompt).not.toHaveBeenCalled();
     expect(session.dispose).toHaveBeenCalledTimes(1);
+    // A stop during session creation must not pay for the model switch or the
+    // extension start.
+    expect(session.setModel).not.toHaveBeenCalled();
+    expect(session.bindExtensions).not.toHaveBeenCalled();
   });
 
   it('ends the run when the session is never created', async () => {
@@ -509,9 +513,100 @@ describe('runSubagent abort handling', () => {
       const result = await run;
 
       expect(result.error).toContain('Timed out');
+      expect(result.modelId).toBe('claude-test-1');
+      expect(result.providerId).toBe('anthropic');
       expect(session.abort).toHaveBeenCalledOnce();
       expect(session.dispose).toHaveBeenCalledOnce();
       expect(session.prompt).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the workspace runtime never starts', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.getRuntime.mockResolvedValueOnce({
+        backend: 'docker',
+        ensure: vi.fn(() => new Promise<void>(() => {})),
+      });
+      const config = createConfig(new AbortController().signal);
+      config.platformTools = 'all';
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.createAgentSession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the resource loader never reloads', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.reloadResources.mockImplementationOnce(() => new Promise(() => {}));
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.createAgentSession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shuts down extensions that started before a stalled extension start', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      // One extension never finishes `session_start`, so the start never returns.
+      session.bindExtensions = vi.fn(() => new Promise<void>(() => {}));
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      const result = await run;
+
+      expect(result.error).toContain('Timed out');
+      // The extensions that did receive `session_start` must receive
+      // `session_shutdown` before the session is disposed.
+      expect(session.lifecycle).toEqual(['session_shutdown', 'dispose']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('disposes a session that appears after the run gave up', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      let lateResolve: () => void = () => {};
+      const late = new Promise<void>((resolve) => { lateResolve = resolve; });
+      mocks.createAgentSession.mockImplementationOnce(async () => {
+        await late;
+        return { session };
+      });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      expect((await run).error).toContain('Timed out');
+      expect(session.dispose).not.toHaveBeenCalled();
+
+      lateResolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(session.dispose).toHaveBeenCalledOnce();
+      expect(session.bindExtensions).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
