@@ -108,6 +108,23 @@ async function approvePrompts(): Promise<number> {
   return answered;
 }
 
+/** Goes from the Work view back to the overview by the trail. Says why if it cannot. */
+async function backToOverview(name: string): Promise<void> {
+  const crumb = page.locator('.ar-crumb').getByRole('button', { name });
+  if (!(await crumb.isVisible().catch(() => false))) return;
+  try {
+    await crumb.click({ timeout: 10_000 });
+    await page.locator('.ar-stateline').waitFor({ timeout: 10_000 });
+  } catch (error) {
+    const onTop = await crumb.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return `${top?.tagName ?? 'none'}.${top?.className ?? ''} body pointer-events=${getComputedStyle(document.body).pointerEvents}`;
+    }).catch(() => 'crumb gone');
+    console.log(`[delivery] could not return to the overview: ${String(error).split('\n').slice(0, 6).join(' | ')} | on top: ${onTop}`);
+  }
+}
+
 const delivered = (record: DeliveryRecord): boolean => (record.runs ?? []).some((run) => run.outcome === 'delivered');
 
 test.describe.configure({ mode: 'serial' });
@@ -142,6 +159,7 @@ test.beforeAll(async () => {
   }));
   const log = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'w' });
   for (const stream of [app.process().stdout, app.process().stderr]) stream?.pipe(log);
+  page.on('pageerror', (error) => console.log(`[delivery] page error: ${String(error).slice(0, 300)}`));
   await waitForShell(page);
 
   // The intake's Location control opens a native folder dialog, which a test
@@ -234,6 +252,8 @@ test('a short goal with a start cap is delivered, and the work is visible while 
       await page.waitForTimeout(1_000);
     }
 
+    await backToOverview(name);
+
     // A decision keeps its recommended option selected. Answering it is the user's choice, not a hint.
     const answer = page.getByRole('button', { name: 'Answer', exact: true }).first();
     if (await answer.isVisible().catch(() => false)) {
@@ -242,7 +262,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
       seen.decisionsAnswered += 1;
     }
 
-    const state = await page.locator('.ar-stateline .ar-activity').first().innerText().catch(() => '');
+    const state = await page.locator('.ar-stateline .ar-activity').first().innerText({ timeout: 3_000 }).catch(() => '');
     const line = state.replace(/\s+/g, ' ').trim();
     if (line && !seen.states.has(line.replace(/\d+[smh]? ago|just now|\d+:\d+/g, ''))) {
       seen.states.add(line.replace(/\d+[smh]? ago|just now|\d+:\d+/g, ''));
@@ -266,7 +286,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
           if (seen.liveRows <= 12) await shot(`live-${String(seen.liveRows).padStart(2, '0')}`);
         }
         // The trail's own link back to the overview. The sidebar has a workspace of the same name.
-        await page.locator('.ar-crumb').getByRole('button', { name }).click({ timeout: 10_000 }).catch(() => undefined);
+        await backToOverview(name);
       }
     }
     if (tick % 12 === 0) await shot(`overview-${String(tick).padStart(3, '0')}`);
@@ -279,8 +299,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
     await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
   }
-  const crumb = page.locator('.ar-crumb').getByRole('button', { name });
-  if (await crumb.isVisible().catch(() => false)) await crumb.click({ timeout: 10_000 }).catch(() => undefined);
+  await backToOverview(name);
   await expect(page.locator('.ar-stateline')).toBeVisible({ timeout: 30_000 });
   const finalOverview = (await page.locator('.ar-stateline').innerText()).replace(/\s+/g, ' ').trim();
   await shot('90-final-overview');
@@ -321,4 +340,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   expect(record.budget.spentUsd, 'spend is over the start cap').toBeLessThanOrEqual(CAP_USD);
   expect(seen.liveRows, 'Watch work never showed a running row before the result').toBeGreaterThan(0);
   expect(result.delivered, `the run did not deliver: ${record.blockedReason ?? record.stateLine}`).toBe(true);
+  // A delivered request says so first, and says nothing is still running.
+  expect(finalOverview).toContain('Delivered');
+  expect(finalOverview).not.toMatch(/(?<!Nothing )is running/);
 });
