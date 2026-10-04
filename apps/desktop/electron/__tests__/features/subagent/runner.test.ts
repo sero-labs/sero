@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createRuntimeTools: vi.fn(async () => []),
   getRuntime: vi.fn(),
   bindRunCode: vi.fn(),
+  clearBridgedState: vi.fn(),
   // Captures the last DefaultResourceLoader constructor options (e.g. skillsOverride).
   lastLoaderOptions: null as Record<string, unknown> | null,
 }));
@@ -29,7 +30,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('@electron/cli', () => ({
   bridgeExtensionTools: vi.fn((base: unknown) => base),
-  clearBridgedExtensionSessionStateForSession: vi.fn(),
+  clearBridgedExtensionSessionStateForSession: mocks.clearBridgedState,
 }));
 vi.mock('@electron/features/container/tools', () => ({
   createRuntimeTools: mocks.createRuntimeTools,
@@ -607,6 +608,31 @@ describe('runSubagent abort handling', () => {
 
       expect(session.dispose).toHaveBeenCalledOnce();
       expect(session.bindExtensions).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears bridged state when the loader finishes after the run gave up', async () => {
+    vi.useFakeTimers();
+    try {
+      let lateResolve: () => void = () => {};
+      const late = new Promise<void>((resolve) => { lateResolve = resolve; });
+      mocks.reloadResources.mockImplementationOnce(async () => { await late; });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.clearBridgedState).toHaveBeenCalledTimes(1);
+
+      lateResolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // The late reload can register bridged state for a session that never
+      // existed, so it must be cleared after the reload finishes.
+      expect(mocks.clearBridgedState).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }

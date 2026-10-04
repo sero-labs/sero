@@ -305,10 +305,11 @@ export async function runSubagent(
     const prepared = await raceGrace(setup, grace);
     if (prepared === GAVE_UP) {
       // Setup is abandoned but still running. Let it reach its next stop check,
-      // then dispose whatever it created — with `session_shutdown` when
-      // extensions had started.
+      // then clear any bridged state it registered and dispose whatever it
+      // created — with `session_shutdown` when extensions had started.
       void (async () => {
         try { await setup; } catch { /* the run already ended; nothing to report */ }
+        clearBridgedExtensionSessionStateForSession(subagentSessionId);
         await disposeRunSession();
       })();
       return stoppedResult();
