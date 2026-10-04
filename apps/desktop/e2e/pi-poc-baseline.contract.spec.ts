@@ -37,6 +37,18 @@ const OVERRIDE_PROMPT = 'POC_OVERRIDE_MARK You are a test agent. Reply briefly.'
 const DISABLED_TOOL = 'grep';
 const FILLER = 'This sentence makes the reply long enough for a compaction to have something to cut. '.repeat(12);
 
+/** Scripts for the native Code Mode checks, chosen by the first word after `codemode:`. */
+const CODEMODE_SCRIPTS: Record<string, string> = {
+  three: [
+    "const first = await tools.read({ path: 'README.md' });",
+    "const second = await tools.bash({ command: 'sleep 2; echo two' });",
+    "let third;",
+    "try { third = await tools.read({ path: 'missing.txt' }); } catch (error) { third = 'failed: ' + error.message; }",
+    "return JSON.stringify({ first, second, third });",
+  ].join('\n'),
+  read: "return await tools.read({ path: 'README.md' });",
+};
+
 function respond(request: StubRequest): StubReply {
   const last = request.messages.at(-1);
   if (last?.role === 'tool') return { text: `tool finished. ${FILLER}` };
@@ -44,6 +56,9 @@ function respond(request: StubRequest): StubReply {
   const write = /write:(\w+)/.exec(text);
   if (last?.role === 'user' && write && !text.includes('<conversation>')) {
     return { toolCalls: [{ id: `call_${write[1]}`, name: 'write', arguments: { path: 'poc.txt', content: `${write[1]}\n` } }] };
+  }
+  if (last?.role === 'user' && text.startsWith('codemode:')) {
+    return { toolCalls: [{ id: 'call_codemode', name: 'codemode', arguments: { code: CODEMODE_SCRIPTS[text.slice('codemode:'.length).trim().split(' ')[0]] ?? 'return 1;' } }] };
   }
   if (last?.role === 'user' && text.startsWith('runcode:')) {
     return { toolCalls: [{ id: 'call_run_code', name: 'run_code', arguments: { code: "const file = await tools.read({ path: 'README.md' }); return file.text.trim().toUpperCase();" } }] };
@@ -469,4 +484,64 @@ test('the packaged app runs a chat turn with a run_code call', async () => {
   expect(toolResult).toContain('POC');
   // A plugin's extension is a source file that Pi loads through jiti. Its prompt block proves it loaded.
   expect(first.system).toContain('## MCP usage');
+});
+
+test('a codemode script shows its inner calls inside its card as they occur', async () => {
+  test.skip(MODE !== 'codemode');
+  const created = await page.evaluate(async ({ id, provider, model }) => {
+    const session = await window.sero.sessions.create(id);
+    await window.sero.agent.open(session.id, session.path, id);
+    await window.sero.agent.setModel(session.id, provider, model);
+    await window.sero.sessions.rename(session.id, 'Code Mode POC');
+    window.dispatchEvent(new Event('sero:workspace-changed'));
+    return session;
+  }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+  await page.locator(`[data-testid="session-item"][data-session-id="${created.id}"]`).click();
+  await expect(page.locator('textarea[name="message"]')).toBeEnabled({ timeout: 10_000 });
+
+  // Every tool event of the turn, with its parent, as the renderer receives it.
+  await page.evaluate((id) => {
+    const log: string[] = [];
+    (window as unknown as { __pocEvents: string[] }).__pocEvents = log;
+    window.sero.agent.onEvent((event: AgentStreamEvent) => {
+      if (event.sessionId !== id) return;
+      if (event.type === 'tool_start') log.push(`tool_start ${event.tool.toolName} id=${event.tool.toolCallId} parent=${event.tool.parentToolCallId ?? '-'}`);
+      else if (event.type === 'tool_end') log.push(`tool_end id=${event.toolCallId} parent=${event.parentToolCallId ?? '-'} error=${String(event.isError)}`);
+      else if (event.type === 'agent_end') log.push('agent_end');
+    });
+  }, created.id);
+
+  const before = stub.requests.length;
+  await page.locator('textarea[name="message"]').fill('codemode: three calls');
+  await page.locator('button[aria-label="Submit"]').click();
+
+  const shots = path.join(OUT, 'codemode-shots');
+  fs.mkdirSync(shots, { recursive: true });
+  const rowCounts: number[] = [];
+  const events = () => page.evaluate(() => (window as unknown as { __pocEvents: string[] }).__pocEvents);
+  // One screenshot when each inner call starts, and one when the turn ends.
+  for (const [index, marker] of ['parent=call_codemode', 'bash id=call_codemode/2', 'read id=call_codemode/3', 'agent_end'].entries()) {
+    await expect.poll(async () => (await events()).filter((line) => line.includes(marker)).length, { timeout: 30_000 }).toBeGreaterThan(0);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(shots, `${index + 1}-${marker.replace(/[^a-z0-9]+/gi, '-')}.png`) });
+    rowCounts.push((await events()).filter((line) => line.startsWith('tool_start') && !line.endsWith('parent=-')).length);
+  }
+
+  const log = await events();
+  const toolMessages = await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: created.id, file: created.path, ws: workspaceId });
+  const reloaded = toolMessages.messages.filter((message) => message.type === 'tool');
+  const result = stub.requests[before + 1]?.messages.find((message) => message.role === 'tool')?.text ?? '';
+  write(`codemode-${LABEL}.json`, {
+    events: log,
+    rowCounts,
+    tools: stub.requests[before].tools.map((tool) => tool.name),
+    scriptResult: result.slice(0, 600),
+    reloaded: reloaded.map((message) => message.type === 'tool' ? { tool: message.toolName, nested: message.nested?.map((call) => ({ tool: call.toolName, state: call.state, input: call.input, output: call.output })) } : null),
+  });
+
+  // No inner call arrives as a top-level call, and a failed call shows as failed.
+  expect(log.filter((line) => line.startsWith('tool_start') && line.endsWith('parent=-'))).toHaveLength(1);
+  expect(log.filter((line) => line.startsWith('tool_start') && line.endsWith('parent=call_codemode'))).toHaveLength(3);
+  expect(log.some((line) => line.startsWith('tool_end id=call_codemode/3') && line.endsWith('error=true'))).toBe(true);
+  expect(stub.requests[before].tools.map((tool) => tool.name)).not.toContain('run_code');
 });

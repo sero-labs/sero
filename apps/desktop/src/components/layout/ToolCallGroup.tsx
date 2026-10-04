@@ -33,6 +33,7 @@ function toolDisplayFieldsEqual(a: ChatToolCallMessage, b: ChatToolCallMessage):
     // per delta, making this a cheap reference check.
     && a.input === b.input
     && a.details === b.details
+    && a.nested === b.nested
     && a.images === b.images;
 }
 

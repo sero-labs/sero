@@ -1,5 +1,5 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { ImageContent, ToolCall } from '@earendil-works/pi-ai';
+import type { ImageContent, NestedToolCallRecord, ToolCall } from '@earendil-works/pi-ai';
 import type {
   ChatAttachment,
   ChatAssistantMessage,
@@ -352,6 +352,9 @@ export function convertSessionMessages(
           details,
           state: hasToolResult ? (isError ? 'error' : 'completed') : 'running',
           images,
+          ...(toolResult?.nestedCalls?.calls.length
+            ? { nested: toolResult.nestedCalls.calls.map((call) => nestedCallFromRecord(call, toolCall.id)) }
+            : {}),
         } satisfies ChatToolCallMessage);
       }
       continue;
@@ -370,6 +373,21 @@ export function convertSessionMessages(
   }
 
   return result;
+}
+
+/** A row for a call a tool made while it ran, from the bounded record Pi keeps on the parent result. It holds no output. */
+function nestedCallFromRecord(call: NestedToolCallRecord, parentToolCallId: string): ChatToolCallMessage {
+  return {
+    type: 'tool',
+    id: nextId(),
+    toolCallId: call.id,
+    parentToolCallId,
+    toolName: call.name,
+    input: call.arguments ?? {},
+    output: call.error ?? null,
+    isError: call.status === 'error',
+    state: call.status === 'ok' ? 'completed' : call.status === 'error' ? 'error' : 'cancelled',
+  };
 }
 
 /**

@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import {
   createAgentSession,
+  createCodemodeExtension,
   DefaultResourceLoader,
   SessionManager,
   type AgentSession,
@@ -41,6 +42,8 @@ import { readNewestTurns } from './agent-history-window';
 import { readPersistedContextOverrides, applyContextOverrides } from './agent-context-overrides';
 import { subscribeToSession } from './agent-subscription';
 import { sessionStartEventFor, startSessionExtensions } from './agent-session-events';
+
+const CODEMODE_TOOL_NAME = 'codemode';
 
 export interface PoolEntry {
   session: AgentSession;
@@ -138,8 +141,9 @@ export async function openSessionInPool({
   // large schema out of every request.
   const platformTools = runtimeTools.filter((tool) => tool.name !== AUTOMATION_BROWSER_TOOL);
   const cliSessionTools = runtimeTools.filter((tool) => tool.name === AUTOMATION_BROWSER_TOOL);
-  const runCode = createRunCodeController();
-  platformTools.push(runCode.tool);
+  // POC: this branch is evidence only. `SERO_POC_RUN_CODE=1` keeps `run_code`, so one build compares both tools.
+  const runCode = process.env.SERO_POC_RUN_CODE === '1' ? createRunCodeController() : null;
+  if (runCode) platformTools.push(runCode.tool);
   const hostRuntimeOptions = runtime.backend === 'host'
     ? { workspacePath, platform: process.platform, devBuild: !app.isPackaged }
     : undefined;
@@ -156,6 +160,9 @@ export async function openSessionInPool({
         hostRuntime: hostRuntimeOptions,
         runtime,
       }),
+      // POC: Pi's native Code Mode takes the place of `run_code` in chat sessions.
+      // `models: false` keeps the model catalogue and classifiers out of scripts.
+      ...(runCode ? [] : [createCodemodeExtension({ mode: process.env.SERO_POC_CODEMODE_ONLY === '1' ? 'only' : 'on', models: false })]),
     ],
     skillsOverride: (base) => withAgentPluginSkills(
       filterCompatiblePluginSkills(skillVisibilityOverride(base)),
@@ -193,8 +200,10 @@ export async function openSessionInPool({
     settingsManager: infra.settingsManager,
     sessionStartEvent: sessionStartEventFor(sessionManager, forkedFrom),
   });
-  runCode.bind(session.agent);
   preserveBashFailureStatus(session.agent);
+  // Pi registers `codemode` inactive. Switch it on, so it is a base tool the context editor can disable.
+  if (runCode) runCode.bind(session.agent);
+  else session.setActiveToolsByName([...session.getActiveToolNames(), CODEMODE_TOOL_NAME]);
 
   await startSessionExtensions(session);
 

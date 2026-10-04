@@ -150,6 +150,10 @@ export interface ChatToolCallMessage {
   isStreamingInput?: boolean;
   /** Images returned by this tool call (e.g. screenshots). */
   images?: ToolResultImage[];
+  /** Set on a call that another tool made while it ran, such as a call from a `codemode` script. */
+  parentToolCallId?: string;
+  /** The calls this tool made while it ran, in the order they started. */
+  nested?: ChatToolCallMessage[];
 }
 
 export type AgentSettlement = 'completed' | 'error' | 'cancelled';
@@ -192,7 +196,7 @@ export type AgentStreamEvent =
   | { type: 'tool_input_end'; sessionId: string; streamKey: string; toolCallId: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_update'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; images?: ToolResultImage[] }
-  | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; isError: boolean; images?: ToolResultImage[] }
+  | { type: 'tool_end'; sessionId: string; toolCallId: string; parentToolCallId?: string; output: string | null; details?: Record<string, unknown> | null; isError: boolean; images?: ToolResultImage[] }
   | { type: 'user_turn_undo'; sessionId: string; userMessageId: string; turnUndo: ChatTurnUndoRef }
   | { type: 'composer_prefill'; sessionId: string; prefill: ChatComposerPrefill }
   | { type: 'session_name'; sessionId: string; name: string }

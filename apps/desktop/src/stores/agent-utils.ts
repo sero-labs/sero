@@ -1,3 +1,4 @@
+import { applyNestedToolEnd, applyNestedToolStart } from './agent-nested-tools';
 import type {
   AgentStreamEvent,
   ChatAssistantMessage,
@@ -365,7 +366,9 @@ export function handleAgentStreamEvent(
           ...state.agents,
           [sid]: {
             ...state.agents[sid],
-            messages: applyToolStart(state.agents[sid].messages, event.tool),
+            messages: event.tool.parentToolCallId
+              ? applyNestedToolStart(state.agents[sid].messages, event.tool)
+              : applyToolStart(state.agents[sid].messages, event.tool),
           },
         },
       }));
@@ -381,6 +384,22 @@ export function handleAgentStreamEvent(
       break;
 
     case 'tool_end':
+      if (event.parentToolCallId) {
+        const parentToolCallId = event.parentToolCallId;
+        set((state) => ({
+          agents: {
+            ...state.agents,
+            [sid]: {
+              ...state.agents[sid],
+              messages: applyNestedToolEnd(state.agents[sid].messages, parentToolCallId, event.toolCallId, {
+                output: event.output,
+                isError: event.isError,
+              }),
+            },
+          },
+        }));
+        break;
+      }
       // A partial update still in the buffer would flush after this final
       // result and put the call back into "running".
       discardBufferedToolOutput(sid, event.toolCallId);
