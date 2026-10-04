@@ -33,11 +33,24 @@ export function createAbortGrace(graceMs: number = ABORT_GRACE_MS): AbortGrace {
   };
 }
 
+/** Returned when a bounded step was given up after an abort did not settle it. */
+export const GAVE_UP = Symbol('gave-up');
+
+/**
+ * Awaits the work, or the grace period after an abort, whichever ends first.
+ * Returns `GAVE_UP` when the grace won, so the caller can report the stop
+ * instead of waiting for work that may never settle.
+ */
+export async function raceGrace<T>(work: Promise<T>, grace: AbortGrace): Promise<T | typeof GAVE_UP> {
+  // The work may still reject after the wait has been given up. Nothing reads it then.
+  work.catch(() => undefined);
+  const gaveUp: Promise<typeof GAVE_UP> = grace.expired.then((): typeof GAVE_UP => GAVE_UP);
+  return Promise.race([work, gaveUp]);
+}
+
 /** Waits for the prompt, or for the grace period after an abort, whichever ends first. */
 export async function settleOrGiveUp(prompt: Promise<unknown>, grace: AbortGrace): Promise<void> {
-  // The prompt may still reject after the wait has been given up. Nothing reads it then.
-  prompt.catch(() => undefined);
-  await Promise.race([prompt, grace.expired]);
+  await raceGrace(prompt, grace);
 }
 
 export interface ToolStallWatch {

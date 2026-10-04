@@ -15,18 +15,24 @@ import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 import { randomUUID } from 'node:crypto';
 
-import type { RunnerConfig, RunResult, SubagentUsage, PlatformToolPolicy } from '../core/types';
+import type { RunnerConfig, RunResult, SubagentUsage } from '../core/types';
 import { observationForEvent, repairAttemptObservation, type ObservationContext } from './session-observation';
 import { extractResponse, extractToolArgsSummary } from './session-output';
-import { createAbortGrace, createToolStallWatch, settleOrGiveUp, type ToolStallWatch } from './abort-grace';
+import {
+  createAbortGrace,
+  createToolStallWatch,
+  GAVE_UP,
+  raceGrace,
+  settleOrGiveUp,
+  type ToolStallWatch,
+} from './abort-grace';
+import { filterPlatformTools, resolveSubagentPaths, sessionToolOptions } from './session-policy';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { containerPromptState, type ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createRunCodeController } from '@electron/features/code-mode';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
-import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
-import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
 import { clearBridgedExtensionSessionStateForSession } from '@electron/cli';
 import { createSubagentResourceLoader, shouldBridgePluginTools } from './resource-loader';
 import { recordRunToolCatalog } from './tool-catalog';
@@ -36,7 +42,6 @@ import { shutdownAndDispose, startSessionExtensions } from '@electron/ipc/agent/
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
-import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {
   inputTokens: 0,
@@ -67,104 +72,6 @@ function readSessionUsage(session: AgentSession | null, usage: SubagentUsage): v
   } catch {
     usage.incomplete = true;
   }
-}
-
-export interface ResolvedSubagentPaths {
-  sessionPath: string | null;
-  containerHostPath: string | null;
-  containerCwd?: string;
-}
-
-/**
- * Resolve the host/session/container paths for a subagent run.
- *
- * `cwdOverride` may point at a git worktree inside the workspace. In that
- * case the agent should still run tools from the worktree, but the container
- * itself must mount the workspace root so Git can see `.git/worktrees/...`.
- */
-export function resolveSubagentPaths(
-  workspaceRoot: string | undefined,
-  cwdOverride?: string,
-): ResolvedSubagentPaths {
-  const sessionPath = cwdOverride ?? workspaceRoot ?? null;
-  const containerHostPath = workspaceRoot ?? sessionPath;
-
-  if (!sessionPath) {
-    return {
-      sessionPath: null,
-      containerHostPath: null,
-    };
-  }
-
-  if (!cwdOverride || !workspaceRoot) {
-    return {
-      sessionPath,
-      containerHostPath,
-    };
-  }
-
-  const rel = path.relative(workspaceRoot, cwdOverride);
-  if (!rel || rel === '.') {
-    return {
-      sessionPath,
-      containerHostPath,
-      containerCwd: WORKSPACE_DIR,
-    };
-  }
-  if (rel.startsWith('..')) {
-    return {
-      sessionPath,
-      containerHostPath,
-    };
-  }
-
-  return {
-    sessionPath,
-    containerHostPath,
-    containerCwd: `${WORKSPACE_DIR}/${rel}`,
-  };
-}
-
-/**
- * Apply the platform-tool policy to the workspace tool set.
- * 'none' callers skip building platform tools entirely; this filter
- * handles 'all' and 'readOnly'.
- */
-export function filterPlatformTools(
-  tools: ToolDefinition[],
-  policy: PlatformToolPolicy,
-): ToolDefinition[] {
-  if (policy === 'none') return [];
-  if (policy === 'readOnly') return tools.filter((tool) => tool.name === 'read');
-  return tools;
-}
-
-/**
- * Session tool enforcement for the platform-tool policy.
- *
- * `noTools: 'builtin'` disables only Pi built-ins; tools registered by
- * extensions loaded into the session survive it. Restricted policies
- * therefore set an explicit allowlist of exactly the session's tools,
- * which excludes extension-registered tools as well.
- */
-export function sessionToolOptions(
-  policy: PlatformToolPolicy,
-  sessionTools: ToolDefinition[],
-  allowlist?: string[],
-): Pick<CreateAgentSessionOptions, 'noTools' | 'tools'> {
-  // A per-step allowlist wins: activate only those tools (the SDK ignores names
-  // it doesn't recognise). This also trims the per-tool prompt guidance.
-  if (allowlist && allowlist.length > 0) return { noTools: 'builtin', tools: allowlist };
-  if (policy === 'all') return { noTools: 'builtin' };
-
-  const names = sessionTools.map((tool) => tool.name);
-  // A read-only subagent keeps the read-only search tools. Without them it can
-  // read a file it is told about but cannot find one, and its only alternative
-  // is the shell this policy exists to withhold. 'none' stays exactly none.
-  const searchTools = policy === 'readOnly'
-    ? SEARCH_TOOL_NAMES.filter((name) => !names.includes(name))
-    : [];
-  return { noTools: 'builtin', tools: [...names, ...searchTools] };
 }
 
 export interface RunnerDeps {
@@ -265,11 +172,37 @@ export async function runSubagent(
   // `session_shutdown` goes only to extensions that received `session_start`.
   let extensionsStarted = false;
 
-  // Hoisted above try so finally can stop the timers.
+  // Hoisted above try so finally can stop the timers and the listeners.
   let stalls: ToolStallWatch | null = null;
   let stopReason: string | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const grace = createAbortGrace();
   const usage: SubagentUsage = { ...EMPTY_USAGE };
+
+  // A stop may arrive before the session exists (during setup). Abort the
+  // session at most once, and only when there is one to abort. `stopRun`
+  // always starts the grace, so setup is bounded like the prompt is.
+  let sessionStopped = false;
+  const stopSession = (): void => {
+    if (sessionStopped || !session) return;
+    sessionStopped = true;
+    try { session.abort(); } catch { /* ignore */ }
+  };
+  const stopRun = (): void => {
+    stopSession();
+    grace.start();
+  };
+
+  // The caller's stop and the run's time limit cover session setup as well.
+  // Setup used to run with no limit at all: a session that never finished being
+  // created, or a model that never resolved, held the run — and the Workflow
+  // step that waits on it — open for good. The limit now starts before
+  // `createAgentSession`.
+  signal.addEventListener('abort', stopRun, { once: true });
+  timeoutId = setTimeout(() => {
+    stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
+    stopRun();
+  }, resolved.timeoutMs);
 
   try {
     const sessionOptions: CreateAgentSessionOptions = {
@@ -283,63 +216,65 @@ export async function runSubagent(
       settingsManager: infra.settingsManager,
       sessionStartEvent: { type: 'session_start', reason: 'startup' },
     };
-    const result = await createAgentSession(sessionOptions);
-    session = result.session;
-    runCode.bind(session.agent);
-    preserveBashFailureStatus(session.agent);
 
-    let effectiveThinking = resolved.thinking;
+    // Setup is bounded by the same grace as the prompt: once the run is stopped,
+    // a setup step that does not end lets the run give up after ABORT_GRACE_MS.
+    const setup = (async () => {
+      const result = await createAgentSession(sessionOptions);
+      session = result.session;
+      runCode.bind(session.agent);
+      preserveBashFailureStatus(session.agent);
 
-    // A selected model must resolve before any prompt can run.
-    {
-      const available = infra.modelRegistry.getAvailable();
-      const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
-      const tierSettings = getModelTiers(globalSettings);
-      const parsed = parseModelField(resolved.modelSelection);
-      const resolvedModel = parsed
-        ? resolveTierModel(parsed, tierSettings, available)
-        : null;
+      let effectiveThinking = resolved.thinking;
 
-      if (parsed && isModelTier(parsed.prefer) && resolved.thinkingSource === 'default') {
-        effectiveThinking = getModelTierThinkingLevel(tierSettings[parsed.prefer], resolved.thinking);
+      // A selected model must resolve before any prompt can run.
+      {
+        const available = infra.modelRegistry.getAvailable();
+        const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
+        const tierSettings = getModelTiers(globalSettings);
+        const parsed = parseModelField(resolved.modelSelection);
+        const resolvedModel = parsed
+          ? resolveTierModel(parsed, tierSettings, available)
+          : null;
+
+        if (parsed && isModelTier(parsed.prefer) && resolved.thinkingSource === 'default') {
+          effectiveThinking = getModelTierThinkingLevel(tierSettings[parsed.prefer], resolved.thinking);
+        }
+
+        if (parsed && !resolvedModel) throw new Error(`Selected model ${parsed.prefer} is unavailable. Update the model selection before retrying.`);
+        if (resolvedModel) {
+          const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
+          if (!model) throw new Error(`Selected model ${resolvedModel.provider}/${resolvedModel.modelId} is unavailable.`);
+          await session.setModel(model);
+        }
       }
 
-      if (parsed && !resolvedModel) throw new Error(`Selected model ${parsed.prefer} is unavailable. Update the model selection before retrying.`);
-      if (resolvedModel) {
-        const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
-        if (!model) throw new Error(`Selected model ${resolvedModel.provider}/${resolvedModel.modelId} is unavailable.`);
-        await session.setModel(model);
+      // Set thinking level
+      try {
+        session.setThinkingLevel(effectiveThinking as ThinkingLevel);
+      } catch {
+        // Fall back to default
       }
+
+      // After the model is set, so `session_start` handlers see the run's model.
+      await startSessionExtensions(session);
+      extensionsStarted = true;
+      return session;
+    })();
+
+    const prepared = await raceGrace(setup, grace);
+    if (prepared === GAVE_UP) {
+      // A session that appears after the run gave up must still be disposed.
+      void setup.then((late) => { try { late.dispose(); } catch { /* ignore */ } }).catch(() => undefined);
+      return { response: '', usage, error: stopReason ?? 'Aborted' };
     }
+    session = prepared;
 
-    // Set thinking level
-    try {
-      session.setThinkingLevel(effectiveThinking as ThinkingLevel);
-    } catch {
-      // Fall back to default
+    if (signal.aborted || stopReason) {
+      // The stop may have arrived while the session did not exist yet.
+      stopSession();
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
     }
-
-    // After the model is set, so `session_start` handlers see the run's model.
-    await startSessionExtensions(session);
-    extensionsStarted = true;
-
-    // A stop from the caller. The grace limit applies to it like any other abort.
-    const abortHandler = () => {
-      try { session?.abort(); } catch { /* ignore */ }
-      grace.start();
-    };
-    signal.addEventListener('abort', abortHandler, { once: true });
-    if (signal.aborted) {
-      abortHandler();
-      signal.removeEventListener('abort', abortHandler);
-      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
-    }
-
-    const timeoutId = setTimeout(() => {
-      stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
-      try { session?.abort(); } catch { /* ignore */ }
-      grace.start();
-    }, resolved.timeoutMs);
 
     // Track usage, tool activity, live output + debug logging
     const { onToolActivity, onTextDelta, onUpdate: onStatusUpdate } = config;
@@ -351,8 +286,7 @@ export async function runSubagent(
       stopReason = stallMsg;
       console.warn(`[subagent/runner] ${stallMsg}`);
       onStatusUpdate?.(`⚠️ ${stallMsg}`);
-      try { session?.abort(); } catch { /* ignore */ }
-      grace.start();
+      stopRun();
     });
     // Calls in one reply run at the same time, so each is timed under its own id.
     const callIdOf = (event: Record<string, unknown>): string => String(event.toolCallId ?? event.toolName ?? 'unknown');
@@ -450,9 +384,7 @@ export async function runSubagent(
       }
     }
 
-    clearTimeout(timeoutId);
     stalls?.clear();
-    signal.removeEventListener('abort', abortHandler);
     unsub();
 
     // Final usage stats
@@ -476,8 +408,10 @@ export async function runSubagent(
 
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     stalls?.clear();
     grace.clear();
+    signal.removeEventListener('abort', stopRun);
     clearBridgedExtensionSessionStateForSession(subagentSessionId);
     if (session && extensionsStarted) {
       try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }

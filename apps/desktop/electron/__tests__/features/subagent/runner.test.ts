@@ -90,8 +90,9 @@ vi.mock('@electron/shared/settings/model-tiers', () => ({
   getModelTiers: vi.fn(() => ({})),
 }));
 
-import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
-import { resolveSubagentPaths, runSubagent } from '@electron/features/subagent/runtime/runner';
+import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
+import { resolveSubagentPaths } from '@electron/features/subagent/runtime/session-policy';
+import { runSubagent } from '@electron/features/subagent/runtime/runner';
 import { ABORT_GRACE_MS } from '@electron/features/subagent/runtime/abort-grace';
 import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
@@ -110,6 +111,7 @@ function createSession() {
     },
     agent: { state: { tools: activeTools } },
     model: { id: 'claude-test-1', provider: 'anthropic' },
+    setModel: vi.fn(async () => {}),
     setThinkingLevel: vi.fn(),
     subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
     prompt: vi.fn(async () => {}),
@@ -469,6 +471,50 @@ describe('runSubagent abort handling', () => {
     expect(session.abort).toHaveBeenCalledTimes(1);
     expect(session.prompt).not.toHaveBeenCalled();
     expect(session.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the run when the session is never created', async () => {
+    vi.useFakeTimers();
+    try {
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+      // `createAgentSession` never returns, so setup never finishes.
+      mocks.createAgentSession.mockImplementationOnce(() => new Promise(() => {}));
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the selected model never resolves', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      // The model lookup resolves, but `setModel` never does.
+      session.setModel = vi.fn(() => new Promise<void>(() => {}));
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      vi.mocked(parseModelField).mockReturnValueOnce({ prefer: 'anthropic/claude-test-1', fallbacks: [] });
+      vi.mocked(resolveTierModel).mockReturnValueOnce({ provider: 'anthropic', modelId: 'claude-test-1' });
+      const deps = createDeps();
+      vi.mocked(deps.infra.modelRegistry.find).mockReturnValue({ id: 'claude-test-1', provider: 'anthropic' } as never);
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, deps);
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      const result = await run;
+
+      expect(result.error).toContain('Timed out');
+      expect(session.abort).toHaveBeenCalledOnce();
+      expect(session.dispose).toHaveBeenCalledOnce();
+      expect(session.prompt).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
