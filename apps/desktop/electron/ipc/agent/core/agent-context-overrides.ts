@@ -89,7 +89,9 @@ export function readPersistedContextOverrides(
   toolNames: string[],
 ): ContextOverrides | null {
   const allowedToolNames = new Set(toolNames);
-  const entries = session.sessionManager.getEntries();
+  // POC (#594, candidate 3): the current branch path, not the whole file, so a branch never
+  // picks up an override written on a sibling branch.
+  const entries = session.sessionManager.getBranch();
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
@@ -167,4 +169,10 @@ export async function reloadWithContextOverrides(entry: ContextOverrideSessionSt
   }));
   entry.baseSystemPrompt = entry.session.systemPrompt;
   if (entry.contextOverrides) applyContextOverrides(entry, entry.contextOverrides);
+}
+
+/** After a move to another branch, apply the overrides that branch holds. */
+export function syncContextOverridesToBranch(entry: ContextOverrideSessionState): void {
+  const onBranch = readPersistedContextOverrides(entry.session, entry.baseTools.map((tool) => tool.name));
+  if (!areContextOverridesEqual(onBranch, entry.contextOverrides)) applyContextOverrides(entry, onBranch);
 }

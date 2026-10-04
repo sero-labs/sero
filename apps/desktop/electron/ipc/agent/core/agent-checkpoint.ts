@@ -9,11 +9,11 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { AgentStreamEvent, ChatHistoryPage, ChatTurnUndoRef } from '@/types/ipc';
 import { findLegacyTurnUndoEntryId, nextId } from './agent-helpers';
 import { readNewestTurns } from './agent-history-window';
+import { syncContextOverridesToBranch, type ContextOverrideSessionState } from './agent-context-overrides';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 
-export interface AgentPoolCheckpointEntry {
-  session: AgentSession;
+export interface AgentPoolCheckpointEntry extends ContextOverrideSessionState {
   workspaceId: string;
   pendingTurnUndoUserMessageId: string | null;
 }
@@ -35,6 +35,7 @@ function rebuildMessages(
   sessionId: string,
   sendEvent: (event: AgentStreamEvent) => void,
 ): ChatHistoryPage {
+  syncContextOverridesToBranch(entry);
   const page = readNewestTurns(entry.session, entry.workspaceId);
   sendEvent({ type: 'messages_loaded', sessionId, ...page });
   return page;

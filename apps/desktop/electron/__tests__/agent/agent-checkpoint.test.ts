@@ -39,6 +39,9 @@ describe('undoToTurn', () => {
     const entry: AgentPoolCheckpointEntry = {
       workspaceId: 'ws-1',
       pendingTurnUndoUserMessageId: 'msg-user-1',
+      baseSystemPrompt: '',
+      baseTools: [],
+      contextOverrides: null,
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,
@@ -98,6 +101,9 @@ describe('undoToTurn', () => {
     const entry: AgentPoolCheckpointEntry = {
       workspaceId: 'ws-1',
       pendingTurnUndoUserMessageId: 'msg-user-1',
+      baseSystemPrompt: '',
+      baseTools: [],
+      contextOverrides: null,
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,
@@ -143,6 +149,9 @@ describe('undoToTurn', () => {
     const entry: AgentPoolCheckpointEntry = {
       workspaceId: 'ws-1',
       pendingTurnUndoUserMessageId: 'msg-user-1',
+      baseSystemPrompt: '',
+      baseTools: [],
+      contextOverrides: null,
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,

@@ -31,6 +31,8 @@ export interface StubMessage {
 
 export interface StubRequest {
   system: string;
+  /** The role of every message in the order it was sent, system messages included. */
+  roles: string[];
   tools: StubTool[];
   messages: StubMessage[];
 }
@@ -79,6 +81,7 @@ function parseRequest(body: ChatCompletionsBody): StubRequest {
     .join('\n');
   return {
     system,
+    roles: messages.map((message) => message.role),
     tools: (body.tools ?? []).map((tool) => tool.function),
     messages: messages.filter((message) => message.role !== 'system' && message.role !== 'developer'),
   };

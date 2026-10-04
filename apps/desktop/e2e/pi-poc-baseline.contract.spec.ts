@@ -57,6 +57,11 @@ function respond(request: StubRequest): StubReply {
   if (last?.role === 'user' && write && !text.includes('<conversation>')) {
     return { toolCalls: [{ id: `call_${write[1]}`, name: 'write', arguments: { path: 'poc.txt', content: `${write[1]}\n` } }] };
   }
+  if (last?.role === 'user' && text.startsWith('call:')) {
+    // The test names the tool call the model makes.
+    const call = JSON.parse(text.slice('call:'.length)) as { name: string; arguments: Record<string, unknown> };
+    return { toolCalls: [{ id: `call_${request.messages.length}`, name: call.name, arguments: call.arguments }] };
+  }
   if (last?.role === 'user' && text.startsWith('codemode:')) {
     return { toolCalls: [{ id: 'call_codemode', name: 'codemode', arguments: { code: CODEMODE_SCRIPTS[text.slice('codemode:'.length).trim().split(' ')[0]] ?? 'return 1;' } }] };
   }
@@ -161,9 +166,9 @@ test.beforeAll(async () => {
   }
   ({ app, page } = await launchSeroApp({
     seroHome: profile.path,
-    runtime: 'host',
+    runtime: process.env.POC_CONTAINER === '1' ? 'apple-container' : 'host',
     // A stub run must never reach a paid provider, whatever model a session falls back to.
-    withoutEnv: getLlmCredentialEnvKeys(),
+    withoutEnv: getLlmCredentialEnvKeys().filter((key) => !(MODE === 'live' && key === 'DEEPSEEK_API_KEY')),
     env: {
       HOME: home.path,
       USERPROFILE: home.path,
@@ -179,6 +184,13 @@ test.beforeAll(async () => {
         path.join(seroHome, 'agent', 'settings.json'),
         JSON.stringify({ compaction: MODE === 'lifecycle' ? { enabled: true, reserveTokens: 500, keepRecentTokens: 200 } : { enabled: true, keepRecentTokens: 50 } }, null, 2),
       );
+      if (process.env.POC_MIDCONVO === '1') {
+        // A provider that takes system messages and tool additions in the middle of a conversation.
+        const modelsPath = path.join(seroHome, 'agent', 'models.json');
+        const models = JSON.parse(fs.readFileSync(modelsPath, 'utf8')) as { providers: Record<string, { compat: Record<string, boolean> }> };
+        Object.assign(models.providers[STUB_PROVIDER_ID].compat, { supportsMidConvoSystemMessages: true, supportsMidConvoToolAdditions: true });
+        fs.writeFileSync(modelsPath, JSON.stringify(models, null, 2));
+      }
       if (MODE === 'lifecycle') {
         // A small context window, so one large tool result passes the compaction threshold.
         const modelsPath = path.join(seroHome, 'agent', 'models.json');
@@ -469,7 +481,10 @@ test('the packaged app runs a chat turn with a run_code call', async () => {
     return session;
   }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
   const before = stub.requests.length;
-  const result = await turn(created.id, 'runcode: read the readme');
+  const code = SCRIPT_TOOL === 'run_code'
+    ? "const file = await tools.read({ path: 'README.md' }); return file.text.trim().toUpperCase();"
+    : "const file = await tools.read({ path: 'README.md' }); return String(file).trim().toUpperCase();";
+  const result = await turn(created.id, `call:${JSON.stringify({ name: SCRIPT_TOOL, arguments: { code } })}`);
   const first = stub.requests[before];
   const second = stub.requests[before + 1];
   const toolResult = second.messages.find((message) => message.role === 'tool')?.text ?? '';
@@ -511,6 +526,16 @@ test('a codemode script shows its inner calls inside its card as they occur', as
     });
   }, created.id);
 
+  // Frames for a recording of the live turn: one screenshot after another until the test stops the loop.
+  const frames = path.join(OUT, 'codemode-frames');
+  fs.mkdirSync(frames, { recursive: true });
+  let recording = true;
+  const recorder = (async () => {
+    for (let frame = 0; recording && frame < 400; frame += 1) {
+      await page.screenshot({ path: path.join(frames, `f${String(frame).padStart(4, '0')}.png`) }).catch(() => undefined);
+    }
+  })();
+
   const before = stub.requests.length;
   await page.locator('textarea[name="message"]').fill('codemode: three calls');
   await page.locator('button[aria-label="Submit"]').click();
@@ -526,6 +551,14 @@ test('a codemode script shows its inner calls inside its card as they occur', as
     await page.screenshot({ path: path.join(shots, `${index + 1}-${marker.replace(/[^a-z0-9]+/gi, '-')}.png`) });
     rowCounts.push((await events()).filter((line) => line.startsWith('tool_start') && !line.endsWith('parent=-')).length);
   }
+
+  // The card collapses when the turn ends. Open it again to show the settled rows.
+  await page.getByText('codemode', { exact: true }).last().click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(shots, '5-after-the-turn-expanded.png') });
+  await page.waitForTimeout(1_000);
+  recording = false;
+  await recorder;
 
   const log = await events();
   const toolMessages = await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: created.id, file: created.path, ws: workspaceId });
@@ -544,4 +577,287 @@ test('a codemode script shows its inner calls inside its card as they occur', as
   expect(log.filter((line) => line.startsWith('tool_start') && line.endsWith('parent=call_codemode'))).toHaveLength(3);
   expect(log.some((line) => line.startsWith('tool_end id=call_codemode/3') && line.endsWith('error=true'))).toBe(true);
   expect(stub.requests[before].tools.map((tool) => tool.name)).not.toContain('run_code');
+});
+
+// ── run_code against codemode (tasks 6.3 to 6.6) ─────────────────────────────
+
+const SCRIPT_TOOL = process.env.SERO_POC_RUN_CODE === '1' ? 'run_code' : 'codemode';
+/** A script per tool, because the two tools hand results to a script in different shapes. */
+type Script = { run_code: string; codemode: string };
+const same = (code: string): Script => ({ run_code: code, codemode: code });
+
+interface CallResult { text: string; isError: boolean | null; nested: string[]; ms: number; events: string[] }
+
+/** Has the stub model call one tool, and returns what came back to the model. */
+async function callTool(sessionId: string, name: string, args: Record<string, unknown>, abortAfterMs?: number): Promise<CallResult> {
+  const before = stub.requests.length;
+  const seen = await page.evaluate(({ id, prompt, abortAfter }) => new Promise<{ isError: boolean | null; nested: string[]; ms: number; events: string[] }>((resolve, reject) => {
+    const nested: string[] = [];
+    const events: string[] = [];
+    let isError: boolean | null = null;
+    let started = false;
+    const startedAt = Date.now();
+    const fail = window.setTimeout(() => { off(); reject(new Error(`No agent_end. Events: ${events.join(', ')}`)); }, 110_000);
+    const off = window.sero.agent.onEvent((event: AgentStreamEvent) => {
+      if (event.sessionId !== id) return;
+      events.push(event.type);
+      if (event.type === 'agent_start') started = true;
+      if (event.type === 'tool_start' && event.tool.parentToolCallId) nested.push(`start ${event.tool.toolName}`);
+      if (event.type === 'tool_start' && !event.tool.parentToolCallId && abortAfter) window.setTimeout(() => void window.sero.agent.abort(id), abortAfter);
+      if (event.type === 'tool_end' && event.parentToolCallId) nested.push(`end error=${String(event.isError)} ${(event.output ?? '').slice(0, 80)}`);
+      if (event.type === 'tool_end' && !event.parentToolCallId) isError = event.isError;
+      if (event.type === 'agent_end' && started) { window.clearTimeout(fail); off(); resolve({ isError, nested, ms: Date.now() - startedAt, events }); }
+    });
+    window.sero.agent.prompt(id, prompt, undefined, `poc-${Date.now()}`).catch(reject);
+  }), { id: sessionId, prompt: `call:${JSON.stringify({ name, arguments: args })}`, abortAfter: abortAfterMs ?? 0 });
+  const text = stub.requests[before + 1]?.messages.findLast((message) => message.role === 'tool')?.text ?? '';
+  return { text, ...seen };
+}
+
+async function newStubSession(): Promise<{ id: string; path: string }> {
+  return page.evaluate(async ({ id, provider, model }) => {
+    const session = await window.sero.sessions.create(id);
+    await window.sero.agent.open(session.id, session.path, id);
+    await window.sero.agent.setModel(session.id, provider, model);
+    return { id: session.id, path: session.path };
+  }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+}
+
+test('behaviour of the script tool', async () => {
+  test.skip(MODE !== 'compare');
+  test.setTimeout(600_000);
+  // A 1x1 PNG, for the image case.
+  fs.writeFileSync(path.join(workspaceDir, 'dot.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
+  const inContainer = process.env.POC_CONTAINER === '1';
+  if (inContainer) {
+    await page.evaluate(async (id) => {
+      await window.sero.workspace.setContainer(id, true);
+      await window.sero.container.ensure(id);
+    }, workspaceId);
+  }
+  const session = await newStubSession();
+  const rows: Record<string, unknown> = { tool: SCRIPT_TOOL, runtime: inContainer ? 'apple-container' : 'host' };
+  const run = async (script: Script, abortAfterMs?: number) => {
+    const result = await callTool(session.id, SCRIPT_TOOL, { code: script[SCRIPT_TOOL] }, abortAfterMs);
+    return { text: result.text.slice(0, 500), isError: result.isError, nested: result.nested, ms: result.ms };
+  };
+
+  // Where a nested bash runs: Linux in a container workspace, Darwin on the host.
+  rows.nestedBashKernel = await run({
+    run_code: "const r = await tools.bash({ command: 'uname -s' }); return r.text.split('\\n')[0];",
+    codemode: "const r = await tools.bash({ command: 'uname -s' }); return String(r).split('\\n')[0];",
+  });
+  const directKernel = await callTool(session.id, 'bash', { command: 'uname -s' });
+  rows.directBashKernel = directKernel.text.split('\n')[0];
+  // 6.3 behaviour
+  rows.typescript = await run(same('const n: number = 2; return n * 2;'));
+  rows.identifier = await run({
+    run_code: "const r = await tools.call({ name: 'sero-cli', args: { command: 'help' } }); return r.text.slice(0, 30);",
+    codemode: "const r = await tools.sero_cli({ command: 'help' }); return String(r).slice(0, 30);",
+  });
+  rows.textShape = await run(same("const r = await tools.read({ path: 'README.md' }); return typeof r + ' ' + JSON.stringify(r).slice(0, 120);"));
+  rows.structuredShape = await run(same("const r = await tools.bash({ command: 'echo hi' }); return typeof r + ' ' + JSON.stringify(r).slice(0, 200);"));
+  rows.nestedError = await run(same("const r = await tools.read({ path: 'missing.txt' }); return 'not reached ' + typeof r;"));
+  rows.image = await run(same("const r = await tools.read({ path: 'dot.png' }); return typeof r + ' ' + JSON.stringify(r).slice(0, 160);"));
+  rows.concurrency = await run(same("const t = Date.now(); await Promise.all([tools.bash({ command: 'sleep 2' }), tools.bash({ command: 'sleep 2' })]); return Date.now() - t;"));
+  rows.limit = await run({
+    run_code: 'while (true) {}',
+    codemode: '// @options: {"timeout_ms": 3000}\nwhile (true) {}',
+  });
+
+  // 6.5 a failing bash inside a script, a failing bash called directly, and a cancel in the middle of a script
+  rows.failingBashInScript = await run(same("try { const r = await tools.bash({ command: 'echo out; exit 3' }); return 'resolved ' + JSON.stringify(r).slice(0, 160); } catch (error) { return 'rejected ' + error.message.slice(0, 160); }"));
+  const direct = await callTool(session.id, 'bash', { command: 'echo out; exit 3' });
+  rows.failingBashDirect = { text: direct.text.slice(0, 200), isError: direct.isError };
+  rows.cancel = await run(same("await tools.bash({ command: 'sleep 20' }); return 'not reached';"), 1_000);
+
+  // 6.4 restrictions on a host workspace: a tool disabled in the context editor
+  await page.evaluate(({ id }) => window.sero.agent.setContextOverrides(id, { disabledTools: ['grep'] }), { id: session.id });
+  const disabledDirect = await callTool(session.id, 'grep', { pattern: 'poc' });
+  rows.disabledTool = {
+    direct: { text: disabledDirect.text.slice(0, 160), isError: disabledDirect.isError },
+    script: await run(same("try { const r = await tools.grep({ pattern: 'poc' }); return 'REACHED ' + JSON.stringify(r).slice(0, 80); } catch (error) { return 'rejected ' + error.message.slice(0, 160); }")),
+    discovery: SCRIPT_TOOL === 'codemode'
+      ? await run(same("return JSON.stringify({ inAll: ALL_TOOLS.some((t) => (t.name ?? t) === 'grep'), search: (await searchTools('grep')).map((t) => t.name), describe: String(await describeTool('grep')).slice(0, 60) });"))
+      : await run(same("return JSON.stringify({ hasFunction: typeof tools.grep, keys: Object.keys(tools) });")),
+  };
+  // a tool the chat session kind does not get
+  const droppedDirect = await callTool(session.id, 'goal_complete', {});
+  rows.droppedTool = {
+    direct: { text: droppedDirect.text.slice(0, 160), isError: droppedDirect.isError },
+    script: await run(same("try { const r = await tools.goal_complete({}); return 'REACHED ' + JSON.stringify(r).slice(0, 80); } catch (error) { return 'rejected ' + error.message.slice(0, 160); }")),
+    discovery: SCRIPT_TOOL === 'codemode'
+      ? await run(same("return JSON.stringify({ search: (await searchTools('goal complete')).map((t) => t.name), describe: String(await describeTool('goal_complete')).slice(0, 60) });"))
+      : await run(same("return JSON.stringify({ hasFunction: typeof tools.goal_complete });")),
+  };
+  write(`compare-${SCRIPT_TOOL}${process.env.POC_CONTAINER === '1' ? '-container' : ''}.json`, rows);
+
+  // a call the permission gate blocks. Nobody answers the question, so the gate blocks after its 30 second limit.
+  // `echo shutdown` matches the gate and is harmless if it runs.
+  const blockedDirect = await callTool(session.id, 'bash', { command: 'echo shutdown' });
+  rows.blockedTool = {
+    direct: { text: blockedDirect.text.slice(0, 200), isError: blockedDirect.isError, ms: blockedDirect.ms },
+    script: await run(same("try { const r = await tools.bash({ command: 'echo shutdown' }); return 'REACHED ' + JSON.stringify(r).slice(0, 120); } catch (error) { return 'rejected ' + error.message.slice(0, 200); }")),
+  };
+  write(`compare-${SCRIPT_TOOL}${process.env.POC_CONTAINER === '1' ? '-container' : ''}.json`, rows);
+});
+
+test('store and load across a fork and an undo', async () => {
+  test.skip(MODE !== 'store');
+  test.setTimeout(300_000);
+  const session = await newStubSession();
+  const script = async (id: string, code: string) => {
+    const result = await turn(id, `call:${JSON.stringify({ name: 'codemode', arguments: { code } })}`);
+    const text = stub.requests.at(-1)?.messages.findLast((message) => message.role === 'tool')?.text ?? '';
+    return { value: text.split('Output:\n\n')[1] ?? text, turnUndo: result.turnUndo };
+  };
+  const LOAD = "return String(await load('k'));";
+  const rows: Record<string, unknown> = {};
+  rows.parentWritesA = (await script(session.id, "await store('k', 'A'); return String(await load('k'));")).value;
+  const second = await script(session.id, "await tools.write({ path: 'store.txt', content: 'b' }); await store('k', 'B'); return String(await load('k'));");
+  rows.parentWritesB = second.value;
+  const fork = await page.evaluate(async ({ id, ws }) => {
+    const forked = await window.sero.agent.forkSession(id);
+    await window.sero.agent.open(forked.id, forked.path, ws);
+    return forked;
+  }, { id: session.id, ws: workspaceId });
+  rows.forkReadsBeforeWrite = (await script(fork.id, LOAD)).value;
+  rows.forkWritesF = (await script(fork.id, "await store('k', 'F'); await store('onlyFork', 1); return String(await load('k'));")).value;
+  // forkSession leaves the parent's writer on the fork's file (seen on 0.84.2 too), so reopen the parent first.
+  await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: session.id, file: session.path, ws: workspaceId });
+  rows.parentReadsAfterFork = (await script(session.id, "return String(await load('k')) + ' onlyFork=' + String(await load('onlyFork'));")).value;
+  rows.undoOffered = Boolean(second.turnUndo);
+  if (second.turnUndo) {
+    await page.evaluate(({ id, ref }) => window.sero.agent.undoToTurn(id, ref), { id: session.id, ref: second.turnUndo });
+    rows.parentReadsAfterUndo = (await script(session.id, LOAD)).value;
+  }
+  rows.forkReadsAtEnd = (await script(fork.id, LOAD)).value;
+  rows.storeEntriesInParentFile = fs.readFileSync(session.path, 'utf8').split('\n').filter((line) => line.includes('codemode-store')).length;
+  write('store-native.json', rows);
+});
+
+// ── One paid run on deepseek/deepseek-flash (task 6.7). Every other provider key is stripped at launch. ──
+
+const LIVE_TASKS = [
+  'Count the lines in each file in data/ and tell me the total. Do it in one call of the script tool.',
+  'Which files in data/ hold the word TODO, and on which line numbers? Do it in one call of the script tool.',
+  'Write out/first-lines.txt with the first line of each file in data/, one per line, then read it back and show it. Do it in one call of the script tool.',
+];
+
+test('three tasks on a paid model', async () => {
+  test.skip(MODE !== 'live');
+  test.setTimeout(900_000);
+  fs.mkdirSync(path.join(workspaceDir, 'data'));
+  for (let index = 1; index <= 5; index += 1) {
+    const lines = Array.from({ length: index * 7 }, (_, line) => (line === index ? `TODO item ${index}` : `file ${index} line ${line + 1}`));
+    if (index % 2 === 0) lines[index] = `note ${index}`;
+    fs.writeFileSync(path.join(workspaceDir, 'data', `f${index}.txt`), `${lines.join('\n')}\n`);
+  }
+  const rows: unknown[] = [];
+  for (const task of LIVE_TASKS) {
+    const session = await page.evaluate(async ({ id }) => {
+      const created = await window.sero.sessions.create(id);
+      await window.sero.agent.open(created.id, created.path, id);
+      await window.sero.agent.setModel(created.id, 'deepseek', 'deepseek-flash');
+      return { id: created.id, path: created.path };
+    }, { id: workspaceId });
+    const seen = await page.evaluate(({ id, prompt }) => new Promise<{ topLevel: string[]; nested: number; ms: number; error: string | null }>((resolve) => {
+      const topLevel: string[] = [];
+      let nested = 0;
+      let started = false;
+      const startedAt = Date.now();
+      const done = (error: string | null) => { window.clearTimeout(fail); off(); resolve({ topLevel, nested, ms: Date.now() - startedAt, error }); };
+      const fail = window.setTimeout(() => done('no agent_end in 240 s'), 240_000);
+      const off = window.sero.agent.onEvent((event: AgentStreamEvent) => {
+        if (event.sessionId !== id) return;
+        if (event.type === 'agent_start') started = true;
+        if (event.type === 'tool_start') { if (event.tool.parentToolCallId) nested += 1; else topLevel.push(event.tool.toolName); }
+        if (event.type === 'error') done(event.error);
+        if (event.type === 'agent_end' && started) done(null);
+      });
+      window.sero.agent.prompt(id, prompt, undefined, `poc-${Date.now()}`).catch((error: unknown) => done(String(error)));
+    }), { id: session.id, prompt: task });
+    const usage = await page.evaluate((id) => window.sero.agent.getUsage(id), session.id);
+    const history = await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: session.id, file: session.path, ws: workspaceId });
+    const answer = JSON.stringify(history.messages.at(-1)).slice(0, 400);
+    const models = fs.readFileSync(session.path, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line) as { message?: { role?: string; provider?: string; model?: string } }).filter((entry) => entry.message?.role === 'assistant').map((entry) => `${entry.message?.provider}/${entry.message?.model}`);
+    rows.push({ task, ...seen, usage, models: [...new Set(models)], answer });
+    write(`live-${SCRIPT_TOOL}.json`, rows);
+  }
+});
+
+// ── Overrides and branches (task 7.1) ────────────────────────────────────────
+
+test('an override written on one branch and read from a sibling branch', async () => {
+  test.skip(MODE !== 'branch');
+  test.setTimeout(180_000);
+  const session = await newStubSession();
+  const reopen = async () => {
+    await page.evaluate((id) => window.sero.agent.close(id), session.id);
+    await page.evaluate(async ({ id, file, ws, provider, model }) => {
+      await window.sero.agent.open(id, file, ws);
+      await window.sero.agent.setModel(id, provider, model);
+    }, { id: session.id, file: session.path, ws: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+  };
+  const rows: Record<string, unknown> = {};
+  await turn(session.id, 'write:one');
+  const second = await turn(session.id, 'write:two');
+  // The override entry is a child of turn two, so it is on turn two's branch only.
+  await page.evaluate(({ id, prompt, tool }) => window.sero.agent.setContextOverrides(id, { systemPrompt: prompt, disabledTools: [tool] }), { id: session.id, prompt: OVERRIDE_PROMPT, tool: DISABLED_TOOL });
+  if (!second.turnUndo) throw new Error('No undo point for turn two.');
+  await page.evaluate(({ id, ref }) => window.sero.agent.undoToTurn(id, ref), { id: session.id, ref: second.turnUndo });
+  rows.siblingBeforeReopen = (await snapshot(session.id)).overrides;
+  const before = stub.requests.length;
+  await turn(session.id, 'on the sibling branch');
+  rows.siblingRequestMessages = stub.requests[before]?.messages.map((message) => `${message.role}: ${message.text.slice(0, 30)}`);
+  await reopen();
+  rows.siblingAfterReopen = (await snapshot(session.id)).overrides;
+  rows.siblingRequestHasOverride = stub.requests[before]?.system.includes('POC_OVERRIDE_MARK') ?? null;
+  rows.siblingRequestHasDisabledTool = stub.requests[before]?.tools.some((tool) => tool.name === DISABLED_TOOL) ?? null;
+
+  // Reload and resume keep a choice made on the current branch.
+  await page.evaluate(({ id, tool }) => window.sero.agent.setContextOverrides(id, { disabledTools: [tool] }), { id: session.id, tool: DISABLED_TOOL });
+  await page.evaluate((id) => window.sero.agent.reloadResources(id), session.id);
+  rows.afterReload = (await snapshot(session.id)).overrides;
+  await reopen();
+  rows.afterResume = (await snapshot(session.id)).overrides;
+  // An undo with no later message, then a reopen: which branch does the session open on?
+  const third = await turn(session.id, 'write:three');
+  if (third.turnUndo) {
+    const undone = await page.evaluate(({ id, ref }) => window.sero.agent.undoToTurn(id, ref), { id: session.id, ref: third.turnUndo });
+    await page.evaluate((id) => window.sero.agent.close(id), session.id);
+    const reopened = await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: session.id, file: session.path, ws: workspaceId });
+    rows.undoThenReopen = { messagesAfterUndo: undone.messages.length, messagesAfterReopen: reopened.messages.length };
+  }
+  write(`branch-${LABEL}.json`, rows);
+});
+
+// ── A prompt change and a tool change in the middle of a session (tasks 7.2 and 7.4) ──
+
+test('requests and session entries after a prompt edit and a tool toggle', async () => {
+  test.skip(MODE !== 'promptchange');
+  test.setTimeout(180_000);
+  const session = await newStubSession();
+  const shape = (label: string, index: number) => {
+    const request = stub.requests[index];
+    return { label, roles: request.roles.join(' '), systemChars: request.system.length, hasOverride: request.system.includes('POC_OVERRIDE_MARK'), tools: request.tools.length, hasGrep: request.tools.some((tool) => tool.name === DISABLED_TOOL) };
+  };
+  const rows: unknown[] = [];
+  const step = async (label: string) => { const index = stub.requests.length; await turn(session.id, label); rows.push(shape(label, index)); };
+  await step('first turn');
+  await page.evaluate(({ id, prompt }) => window.sero.agent.setContextOverrides(id, { systemPrompt: prompt }), { id: session.id, prompt: OVERRIDE_PROMPT });
+  await step('after the prompt edit');
+  await page.evaluate(({ id, tool }) => window.sero.agent.setContextOverrides(id, { disabledTools: [tool] }), { id: session.id, tool: DISABLED_TOOL });
+  await step('after the prompt reset and the tool toggle');
+  await page.evaluate((id) => window.sero.agent.setContextOverrides(id, null), session.id);
+  await step('after the tool is back');
+  const entries = fs.readFileSync(session.path, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line) as { type: string; customType?: string; data?: unknown; message?: { role?: string; content?: unknown; sections?: Record<string, unknown>; toolsAdded?: Array<{ name: string }>; toolsRemoved?: Array<{ name: string }> } });
+  const file = entries.map((entry) => {
+    if (entry.type === 'custom') return `custom ${entry.customType} ${JSON.stringify(entry.data).slice(0, 90)}`;
+    if (entry.type !== 'message') return entry.type;
+    const message = entry.message ?? {};
+    if (message.role !== 'system') return `message ${message.role}`;
+    return `message system contentChars=${JSON.stringify(message.content ?? '').length} sections=[${Object.keys(message.sections ?? {}).join(',')}] toolsAdded=${message.toolsAdded?.length ?? 0} toolsRemoved=[${(message.toolsRemoved ?? []).map((tool) => tool.name).join(',')}] added=[${(message.toolsAdded ?? []).length < 4 ? (message.toolsAdded ?? []).map((tool) => tool.name).join(',') : '...'}]`;
+  });
+  write(`promptchange-${process.env.POC_MIDCONVO === '1' ? 'in-place' : 'folded'}.json`, { requests: rows, file });
 });
