@@ -71,11 +71,11 @@ describe('useFileTreeModel', () => {
     },
   );
 
-  function Harness() {
+  function Harness({ activePath = null }: { activePath?: string | null }) {
     useFileTreeModel({
       workspaceId: 'ws-1',
       rootId: '/workspace',
-      activePath: null,
+      activePath,
       onFileSelect: vi.fn(),
     });
     return null;
@@ -224,5 +224,30 @@ describe('useFileTreeModel', () => {
       expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
     });
     expect(listFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('reveals a nested active file by loading its ancestor directories', async () => {
+    await act(async () => {
+      root?.render(<Harness activePath="/workspace/src/index.ts" />);
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace');
+      expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace/src');
+    });
+    expect(listFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not treat a dev server preview tab as a file path', async () => {
+    await act(async () => {
+      root?.render(<Harness activePath="devserver://http://127.0.0.1:5174/" />);
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(listFiles).toHaveBeenCalledWith('ws-1', '/workspace');
+    });
+    expect(listFiles).toHaveBeenCalledTimes(1);
   });
 });
