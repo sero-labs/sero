@@ -123,13 +123,3 @@ catalogs:
     react: "^19.3.0"
     react-dom: "^19.3.0"
     zod: ">=4.0.0"
-
-minimumReleaseAgeExclude:
-  - '@earendil-works/chord@1.0.2'
-  - '@earendil-works/pi-agent-core@1.0.2'
-  - '@earendil-works/pi-ai@1.0.2'
-  - '@earendil-works/pi-codemode@1.0.2'
-  - '@earendil-works/pi-coding-agent@1.0.2'
-  - '@earendil-works/pi-mcp@1.0.2'
-  - '@earendil-works/pi-telemetry@1.0.2'
-  - '@earendil-works/pi-tui@1.0.2'
