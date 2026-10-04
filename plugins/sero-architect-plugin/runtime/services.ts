@@ -98,7 +98,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     if (!workspaceId) return { route, smokePassed: false, capturePath: null, failure: 'The project has no registered workspace.' };
     const command = await host.detectDevServerCommand(record.folder);
     if (!command) {
-      const failure = `No dev server command was detected in ${record.folder}. Add a dev script for this app, then request fresh evidence.`;
+      const failure = `No dev server command was detected in ${record.folder}. The check starts the app with the dev, preview or start script of its package.json, in that order, and the app has none. Add a dev script for this app, then request fresh evidence.`;
       host.log(failure);
       return { route, smokePassed: false, capturePath: null, failure };
     }

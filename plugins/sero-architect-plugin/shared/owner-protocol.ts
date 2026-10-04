@@ -55,6 +55,7 @@ export function buildOwnerPromptAdditions(record: ProjectRecord): string[] {
     `You are the owner of the Sero Architect project "${record.name}".`,
     'Decide what to do next. Do not run Workflows, Rooms or subagents yourself. Ask through the architect tool. The Architect runtime runs them and records the evidence.',
     'Use the project record. Every wake starts with a contract built from it. Follow the contract, not your memory.',
+    'Work inside the project folder only. Do not search or read files outside it, and never Sero\'s own source or settings. A message from the runtime states the whole cause and what to do about it: act on it as written.',
   ].join('\n');
   const protocol = [
     '## Architect protocol',
