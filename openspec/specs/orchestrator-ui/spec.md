@@ -6,31 +6,35 @@ Define what Orchestrator Home, the Workflows list and the Rooms list show, so a 
 
 ### Requirement: One definition of active
 
-Orchestrator Home and the Workflows list SHALL derive a Workflow's state from the same rule and the shared activity vocabulary. A Workflow counts as active only when a run is live by that rule. A saved status label MUST NOT be shown as a state word on its own.
+Orchestrator Home, Workflow/Room lists and detail views SHALL derive activity from the same shared vocabulary and observed contact rule. A Workflow or Room SHALL count as active only when its current run is confirmed attached. Saved status labels MUST NOT alone establish activity. Current work, request/tool wait, last meaningful activity and contact freshness SHALL remain consistent across overview and detail, including for directly created work.
 
 #### Scenario: Home and the tab agree
-
-- **WHEN** one Workflow is armed on triggers with no live run
-- **THEN** Home counts nothing as active and the Workflows list reads `Waiting for a trigger` for it, and neither says `Active`
+- **WHEN** a Workflow is armed with no live run
+- **THEN** Home does not count it active and its row reads Waiting for a trigger
 
 #### Scenario: A live run
+- **WHEN** one Workflow run is confirmed live
+- **THEN** Home counts it active and the Workflow row reads Working from those same facts
 
-- **WHEN** a run is live for one Workflow
-- **THEN** Home counts one active and the Workflows list reads `Working` for that Workflow
+#### Scenario: Room contact expires
+- **WHEN** a saved running Room loses confirmed current-session contact
+- **THEN** Home, the Room list and its page read Last known without claiming it failed
 
 ### Requirement: Home opens on status and the work that needs you
 
-Orchestrator Home SHALL open on one status line covering the workspace and then the work that needs the user. Creating a Workflow, a Room or a Goal SHALL be offered as three buttons in the header, and their explanation SHALL be behind one "What are these?" disclosure rather than three cards in the body. Counts already shown on a tab MUST NOT be repeated on Home, and a tab with nothing to count shows no count.
+Orchestrator Home SHALL open on a workspace status line, a compact account of current Workflow and Room work and the work needing the user. Current-work summaries SHALL name the work or wait, freshness and available spend, and open its detail/Watch without showing raw logs. Create Workflow, Room and Goal SHALL remain three header actions with their explanation behind one What are these disclosure. Counts already on tabs MUST NOT be repeated on Home; empty tabs SHALL show no count.
 
 #### Scenario: Nothing running
+- **WHEN** nothing is running and one Workflow is armed
+- **THEN** the status states that nothing is running, names that armed Workflow and shows available workspace spend
 
-- **WHEN** nothing is running in the workspace and one Workflow is armed
-- **THEN** Home's status line says nothing is running, names the armed Workflow and shows the spend for the workspace
+#### Scenario: Work is live
+- **WHEN** a Room member and Workflow step are in flight
+- **THEN** Home shows their short actual work/wait summaries with a path to detail without waiting for either run to complete
 
 #### Scenario: Creating from Home
-
 - **WHEN** the user wants to create a Room
-- **THEN** a Room button is in the header, and the explanation of Workflows, Rooms and Goals is available from one disclosure
+- **THEN** the Room header action and one shared explanation are available
 
 ### Requirement: Needs you groups by the work it belongs to
 
@@ -43,37 +47,39 @@ Several items needing the user that belong to one Workflow or Room SHALL be grou
 
 ### Requirement: The Workflows list is full width and rows open a page
 
-The Workflows tab SHALL show a full-width list with no detail pane beside it. Each row SHALL show the Workflow's full title without truncation, its state in words, what it waits for, when it last ran, and its spend. An agent instruction MUST NOT be used as a row's summary line. Selecting a row SHALL open that Workflow on its own page with a link back to the list, and the list SHALL NOT show a placeholder telling the user to select something.
+The Workflows tab SHALL show a full-width list without a sibling detail pane. Each row SHALL show the full Workflow title, shared activity state, current step/work or wait, last meaningful activity and observation freshness, last run and available spend. Agent instructions MUST NOT become row summaries. Selecting a row SHALL open its own page and returning SHALL preserve search and scroll. Live facts MUST update without requiring an open Workflow page.
 
 #### Scenario: Long title
-
-- **WHEN** a Workflow's title is longer than the old pane's column allowed
-- **THEN** the row shows the whole title
+- **WHEN** a Workflow has a long title
+- **THEN** its row keeps the full title and a bounded current-work summary rather than replacing it with instructions
 
 #### Scenario: Opening and returning
-
-- **WHEN** the user selects a Workflow row and then the back link
-- **THEN** the Workflow opens on its own page, and returning restores the list with the user's search and scroll position
+- **WHEN** the user opens a Workflow and returns
+- **THEN** search and scroll are restored and current activity still reflects the latest scoped observation
 
 #### Scenario: Nothing selected
-
 - **WHEN** the user opens the Workflows tab
-- **THEN** the list fills the width and no "Select a Workflow from the list." placeholder is shown
+- **THEN** the list fills the width without a select-something placeholder
+
+#### Scenario: List-only observation
+- **WHEN** an attached step starts a tool while only the list is open
+- **THEN** the row updates its current activity without a final run save or transcript subscription
 
 ### Requirement: A Room row says what it waits for
 
-A Rooms list row SHALL show the Room's name, its state in words and, when it waits on the user, what is asked and how long it has waited. The Room's brief MUST NOT be the row's summary line and stays complete inside the Room. Rows SHALL keep their member avatars and member count.
+A Room row SHALL show its name, shared activity state, actual current work or wait, observation freshness, available spend and active-time facts, and member avatars/count. A user hold SHALL name the requested action and measured wait where available. The complete brief SHALL stay inside detail, not become the row summary. Parallel members SHALL be summarized without hiding their concurrent activity.
 
 #### Scenario: A Room waiting on the user
-
-- **WHEN** a Room paused nine days ago to ask the user one question
-- **THEN** the row says it is waiting for the user, for nine days, and names the question asked
-- **AND** the row does not begin with the Room's brief
+- **WHEN** a Room is held for a user question
+- **THEN** the row names the question and known wait rather than printing its brief
 
 #### Scenario: Two Rooms with the same name
-
 - **WHEN** two Rooms share a name
-- **THEN** both keep that name, and their dates and results tell them apart
+- **THEN** both retain their title and their dates/results distinguish them without mixing live observations
+
+#### Scenario: Parallel members
+- **WHEN** three Room members are active
+- **THEN** the row identifies concurrent work and the detail reveals all three rather than describing only the last reporting member as the whole Room
 
 ### Requirement: A Workflow's settings read as labelled values
 
@@ -116,20 +122,21 @@ Where a Workflow starts from events, the settings line SHALL name the events und
 
 ### Requirement: A step shows its title, its state and its result
 
-Each step in the Workflow plan's detail view SHALL show its title, its state in words and its result. The step's instruction and its expected result SHALL be behind a disclosure on the step. The model, the agent and the tools SHALL open from one control on the step, and SHALL be shown on the step itself only where the user has changed them from the default. An agent instruction MUST NOT be used as a step's heading. A running step SHALL offer its live view as `live-agent-watch` sets out. A failed step SHALL carry Retry in its header beside its state, and SHALL state its error as one line under its title with no label column.
+Each Workflow step in detail SHALL show its title, shared activity state and available result. During execution it SHALL also show a short actual request/tool/wait summary, observation freshness and access to its authorized live view, including separate fan-out items and children. Instruction and expected result SHALL stay in detail disclosures. Model, agent and tools SHALL open from one control and appear on the step only when overridden. Instructions MUST NOT become headings and stale previous-turn replies MUST NOT be presented as current output. A failed step SHALL carry Retry in its header beside its state, and SHALL state its error as one line under its title with no label column.
 
 #### Scenario: A finished step
-
-- **WHEN** a step has finished
-- **THEN** the step shows its title, that it is done and its result, with the instruction and expected result behind the disclosure
+- **WHEN** a step finishes
+- **THEN** it shows its title, actual completion and result while instruction detail stays secondary
 
 #### Scenario: A tuned step
+- **WHEN** only the step's model was changed
+- **THEN** only that override appears outside its configuration control
 
-- **WHEN** the user has changed one step's model and left its agent and tools at the default
-- **THEN** that step shows the changed model, and its agent and tools stay behind the control
+#### Scenario: Quiet fan-out
+- **WHEN** two items are waiting on model requests
+- **THEN** each shows its own observed wait and available live view before the parent step completes
 
 #### Scenario: A failed step
-
 - **WHEN** a step timed out while `pnpm build` was running
 - **THEN** its header shows Failed and Retry, and one line under the title says it timed out while `pnpm build` was running
 
@@ -154,23 +161,24 @@ Where a Workflow's plan branches, the detail view SHALL mark a step whose route 
 
 ### Requirement: A Room states its hold once, with its actions once
 
-Where a Room is stopped waiting on the user, the page SHALL state what is asked in plain words in one place, with the members' own text folded under it. That one place SHALL carry the Room's actions, and those actions MUST NOT also appear in the Room header while it holds them. Where a running Room asks nothing, its stop control SHALL be in the header. The header SHALL keep the Room's name, its state, its spend and its time. A separate control that only opens what the hold already shows MUST NOT be offered.
+A Room hold SHALL state the actual cause or required user choice once, with short primary actions and separate supporting member detail. The same actions MUST NOT repeat in the header. A running Room with no question SHALL retain its stop control in the header. Header facts SHALL include name, shared state, spend and active time. An exhausted-time hold SHALL open a separate recovery dialog with measured usage, proposed new total, the unchanged spend cap and one approve/resume action; it MUST NOT expose an inline time-extension form. A completed Room SHALL not offer resume.
 
 #### Scenario: A Room on hold
-
-- **WHEN** two members are blocked and have each written a message asking the user to act
-- **THEN** one card states the question in plain words, folds both messages under it, and carries message, resume and stop
-- **AND** none of those three also appears in the header
+- **WHEN** two members are blocked by the same question
+- **THEN** one short hold states that question and offers its actions once, with member evidence accessible separately
 
 #### Scenario: A running Room with no question
-
-- **WHEN** a Room is running and asks nothing
-- **THEN** its stop control is in the header
+- **WHEN** the Room is running with no user question
+- **THEN** stop remains in its header and no duplicate hold control appears
 
 #### Scenario: The state is a sentence, not a count
+- **WHEN** two members need the same answer
+- **THEN** the hold states that question rather than a count of members needing the user
 
-- **WHEN** two members ask one question
-- **THEN** the page says what is asked, rather than reporting a number of things needing the user
+#### Scenario: Time limit expired
+- **WHEN** active usage reached the Room's total time limit
+- **THEN** one recovery action opens the separate dialog and only a larger sufficient total can be approved
+- **AND** resumption targets the same Room and does not change its spend cap
 
 ### Requirement: Activity that cannot be read is not reported as activity that did not happen
 
@@ -679,3 +687,15 @@ Where a Room's record names the project that created it, the Room's header SHALL
 
 - **WHEN** a Room is stopped waiting on the user and the hold carries the Room's actions
 - **THEN** the project's name is still shown in the header
+
+### Requirement: Workflow and Room pages expose a short live summary
+
+A Workflow page and a Room page SHALL show the same observed current-work facts as their list rows, together with scope-appropriate Watch access. Plans, historical activity, instructions and full member output SHALL be secondary separate detail, not required reading to identify the current action or necessary decision. Feedback SHALL include planning/preparation before a run/member turn starts and recovery after a recoverable failure. Directly created Workflows and Rooms SHALL retain their own grants and controls.
+
+#### Scenario: Planner is still running
+- **WHEN** a directly created Workflow is being planned and no execution step exists
+- **THEN** its page identifies observed planner activity or wait and permits authorized inspection without claiming an execution run already exists
+
+#### Scenario: Inspect Room work
+- **WHEN** the user opens Room Watch during a member turn
+- **THEN** current available member/child output and tool states appear before completion without waiting for a final Room-record update

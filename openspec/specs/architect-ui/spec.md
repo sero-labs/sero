@@ -6,172 +6,171 @@ The Architect page shows each project's state and the user's next action. It hid
 
 ### Requirement: Projects list
 
-The Architect app SHALL open on a projects list with one row per project showing an activity line, the action the project needs from the user, and spend against cap. The activity line SHALL have two parts: the state that matters most, taken from the shared activity vocabulary and derived from saved records, and a second line naming whose work it is, the Architect's own or the Workflow or Room it handed the work to. A row MUST NOT show the Architect's own written sentence, the project id, events, transcripts or step detail. The list SHALL offer a `Needs you · N` filter that shows only the projects needing the user, where N counts those projects.
+The Architect app SHALL open on a projects list with one row per project showing its goal/title, activity from the shared vocabulary, current work and its owner, observation freshness, action needed if any and spend against cap. State MUST be runtime-derived, not taken from the owner's written sentence. Raw ids, transcripts, event logs and internal step detail MUST NOT appear in rows. The list SHALL retain the Needs you filter and count. Current owner, research and delegated work SHALL remain visible before a result is saved.
 
 #### Scenario: Two projects
-
-- **WHEN** one project needs a decision and another is building quietly
-- **THEN** the list shows both rows, the first naming the action it needs and the second showing no action
-
-#### Scenario: Paused owner with an armed worker
-
-- **WHEN** the user paused a project whose maintenance Workflow was paused with it
-- **THEN** the first line reads `Paused by you` and the second says the maintenance Workflow is paused with the project
+- **WHEN** one project needs a decision and another is building
+- **THEN** both show their actual activity and spend, and only the first names a user action
 
 #### Scenario: Filter to what needs you
-
-- **WHEN** the user selects `Needs you · N`
-- **THEN** only the rows naming an action remain, and the count equals the number of rows shown
+- **WHEN** the user selects Needs you
+- **THEN** only projects requiring user action remain and the count matches those projects
 
 #### Scenario: A dispatch is named, not identified
+- **WHEN** a Room is working for a project
+- **THEN** the row names the Room and observed current work rather than its raw id or brief
 
-- **WHEN** a milestone was dispatched to a Room
-- **THEN** the second line names the Room and its state, and no raw record id appears on the row
+#### Scenario: Paused owner with an armed worker
+- **WHEN** a project is paused and its maintenance Workflow was disarmed with it
+- **THEN** the row reads Paused by you and states that the maintenance Workflow is paused with the project
+
+#### Scenario: Work before dispatch
+- **WHEN** the owner is preparing the route and no delegated work exists yet
+- **THEN** the row shows its observed work or request wait rather than a blank state
 
 ### Requirement: Project page shows four parts
 
-A project page SHALL show, in order: a heading that is the project's state in plain words, followed by the same activity line as the list and, when something needs the user, the controls for that action; a Needs You section listing open decisions and approvals; a milestone rail; and a directive composer with the latest reply. The header MAY carry more than one control when the state offers more than one thing to do, and MAY carry a field where the action needs a value rather than a confirmation. Those controls SHALL run the same actions as their copies elsewhere on the page or in the project menu. The Architect's own latest sentence SHALL be complete behind a "What Architect reported" disclosure, with the time it was written. Evidence and older directives MUST be behind disclosures. History SHALL be its own view opened from the project controls menu, and the project page MUST NOT hold it. The page MUST NOT contain an event log and MUST NOT stream agent output, except the live view of a running research agent that the user opens from its research card. When a stopped step is what the project needs from the user, the header SHALL offer the whole recovery control the milestone rail used to carry — including the field a raised cap needs — and the milestone rail MUST NOT repeat it.
+The project overview SHALL show four compact content areas: the user's goal and relevant stated constraints; observed current work, freshness and spend; a usable result or next meaningful checkpoint; and any necessary user decision. Empty result or decision areas SHALL not become placeholder cards. A short directive composer and Watch work entry SHALL remain available. Plans, models, milestone rails, research, full owner reports, evidence and older directives SHALL open in separate work/settings/history views, not nested folds or another column on the overview. The overview MUST NOT contain a transcript or event log. Every action SHALL use the same authoritative tool action as equivalent menu/detail controls.
 
 #### Scenario: Quiet build
-
-- **WHEN** a project is building with no open decision
-- **THEN** the header shows no control, and no section grows to fill the space
+- **WHEN** a project builds without needing the user
+- **THEN** the overview shows its goal, actual current work and spend, a Watch work entry and any available useful result
+- **AND** no technical plan or empty Needs You section expands the page
 
 #### Scenario: Stopped step
-
-- **WHEN** a milestone's run stopped before it finished
-- **THEN** the heading names the milestone that stopped and the header offers the recovery control beside the reason
-- **AND** the milestone rail does not repeat that control
+- **WHEN** delegated work stops and safe automatic recovery cannot continue
+- **THEN** the overview states the named work and saved cause once with the applicable recovery action
+- **AND** it offers separate work detail without making the user find the cause in history
 
 #### Scenario: The cap is what stopped the work
-
-- **WHEN** a project has reached its spend cap
-- **THEN** the heading says the cap stopped the work, and the header carries the new-cap field and the control that raises the cap and resumes
-- **AND** raising the cap from the header and from the project menu have the same effect
+- **WHEN** the project reaches its spending cap
+- **THEN** it shows the actual hold and one action that opens a cap/recovery dialog
+- **AND** the dialog uses the same tool action as the project menu
 
 #### Scenario: Two things to do
-
-- **WHEN** a project is stopped because its research Room was cancelled
-- **THEN** the header offers both opening that Room and telling the Architect what to do next
-- **AND** telling the Architect what to do next puts the cursor in the existing directive composer rather than opening another way to send one
+- **WHEN** a project needs help after its research Room was cancelled
+- **THEN** it offers opening that Room and sending a directive through the existing composer without duplicating the hold
 
 #### Scenario: The Architect's own words are kept
-
-- **WHEN** the Architect has reported a paragraph about a blocked milestone
-- **THEN** the paragraph is complete under "What Architect reported" with its time, and no part of it is used as the heading or cut short
+- **WHEN** Architect records a long report
+- **THEN** its complete original content and timestamp remain available in the separate work view, not inside an overview disclosure
 
 #### Scenario: History is not on the page
-
-- **WHEN** a project page is open
-- **THEN** no History entry is shown on it, and History is reachable from the project controls menu
+- **WHEN** the overview is open
+- **THEN** history is reachable as a separate view and no history entries expand the overview
 
 #### Scenario: No stream until asked
-
-- **WHEN** a research agent is running and the user has not opened its live view
-- **THEN** the page streams no agent output
+- **WHEN** an owner, researcher, Workflow or Room is working and the user has not opened Watch work
+- **THEN** the overview shows current metadata but no transcript
 
 ### Requirement: Decision cards
 
-Each open decision SHALL be shown as a card with the question, the options with their consequences, the recommended option preselected, the reason for escalation, and an optional note field. Answering MUST take one action.
+Each newly authored decision SHALL present one question, its reason, at most two choices with clear consequences, the recommended choice preselected and an optional note. Saved decisions SHALL keep all original choices, identifiers, consequences and the original recommendation until answered, even when they contain more than two choices. Answering SHALL take one action. Consent-relevant information MUST remain visible. Supporting evidence and technical documents SHALL open separately. Routine internal technical choices, contained worker authorization and in-scope rechecking SHALL not become user decision cards. Architect SHALL continue eligible work within approved limits and raise a decision only when material uncertainty or required new authority prevents safe continuation.
 
 #### Scenario: Answer in one action
+- **WHEN** the user accepts the recommendation
+- **THEN** the decision closes and authorized work can continue without another confirmation for that same decision
 
-- **WHEN** the user accepts the preselected recommendation
-- **THEN** the decision closes and the card leaves the Needs You section
+#### Scenario: Evidence is available
+- **WHEN** the user wants support for a recommendation
+- **THEN** the linked evidence opens outside the decision body without losing the pending answer
+
+#### Scenario: Saved choices remain usable
+- **WHEN** an older unanswered decision contains three choices
+- **THEN** the card shows all three with their saved consequences and submits the selected original option id
+- **AND** it does not hide a choice in the optional note, require a replacement decision or add another confirmation
 
 ### Requirement: Milestone rail links to detail
 
-Each milestone in the rail SHALL show its title and status and, when dispatched, one link that opens the Orchestrator record of its Workflow or Room. The rail MUST NOT reproduce step or member detail. The rail MUST NOT offer a control the project header already offers for the same recovery.
+The milestone rail SHALL be available in the separate work view rather than required on the overview. Each milestone SHALL show its title, status and a link to its linked Workflow or Room in the correct workspace. It MUST NOT reproduce step/member transcripts or duplicate an active recovery control.
 
 #### Scenario: Open detail
-
-- **WHEN** the user selects the link on a running milestone
-- **THEN** the Orchestrator app opens on that Workflow or Room
+- **WHEN** the user follows a running milestone from the work view
+- **THEN** Orchestrator opens on that Workflow or Room with its workspace intact
 
 #### Scenario: The header already offers the recovery
-
-- **WHEN** a milestone's run stopped and the header offers the recovery control
-- **THEN** the milestone row keeps its title, its status and its link, and offers no second copy of that control
+- **WHEN** the overview already has the applicable recovery action
+- **THEN** the milestone rail retains status and navigation but does not add a second copy of that action
 
 ### Requirement: Intake
 
-Creating a project SHALL ask for the idea text and, then, where the work happens: a new folder, or a workspace that already exists. New folder SHALL ask for the project's name and location, and the Architect SHALL create that folder, initialise the repository and register the workspace before discovery starts. Existing workspace SHALL replace the name and location with a picker of registered workspaces, and the project SHALL take the chosen workspace's name. The picker SHALL list workspaces that hold no Architect project first, each with its path. A workspace that already holds an Architect project SHALL be shown as "Architect project" and MUST NOT be choosable. The Global workspace MUST NOT be offered. New folder MUST refuse a folder that already exists, and MUST NOT change that folder, its workspace configuration, or its registration.
+Creating a new project SHALL collect the user's free-form request, cost/start cap and approved workspace/action boundaries before paid work starts. It MUST NOT require a quality/readiness field, preset solution type, phase plan, chosen team or completed design. Any desired properties expressed in the request SHALL remain part of that request, not be converted into a product mode. Architect SHALL determine the route just in time and ask only for material uncertainty or new authority. Choosing a new folder SHALL ask for name and location, create and register it only after confirmation and refuse an existing folder without modifying it or creating a sibling. Choose a workspace SHALL offer registered workspaces without creating one, list free workspaces first with their paths, exclude Global and make workspaces that already hold an Architect project unavailable. The effective host-clamped access SHALL be visible before approval; agreeing SHALL approve the bounded start and grant in one flow, not initiate an unapproved paid discovery phase.
 
 #### Scenario: Create from an idea
-
-- **WHEN** the user enters an idea, chooses New folder, and confirms with a name and a location
-- **THEN** a project appears in `intake`, the folder and the workspace exist, and the persistent-session grant prompt follows
+- **WHEN** the user supplies a request, cap and new-folder location and approves the displayed execution agreement/access
+- **THEN** the project and workspace are created and paid work can start within those exact bounds
 
 #### Scenario: Start on an existing workspace
-
-- **WHEN** the user enters an idea, chooses Existing workspace, chooses a workspace and confirms
-- **THEN** a project appears in `intake` carrying the chosen workspace's name, and no workspace is created or registered
+- **WHEN** the user selects Choose a workspace and approves the agreement for a free registered workspace
+- **THEN** the project uses that workspace's name, id and path without creating or registering another workspace
 
 #### Scenario: The picker orders free workspaces first
-
-- **WHEN** the picker opens and some registered workspaces already hold an Architect project
-- **THEN** the workspaces without a project are listed first, each with its path, and the others are shown as "Architect project" and cannot be chosen
+- **WHEN** the workspace picker opens
+- **THEN** free workspaces appear first with their paths and occupied workspaces cannot be selected
 
 #### Scenario: The Global workspace is not offered
-
-- **WHEN** the picker opens
-- **THEN** the Global workspace is absent from the list
+- **WHEN** the workspace picker opens
+- **THEN** Global is absent
 
 #### Scenario: New folder refuses an existing folder
+- **WHEN** a new-folder request targets an existing folder
+- **THEN** no project is created and the existing folder, configuration and registration remain unchanged
 
-- **WHEN** the user chooses New folder and confirms with a name and a location where that folder already exists
-- **THEN** no project is created, the existing folder, its workspace configuration and its registration are unchanged, no sibling folder is created, and the dialog says the folder exists
+#### Scenario: Access refused
+- **WHEN** the user declines the effective access proposal
+- **THEN** no paid operation begins and the missing approval remains clear and reopenable
+
+#### Scenario: Research access is part of the envelope
+- **WHEN** the approved agreement allows research Rooms to run commands
+- **THEN** a later read-only research planner question about command access does not become a user decision
 
 ### Requirement: Controls
 
-The project page SHALL offer pause, resume, stop, raise cap, change autonomy, open session and delete. It SHALL also offer project model settings, run metrics and History through its project controls menu. The page body SHALL show only a compact model-defaults summary and one run-metrics entry point beside those menu entries; it MUST NOT gain an event log or a metrics dashboard. Run metrics SHALL open a dedicated full-width visual inspector with enough space for the execution timeline and selected-activity detail. Pause and stop MUST NOT cancel in-flight Workflows or Rooms; they stop the owner from being woken. Pause SHALL additionally disarm every trigger of the project's maintenance Workflow, so no new maintenance run starts while the project is paused, and resume SHALL re-arm exactly the triggers that pause disarmed.
+The project SHALL retain pause, resume, stop, raise cap, change autonomy, open session, delete, model settings, run metrics and History. Watch work SHALL be directly available from the overview; settings, model detail, History and the visual metrics inspector SHALL remain separate views. New delivery-agreement projects SHALL apply pause/stop to scheduling owned linked work as well as owner wakes, without cancelling an already executing turn or pretending its effects were undone. The overview SHALL identify work still draining. Projects without an agreement SHALL retain their saved owner-only control semantics, and the UI SHALL identify that charter flow as deprecated. Pause SHALL disarm maintenance triggers and resume SHALL restore exactly the triggers it disarmed. Resume MUST reconcile completed work before restarting anything.
+
+#### Scenario: Pause autonomous work
+- **WHEN** the user pauses an agreement-based project with a Workflow and Room running
+- **THEN** no new owned turns or steps are scheduled, already executing turns can finish, and their actual activity remains visible until they drain
 
 #### Scenario: Pause
-
-- **WHEN** the user pauses a project with a running Workflow
-- **THEN** the Workflow continues, the project shows `paused`, and the owner is not woken until resume
+- **WHEN** the user pauses a project that has no delivery agreement
+- **THEN** its existing owner-only pause behavior remains unchanged and the UI states that delegated work can continue
 
 #### Scenario: Pause disarms maintenance
-
-- **WHEN** the user pauses a project whose maintenance Workflow is armed on a GitHub issue, a CI failure and a schedule
-- **THEN** none of those triggers can start a run while the project is paused
-- **AND** the project row says the maintenance Workflow is paused with the project
+- **WHEN** the project is paused with armed maintenance triggers
+- **THEN** no maintenance run starts and the row identifies the pause
 
 #### Scenario: Resume restores only what pause disarmed
+- **WHEN** one maintenance trigger was already off before project pause
+- **THEN** resume leaves it off and restores only the other triggers that pause recorded
 
-- **WHEN** the user had already disarmed one maintenance trigger by hand before pausing, then resumes the project
-- **THEN** the triggers pause disarmed are armed again and the trigger the user disarmed stays off
+#### Scenario: Work completed during pause
+- **WHEN** a linked Room completes while draining
+- **THEN** resume uses its saved completion and does not resume or recreate it
 
 #### Scenario: Open run metrics
-
-- **WHEN** the user selects run metrics in the project menu
-- **THEN** the visual inspector opens within Architect with run and project-lifetime views
-- **AND** returning to the project page does not add trace rows or metric charts to that page
+- **WHEN** the user opens run metrics
+- **THEN** the separate full-width run/project-lifetime inspector opens without adding trace rows to the overview
 
 #### Scenario: Inspect project model defaults
-
-- **WHEN** the user opens model settings from the project menu
-- **THEN** the view distinguishes inherited and overridden tiers, effective selections and pending changes for future work
+- **WHEN** the user opens model settings
+- **THEN** a separate view distinguishes inherited defaults, overrides, effective selections and pending future-work changes
 
 #### Scenario: Open history
-
-- **WHEN** the user selects History in the project menu
-- **THEN** the project's History opens as its own view
-- **AND** returning to the project page does not add History entries to that page
+- **WHEN** the user opens History
+- **THEN** the separate history view opens with a return path without adding its entries to the overview
 
 ### Requirement: Dashboard widget
 
-The plugin SHALL contribute one dashboard widget that shows the projects-list rows with the same derived state word as the list, and the total needs-you count. The widget MUST read only the index and MUST NOT show the Architect's own written sentence.
+The plugin SHALL contribute one dashboard widget showing compact project rows and the total Needs you count. Rows SHALL use the same derived activity, current work, freshness and available spend as the projects list. The widget SHALL use the bounded project index and scoped metadata updates, not full record/transcript subscriptions. It MUST NOT use the owner's written sentence as state or activity proof.
 
 #### Scenario: Widget without projects
-
 - **WHEN** no project exists
-- **THEN** the widget shows an empty state with a single action to create a project
+- **THEN** the widget shows an empty state with one create-project action
 
 #### Scenario: Widget agrees with the list
-
-- **WHEN** a project reads `Last known` on the projects list
-- **THEN** the widget row for that project reads `Last known` too
+- **WHEN** contact expires for a project whose list row becomes Last known
+- **THEN** its widget row becomes Last known from the same facts without requiring the user to open the project
 
 ### Requirement: Layout preferences
 
@@ -227,27 +226,27 @@ When a project is blocked because a research Room ended without reporting, the p
 
 ### Requirement: Each kind of nothing is said once, where it belongs
 
-A section with nothing in it SHALL say so in one quiet line in the place the content would appear, without a heading, a count label and a card repeating it. A section that needs nothing from the user SHALL be absent while it is empty and SHALL return with its controls as soon as it holds something. The page SHALL distinguish nothing to show, not made yet, not available from here, and stopped. Only a fault SHALL use colour.
+An overview area that asks nothing of the user or has no useful result SHALL be absent rather than repeating empty headings and cards. Separate work views SHALL distinguish no work recorded, work not planned yet, unavailable observation and stopped work in one quiet line where relevant. A missing plan MUST NOT imply that an approved project needs a charter approval. Only an actual fault SHALL use fault styling.
 
 #### Scenario: Nothing needs the user
-
-- **WHEN** a project has no open decision or approval
-- **THEN** the Needs You section is absent, and no heading, label or card announces that nothing is needed
+- **WHEN** no decision or approval is open
+- **THEN** no empty Needs You section appears
 
 #### Scenario: The section returns
-
-- **WHEN** that project raises a decision
-- **THEN** the Needs You section appears with the decision and its answer control
+- **WHEN** a new decision is raised
+- **THEN** the necessary decision and answer control appear without adding the working document
 
 #### Scenario: Not made yet
-
-- **WHEN** a project has no milestones because it has no charter
-- **THEN** one line in the milestones section header says so and names what produces them, in place of an empty card
+- **WHEN** a delivery agreement is approved but no milestone plan has been written
+- **THEN** the work view states that planning is not recorded yet rather than instructing the user to approve a charter
 
 #### Scenario: A fault is the only colour
+- **WHEN** one detail section is empty and another records a real stopped-work fault
+- **THEN** only the fault uses fault styling
 
-- **WHEN** one section is empty and another reports a stopped research Room
-- **THEN** only the stopped Room's line uses colour
+#### Scenario: Observation unavailable
+- **WHEN** live work cannot be confirmed
+- **THEN** the surface names that missing observation instead of claiming nothing happened
 
 ### Requirement: A stopped milestone states what stopped and why, once
 
@@ -398,3 +397,15 @@ Research that the Architect runs directly as one agent, rather than through a Ro
 
 - **WHEN** that research returns its findings
 - **THEN** its card shows the findings under "Findings used for the plan"
+
+### Requirement: Watch work is a separate live surface
+
+The project SHALL offer a separate Watch work view for owner, planner/researcher, Workflow, Room and delegated-child activity. It SHALL show current output and tool states on demand during execution, with bounded snapshots, liveness/freshness and links to complete saved history. Plans, research and evidence SHALL remain inspectable separately from live output. Switching or closing this view MUST NOT alter execution, grant authority or lose project context.
+
+#### Scenario: Watch before a result exists
+- **WHEN** the user opens Watch work while a researcher or owner is in flight
+- **THEN** the available live snapshot and actual request/tool activity are visible before the turn finishes
+
+#### Scenario: Return to overview
+- **WHEN** the user closes Watch work
+- **THEN** the short overview returns and the underlying work continues unchanged

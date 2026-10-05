@@ -54,4 +54,4 @@
 
 - [x] 10.1 `sero-research-plugin`: call `watch`/`unwatch` for the agents it shows, with a feature check for older hosts (D7); verify its activity panel still streams
 - [x] 10.2 Run `pnpm typecheck --force` and the affected test suites from the monorepo root; verify zero errors
-- [ ] 10.3 Manual pass in the app: open and close each live view and confirm with the main-process log that live events stop while hidden
+- [x] 10.3 Manual pass in the app: open and close each live view and confirm with the main-process log that live events stop while hidden

@@ -138,7 +138,7 @@ An `edit` or `write` call cancelled while waiting for serialization or before
 its write starts MUST fail without writing. Cancellation during a write MUST
 NOT permit the next mutation to enter until that write settles. Cancellation
 does not guarantee rollback of an already-started write. These rules SHALL
-apply on both backends, including calls inside `run_code`.
+apply on both backends, including calls inside `codemode`.
 
 #### Scenario: Cancel while queued
 
@@ -248,8 +248,8 @@ guidance SHALL stay consistent with the serialization guarantee.
 
 #### Scenario: Batching guidance is present
 
-- **WHEN** the model reads the `edit` and `run_code` tool descriptions
-- **THEN** both state that several replacements belong in one call or one program
+- **WHEN** the model reads the `edit` tool description
+- **THEN** it states that several replacements belong in one call, and that a `codemode` script can apply several mutations in one turn
 
 #### Scenario: Guidance does not contradict the concurrency guarantee
 
