@@ -186,6 +186,9 @@ export function registerGitTurnUndoCapture(
   let agentRunHasMutatingToolCalls = false;
   let hadWorkingCopyChangesAtAgentStart = false;
   let preTurnSnapshotId: string | null = null;
+  // Calls a script makes at the same time reach `tool_call` together. They share
+  // one capture, so none of them runs before the snapshot exists.
+  let snapshotCapture: Promise<void> | null = null;
   const pendingMutations = new Map<string, PendingMutation>();
   const changedPaths = new Set<string>();
 
@@ -193,6 +196,7 @@ export function registerGitTurnUndoCapture(
     agentRunHasMutatingToolCalls = false;
     hadWorkingCopyChangesAtAgentStart = false;
     preTurnSnapshotId = null;
+    snapshotCapture = null;
     pendingMutations.clear();
     changedPaths.clear();
   }
@@ -208,10 +212,7 @@ export function registerGitTurnUndoCapture(
     }
   });
 
-  async function markMutatingTurn(): Promise<void> {
-    agentRunHasMutatingToolCalls = true;
-    if (preTurnSnapshotId) return;
-
+  async function capturePreTurnSnapshot(): Promise<void> {
     try {
       preTurnSnapshotId = await vcsManager.createInternalSnapshot(workspaceId);
       console.log(
@@ -221,6 +222,17 @@ export function registerGitTurnUndoCapture(
       preTurnSnapshotId = null;
       console.warn(`[turn-undo] Failed to capture pre-turn snapshot for workspace=${workspaceId}:`, error);
     }
+  }
+
+  async function markMutatingTurn(): Promise<void> {
+    agentRunHasMutatingToolCalls = true;
+    if (preTurnSnapshotId) return;
+
+    const capture = snapshotCapture ?? capturePreTurnSnapshot();
+    snapshotCapture = capture;
+    await capture;
+    // A failed capture is tried again by the next mutating call, as before.
+    if (snapshotCapture === capture && !preTurnSnapshotId) snapshotCapture = null;
   }
 
   pi.on('tool_call', async (event) => {

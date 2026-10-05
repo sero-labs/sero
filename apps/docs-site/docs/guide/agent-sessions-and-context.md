@@ -124,7 +124,7 @@ Privacy note: spoken text may be sent to the transcription provider configured f
 
 ## Related docs
 
-- [Code Mode](/guide/code-mode)
+- [Code Mode](/guide/codemode)
 - [Workspace and Chat](/guide/workspace-and-chat)
 - [Models and Providers](/guide/models-and-providers)
 - [Settings and Admin](/guide/settings-models-admin)

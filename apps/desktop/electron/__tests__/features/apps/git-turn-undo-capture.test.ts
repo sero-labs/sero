@@ -75,6 +75,24 @@ describe('registerGitTurnUndoCapture', () => {
     mocks.hasMutatingGit.mockReturnValue(false);
   });
 
+  // A script can make two writes at the same time. A second snapshot would be
+  // taken after the first write landed, and undo would restore that state.
+  it('takes one pre-turn snapshot for writes that start together', async () => {
+    const handlers = new Map<string, Function>();
+    const pi = { on: vi.fn((event: string, handler: Function) => { handlers.set(event, handler); }) };
+    const entries = { appendWorkspaceLink: vi.fn(), appendTurnUndoEntry: vi.fn() };
+
+    const { registerGitTurnUndoCapture } = await import('@electron/features/apps/extensions/git-turn-undo-capture');
+    registerGitTurnUndoCapture(pi as never, 'ws-1', entries as never);
+
+    await Promise.all([
+      handlers.get('tool_call')?.({ toolCallId: 'c1/1', toolName: 'write', input: { path: 'a' } }),
+      handlers.get('tool_call')?.({ toolCallId: 'c1/2', toolName: 'write', input: { path: 'b' } }),
+    ]);
+
+    expect(mocks.createInternalSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it('invalidates Git refresh after recording a mutating turn undo snapshot', async () => {
     const handlers = new Map<string, Function>();
     const pi = {

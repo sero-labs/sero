@@ -1,9 +1,11 @@
 /**
- * The reserved call-id prefix the host guarantees for shell calls issued inside
- * `run_code`. Both hooks use this guard, so a nested call is left unmodified.
+ * Code Mode gives every call a script makes the id `<parent call id>/<n>`, and
+ * appends another `/<n>` for a call made by such a call. Both hooks use this
+ * guard, so a nested call is left unmodified.
  */
-export const NESTED_CALL_PREFIX = 'run_code_';
+const NESTED_CALL_ID_PATTERN = /\/\d+$/;
 
+/** Whether a tool call id is a call a tool made while it ran, rather than one the model issued. */
 export function isNestedCall(toolCallId: string): boolean {
-  return toolCallId.startsWith(NESTED_CALL_PREFIX);
+  return NESTED_CALL_ID_PATTERN.test(toolCallId);
 }

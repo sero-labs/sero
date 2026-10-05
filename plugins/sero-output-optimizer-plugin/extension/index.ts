@@ -13,9 +13,6 @@ import { registerOptimizerTool } from './tool';
 import { StatusStore } from './status';
 import { isNestedCall } from './nested';
 
-/** The host guarantees this reserved prefix reaches both hooks. */
-export { NESTED_CALL_PREFIX } from './nested';
-
 function toStatus(resolution: RtkToolchainResolution): RtkStatusView {
   if (resolution.state === 'available') return { state: 'available', version: resolution.version };
   if (resolution.state === 'installing') return { state: 'installing', reason: resolution.reason };

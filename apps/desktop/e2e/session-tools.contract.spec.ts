@@ -44,9 +44,9 @@ const RUNTIME = currentRuntimeFromEnv() ?? 'host';
 // Outside the repository, because Playwright and the e2e global setup empty their own folders at the start of every run.
 const SIZES_FILE = process.env.SERO_SESSION_TOOLS_SIZES ?? path.join(os.tmpdir(), 'sero-session-tools-sizes.json');
 
-const CHAT_TOOLS = ['read', 'write', 'edit', 'bash', 'find', 'grep', 'multi_grep', 'run_code', 'subagent', 'sero-cli'];
+const CHAT_TOOLS = ['read', 'write', 'edit', 'bash', 'find', 'grep', 'multi_grep', 'codemode', 'subagent', 'sero-cli'];
 /** No `subagent`, because a subagent cannot start another. A container runtime also gives it `automation_browser`. */
-const SUBAGENT_TOOLS = ['read', 'write', 'edit', 'bash', 'find', 'grep', 'multi_grep', 'run_code', 'sero-cli'];
+const SUBAGENT_TOOLS = ['read', 'write', 'edit', 'bash', 'find', 'grep', 'multi_grep', 'codemode', 'sero-cli'];
 const GOAL_AND_ROOMS = ['goal', 'goals', 'goal_complete', 'goal_blocked', 'goal_wait', 'room', 'rooms'];
 const MOVED_COMMANDS = ['mcp_manager', 'design_library_assets', 'design_library_settings'];
 

@@ -19,7 +19,7 @@
     'input-cancelled': 'Cancel stops the tool call.',
     'task-running': 'The task continues after Sero restarts. It also shows in the MCP app under Tasks.',
     'task-result': 'Default to confirm: the result goes into the chat, but it does not start a new agent turn.',
-    'skill-approval': 'Sero asks before bash or run_code runs while the agent follows a remote skill. Esc denies.',
+    'skill-approval': 'Sero asks before bash or codemode runs while the agent follows a remote skill. Esc denies.',
     'skill-allowed': 'Sero asks again after the server changes the skill.',
     'skill-denied': 'The agent gets the block as a tool error.',
     'server-modern': 'New: the Protocol, Extensions, Transport and Metadata cache rows. The current sign-in, tool runner and resource sections stay below them.',

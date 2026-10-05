@@ -27,7 +27,7 @@ const workspaceRuntime = [
 
 const agentsAutomation = [
   { text: 'Agent Sessions and Context', link: '/guide/agent-sessions-and-context' },
-  { text: 'Code Mode', link: '/guide/code-mode' },
+  { text: 'Code Mode', link: '/guide/codemode' },
   { text: 'Connect to an Agent Node', link: '/guide/agent-node' },
   { text: 'Subagents', link: '/guide/subagents' },
   { text: 'Memory', link: '/guide/memory' },

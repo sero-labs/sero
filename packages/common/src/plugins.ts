@@ -67,11 +67,11 @@ export const SERO_HOST_CAPABILITIES = [
   'appRuntime.workspaceCreate',
   /**
    * The host guarantees that every shell tool call issued from inside
-   * `run_code` carries the reserved `run_code_` call-id prefix, and that the
-   * prefix reaches BOTH the `tool_call` and `tool_result` hooks.
+   * `codemode` carries the reserved `<parent call id>/<n>` call-id shape, and
+   * that the shape reaches BOTH the `tool_call` and `tool_result` hooks.
    *
-   * A plugin uses the prefix to recognise nested calls. Without this
-   * guarantee, an absent prefix does not prove a call is ordinary, so a plugin
+   * A plugin uses the shape to recognise nested calls. Without this
+   * guarantee, a missing shape does not prove a call is ordinary, so a plugin
    * that depends on the convention must leave every call unmodified.
    */
   'tool.nestedCallPrefix',

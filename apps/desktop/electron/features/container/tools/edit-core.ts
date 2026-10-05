@@ -132,7 +132,9 @@ const EDIT_DESCRIPTION =
   + 'original file content and all entries apply in one write. Legacy single replacements via `oldText`/`newText` still work, '
   + 'and `edits[]` wins when both forms are present. The matcher tolerates trailing whitespace per line and normalizes smart '
   + 'quotes, dashes, and special spaces, but every `edits[].oldText` must stay unique. Same-file mutations run in order and '
-  + 'each call validates the current content.';
+  + 'each call validates the current content. Put several disjoint replacements in one call rather than several calls, and use a '
+  + '`codemode` script to apply several mutations in one turn: same-file mutations run in order, so a conflicting edit fails '
+  + 'without overwriting an earlier change and a later whole-file write replaces earlier content.';
 
 const EDIT_GUIDELINES = [
   'Put every independent change to one file into a single edit call with several edits[] entries instead of several edit calls.',

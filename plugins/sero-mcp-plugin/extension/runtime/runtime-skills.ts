@@ -16,7 +16,7 @@ import type { McpRemoteSkillSummary } from '../../shared/skills';
 export type SkillProxyAction = 'skill_load' | 'skill_read' | 'skill_ls';
 
 /** Tools that run code on the host. A remote skill must not make them run without the user's approval. */
-const CODE_TOOLS = new Set(['bash', 'run_code']);
+const CODE_TOOLS = new Set(['bash', 'codemode']);
 
 export interface RuntimeSkillsInput {
   manager: McpServerManager;
@@ -42,6 +42,35 @@ export function createRuntimeSkills(input: RuntimeSkillsInput) {
   const result = (outcome: SkillOutcome): ToolResult => (outcome.ok
     ? createToolResult(outcome.text, {})
     : createToolResult(`Error: ${outcome.error}`, { isError: true }));
+
+  /** The tail of each session's code checks. */
+  const checks = new Map<string, Promise<void>>();
+
+  async function checkCodeTool(sessionId: string, toolName: string): Promise<ToolCallEventResult | undefined> {
+    for (const held of windows.actingOn(sessionId)) {
+      const current = await registry.get(held.serverName, held.uri);
+      if (current && current.manifestDigest === held.manifestDigest && await registry.isApproved(current)) continue;
+      const name = `"${held.entry.frontmatter.name}" from ${held.serverName}`;
+      if (!current || current.manifestDigest !== held.manifestDigest || !canAskUser()) {
+        return { block: true, reason: `Sero blocked ${toolName}: the session acts on the remote skill ${name}, and the user has not approved code for it.` };
+      }
+      const answers = await askUser([{
+        id: 'skill-code',
+        label: `Allow code to run for the skill ${name}?`,
+        prompt: 'The skill comes from an MCP server. Its instructions asked for a command. Sero keeps your choice until the skill changes.',
+        options: [
+          { value: 'deny', label: 'Deny', emphasis: 'primary' },
+          { value: 'allow', label: 'Allow for this skill' },
+        ],
+        allowOther: false,
+      }], { source: `MCP · ${held.serverName} · ${held.entry.frontmatter.name}`, type: 'question' });
+      if (answers?.[0]?.value !== 'allow') {
+        return { block: true, reason: `The user did not allow code to run for the remote skill ${name}.` };
+      }
+      await registry.approve(current);
+    }
+    return undefined;
+  }
 
   return {
     registry,
@@ -114,32 +143,17 @@ export function createRuntimeSkills(input: RuntimeSkillsInput) {
     /**
      * While a session acts on a remote skill, code runs only with the user's approval for
      * that skill's current manifest. Without anyone to ask, the call is blocked.
+     *
+     * Calls a script makes at the same time are checked one after another, so the user
+     * answers one question and the calls behind it see that answer.
      */
-    async checkToolCall(sessionId: string, toolName: string): Promise<ToolCallEventResult | undefined> {
-      if (!CODE_TOOLS.has(toolName)) return undefined;
-      for (const held of windows.actingOn(sessionId)) {
-        const current = await registry.get(held.serverName, held.uri);
-        if (current && current.manifestDigest === held.manifestDigest && await registry.isApproved(current)) continue;
-        const name = `"${held.entry.frontmatter.name}" from ${held.serverName}`;
-        if (!current || current.manifestDigest !== held.manifestDigest || !canAskUser()) {
-          return { block: true, reason: `Sero blocked ${toolName}: the session acts on the remote skill ${name}, and the user has not approved code for it.` };
-        }
-        const answers = await askUser([{
-          id: 'skill-code',
-          label: `Allow code to run for the skill ${name}?`,
-          prompt: 'The skill comes from an MCP server. Its instructions asked for a command. Sero keeps your choice until the skill changes.',
-          options: [
-            { value: 'deny', label: 'Deny', emphasis: 'primary' },
-            { value: 'allow', label: 'Allow for this skill' },
-          ],
-          allowOther: false,
-        }], { source: `MCP · ${held.serverName} · ${held.entry.frontmatter.name}`, type: 'question' });
-        if (answers?.[0]?.value !== 'allow') {
-          return { block: true, reason: `The user did not allow code to run for the remote skill ${name}.` };
-        }
-        await registry.approve(current);
-      }
-      return undefined;
+    checkToolCall(sessionId: string, toolName: string): Promise<ToolCallEventResult | undefined> {
+      if (!CODE_TOOLS.has(toolName)) return Promise.resolve(undefined);
+      const check = (checks.get(sessionId) ?? Promise.resolve()).then(() => checkCodeTool(sessionId, toolName));
+      const tail = check.then(() => undefined, () => undefined);
+      checks.set(sessionId, tail);
+      void tail.then(() => { if (checks.get(sessionId) === tail) checks.delete(sessionId); });
+      return check;
     },
 
     /** A skill from one server must not read resources of another. */

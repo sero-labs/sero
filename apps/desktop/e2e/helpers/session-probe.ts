@@ -36,7 +36,7 @@ export const TOOL_PROBES: Record<string, Record<string, unknown>> = {
   find: { pattern: 'probe' },
   grep: { pattern: 'probe' },
   multi_grep: { patterns: ['probe'] },
-  run_code: { code: 'return 1;' },
+  codemode: { code: 'return 1;' },
   subagent: { task: SUBAGENT_TASK, systemPrompt: 'You are a probe agent. Do what the task asks.', model: `${STUB_PROVIDER_ID}/${STUB_MODEL_ID}` },
   automation_browser: { action: 'launch' },
   mcp: { action: 'status' },

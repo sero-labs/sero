@@ -6,9 +6,10 @@
  * support.
  *
  * IMPORTANT: The bash tool returns normally for every exit code, so the
- * full result reaches `tool_result` hooks. A host hook that runs last sets
- * `isError` from `details.exitCode`; see
- * `features/tool-capture/bash-result-error-status.ts`.
+ * full result reaches `tool_result` hooks. A non-zero exit is returned with
+ * `isError`, which also marks a call a `codemode` script made. A host hook
+ * that runs last re-applies the status from `details.exitCode` for a direct
+ * call; see `features/tool-capture/bash-result-error-status.ts`.
  */
 
 import path from 'node:path';
@@ -32,6 +33,7 @@ import {
   resolveContainerPath,
   shellEscape,
   detectMimeFromMagicHex,
+  BashOutput,
   BashParams,
   ReadParams,
 } from './tool-schemas';
@@ -98,16 +100,17 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
     label: 'bash',
     promptSnippet: 'Run a bash command in the workspace and return its output',
     promptGuidelines: [
-      'Use bash for project commands and shell or system operations. When run_code is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
+      'Use bash for project commands and shell or system operations. When codemode is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
     ],
     description:
       `Execute a bash command in the current working directory. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
       `${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB ` +
       `(whichever is hit first). Optionally provide a timeout in seconds. ` +
-      `Use bash for project commands and shell or system operations. When run_code is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use run_code instead. ` +
+      `Use bash for project commands and shell or system operations. When codemode is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use codemode instead. ` +
       `Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.`,
     parameters: BashParams,
+    outputSchema: BashOutput,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');
       if (
@@ -181,13 +184,23 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         ? [{ type: 'text' as const, text: outputText }, { type: 'text' as const, text: report }]
         : [{ type: 'text' as const, text: outputText }];
 
+      const failed = result.exitCode !== 0 && result.exitCode !== null;
+      const fullOutputPath = record?.combined?.runtimePath ?? record?.combined?.hostPath;
+      const structuredContent: Static<typeof BashOutput> = {
+        output: truncation.content,
+        truncated: truncation.truncated,
+        ...(truncation.truncated && fullOutputPath ? { full_output_path: fullOutputPath } : {}),
+        exit_code: result.exitCode ?? 0,
+      };
+
       // Every exit code returns the same way, so the result reaches the
-      // `tool_result` hooks intact: the optimizer compacts a failure like a
-      // success, and a host hook that runs last sets `isError` from exitCode.
+      // `tool_result` hooks intact and the optimizer compacts a failure like a
+      // success. The error flag travels with the result, so it also marks a
+      // call a script made, which the host hook on the agent never sees.
       // Retention keeps this capture protected until it reads the persisted
       // reference, including the time spent in asynchronous tool_result hooks.
       capture.release();
-      return { content, details };
+      return { content, details, structuredContent, ...(failed ? { isError: true } : {}) };
     },
   };
 }

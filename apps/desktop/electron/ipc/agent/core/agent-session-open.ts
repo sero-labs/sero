@@ -16,7 +16,7 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { containerPromptState } from '@electron/features/container/tools/container-prompt-state';
-import { createRunCodeController } from '@electron/features/code-mode';
+import { activateCodemode, createSeroCodemodeExtension } from '@electron/features/codemode';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
@@ -139,8 +139,6 @@ export async function openSessionInPool({
   // large schema out of every request.
   const platformTools = runtimeTools.filter((tool) => tool.name !== AUTOMATION_BROWSER_TOOL);
   const cliSessionTools = runtimeTools.filter((tool) => tool.name === AUTOMATION_BROWSER_TOOL);
-  const runCode = createRunCodeController();
-  platformTools.push(runCode.tool);
   const hostRuntimeOptions = runtime.backend === 'host'
     ? { workspacePath, platform: process.platform, devBuild: !app.isPackaged }
     : undefined;
@@ -157,6 +155,7 @@ export async function openSessionInPool({
         hostRuntime: hostRuntimeOptions,
         runtime,
       }),
+      createSeroCodemodeExtension(),
     ],
     skillsOverride: (base) => withAgentPluginSkills(
       filterCompatiblePluginSkills(skillVisibilityOverride(base)),
@@ -203,8 +202,10 @@ export async function openSessionInPool({
     settingsManager: infra.settingsManager,
     sessionStartEvent: sessionStartEventFor(sessionManager, forkedFrom),
   });
-  runCode.bind(session.agent);
   preserveBashFailureStatus(session.agent);
+  // Pi registers `codemode` inactive. Switch it on before the base tool list is
+  // read, so the context editor lists it and a user can disable it.
+  activateCodemode(session);
 
   await startSessionExtensions(session);
 

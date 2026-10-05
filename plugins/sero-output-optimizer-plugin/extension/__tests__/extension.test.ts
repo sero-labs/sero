@@ -208,11 +208,11 @@ describe('output optimizer extension', () => {
     expect(h.rtkRequests.at(-1)).toBe('session-1');
   });
 
-  it('skips nested run_code calls but keeps ordinary calls eligible', async () => {
+  it('skips nested codemode calls but keeps ordinary calls eligible', async () => {
     const { harness: h, ctx } = await start();
     await h.tools.get('output_optimizer')?.execute('id', { action: 'set', enabled: true });
 
-    const nested = { toolName: 'bash', toolCallId: 'run_code_abc', input: { command: 'git status' } };
+    const nested = { toolName: 'bash', toolCallId: 'call-7/1', input: { command: 'git status' } };
     await h.handlers.get('tool_call')?.(nested, ctx);
     expect(nested.input.command).toBe('git status');
     expect(h.exec).not.toHaveBeenCalled();
