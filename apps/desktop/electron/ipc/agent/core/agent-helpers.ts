@@ -24,12 +24,7 @@ export {
   formatCustomMessage,
   projectCustomMessage,
 } from './agent-messages';
-export {
-  getBaseSystemPrompt,
-  rewriteSessionManagerFile,
-  setBaseSystemPrompt,
-  setRuntimeSessionModel,
-} from './sdk-private-adapter';
+export { setRuntimeSessionModel } from './sdk-private-adapter';
 
 // ── Validation ───────────────────────────────────────────────
 
@@ -153,16 +148,7 @@ export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): Ser
 
 // ── Context override helpers ────────────────────────────────
 
-/**
- * Strip disabled skills from the `<available_skills>` section of a system
- * prompt. Each skill is wrapped in `<skill><name>…</name>…</skill>`.
- */
-export function stripDisabledSkills(prompt: string, disabled: Set<string>): string {
-  return prompt.replace(
-    /<skill>\s*\n\s*<name>([^<]+)<\/name>[\s\S]*?<\/skill>/g,
-    (match, name: string) => (disabled.has(name.trim()) ? '' : match),
-  );
-}
+export { stripDisabledSkills } from '@electron/features/apps/extensions/session-prompt-override';
 
 const SESSION_LEAF_CUSTOM_TYPE = 'sero-session-leaf';
 
@@ -173,4 +159,19 @@ const SESSION_LEAF_CUSTOM_TYPE = 'sero-session-leaf';
  */
 export function persistSessionLeaf(session: AgentSession): void {
   session.sessionManager.appendCustomEntry(SESSION_LEAF_CUSTOM_TYPE, null);
+}
+
+/**
+ * Pi restores the tool list from the transcript when it moves to another entry. Sero's context
+ * editor owns the tool list, so keep the list the session had before the move. Without this an
+ * undo to an earlier turn turns a tool the user disabled back on.
+ */
+export async function navigateTreeKeepingTools(
+  session: AgentSession,
+  ...args: Parameters<AgentSession['navigateTree']>
+): ReturnType<AgentSession['navigateTree']> {
+  const activeToolNames = session.getActiveToolNames();
+  const result = await session.navigateTree(...args);
+  if (!result.cancelled) session.setActiveToolsByName(activeToolNames);
+  return result;
 }

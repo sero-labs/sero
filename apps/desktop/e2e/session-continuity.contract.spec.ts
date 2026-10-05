@@ -130,6 +130,18 @@ test('an undone turn stays undone after the session is reopened', async () => {
   expect(await reopen(session)).toBe(afterUndo.messages.length);
 });
 
+test('a tool the user turned off stays off after an undo to an earlier turn', async () => {
+  const session = await newSession();
+  const first = await turn(session.id, 'write:three');
+  if (!first.turnUndo) throw new Error('The first turn has no undo point.');
+  await page.evaluate((id) => window.sero.agent.setContextOverrides(id, { disabledTools: ['bash'] }), session.id);
+  await turn(session.id, 'write:four');
+  await page.evaluate(({ id, ref }) => window.sero.agent.undoToTurn(id, ref), { id: session.id, ref: first.turnUndo });
+  await turn(session.id, 'hello');
+
+  expect(stub.requests.at(-1)?.tools.map((tool) => tool.name)).not.toContain('bash');
+});
+
 test('a cleared session stays empty and keeps its model after it is reopened', async () => {
   const session = await newSession();
   await turn(session.id, 'hello');

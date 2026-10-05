@@ -27,6 +27,7 @@ import { withHostPiDocsPointer } from '@electron/features/pi-docs/host-pointer';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
+import { resolveSessionPrompt } from './session-prompt-override';
 import { buildCliPromptBlock, getCliRegistry, type CliRegistry } from '@electron/cli';
 import { announceSessionCliSurface } from '@electron/cli/session-surface';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
@@ -78,8 +79,9 @@ export function createSeroExtensionFactory(
 
     // ── System prompt injection ───────────────────────────────
 
-    pi.on('before_agent_start', async (event) => {
-      let systemPrompt = event.systemPrompt;
+    pi.on('before_agent_start', async (event, ctx) => {
+      // The context editor's prompt override replaces the base prompt before Sero adds its blocks.
+      let systemPrompt = resolveSessionPrompt(ctx.sessionManager, event.systemPrompt);
       // A session that lacks the `sero-cli` tool cannot run any command in the block.
       const cliReachable = pi.getActiveTools().includes('sero-cli');
       if (cliReachable) {

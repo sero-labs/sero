@@ -62,6 +62,8 @@ describe('AI infrastructure', () => {
       getDefaultThinkingLevel: vi.fn(() => undefined),
       getHttpIdleTimeoutMs: vi.fn(() => 300000),
       setDefaultThinkingLevel: vi.fn(),
+      getCacheWarmingMode: vi.fn(() => 'streaming'),
+      setCacheWarmingMode: vi.fn(),
     };
     const selectedModel = { provider: 'test', id: 'model' };
     mocks.createRuntime.mockResolvedValue(runtime);
@@ -92,6 +94,8 @@ describe('AI infrastructure', () => {
       getDefaultThinkingLevel: vi.fn(() => 'medium'),
       getHttpIdleTimeoutMs: vi.fn(() => 0),
       setDefaultThinkingLevel: vi.fn(),
+      getCacheWarmingMode: vi.fn(() => 'streaming'),
+      setCacheWarmingMode: vi.fn(),
     };
     mocks.createRuntime
       .mockRejectedValueOnce(new Error('initial failure'))

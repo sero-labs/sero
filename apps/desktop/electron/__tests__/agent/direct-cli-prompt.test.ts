@@ -33,8 +33,8 @@ describe('direct CLI chat prompts', () => {
   it('executes direct sero prompts without routing them through the model', async () => {
     vi.spyOn(workspaceManager, 'getPath').mockReturnValue('/tmp/ws-1');
 
-    const agentMessages: unknown[] = [];
     const sessionAppendMessage = vi.fn();
+    const refreshContext = vi.fn();
     const prompt = vi.fn();
     const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
 
@@ -44,7 +44,7 @@ describe('direct CLI chat prompts', () => {
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         prompt,
-        agent: { state: { messages: agentMessages } },
+        refreshContext,
         sessionManager: {
           getCwd: () => '/tmp/ws-1',
           appendMessage: sessionAppendMessage,
@@ -70,8 +70,10 @@ describe('direct CLI chat prompts', () => {
     });
 
     expect(prompt).not.toHaveBeenCalled();
-    expect(agentMessages).toHaveLength(3);
     expect(sessionAppendMessage).toHaveBeenCalledTimes(3);
+    // The session re-reads its transcript after every append.
+    expect(refreshContext).toHaveBeenCalledTimes(3);
+    const agentMessages = sessionAppendMessage.mock.calls.map(([message]) => message);
 
     expect(agentMessages[0]).toMatchObject({
       role: 'user',
@@ -118,7 +120,7 @@ describe('direct CLI chat prompts', () => {
       pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
-        agent: { state: { messages: [] } },
+        refreshContext: vi.fn(),
         sessionManager: {
           getCwd: () => '/tmp/ws-1/packages/app',
           appendMessage: vi.fn(),
@@ -161,8 +163,8 @@ describe('direct CLI chat prompts', () => {
         abort,
         compact,
         getContextUsage: () => undefined,
+        systemPrompt: 'system prompt',
         agent: {
-          state: { systemPrompt: 'system prompt' },
           appendMessage: vi.fn(),
         },
         sessionManager,

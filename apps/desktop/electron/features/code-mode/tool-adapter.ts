@@ -8,11 +8,12 @@ import type {
   BeforeToolCallContext,
   BeforeToolCallResult,
 } from '@earendil-works/pi-agent-core';
-import type { AssistantMessage } from '@earendil-works/pi-ai';
+import type { AssistantMessage, JsonObject } from '@earendil-works/pi-ai';
 import { validateToolArguments } from '@earendil-works/pi-ai';
 import { getHostFunctionContext } from 'run';
 
 import { NestedCallTrace } from '@electron/features/code-mode/trace';
+import { isJsonObject } from '@electron/shared/lib/json-value';
 
 export const RUN_CODE_TOOL_NAME = 'run_code';
 
@@ -49,18 +50,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function nestedArguments(tool: AgentTool, input: unknown, callId: string): Record<string, unknown> {
+function nestedArguments(tool: AgentTool, input: unknown, callId: string): JsonObject {
   const prepared = tool.prepareArguments ? tool.prepareArguments(input) : input;
-  if (!isRecord(prepared)) {
+  if (!isJsonObject(prepared)) {
     throw new Error(`Tool '${tool.name}' expects one object argument.`);
   }
 
-  return validateToolArguments(tool, {
+  const validated: unknown = validateToolArguments(tool, {
     type: 'toolCall',
     id: callId,
     name: tool.name,
     arguments: prepared,
   });
+  if (!isJsonObject(validated)) {
+    throw new Error(`Tool '${tool.name}' expects one object argument.`);
+  }
+  return validated;
 }
 
 type SerializableDetails = object | string | number | boolean | bigint | null;

@@ -2,10 +2,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
   Api,
-  Context,
   Model,
   ProviderStreams,
   SimpleStreamOptions,
+  TranscriptContext,
 } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { LocalModelsConfig, LocalProviderConfig } from '@/types/local-models';
@@ -14,7 +14,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
 const registeredProviders = new WeakMap<ModelRuntime, Set<string>>();
 
-// Pi handles thinkingLevelMap for its native request formats. Pi 0.84.2's
+// Pi handles thinkingLevelMap for its native request formats. Pi's
 // qwen-chat-template branch is the exception: it sends the chat-template
 // switch but not the mapped top-level reasoning_effort required by SGLang.
 
@@ -39,7 +39,7 @@ function isQwenChatTemplateModel(
 export function withQwenChatTemplateReasoningEffort(
   baseStreamSimple: ProviderStreams['streamSimple'],
 ): ProviderStreams['streamSimple'] {
-  return (model: Model<Api>, context: Context, options?: SimpleStreamOptions) => {
+  return (model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) => {
     if (!isQwenChatTemplateModel(model)) {
       return baseStreamSimple(model, context, options);
     }

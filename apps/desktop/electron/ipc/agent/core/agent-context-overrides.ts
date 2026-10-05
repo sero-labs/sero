@@ -1,11 +1,6 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { ContextOverrides, ContextToolInfo } from '@/types/ipc';
-import {
-  getBaseSystemPrompt,
-  rewriteSessionManagerFile,
-  setBaseSystemPrompt,
-  stripDisabledSkills,
-} from './agent-helpers';
+import { setSessionPromptOverride } from '@electron/features/apps/extensions/session-prompt-override';
 
 const CONTEXT_OVERRIDES_CUSTOM_TYPE = 'sero-context-overrides';
 
@@ -111,8 +106,8 @@ export function persistContextOverrides(
   session: AgentSession,
   overrides: ContextOverrides | null,
 ): void {
+  // Sero writes a session's header when it creates the session, so the file exists and this entry is appended to it at once.
   session.sessionManager.appendCustomEntry(CONTEXT_OVERRIDES_CUSTOM_TYPE, overrides);
-  rewriteSessionManagerFile(session);
 }
 
 export function applyContextOverrides(
@@ -140,16 +135,16 @@ export function applyContextOverrides(
 
   entry.session.setActiveToolsByName(activeToolNames);
 
-  let effectivePrompt =
-    typeof normalized?.systemPrompt === 'string'
-      ? normalized.systemPrompt
-      : entry.baseSystemPrompt;
-
-  if (normalized?.disabledSkills?.length) {
-    effectivePrompt = stripDisabledSkills(effectivePrompt, new Set(normalized.disabledSkills));
-  }
-
-  setBaseSystemPrompt(entry.session, effectivePrompt);
+  // The Sero host extension applies the prompt part at the start of each run.
+  const hasPromptOverride = typeof normalized?.systemPrompt === 'string' || Boolean(normalized?.disabledSkills?.length);
+  setSessionPromptOverride(entry.session.sessionManager, hasPromptOverride
+    ? {
+        ...(typeof normalized?.systemPrompt === 'string' ? { systemPrompt: normalized.systemPrompt } : {}),
+        disabledSkills: normalized?.disabledSkills,
+        // Read between runs and at the start of a run, when no run-time prompt is in effect.
+        basePrompt: () => entry.session.systemPrompt,
+      }
+    : null);
   entry.contextOverrides = normalized;
 
   return normalized;
@@ -170,6 +165,6 @@ export async function reloadWithContextOverrides(entry: ContextOverrideSessionSt
     label: (tool as { label?: string }).label,
     description: tool.description,
   }));
-  entry.baseSystemPrompt = getBaseSystemPrompt(entry.session) ?? entry.session.agent.state.systemPrompt ?? '';
+  entry.baseSystemPrompt = entry.session.systemPrompt;
   if (entry.contextOverrides) applyContextOverrides(entry, entry.contextOverrides);
 }

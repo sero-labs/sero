@@ -38,7 +38,6 @@ import {
 } from '@electron/features/plugins/resource-compatibility';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { readGlobalAgentsMd } from './global-agents';
-import { getBaseSystemPrompt } from './agent-helpers';
 import { readNewestTurns } from './agent-history-window';
 import { readPersistedContextOverrides, applyContextOverrides } from './agent-context-overrides';
 import { subscribeToSession } from './agent-subscription';
@@ -214,7 +213,8 @@ export async function openSessionInPool({
     label: (tool as { label?: string }).label,
     description: tool.description,
   }));
-  const baseSystemPrompt = getBaseSystemPrompt(session) ?? session.agent.state.systemPrompt ?? '';
+  // No run is active yet, so this is the base prompt with no override in it.
+  const baseSystemPrompt = session.systemPrompt;
   const persistedOverrides = readPersistedContextOverrides(
     session,
     baseTools.map((tool) => tool.name),

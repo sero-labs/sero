@@ -63,7 +63,7 @@ export async function invokeAppSessionTool(
       return errorToolResult(`App tool not found: ${toolName}`);
     }
 
-    const toolContext = session.extensionRunner?.createContext();
+    const toolContext = session.extensionRunner?.createToolContext('app-tool-bridge', undefined);
     if (!toolContext) {
       return errorToolResult(`App tool context unavailable: ${toolName}`);
     }

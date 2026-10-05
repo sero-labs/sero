@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import {
   createAssistantMessageEventStream,
-  type Context,
+  normalizeContext,
   type Model,
   type ProviderStreams,
   type SimpleStreamOptions,
@@ -45,7 +45,7 @@ const model: Model<'openai-completions'> = {
     supportsReasoningEffort: true,
   },
 };
-const context: Context = { messages: [] };
+const context = normalizeContext({ messages: [] });
 
 describe('Qwen chat-template reasoning effort', () => {
   beforeAll(async () => {

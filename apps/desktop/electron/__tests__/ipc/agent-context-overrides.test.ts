@@ -16,7 +16,8 @@ describe('applyContextOverrides', () => {
     const session = {
       getActiveToolNames: () => active,
       setActiveToolsByName: (names: string[]) => { active = names; },
-    } as Pick<AgentSession, 'getActiveToolNames' | 'setActiveToolsByName'> as AgentSession;
+      sessionManager: {},
+    } as Pick<AgentSession, 'getActiveToolNames' | 'setActiveToolsByName' | 'sessionManager'> as AgentSession;
 
     applyContextOverrides(
       {
@@ -37,7 +38,8 @@ describe('applyContextOverrides', () => {
     const session = {
       getActiveToolNames: () => active,
       setActiveToolsByName: (names: string[]) => { active = names; },
-    } as Pick<AgentSession, 'getActiveToolNames' | 'setActiveToolsByName'> as AgentSession;
+      sessionManager: {},
+    } as Pick<AgentSession, 'getActiveToolNames' | 'setActiveToolsByName' | 'sessionManager'> as AgentSession;
     const entry = {
       session,
       baseSystemPrompt: 'BASE',

@@ -74,9 +74,9 @@ async function openSession(builtInTools: string[]): Promise<OpenSessionResult> {
 describe('core file tools in the session system prompt', () => {
   it('lists the core tools with their summaries instead of reporting none', async () => {
     const { session } = await openSession([]);
-    const prompt = session.state.systemPrompt;
+    const prompt = session.systemPrompt;
 
-    expect(prompt).toContain('Available tools:');
+    expect(prompt).toContain('<tools>');
     expect(prompt).not.toContain('(none)');
     for (const name of ['bash', 'read', 'write', 'edit']) {
       expect(prompt).toContain(`- ${name}: `);
@@ -88,8 +88,8 @@ describe('core file tools in the session system prompt', () => {
     const { session: plain } = await openSession([]);
     const { session: withSearch } = await openSession(['grep', 'find', 'ls']);
 
-    const plainPrompt = plain.state.systemPrompt;
-    const searchPrompt = withSearch.state.systemPrompt;
+    const plainPrompt = plain.systemPrompt;
+    const searchPrompt = withSearch.systemPrompt;
 
     // Search tools suppress the injected bash file-operations guideline.
     expect(searchPrompt).not.toContain('Use bash for file operations like ls, rg, find');

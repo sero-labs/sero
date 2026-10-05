@@ -67,7 +67,7 @@ async function emitBeforeAgentStart(app: ElectronApplication, sessionId: string,
   return app.evaluate(async (_electron, args) => {
     const getAgentPoolEntry = (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry as
       | ((sessionId: string) => {
-        session: { extensionRunner?: { emitBeforeAgentStart(prompt: string, images: undefined, systemPrompt: string): Promise<{ systemPrompt?: string } | undefined> } };
+        session: { extensionRunner?: { emitBeforeAgentStart(prompt: string, images: undefined, options: { forceSystemPrompt: string }): Promise<{ systemPromptOptions: { forceSystemPrompt?: string } }> } };
         baseSystemPrompt: string;
       } | undefined)
       | undefined;
@@ -76,8 +76,8 @@ async function emitBeforeAgentStart(app: ElectronApplication, sessionId: string,
     const entry = getAgentPoolEntry(args.sessionId);
     if (!entry?.session.extensionRunner) throw new Error(`No active extension runner for session ${args.sessionId}`);
 
-    const result = await entry.session.extensionRunner.emitBeforeAgentStart(args.prompt, undefined, entry.baseSystemPrompt);
-    return result?.systemPrompt ?? entry.baseSystemPrompt;
+    const result = await entry.session.extensionRunner.emitBeforeAgentStart(args.prompt, undefined, { forceSystemPrompt: entry.baseSystemPrompt });
+    return result.systemPromptOptions.forceSystemPrompt ?? entry.baseSystemPrompt;
   }, { sessionId, prompt });
 }
 

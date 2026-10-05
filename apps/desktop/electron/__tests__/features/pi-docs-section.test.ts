@@ -66,8 +66,9 @@ describe('removePiDocsSection', () => {
     expect(stripped).not.toContain('Pi documentation');
     expect(stripped).not.toContain('Main documentation:');
     expect(stripped).not.toContain('Always read pi .md files');
-    expect(stripped).toContain('Guidelines:');
-    expect(stripped).toContain('Current working directory:');
+    expect(stripped).not.toContain('<docs>');
+    expect(stripped).toContain('<rules>');
+    expect(stripped).toContain('<cwd>');
   });
 
   it('leaves a prompt unchanged when a marker is missing', () => {

@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, ExtensionToolContext } from '@earendil-works/pi-coding-agent';
 import { Coordinator } from '../../runtime/coordinator';
 import { GoalRuntime } from '../../runtime/goals/goal-runtime';
 import { createGoalStore } from '../../runtime/goals/goal-store';
@@ -46,7 +46,7 @@ interface FakePi {
   fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>;
   /** Runs a registered slash command the way Pi does: it is never a prompt. */
   runCommand: (name: string, args: string) => Promise<void>;
-  runTool: (name: string, params: unknown, ctx?: ExtensionContext) => Promise<void>;
+  runTool: (name: string, params: unknown, ctx?: ExtensionToolContext) => Promise<void>;
   sent: SentMessage[];
 }
 
@@ -57,7 +57,10 @@ function fakePi(initialTools: string[] = [...TERMINAL_TOOLS]): FakePi {
   const tools = new Map<string, RegisteredTool>();
   const sent: SentMessage[] = [];
   const stub = {
-    on: (event: string, handler: Handler) => handlers.set(event, handler),
+    on: (event: string, handler: Handler) => {
+      handlers.set(event, handler);
+      return () => handlers.delete(event);
+    },
     sendMessage: (message: { customType: string; details?: unknown }, options?: { triggerTurn?: boolean }) => {
       sent.push({
         customType: message.customType,
@@ -93,12 +96,12 @@ function fakePi(initialTools: string[] = [...TERMINAL_TOOLS]): FakePi {
   };
 }
 
-function context(pending = false): ExtensionContext {
+function context(pending = false): ExtensionToolContext {
   return {
     cwd: WORKSPACE,
     hasPendingMessages: () => pending,
     sessionManager: { getSessionFile: () => SESSION },
-  } as Pick<ExtensionContext, 'cwd' | 'hasPendingMessages' | 'sessionManager'> as ExtensionContext;
+  } as Pick<ExtensionToolContext, 'cwd' | 'hasPendingMessages' | 'sessionManager'> as ExtensionToolContext;
 }
 
 /** A slash command is handed the wider command context, not the turn context. */

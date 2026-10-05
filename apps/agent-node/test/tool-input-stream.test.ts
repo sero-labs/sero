@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { AssistantMessage, ToolCall } from "@earendil-works/pi-ai";
+import type { AssistantMessage, JsonObject, ToolCall } from "@earendil-works/pi-ai";
 import { ToolInputStreams } from "../src/tool-input-stream.ts";
 
-function message(argumentsValue: Record<string, unknown>): AssistantMessage {
+function message(argumentsValue: JsonObject): AssistantMessage {
   return {
     content: [{ type: "toolCall", id: "", name: "write", arguments: argumentsValue }],
   } as AssistantMessage;
 }
 
-function toolCall(argumentsValue: Record<string, unknown>): ToolCall {
+function toolCall(argumentsValue: JsonObject): ToolCall {
   return { type: "toolCall", id: "call-1", name: "write", arguments: argumentsValue };
 }
 

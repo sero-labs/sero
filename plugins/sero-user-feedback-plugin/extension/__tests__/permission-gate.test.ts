@@ -45,6 +45,7 @@ describe('registerPermissionGate', () => {
         if (eventName === 'tool_call') {
           handler = callback as ToolCallHandler;
         }
+        return () => {};
       },
     };
 
