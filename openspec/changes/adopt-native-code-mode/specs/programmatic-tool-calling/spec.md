@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Execute a bounded program
-The system SHALL provide a `codemode` tool that executes JavaScript in an isolated runtime and returns the value produced by the script. The tool SHALL refuse TypeScript source. A script SHALL run under a memory limit and an output limit. A script MAY set a time limit for itself in its options line, and the system SHALL NOT add a time limit of its own.
+The system SHALL provide a `codemode` tool that executes JavaScript in an isolated runtime and returns the value produced by the script. A script SHALL run under a memory limit and an output limit. A script MAY set a time limit for itself in its options line, and the system SHALL NOT add a time limit of its own.
 
 #### Scenario: Parse and transform a file
 - **WHEN** a script reads a JSON file through an available tool and processes it with standard JavaScript methods
@@ -14,10 +14,6 @@ The system SHALL provide a `codemode` tool that executes JavaScript in an isolat
 #### Scenario: Script sets no time limit
 - **WHEN** a script that sets no time limit runs for longer than 30 seconds
 - **THEN** the script continues until it completes or the calling session cancels it
-
-#### Scenario: TypeScript source
-- **WHEN** the model sends source with TypeScript type syntax
-- **THEN** the tool returns an error and does not run the script
 
 ### Requirement: Preserve session authority
 The tools available inside a script MUST be limited to the tools active for the calling session. `codemode` MUST NOT grant a tool or permission that the session does not already have, and it MUST NOT expose itself for recursive calls. A chat session and a subagent session SHALL use the same tool under the same rules.
@@ -61,7 +57,7 @@ Each nested tool call SHALL return plain, serializable data that preserves its t
 - **THEN** the script receives text that names the image type, and no image data
 
 ### Requirement: Return a concise run result
-The `codemode` result SHALL contain the script's final value and a bounded summary of nested tool calls. It MUST NOT add every full nested tool result to the conversation. A nested call that failed SHALL be reported as failed, and this includes a shell command that exits with a non-zero code.
+The `codemode` result SHALL contain the script's final value and a bounded summary of nested tool calls. It MUST NOT add every full nested tool result to the conversation.
 
 #### Scenario: Complete a multi-tool program
 - **WHEN** a script completes after several nested tool calls
@@ -70,10 +66,6 @@ The `codemode` result SHALL contain the script's final value and a bounded summa
 #### Scenario: Nested tool fails
 - **WHEN** a nested tool fails and the script does not handle the error
 - **THEN** `codemode` returns the failure and identifies the failed nested tool
-
-#### Scenario: Shell command fails inside a script
-- **WHEN** a script runs a shell command that exits with a non-zero code
-- **THEN** that nested call is reported as failed, with its exit code
 
 ## ADDED Requirements
 

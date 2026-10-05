@@ -25,7 +25,7 @@ Facts from the Pi 1.0.2 source that shape the design:
 - Code Mode's `only` mode, where `codemode` is the single tool the model sees.
 - The `models` namespace inside scripts.
 - Pi's in-place prompt changes and named prompt sections.
-- A conversion of saved `run_code` calls in old sessions.
+- Any code for sessions saved with `run_code` calls, and any Sero check or warning for TypeScript source. The change is forward only.
 - The branch-aware context override lookup from #609. Issue #612 is closed as not planned.
 
 ## Decisions
@@ -50,11 +50,9 @@ Alternative: inject `timeout_ms` when the script has none. Rejected for the reas
 
 Both were niceties of `run_code`. The model writes JavaScript when the tool description says so, and it can call `read` directly for an image. No Sero code is added for either.
 
-### A failed shell command is a failed inner call
+### A failed shell command inside a script keeps today's Pi 1.0.2 behaviour
 
-The exit code is known where the `bash` tool produces its result. The fix puts the failure status in the tool's own outcome, so a direct call and an inner call both report it, and no path depends on `agent.afterToolCall`. The first task reads how Sero's `bash` tool and Pi's `executeTool` set `isError`, then picks the smallest change that makes `outcome.isError` true for a non-zero exit. `preserveBashFailureStatus` stays for direct calls if a result hook can still drop the status there.
-
-Alternative: patch Pi's inner-call path. Rejected: it is Pi's code.
+Sero's container `bash` tool returns normally for every exit code, and a Sero patch on `agent.afterToolCall` sets the error flag afterwards. An inner call does not pass through that patch, so its row shows success for a non-zero exit. The script still receives `exitCode` and the text `Command exited with code N`. No code is added for this.
 
 ### The output optimizer detects an inner call by its id shape
 
@@ -64,16 +62,12 @@ Alternative: patch Pi's inner-call path. Rejected: it is Pi's code.
 
 `agent-subscription.ts` forwards the nested-call updates of a running `codemode` call. `agent-messages.ts` rebuilds the rows from the saved result on reopen. The store module `agent-nested-tools.ts` holds them, and `NestedToolRows.tsx` draws them inside the card. All four application layers change together, as AGENTS.md requires. A reopened card has each row's name and final state. It does not have the output of a successful inner call or the duration, because Pi does not save them. That limit is accepted.
 
-### Old sessions
-
-A saved `run_code` call is a tool call in the history and displays through the generic card. No conversion is written. The renderer has no code that names `run_code`.
-
 ## Risks / Trade-offs
 
 - A script with an endless loop and no `timeout_ms` runs until the user cancels → the chat card shows it as running, and cancel stops it. Accepted.
-- A background subagent has no user to cancel it → the subagent's own run limits and its parent's cancel still stop the session. Task 4.3 checks that a subagent cancel stops a running script.
-- The `codemode` description is Pi's and is longer than the `run_code` description → #609 measured start-up prompt size, and the numbers are in its description. Checked again in task 8.3.
-- Models that learned `run_code` from Sero's prompt text → every prompt string that names it changes in this change, and a repository search in task 6.5 proves none is left.
+- A background subagent has no user to cancel it → the subagent's own run limits and its parent's cancel still stop the session. Task 3.3 checks that a subagent cancel stops a running script.
+- The `codemode` description is Pi's and is longer than the `run_code` description → #609 measured start-up prompt size, and the numbers are in its description. Checked again in task 7.3.
+- Models that learned `run_code` from Sero's prompt text → every prompt string that names it changes in this change, and a repository search in task 5.5 proves none is left.
 - An external plugin that reads the `run_code_` prefix → the documented prefix was only used by the output optimizer in this repository. The `@sero-ai/common` changelog entry names the change.
 
 ## Migration Plan
