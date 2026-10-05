@@ -207,7 +207,7 @@ Sero supports the stable Skills extension (SEP-2640, `io.modelcontextprotocol/sk
 - The prompt block lists only enabled skills, as `<server> / <name>` (the skill path when names collide). A remote skill never enters Pi's skill list.
 - `skill_load` checks the limits (512 files, 16 MiB), each file's size and SHA-256 digest, the frontmatter against the listed entry, and the Agent Skills name rules. It declines dynamic skills. Content goes to the model in an `<mcp-skill server=… uri=…>` block (`extension/skills/skill-loader.ts`).
 - From a load until the session ends, the session acts on the held entry. `skill_read` and `skill_ls` read only files in it.
-- While a session acts on a remote skill, the `tool_call` hook asks before `bash` or `run_code` runs, and blocks when nobody can answer. `allowed-tools` is ignored. A resource read on another server is blocked.
+- While a session acts on a remote skill, the `tool_call` hook asks before `bash` or `codemode` runs, and blocks when nobody can answer. `allowed-tools` is ignored. A resource read on another server is blocked.
 - `mcp` actions: `skill_load`, `skill_read`, `skill_ls` (CLI `sero mcp skill load|read|ls`). `mcp_manager` actions: `list_skills`, `set_skill_enabled`, `refresh_skills`.
 
 ### Tool runner

@@ -98,14 +98,14 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
     label: 'bash',
     promptSnippet: 'Run a bash command in the workspace and return its output',
     promptGuidelines: [
-      'Use bash for project commands and shell or system operations. When run_code is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
+      'Use bash for project commands and shell or system operations. When codemode is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
     ],
     description:
       `Execute a bash command in the current working directory. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
       `${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB ` +
       `(whichever is hit first). Optionally provide a timeout in seconds. ` +
-      `Use bash for project commands and shell or system operations. When run_code is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use run_code instead. ` +
+      `Use bash for project commands and shell or system operations. When codemode is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use codemode instead. ` +
       `Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.`,
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {

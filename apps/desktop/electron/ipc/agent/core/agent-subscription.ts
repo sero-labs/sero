@@ -262,12 +262,16 @@ export function subscribeToSession(
           details: null,
           isError: false,
           state: 'running',
+          // A call a tool made while it ran. The renderer lists it inside its parent's card.
+          ...(event.parentToolCallId ? { parentToolCallId: event.parentToolCallId } : {}),
         };
         sendEvent({ type: 'tool_start', sessionId, tool: toolMsg });
         break;
       }
 
       case 'tool_execution_update': {
+        // An inner call shows as one row with a state. Its partial output is not shown.
+        if (event.parentToolCallId) break;
         const { text, images, details } = extractToolOutput(event.partialResult);
         sendEvent({
           type: 'tool_update',
@@ -286,6 +290,7 @@ export function subscribeToSession(
           type: 'tool_end',
           sessionId,
           toolCallId: event.toolCallId,
+          ...(event.parentToolCallId ? { parentToolCallId: event.parentToolCallId } : {}),
           output: text,
           details,
           isError: event.isError,

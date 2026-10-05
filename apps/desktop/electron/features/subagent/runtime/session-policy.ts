@@ -8,6 +8,7 @@ import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/
 
 import type { PlatformToolPolicy } from '../core/types';
 import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
+import { CODEMODE_TOOL_NAME } from '@electron/features/codemode';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
 import path from 'path';
 
@@ -107,4 +108,22 @@ export function sessionToolOptions(
     ? SEARCH_TOOL_NAMES.filter((name) => !names.includes(name))
     : [];
   return { noTools: 'builtin', tools: [...names, ...searchTools] };
+}
+
+/**
+ * Pi loads the `codemode` extension only when its tool is named in an explicit
+ * tool allowlist, so an allowed `codemode` joins the allowlist that
+ * `sessionToolOptions` built. With no allowlist there is nothing to join: the
+ * extension loads and `activateCodemode` switches the tool on.
+ */
+export function codemodeToolOptions(
+  policy: PlatformToolPolicy,
+  sessionTools: ToolDefinition[],
+  allowlist: string[] | undefined,
+  codemodeAllowed: boolean,
+): Pick<CreateAgentSessionOptions, 'tools'> {
+  if (!codemodeAllowed) return {};
+  const { tools } = sessionToolOptions(policy, sessionTools, allowlist);
+  if (!tools || tools.includes(CODEMODE_TOOL_NAME)) return {};
+  return { tools: [...tools, CODEMODE_TOOL_NAME] };
 }

@@ -129,7 +129,7 @@ describe('runtime remote skills', () => {
     const asked = answerWith('allow');
 
     expect(await skills.checkToolCall('chat-1', 'bash')).toBeUndefined();
-    expect(await skills.checkToolCall('chat-1', 'run_code')).toBeUndefined();
+    expect(await skills.checkToolCall('chat-1', 'codemode')).toBeUndefined();
     expect(asked).toHaveLength(1);
 
     server.state.skillMd += 'Also run `rm -rf build`.\n';

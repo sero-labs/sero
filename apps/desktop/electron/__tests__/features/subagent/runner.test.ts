@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   reloadResources: vi.fn(async () => {}),
   createRuntimeTools: vi.fn(async () => []),
   getRuntime: vi.fn(),
-  bindRunCode: vi.fn(),
+  activateCodemode: vi.fn(),
   clearBridgedState: vi.fn(),
   // Captures the last DefaultResourceLoader constructor options (e.g. skillsOverride).
   lastLoaderOptions: null as Record<string, unknown> | null,
@@ -40,11 +40,10 @@ vi.mock('@electron/features/container/tools/container-prompt-state', () => ({
   containerPromptState: () => undefined,
 }));
 
-vi.mock('@electron/features/code-mode', () => ({
-  createRunCodeController: () => ({
-    tool: { name: 'run_code', label: 'run code', description: '', parameters: {}, execute: vi.fn() },
-    bind: mocks.bindRunCode,
-  }),
+vi.mock('@electron/features/codemode', () => ({
+  CODEMODE_TOOL_NAME: 'codemode',
+  createSeroCodemodeExtension: vi.fn(() => vi.fn()),
+  activateCodemode: mocks.activateCodemode,
 }));
 
 vi.mock('@electron/features/subagent/runtime/loader', () => ({
@@ -640,14 +639,14 @@ describe('runSubagent abort handling', () => {
 });
 
 describe('runSubagent context overrides', () => {
-  it('binds run_code to the completed session active tools', async () => {
+  it('switches codemode on for the completed session', async () => {
     const session = createSession();
     mocks.createAgentSession.mockResolvedValueOnce({ session });
 
     await runSubagent(createConfig(new AbortController().signal), createDeps());
 
-    expect(mocks.bindRunCode).toHaveBeenCalledOnce();
-    expect(mocks.bindRunCode).toHaveBeenCalledWith(session.agent);
+    expect(mocks.activateCodemode).toHaveBeenCalledOnce();
+    expect(mocks.activateCodemode).toHaveBeenCalledWith(session);
   });
 
   it('drops disabled tools from the session tool surface', async () => {
@@ -666,19 +665,70 @@ describe('runSubagent context overrides', () => {
     const options = mocks.createAgentSession.mock.calls[0][0] as { customTools: { name: string }[] };
     const names = options.customTools.map((t) => t.name);
     expect(names).toContain('read');
-    expect(names).toContain('run_code');
     expect(names).not.toContain('bash');
+    // `codemode` is a session tool, not a custom tool, so it never appears here.
+    expect(names).not.toContain('codemode');
   });
 
-  it('can disable run_code through the existing disabled-tools policy', async () => {
+  it('leaves codemode off when the tool policy disables it', async () => {
     mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
     const config = createConfig(new AbortController().signal);
-    config.disabledTools = ['run_code'];
+    config.disabledTools = ['codemode'];
 
     await runSubagent(config, createDeps());
 
-    const options = mocks.createAgentSession.mock.calls[0][0] as { customTools: { name: string }[] };
-    expect(options.customTools.map((tool) => tool.name)).not.toContain('run_code');
+    expect(mocks.activateCodemode).not.toHaveBeenCalled();
+  });
+
+  it('leaves codemode off when a per-step allowlist does not name it', async () => {
+    mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['read', 'bash'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools?: string[] };
+    expect(mocks.activateCodemode).not.toHaveBeenCalled();
+    expect(options.tools).not.toContain('codemode');
+  });
+
+  it('switches codemode on when a per-step allowlist names it', async () => {
+    mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['read', 'codemode'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools?: string[] };
+    expect(mocks.activateCodemode).toHaveBeenCalledOnce();
+    // Pi loads the extension only when the allowlist names its tool.
+    expect(options.tools).toContain('codemode');
+  });
+
+  it('keeps codemode for a read-only policy', async () => {
+    mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'readOnly';
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools?: string[] };
+    expect(mocks.activateCodemode).toHaveBeenCalledOnce();
+    expect(options.tools).toContain('codemode');
+  });
+
+  it('keeps codemode when the platform tool policy is none', async () => {
+    mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'none';
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools?: string[] };
+    expect(mocks.activateCodemode).toHaveBeenCalledOnce();
+    expect(options.tools).toEqual(['codemode']);
   });
 
   it('applies a per-step tool allowlist to the session', async () => {

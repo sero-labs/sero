@@ -5,12 +5,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createAgentSession,
+  DefaultResourceLoader,
   ModelRuntime,
   type AgentSession,
 } from '@earendil-works/pi-coding-agent';
 
 import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
-import { createRunCodeController } from '@electron/features/code-mode/tool';
+import { activateCodemode, createSeroCodemodeExtension } from '@electron/features/codemode';
 import {
   seedFixtureAgentDir,
   startProviderFixture,
@@ -51,16 +52,23 @@ async function openSession(builtInTools: string[]): Promise<OpenSessionResult> {
   const model = runtime.getModel(FIXTURE_PROVIDER_ID, FIXTURE_MODEL_ID);
   if (!model) throw new Error('Fixture model is not registered');
 
-  const runCode = createRunCodeController();
+  const loader = new DefaultResourceLoader({
+    cwd: workspace,
+    agentDir,
+    extensionFactories: [createSeroCodemodeExtension()],
+  });
+  await loader.reload();
   const { session } = await createAgentSession({
     cwd: workspace,
     agentDir,
     modelRuntime: runtime,
     model,
-    tools: [...builtInTools, 'bash', 'read', 'write', 'edit', 'run_code'],
-    customTools: [...createHostCodingTools(workspace), runCode.tool],
+    tools: [...builtInTools, 'bash', 'read', 'write', 'edit', 'codemode'],
+    customTools: createHostCodingTools(workspace),
+    resourceLoader: loader,
   });
-  runCode.bind(session.agent);
+  // A real session switches `codemode` on; the prompt shape must match one.
+  activateCodemode(session);
 
   cleanups.push(async () => {
     session.dispose();
@@ -98,6 +106,17 @@ describe('core file tools in the session system prompt', () => {
       expect(prompt).toContain('several edits[] entries instead of several edit calls');
       expect(prompt).toContain('Same-file mutations run in sequence');
     }
+  });
+
+  it('tells the model to batch mutations, in one call and in one codemode script', async () => {
+    const { session } = await openSession([]);
+    const edit = session.state.tools.find((tool) => tool.name === 'edit');
+    if (!edit) throw new Error('edit tool is not active');
+
+    expect(edit.description).toContain('several disjoint replacements in one call');
+    expect(edit.description).toContain('`codemode` script');
+    // Batched mutations still validate in sequence, and the description says so.
+    expect(edit.description).toContain('run in order');
   });
 
   it('activates the runtime-backed edit tool instead of Pi built-in edit', async () => {

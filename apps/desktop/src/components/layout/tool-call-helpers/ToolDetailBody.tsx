@@ -2,6 +2,7 @@ import type { ChatToolCallMessage } from '@/types/ipc';
 import { useMemo } from 'react';
 import { ToolCallProgress, buildToolProgressModel } from '../ToolCallProgress';
 import { ClampedText } from './ClampedText';
+import { NestedToolRows } from './NestedToolRows';
 import { StreamingFileWrite } from './StreamingFileWrite';
 import { ToolCaptureReport } from './ToolCaptureReport';
 import { describeToolCapture } from './tool-capture-details';
@@ -36,6 +37,8 @@ export function ToolDetailBody({
       ) : (
         <ToolInputRows input={tool.input} />
       )}
+
+      {tool.nested?.length ? <NestedToolRows tools={tool.nested} workspaceId={workspaceId} /> : null}
 
       <ToolResultView tool={tool} />
 

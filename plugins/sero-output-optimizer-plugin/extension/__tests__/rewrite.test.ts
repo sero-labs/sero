@@ -133,8 +133,9 @@ describe('computeRewrite', () => {
 });
 
 describe('nested call suppression', () => {
-  it('recognises the reserved prefix', () => {
-    expect(isNestedCall('run_code_abc')).toBe(true);
+  it('recognises a Code Mode call id and leaves a direct call alone', () => {
+    expect(isNestedCall('call_abc/1')).toBe(true);
+    expect(isNestedCall('call_abc/2/1')).toBe(true);
     expect(isNestedCall('call_abc')).toBe(false);
   });
 });

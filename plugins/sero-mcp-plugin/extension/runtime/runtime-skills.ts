@@ -16,7 +16,7 @@ import type { McpRemoteSkillSummary } from '../../shared/skills';
 export type SkillProxyAction = 'skill_load' | 'skill_read' | 'skill_ls';
 
 /** Tools that run code on the host. A remote skill must not make them run without the user's approval. */
-const CODE_TOOLS = new Set(['bash', 'run_code']);
+const CODE_TOOLS = new Set(['bash', 'codemode']);
 
 export interface RuntimeSkillsInput {
   manager: McpServerManager;

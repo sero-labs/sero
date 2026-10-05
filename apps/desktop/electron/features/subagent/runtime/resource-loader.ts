@@ -13,6 +13,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createSubagentExtensionFactory } from './loader';
+import { createSeroCodemodeExtension } from '@electron/features/codemode';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   filterCompatiblePluginAgentsFiles,
@@ -98,6 +99,8 @@ export function createSubagentResourceLoader(
         options.containerState,
         options.containerCwd,
       ),
+      // Every subagent session loads Pi's `codemode`, the same tool a chat gets.
+      createSeroCodemodeExtension(),
     ],
     skillsOverride: (base) => {
       const filtered = loadSubagentSkills(base);

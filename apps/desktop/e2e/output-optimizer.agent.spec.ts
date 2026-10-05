@@ -859,23 +859,23 @@ test.describe('non-shell paths', () => {
     expect(text).not.toContain('Output optimizer:');
   });
 
-  test('57: bash issued from run_code is neither rewritten nor compacted', async () => {
+  test('57: bash issued from codemode is neither rewritten nor compacted', async () => {
     const session = await openSession(
       'optimizer run code',
-      ['run_code', 'bash'],
-      'You are an automated e2e test agent. Call the run_code tool exactly once, then answer with only OK.',
+      ['codemode', 'bash'],
+      'You are an automated e2e test agent. Call the codemode tool exactly once, then answer with only OK.',
     );
     writeConfig({ enabled: true });
     const turn = await promptAndCollectEvents(
       page,
       session.id,
-      'Call run_code once with code that calls `await tools.bash({ command: "git status" })` and returns the result text. Then answer with only OK.',
+      'Call codemode once with code that calls `await tools.bash({ command: "git status" })` and returns the result text. Then answer with only OK.',
       TURN_TIMEOUT_MS,
     );
-    const ends = toolEnds(turn.events, 'run_code');
+    const ends = toolEnds(turn.events, 'codemode');
     const end = ends[ends.length - 1];
     if (!end) {
-      test.skip(true, 'The model did not call run_code.');
+      test.skip(true, 'The model did not call codemode.');
       return;
     }
     const message = resultFor(session.path, end.toolCallId);

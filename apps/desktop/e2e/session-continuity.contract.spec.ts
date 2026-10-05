@@ -134,12 +134,15 @@ test('a tool the user turned off stays off after an undo to an earlier turn', as
   const session = await newSession();
   const first = await turn(session.id, 'write:three');
   if (!first.turnUndo) throw new Error('The first turn has no undo point.');
-  await page.evaluate((id) => window.sero.agent.setContextOverrides(id, { disabledTools: ['bash'] }), session.id);
+  // `codemode` is a base tool like `bash`, so the context editor can turn it off.
+  await page.evaluate((id) => window.sero.agent.setContextOverrides(id, { disabledTools: ['bash', 'codemode'] }), session.id);
   await turn(session.id, 'write:four');
   await page.evaluate(({ id, ref }) => window.sero.agent.undoToTurn(id, ref), { id: session.id, ref: first.turnUndo });
   await turn(session.id, 'hello');
 
-  expect(stub.requests.at(-1)?.tools.map((tool) => tool.name)).not.toContain('bash');
+  const tools = stub.requests.at(-1)?.tools.map((tool) => tool.name) ?? [];
+  expect(tools).not.toContain('bash');
+  expect(tools).not.toContain('codemode');
 });
 
 test('a cleared session stays empty and keeps its model after it is reopened', async () => {
