@@ -45,17 +45,6 @@ The system MUST validate each nested tool call against that tool's input schema 
 - **WHEN** the calling session cancels `codemode`
 - **THEN** the script and its active nested calls receive cancellation
 
-### Requirement: Provide code-friendly tool results
-Each nested tool call SHALL return plain, serializable data that preserves its text output and structured details without exposing Pi's internal result envelope. A nested call that returns an image SHALL give the script a text description of the image and not the image data.
-
-#### Scenario: Parse tool text
-- **WHEN** a script reads a text file through a nested tool call
-- **THEN** it can access the returned text directly and parse it with standard JavaScript methods
-
-#### Scenario: Read an image
-- **WHEN** a script reads an image file through a nested tool call
-- **THEN** the script receives text that names the image type, and no image data
-
 ### Requirement: Return a concise run result
 The `codemode` result SHALL contain the script's final value and a bounded summary of nested tool calls. It MUST NOT add every full nested tool result to the conversation.
 

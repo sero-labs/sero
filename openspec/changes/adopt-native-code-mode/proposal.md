@@ -9,7 +9,7 @@ Issue #611 holds the decision to adopt. Pull request #609 holds the evidence.
 - **BREAKING** The `run_code` tool is removed. Every session that had it gets Pi's `codemode` tool: chat sessions and subagent sessions. There is one code path.
 - **BREAKING** A script is JavaScript. TypeScript source is refused. This loss is accepted.
 - **BREAKING** A script has no fixed time limit. `run_code` stopped a program after 30 seconds. A `codemode` script sets its own limit with `timeout_ms` in its `// @options` line, and a cancel of the turn stops the script.
-- **BREAKING** A script that reads an image through a tool receives text only. This loss is accepted: the model can call `read` directly for an image.
+- **BREAKING** Results of inner calls are what Pi gives a script. Today that means an image result reaches the script as text. Sero adds nothing here and follows Pi.
 - The chat card of a script shows each inner tool call as a row while the script runs.
 - The output optimizer plugin does not shorten the output of a shell command that a script runs. It has this rule for `run_code` today. The rule moves to the `codemode` call ids.
 - The Sero source for `run_code` is deleted: `apps/desktop/electron/features/code-mode/`, its tests, and the `run` dependency.

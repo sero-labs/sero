@@ -18,6 +18,7 @@ Facts from the Pi 1.0.2 source that shape the design:
 
 - One tool for programmatic tool calls in every session type, and it is Pi's.
 - No Sero layer between the model and `codemode`: no source rewrite, no wrapper tool.
+- Sero does not diverge from Pi's implementation. Where `codemode` does less than `run_code` did, Sero accepts it and waits for Pi.
 - `features/code-mode/` and the `run` dependency are deleted in the same change.
 
 **Non-Goals:**
