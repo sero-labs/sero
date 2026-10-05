@@ -34,7 +34,7 @@
 
 ## 7. Final checks
 
-- [ ] 7.1 Run `pnpm typecheck --force` from the root. Verify no errors.
-- [ ] 7.2 Run the desktop unit suite and, after a build, the full contract suite with an isolated profile and no provider keys. Verify that all pass.
-- [ ] 7.3 Record in the pull request description the size of the start-up prompt with `codemode` against the number in #609. Verify that the number is in the description.
-- [ ] 7.4 Open a draft pull request that closes #611, then close #609 with a comment that names this pull request. Verify that both links resolve.
+- [x] 7.1 Run `pnpm typecheck --force` from the root. Verify no errors.
+- [x] 7.2 Run the desktop unit suite and, after a build, the full contract suite with an isolated profile and no provider keys. Verify that all pass.
+- [x] 7.3 Record in the pull request description the size of the start-up prompt with `codemode` against the number in #609. Verify that the number is in the description.
+- [x] 7.4 Open a draft pull request that closes #611, then close #609 with a comment that names this pull request. Verify that both links resolve.
