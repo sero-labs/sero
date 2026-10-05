@@ -51,9 +51,11 @@ Alternative: inject `timeout_ms` when the script has none. Rejected for the reas
 
 Both were niceties of `run_code`. The model writes JavaScript when the tool description says so, and it can call `read` directly for an image. No Sero code is added for either.
 
-### A failed shell command inside a script keeps today's Pi 1.0.2 behaviour
+### A failed shell command inside a script behaves as Pi's own `bash` does
 
-Sero's container `bash` tool returns normally for every exit code, and a Sero patch on `agent.afterToolCall` sets the error flag afterwards. An inner call does not pass through that patch, so its row shows success for a non-zero exit. The script still receives `exitCode` and the text `Command exited with code N`. No code is added for this.
+Sero's `bash` tool returns normally for every exit code, and a Sero patch on `agent.afterToolCall` sets the error flag afterwards. An inner call does not pass through that patch. Without more, its row would show success for a non-zero exit, and the script would receive only text, because a tool with no `outputSchema` resolves to its text.
+
+So the tool does what Pi's `bash` does. It declares an `outputSchema` and returns `structuredContent` with `output`, `truncated`, `full_output_path` and `exit_code`. For a non-zero exit it also returns `isError`. The row of a failed inner call shows the failed state, and the script receives the object and reads `exit_code`. A direct call is unchanged: the full result still reaches the `tool_result` hooks, and the patch still re-applies the status after them.
 
 ### The output optimizer detects an inner call by its id shape
 

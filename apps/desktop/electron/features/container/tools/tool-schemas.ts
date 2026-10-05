@@ -54,6 +54,18 @@ export const BashParams = Type.Object({
   ),
 });
 
+/**
+ * What a `codemode` script receives from `bash`, with the field names of Pi's
+ * own bash tool. A failed command resolves to this value too, so the script
+ * reads `exit_code` and decides what to do next.
+ */
+export const BashOutput = Type.Object({
+  output: Type.String({ description: 'Combined stdout and stderr, possibly truncated' }),
+  truncated: Type.Boolean(),
+  full_output_path: Type.Optional(Type.String({ description: 'Full output, when truncated' })),
+  exit_code: Type.Number(),
+});
+
 export const ReadParams = Type.Object({
   path: Type.String({
     description: 'Path to the file to read. Relative paths resolve from the current workspace.',

@@ -390,8 +390,7 @@ export async function runSubagent(
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
-        // A call a tool made has ended, but the tool that made it is still running.
-        if (!parentCallIdOf(event)) onToolActivity?.(toolName, '', false);
+        onToolActivity?.(toolName, '', false);
         stalls?.end(callIdOf(event));
       }
 

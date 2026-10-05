@@ -124,6 +124,9 @@ describe('complete command output on the host backend', () => {
     const capture = details.capture;
     expect(capture).toMatchObject({ complete: true });
     expect(details.exitCode).toBe(3);
+    // The failure travels with the result, so a call a script made is marked
+    // failed too, and the script reads the exit code.
+    expect(result).toMatchObject({ isError: true, structuredContent: { exit_code: 3 } });
 
     // The failure returns normally, so both the payload and the report survive.
     expect(textBlocks(result)).toHaveLength(2);
