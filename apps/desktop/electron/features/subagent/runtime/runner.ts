@@ -351,6 +351,8 @@ export async function runSubagent(
     });
     // Calls in one reply run at the same time, so each is timed under its own id.
     const callIdOf = (event: Record<string, unknown>): string => String(event.toolCallId ?? event.toolName ?? 'unknown');
+    const parentCallIdOf = (event: Record<string, unknown>): string | undefined =>
+      typeof event.parentToolCallId === 'string' ? event.parentToolCallId : undefined;
 
     // Observation identities stay distinct: the run is the session here, a turn
     // is one prompt and its reply, a request is one model call, and a tool call
@@ -383,12 +385,13 @@ export async function runSubagent(
         const summary = extractToolArgsSummary(toolName, args);
         onToolActivity?.(toolName, summary, true);
         onStatusUpdate?.(`  📂 ${toolName}: ${summary}`);
-        stalls?.start(callIdOf(event), toolName);
+        stalls?.start(callIdOf(event), toolName, parentCallIdOf(event));
       }
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
-        onToolActivity?.(toolName, '', false);
+        // A call a tool made has ended, but the tool that made it is still running.
+        if (!parentCallIdOf(event)) onToolActivity?.(toolName, '', false);
         stalls?.end(callIdOf(event));
       }
 

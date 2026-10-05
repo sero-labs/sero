@@ -33,3 +33,13 @@ export function applyNestedToolEnd(
     ),
   );
 }
+
+/**
+ * The turn ended while these calls were open. Each one is shown as cancelled,
+ * which is how a reopened session shows a call that never finished.
+ */
+export function settleNestedTools(nested: ChatToolCallMessage[]): ChatToolCallMessage[] {
+  return nested.map((call) =>
+    call.state === 'pending' || call.state === 'running' ? { ...call, state: 'cancelled' } : call,
+  );
+}

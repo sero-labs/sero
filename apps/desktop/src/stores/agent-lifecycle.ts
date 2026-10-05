@@ -1,4 +1,5 @@
 import type { AgentStreamEvent } from '@/types/ipc';
+import { settleNestedTools } from '@/stores/agent-nested-tools';
 import type { AgentInstance } from '@/stores/agent-types';
 
 type LifecycleEvent = Extract<
@@ -38,9 +39,10 @@ export function applyAgentLifecycle(
     if (message.type !== 'tool' || (message.state !== 'pending' && message.state !== 'running')) {
       return message;
     }
-    return event.outcome === 'cancelled'
+    const settled = event.outcome === 'cancelled'
       ? { ...message, state: 'cancelled' as const, isStreamingInput: false }
       : { ...message, state: 'error' as const, isError: true, isStreamingInput: false };
+    return message.nested ? { ...settled, nested: settleNestedTools(message.nested) } : settled;
   });
   return { ...agents, [sessionId]: { ...agent, isStreaming: false, retry: null, messages } };
 }

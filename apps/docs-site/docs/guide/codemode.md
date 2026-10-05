@@ -64,18 +64,25 @@ annotations and other TypeScript syntax are a script error, so write plain
 JavaScript.
 
 Tools are asynchronous functions on the global `tools` object. Each takes the
-same object argument as a direct tool call. Returned text is available as
-`result.text`. A tool that returns an image gives the script its text
-description instead of the image; call `read` directly when you need the image
-itself in the conversation.
+same object argument as a direct tool call. What a call returns depends on the
+tool:
+
+- `read`, `edit`, and `write` return their text output as a string.
+- `bash` returns an object with `output` and `exit_code`. It returns this object
+  for a non-zero exit code too.
+- An MCP tool returns its full result object.
+
+A tool that returns an image gives the script its text description instead of
+the image; call `read` directly when you need the image itself in the
+conversation.
 
 This is an example of code the agent could pass to `codemode`. It assumes that
 `data/orders.json` exists in the workspace and contains an array of objects with
 `status` fields:
 
 ```js
-const result = await tools.read({ path: 'data/orders.json' });
-const orders = JSON.parse(result.text);
+const text = await tools.read({ path: 'data/orders.json' });
+const orders = JSON.parse(text);
 const counts = {};
 
 for (const order of orders) {
@@ -88,10 +95,10 @@ return counts;
 Relative file paths resolve from the active workspace. The agent does not need
 to look up access roots before reading a known workspace file.
 
-For a tool name that cannot be used as a JavaScript identifier, such as
-`sero-cli`, the script uses `tools.call({ name: 'sero-cli', args: { ... } })`.
-The `args` object must match that tool's input schema. Sero validates each
-nested call before it runs.
+In a tool name, each character that is not valid in a JavaScript identifier
+becomes `_`. A script calls `sero-cli` as `tools.sero_cli({ ... })`. The
+argument must match that tool's input schema, and each nested call is validated
+before it runs.
 
 The conversation receives the script's final value and a short summary of
 nested calls. It does not receive every full nested tool result. Return the

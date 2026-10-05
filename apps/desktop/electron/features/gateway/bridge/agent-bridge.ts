@@ -335,6 +335,9 @@ function mapAgentEvent(
 
     case 'tool_start': {
       const tool = event.tool as Record<string, unknown> | undefined;
+      // A call a tool made while it ran belongs to that tool's card. Remote
+      // clients show top-level calls only, which is also all that history holds.
+      if (tool?.parentToolCallId) return null;
       return {
         type: 'tool_start',
         sessionId,
@@ -345,6 +348,7 @@ function mapAgentEvent(
     }
 
     case 'tool_end':
+      if (event.parentToolCallId) return null;
       return {
         type: 'tool_end',
         sessionId,
