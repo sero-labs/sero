@@ -3,6 +3,7 @@
 
 import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DeliveryAgreement, OverviewSummary, WorkingInterpretation } from './agreement';
+import type { DirectExecution } from './direct-execution';
 import type { EvidenceBinding } from './evidence-binding';
 import type { DispatchDestination } from './owner-actions';
 import { milestoneCounts, projectActivity } from './activity';
@@ -159,6 +160,8 @@ export interface Milestone {
   /** A preview milestone must close with a smoke check and a capture. */
   preview: { route: string } | null;
   dispatch: MilestoneDispatch | null;
+  /** Work the owner does itself. Absent on delegated milestones and older records. */
+  direct?: DirectExecution;
   /** Durable intent written before the external run starts. A surviving value needs reconciliation. */
   pendingDispatch?: PendingMilestoneDispatch;
   evidence: EvidenceRecord | null;
