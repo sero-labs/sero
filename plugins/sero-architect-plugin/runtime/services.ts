@@ -29,6 +29,7 @@ import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, Proje
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
+import { isActiveDirect } from '../shared/direct-execution';
 import { workDirectory } from './direct-worktree';
 import { commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
@@ -421,6 +422,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           || (fresh.pendingEvidence ?? []).some((pending) => pending.milestoneId === milestone.id)) return null;
         const writer = projectWriter(fresh);
         if (writer) throw new Error(`The project folder is in use by ${writer.id}. Wait for its result before verification.`);
+        // A begin that landed first replaced the reported work, and the new work has no report to check.
+        if (isActiveDirect(current.direct)) throw new Error(`Your own work on ${current.id} is still running. Report it before verification.`);
         const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
         // What the check covers is fixed now, on the record as it stands. A
         // result that lands after a criterion changed still names the old one.

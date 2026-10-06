@@ -103,7 +103,13 @@ export async function ownerWork(deps: OwnerDirectDeps, record: ProjectRecord, in
       opened = await deps.worktrees.open(record, milestone);
       if (!opened.ok) return refuse(opened.reason);
     }
-    const placement: DirectExecution['placement'] = opened?.placement ?? (same ? saved.placement : { mode: record.executionMode ?? 'workspace', directory: record.folder, workspaceId: record.workspaceId });
+    let placement: DirectExecution['placement'] = opened?.placement ?? (same ? saved.placement : { mode: record.executionMode ?? 'workspace', directory: record.folder, workspaceId: record.workspaceId });
+    if (milestone && same && placement.mode === 'worktree' && deps.worktrees) {
+      // A parked milestone's checkout is released. The same execution gets it back.
+      const found = await deps.worktrees.ensure(record, milestone, placement);
+      if (!found.ok) return refuse(found.reason);
+      placement = found.placement;
+    }
     const state = await readState(record, placement.directory);
     const begun = await apply((fresh) => {
       // The record may have moved while git ran, so the checks run on it again.

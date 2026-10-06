@@ -63,7 +63,13 @@ export function createDirectWorktrees(host: WorktreeHost): DirectWorktrees {
   };
 
   const ensure: DirectWorktrees['ensure'] = async (record, milestone, placement) => {
-    if (await host.pathExists(placement.directory)) return { ok: true, placement, note: '' };
+    if (await host.pathExists(placement.directory)) {
+      // The saved branch is the receipt. Work on any other branch would be checked and never delivered.
+      const head = placement.branch ? await host.exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], placement.directory) : null;
+      const on = head?.exitCode === 0 ? head.stdout.trim() : '';
+      if (placement.branch && on && on !== placement.branch) return { ok: false, reason: `The checkout ${placement.directory} is on ${on === 'HEAD' ? 'no branch' : `branch ${on}`}, not on ${placement.branch}. Sero manages this checkout's branch; the work must be on ${placement.branch}.` };
+      return { ok: true, placement, note: '' };
+    }
     if (!placement.branch) return { ok: false, reason: `The checkout ${placement.directory} is gone and its branch was not recorded, so it cannot be restored.` };
     try {
       const made = await host.git.createWorktree(record.folder, directWorktreeKey(milestone.id), milestone.title, { existingBranch: placement.branch });
