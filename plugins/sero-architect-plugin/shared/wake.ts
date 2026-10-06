@@ -1,5 +1,5 @@
 /**
- * Wake events: the only reasons the owner session is ever prompted. Six
+ * Wake events: the only reasons the owner session is ever prompted. Seven
  * sources in a fixed priority order, delivered one at a time per project, and
  * wakes of the same kind that queue up during a turn become one wake.
  */
@@ -10,6 +10,7 @@ export const WAKE_KINDS = [
   'dispatch-blocked',
   'dispatch-complete',
   'external-event',
+  'continue',
   'quiet',
 ] as const;
 
@@ -53,6 +54,7 @@ export function describeWake(wake: WakeEvent): string {
     'dispatch-blocked': 'dispatched work is blocked or asked a question',
     'dispatch-complete': 'dispatched work reported completion',
     'external-event': 'an event arrived through a maintenance Workflow',
+    continue: 'your own work on a milestone continues',
     quiet: 'the project is quiet and work remains',
   };
   return labels[wake.kind];

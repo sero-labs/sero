@@ -136,7 +136,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const milestone = record?.milestones.find((m) => m.id === milestoneId);
     if (!record || !milestone || !record.workspaceId) return;
     const commit = await commitOf(host, record.folder);
-    const baseCommit = milestone.dispatch?.baseCommit ?? commit;
+    // The owner's own work, once reported, is what is being checked.
+    const baseCommit = (milestone.direct?.state === 'reported' ? milestone.direct.baseCommit : null) ?? milestone.dispatch?.baseCommit ?? commit;
     const workspaceId = record.workspaceId;
     const ran: EvidenceCommand[] = [];
     await span(record, 'evidence', milestoneId, async () => {
@@ -404,6 +405,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       }
     },
 
+    workspaceState: async (record) => ({ commit: await commitOf(host, record.folder), fingerprint: await worktreeFingerprint(host, record.folder) }),
     evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
     startFailed: (projectId, item) => deps.wake(projectId, { kind: 'dispatch-blocked', at: host.now(), items: [item] }),
 

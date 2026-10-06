@@ -32,7 +32,8 @@ import { applyDelivery, settleDelivery } from './delivery';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
 import { checkLinkedChange, executeOwnerOpenSpec, linkedChangePrompt } from './openspec-owner';
-import { missingEvidence } from './milestone-evidence';
+import { completionClaimed, missingEvidence } from './milestone-evidence';
+import { ownerWork } from './owner-direct';
 import { proposeCharter } from './owner-charter';
 import { ownerControl } from './owner-control';
 import { retryMilestone } from './work-recovery-actions';
@@ -65,6 +66,8 @@ export interface OwnerServices {
   evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null; criteria?: string[] }): Promise<void>;
   /** Restarts background operations that were durable before the previous process stopped. */
   recoverPending(record: ProjectRecord): void;
+  /** HEAD and a hash of the project content, for work the owner does itself. */
+  workspaceState?(record: ProjectRecord): Promise<{ commit: string; fingerprint: string }>;
   /** True when files changed since the evidence was taken. The runtime marks it stale and reruns it. */
   evidenceIsStale(record: ProjectRecord, milestone: Milestone): Promise<boolean>;
 }
@@ -374,8 +377,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (record.pendingEvidence?.some((pending) => pending.milestoneId === found.id)) return ok(`Evidence for ${found.id} is already running. No duplicate check was started. Call sleep.`);
     if (commands.length === 0) return refuse('commands is required: at least one command for the runtime to run.');
     if (found.status === 'parked') return refuse(found.parkedBy ? `Milestone ${found.id} is parked by decision ${found.parkedBy}.` : `Milestone ${found.id} is set aside: its Room was cancelled. Dispatch it again first.`);
-    if (!found.dispatch || (found.status !== 'done' && (found.status !== 'verifying' || found.verification !== 'reported'))) {
-      return refuse(`Milestone ${found.id} needs a linked dispatch that reported completion before evidence can run.`);
+    if (!completionClaimed(found) || (found.status !== 'done' && (found.status !== 'verifying' || found.verification !== 'reported'))) {
+      return refuse(`Milestone ${found.id} needs linked work that reported completion before evidence can run.`);
     }
     const route = input.route?.trim() || found.preview?.route || null;
     const criteria = input.criteria ?? [];
@@ -474,6 +477,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return research(record, input);
       case 'dispatch':
         return dispatch(record, input, now);
+      case 'work':
+        return ownerWork({ store, outcomes, newId: (prefix) => host.newId(prefix), workspaceState: services.workspaceState }, record, input, now);
       case 'control':
         return ownerControl(linked, record, input, (draft, lead) => escalate(record, now, draft, lead));
       case 'evidence':

@@ -1,6 +1,11 @@
 import { supersededBy } from '../shared/evidence-binding';
 import type { Milestone, ProjectRecord } from '../shared/record';
 
+/** True when linked work, delegated or the owner's own, has claimed completion. */
+export function completionClaimed(milestone: Milestone): boolean {
+  return milestone.dispatch !== null || milestone.direct?.state === 'reported';
+}
+
 /** Why a milestone cannot close yet, in the owner's words. Empty means it can. */
 export function missingEvidence(milestone: Milestone, record?: ProjectRecord): string[] {
   const evidence = milestone.evidence;

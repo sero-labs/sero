@@ -22,6 +22,7 @@ import { createRunJournal } from './run-journal';
 import { openMaintenanceRun } from './run-lifecycle';
 import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
+import { activeDirectMilestone, interruptDirectExecutions } from '../shared/direct-execution';
 import { createServices } from './services';
 import { markRuntimeRunning, SESSION_STARTED_AT } from './session-state';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -31,6 +32,8 @@ import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
 /** Work the owner could do now without anything running: a quiet project with this wakes once. */
 export function plannedWorkRemains(record: ProjectRecord): boolean {
   if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return false;
+  // Work the owner does itself runs only while it has a turn, so it remains to be done.
+  if (activeDirectMilestone(record)) return true;
   // The recurring maintenance subscription only reads product files and writes internal triage notes.
   if (record.milestones.some((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.pendingDispatch))) return false;
   return record.milestones.some((m) =>
@@ -179,6 +182,9 @@ export class ArchitectRuntime implements AppRuntime {
           repaired = reread;
         }
         services.recoverPending(repaired);
+        // A restart ended any turn the owner was working in. The work is kept
+        // and resumes under its saved identity; it is never taken as complete.
+        repaired = (await store.update(repaired.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? repaired;
         if (plannedWorkRemains(repaired)) scheduler.request(repaired.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
       }
     }
@@ -221,7 +227,15 @@ export class ArchitectRuntime implements AppRuntime {
       }
     }
     const result = await sessions.runTurn(record, wake);
-    const after = result.record;
+    // A turn that was stopped, failed or timed out did not finish its work.
+    const after = result.status === 'completed' ? result.record
+      : (await store.update(projectId, (current) => interruptDirectExecutions(current, `the owner turn ended as ${result.status}`))) ?? result.record;
+    // The owner asked for another turn on its own work. Directives, answers and
+    // work events queued meanwhile go first, and a pause, block or cap holds it.
+    const direct = activeDirectMilestone(after);
+    if (result.declared === 'continue' && direct?.direct && mayWakeForWork(after)) {
+      this.scheduler?.request(projectId, { kind: 'continue', at: this.host.now(), items: [`continue milestone ${direct.id} "${direct.title}" (execution ${direct.direct.id})`] });
+    }
     if (result.retry && mayWakeForWork(after)) {
       this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn passed its 10 minute limit and was stopped; the record holds what was done, so continue from it in shorter steps'] });
     }

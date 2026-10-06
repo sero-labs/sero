@@ -1,12 +1,13 @@
 /**
- * The explicit-outcome rule: a wake ends with sleep, decide or blocked. A turn
+ * The explicit-outcome rule: a wake ends with sleep, decide, blocked or a
+ * request to continue the owner's own work. A turn
  * that ends without one is no progress, and three in a row block the project.
  */
 
 import { block } from '../shared/lifecycle';
 import type { ProjectRecord } from '../shared/record';
 
-export type OutcomeKind = 'sleep' | 'decide' | 'blocked';
+export type OutcomeKind = 'sleep' | 'decide' | 'blocked' | 'continue';
 
 export const SILENT_TURN_LIMIT = 3;
 

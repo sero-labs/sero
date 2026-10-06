@@ -32,10 +32,23 @@ function budgetLines(record: ProjectRecord): string[] {
   ];
 }
 
+/**
+ * How the owner does a milestone itself. It travels in the contract, not the
+ * system prompt: an approved grant fixed that prompt's size.
+ */
+const DIRECT_WORK_HELP = [
+  'You may do a milestone yourself instead of dispatching it. Choose by the work: do it yourself when one agent can finish it, and dispatch when it needs specialists, parallel work or an independent reviewer.',
+  'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. Your report is a claim and your own tests are a self-check, never an independent review.',
+  'Work marked interrupted was stopped part-way. Its files are kept. Inspect them and go on with work --operation continue; do not begin it again and do not repeat an outside action whose result you cannot confirm.',
+];
+
 function milestoneLine(milestone: Milestone): string {
   const parts = [`- ${milestone.id} "${milestone.title}": ${milestone.status}`];
   if (milestone.openSpecChange) parts.push(`OpenSpec change openspec/changes/${milestone.openSpecChange}`);
   if (milestone.dispatch) parts.push(`${milestone.dispatch.kind} ${milestone.dispatch.id}`);
+  if (milestone.direct && milestone.direct.state !== 'superseded') {
+    parts.push(`your own work, execution ${milestone.direct.id}, ${milestone.direct.state}${milestone.direct.interruption ? ` (${milestone.direct.interruption})` : ''}`);
+  }
   if (milestone.pendingDispatch) parts.push(`${milestone.pendingDispatch.kind} dispatch being prepared`);
   if (milestone.verification) parts.push(`verification ${milestone.verification}`);
   if (milestone.evidence) {
@@ -208,6 +221,7 @@ function phaseInstruction(record: ProjectRecord): string[] {
         ...(hasAgreement(record) ? [
           'Keep working. The start is approved, so choose the next useful step and take it. Nothing is compulsory: research a question when it blocks a good choice, record or revise your working interpretation, add a milestone and dispatch it, or check a result. Plan as far as the next useful result.',
           'A milestone is a unit of work you can dispatch and check. Add one with the milestone action, naming the objective and the acceptance criteria an evaluator could check. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+          ...DIRECT_WORK_HELP,
           'When the result is ready to use, dispatch its delivery with a destination. pr and workspace-files run directly; a destination outside Sero needs a user decision.',
         ] : [
           'Keep working. Plan the next milestone with the milestone action: name the objective and the acceptance criteria an evaluator could check against the result. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
