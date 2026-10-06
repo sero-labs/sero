@@ -32,6 +32,7 @@ import { join } from 'path';
 
 import type { PersistentSessionGrantProposal } from '@sero-ai/common';
 
+import { retiredRefusal, type AmendTx } from './grant-amendments';
 import {
   isInsideDir,
   type CommitResult,
@@ -194,6 +195,7 @@ export class GrantStore {
       if (!grant) return { ok: false as const, reason: 'grant-not-found' as const };
       if (grant.status !== 'active') return { ok: false as const, reason: 'grant-revoked' as const };
 
+      if (retiredRefusal(grant, subject)) return { ok: false as const, reason: 'subject-retired' as const };
       const liveCount = this.live.get(grantId)?.size ?? 0;
       const pendingCount = Object.keys(grant.pending).length;
       if (liveCount + pendingCount >= grant.maxLiveSessions) {
@@ -313,6 +315,7 @@ export class GrantStore {
       if (this.openSubjects.get(grantId)?.has(subject)) {
         return { ok: false as const, reason: 'subject-already-open' as const };
       }
+      if (retiredRefusal(grant, subject)) return { ok: false as const, reason: 'subject-retired' as const };
       const liveCount = this.live.get(grantId)?.size ?? 0;
       if (liveCount + Object.keys(grant.pending).length >= grant.maxLiveSessions) {
         return { ok: false as const, reason: 'live-limit' as const };
@@ -381,6 +384,15 @@ export class GrantStore {
       await this.deps.persistence.write(this.grants);
       return grant;
     });
+  }
+
+  /** Runs an amendment in the same serialized section as every other grant write. */
+  amend<T>(task: (tx: AmendTx) => Promise<T>): Promise<T> {
+    return this.serialize(() => task({
+      grant: (id) => this.grants[id] ?? null,
+      policy: (id) => this.policies[id] ?? null,
+      persist: () => this.deps.persistence.write(this.grants),
+    }));
   }
 
   getPolicy(policyId: string): StoredDelegationPolicy | null {

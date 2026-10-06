@@ -20,6 +20,9 @@ import {
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { ExtensionRuntimeContent } from '@sero-ai/common';
 import type {
+  PersistentSessionExpansion,
+  PersistentSessionGrantAmendment,
+  PersistentSessionGrantAmendmentResult,
   PersistentSessionSubjectPolicy,
   PersistentSessionContextUsage,
   PersistentSessionEvent,
@@ -34,6 +37,7 @@ import type {
 } from '@sero-ai/common';
 
 import type { DelegationLink } from './delegation-policy';
+import { runAmendment } from './amendment-runner';
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
@@ -77,6 +81,13 @@ export interface PersistentSessionHostDeps {
     /** The stored policy the proposal names, when it names one that exists. */
     link?: DelegationLink,
   ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null>;
+  /** Clamps an amendment's policies against the grant's workspace catalogue. Null when it cannot be resolved. */
+  clampSubjects(
+    workspaceId: string,
+    subjects: Record<string, PersistentSessionSubjectPolicy>,
+  ): Promise<Record<string, PersistentSessionSubjectPolicy> | null>;
+  /** Shows the user exactly the added authority. True only on an explicit yes. */
+  approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean>;
   /** Model ids currently resolvable through the one host ModelRuntime (AD-026). */
   listAvailableModelIds(): Promise<Set<string>>;
   /** The thinking level Pi applies when a request omits one. */
@@ -177,6 +188,19 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       } : {}),
       ...(grant.delegatedBy ? { delegatedByPolicyId: grant.delegatedBy.policyId } : {}),
     };
+  }
+
+  /** One run per grant and amendment id, so a repeat that arrives mid-dialog shares the answer. */
+  private readonly amending = new Map<string, Promise<PersistentSessionGrantAmendmentResult>>();
+
+  async amendGrant(input: PersistentSessionGrantAmendment): Promise<PersistentSessionGrantAmendmentResult> {
+    const amendment = structuredClone(input);
+    const key = `${amendment.grantId}:${amendment.amendmentId}`;
+    const running = this.amending.get(key);
+    if (running) return running;
+    const run = runAmendment(this.deps, amendment).finally(() => this.amending.delete(key));
+    this.amending.set(key, run);
+    return run;
   }
 
   async revokeGrant(grantId: string): Promise<void> {

@@ -19,7 +19,7 @@ export function isInsideDir(child: string, parent: string): boolean {
   return rel !== '' && !rel.startsWith('..') && !rel.includes('..');
 }
 
-import type { PersistentSessionSubjectPolicy } from '@sero-ai/common';
+import type { PersistentSessionGrantAmendmentResult, PersistentSessionSubjectPolicy } from '@sero-ai/common';
 
 export interface StoredGrant {
   grantId: string;
@@ -53,6 +53,12 @@ export interface StoredGrant {
    * gains delegation authority.
    */
   delegatedBy?: { policyId: string; approvalId: string };
+  /** Applied amendments. Absent means 0. */
+  revision?: number;
+  /** Subjects that start no more sessions. Their files, bindings and lifetime count stay. */
+  retired?: string[];
+  /** Applied and declined amendment results by id, so a repeat returns the stored answer. */
+  amendments?: Record<string, PersistentSessionGrantAmendmentResult>;
 }
 
 /**
@@ -97,7 +103,8 @@ export type ReserveResult =
         | 'live-limit'
         | 'total-limit'
         | 'subject-already-bound'
-        | 'subject-already-open';
+        | 'subject-already-open'
+        | 'subject-retired';
     };
 
 /**

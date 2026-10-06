@@ -107,6 +107,8 @@ async function hostWithGrant(builtInputs: { tools: string[]; initialTools?: stri
       approvalId: 'approval-1',
       approved: proposal,
     }),
+    clampSubjects: async (_workspaceId, subjects) => subjects,
+    approveExpansion: async () => false,
     listAvailableModelIds: async () => new Set([MODEL]),
     defaultThinking: () => 'low',
     buildSessionInputs,

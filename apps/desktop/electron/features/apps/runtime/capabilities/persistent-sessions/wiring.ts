@@ -11,7 +11,13 @@
  * that ordering irrelevant.
  */
 
-import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionsApi } from '@sero-ai/common';
+import {
+  modelKey,
+  type PersistentSessionExpansion,
+  type PersistentSessionGrantProposal,
+  type PersistentSessionSubjectPolicy,
+  type PersistentSessionsApi,
+} from '@sero-ai/common';
 import { existsSync, realpathSync } from 'fs';
 import type { CreateAgentSessionOptions, LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
 
@@ -39,7 +45,7 @@ import { getToolCatalogFor, getToolPackagePath, warmSubagentToolCatalog } from '
 import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
-import { clampProposal, describeGrantAuthority } from './clamp';
+import { clampProposal, clampSubjectPolicies, describeGrantAuthority, type ClampInputs } from './clamp';
 import { fitsDelegationPolicy, type DelegationLink } from './delegation-policy';
 import { classifyUnavailableTools, resolveMemberToolSurface } from './tool-surface';
 import { createMemberRuntimeTools } from './member-runtime-tools';
@@ -47,18 +53,8 @@ import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
 import type { AppRuntimeTarget } from '../../types';
 
-/**
- * Clamps a proposal to what the user actually holds, then asks for approval.
- *
- * Clamping first is the point: the user is asked to approve the CLAMPED set, so
- * the thing they see and the thing the host stores are the same object. A
- * proposal is an input to this decision, never a source of authority.
- */
-export async function clampAndApprove(
-  workspaceId: string,
-  proposal: PersistentSessionGrantProposal,
-  link?: DelegationLink,
-): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
+/** What the host can verify a proposal against, for one workspace. Null when the workspace is unknown. */
+async function loadClampInputs(workspaceId: string): Promise<ClampInputs | null> {
   const { modelRuntime } = await ensureAiInfra();
   const [models, workspaces, toolCatalog, skills] = await Promise.all([
     modelRuntime.getAvailable(),
@@ -79,7 +75,7 @@ export async function clampAndApprove(
 
   // Every field is verified against something real. A proposal field the host
   // cannot resolve is dropped, never trusted — see clamp.ts.
-  const { proposal: clamped, notes } = clampProposal(proposal, {
+  return {
     // Only the root of the proposal's OWN workspace. Every other registered
     // root would let the grant bind a cwd in a workspace the dialog never
     // named, so the approval and the stored grant would describe different
@@ -94,7 +90,24 @@ export async function clampAndApprove(
     // The ceiling this build permits a managed session. Nothing here can grant
     // authority the user does not already hold in the workspace.
     permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },
-  });
+  };
+}
+
+/**
+ * Clamps a proposal to what the user actually holds, then asks for approval.
+ *
+ * Clamping first is the point: the user is asked to approve the CLAMPED set, so
+ * the thing they see and the thing the host stores are the same object. A
+ * proposal is an input to this decision, never a source of authority.
+ */
+export async function clampAndApprove(
+  workspaceId: string,
+  proposal: PersistentSessionGrantProposal,
+  link?: DelegationLink,
+): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
+  const loaded = await loadClampInputs(workspaceId);
+  if (!loaded) return null;
+  const { proposal: clamped, notes } = clampProposal(proposal, loaded);
 
   // A linked proposal inside a stored policy is access the user already
   // approved, so it is recorded without another dialog. The check runs on the
@@ -158,6 +171,30 @@ export async function clampAndApprove(
   return { approvalId: `approval_${Date.now().toString(36)}`, approved };
 }
 
+/** Clamps an amendment's subject policies against the grant's own workspace. Null when it is unknown. */
+export async function clampAmendmentSubjects(
+  workspaceId: string,
+  subjects: Record<string, PersistentSessionSubjectPolicy>,
+): Promise<Record<string, PersistentSessionSubjectPolicy> | null> {
+  const loaded = await loadClampInputs(workspaceId);
+  return loaded ? clampSubjectPolicies(subjects, loaded) : null;
+}
+
+/** Shows the user exactly the authority an amendment adds. Silence or "Not now" is a no. */
+export async function approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean> {
+  const choice = await requestChoice({
+    title: 'Allow more access for these agents?',
+    body: [reason, '', 'This adds:', ...expansion.map((item) => `• ${item.subject}: ${item.field} ${item.value}`)].join('\n'),
+    choices: [
+      { id: 'allow', label: 'Allow' },
+      { id: 'deny', label: 'Not now' },
+    ],
+    fallbackLabel: 'nothing changes',
+    timeoutMs: 120_000,
+  });
+  return !choice.timedOut && choice.choiceId === 'allow';
+}
+
 /** The plugin packages, beyond `basePackages`, that register an approved tool. */
 function approvedToolPackages(allowedTools: string[], basePackages: string[]): string[] {
   // A plugin removed since the catalogue was built is reported as not provided.
@@ -209,6 +246,8 @@ export async function installPersistentSessions(
     // runtime (the Architect) runs under the synthetic `global` workspace and
     // proposes sessions for a real project workspace.
     approveGrant: (proposal, link) => clampAndApprove(proposal.workspaceId, proposal, link),
+    clampSubjects: clampAmendmentSubjects,
+    approveExpansion,
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())
