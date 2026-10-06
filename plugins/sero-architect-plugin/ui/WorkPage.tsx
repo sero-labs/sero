@@ -14,6 +14,7 @@ import { FolderLink } from './components/FolderLink';
 import { MilestoneRail } from './components/MilestoneRail';
 import { ProjectResearch } from './components/ProjectResearch';
 import { TopBar } from './components/TopBar';
+import { WaitCard } from './components/WaitCard';
 import { WorkLive } from './components/WorkLive';
 
 const TAB_LABEL: Record<WorkTab, string> = { live: 'Live', plan: 'Plan', research: 'Research', evidence: 'Evidence' };
@@ -35,7 +36,12 @@ export interface WorkPageProps {
 
 function LiveTab({ record, actions, runtimeRunning }: Pick<WorkPageProps, 'record' | 'actions' | 'runtimeRunning'>) {
   const { epoch, work } = useProjectWork(record, actions);
-  return <WorkLive record={record} work={work} epoch={epoch} runtimeRunning={runtimeRunning} />;
+  return (
+    <>
+      <WaitCard record={record} actions={actions} />
+      <WorkLive record={record} work={work} epoch={epoch} runtimeRunning={runtimeRunning} />
+    </>
+  );
 }
 
 /** The full plan: the request as written, what the Architect makes of it, and each step. */
