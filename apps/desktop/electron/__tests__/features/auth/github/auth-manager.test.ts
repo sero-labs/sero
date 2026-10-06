@@ -5,6 +5,11 @@ import path from 'path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// Vitest hoists these above the tests, so they apply to the whole file. Keep
+// them at the top level to match their real execution order.
+vi.unmock('electron');
+vi.unmock('@electron/platform/env');
+
 interface SafeStorageOptions {
   available: boolean;
 }
@@ -58,8 +63,6 @@ describe('GitHubAuthManager', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.resetModules();
-    vi.unmock('electron');
-    vi.unmock('@electron/platform/env');
 
     if (tmpDir) {
       await fs.rm(tmpDir, { recursive: true, force: true });

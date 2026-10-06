@@ -5,6 +5,14 @@ import { promises as fs } from 'fs';
 import { SERO_PLUGIN_RUNTIME_ABI } from '@sero-ai/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// Vitest hoists these above the tests, so they apply to the whole file. Keep
+// them at the top level to match their real execution order.
+vi.unmock('@electron/platform/env');
+vi.unmock('@electron/platform/protocols/ext-protocol');
+vi.unmock('@electron/shared/providers/package-provider-manifests');
+vi.unmock('@electron/ipc/agent/handlers/app-agent');
+vi.unmock('@electron/cli');
+
 describe('plugin manager discovery registration', () => {
   let tempRoot: string | null = null;
 
@@ -84,11 +92,6 @@ describe('plugin manager discovery registration', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     vi.resetModules();
-    vi.unmock('@electron/platform/env');
-    vi.unmock('@electron/platform/protocols/ext-protocol');
-    vi.unmock('@electron/shared/providers/package-provider-manifests');
-    vi.unmock('@electron/ipc/agent/handlers/app-agent');
-    vi.unmock('@electron/cli');
 
     if (tempRoot) {
       await fs.rm(tempRoot, { recursive: true, force: true });
