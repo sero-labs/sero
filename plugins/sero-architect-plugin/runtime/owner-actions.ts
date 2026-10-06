@@ -408,7 +408,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         if (!text) return refuse('text is required: one line for the user.');
         const line = text.split('\n')[0]?.slice(0, 160) ?? text;
         await store.update(record.id, (fresh) => settle({ ...fresh, stateLine: line }, now));
-        return ok('State line updated. Remember to end the wake with sleep, decide or blocked.');
+        return ok('State line updated. Remember to end the wake with an outcome: sleep, decide, blocked or work continue.');
       }
       case 'reply': {
         const directiveId = input.directiveId;

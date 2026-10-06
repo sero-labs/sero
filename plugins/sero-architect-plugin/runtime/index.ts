@@ -143,7 +143,12 @@ export class ArchitectRuntime implements AppRuntime {
       // A blocked owner still needs updates from its existing work. Otherwise
       // a workflow resumed after restart can never clear the old failure.
       if (record.workspaceId) await watch.track(record);
-      const fresh = await store.read(record.id);
+      // A restart ended any turn the owner was working in, on a stopped project
+      // too. The work is kept under its saved identity and never taken as complete.
+      const read = await store.read(record.id);
+      const fresh = read && activeDirectMilestone(read)?.direct?.state === 'running'
+        ? (await store.update(read.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? read
+        : read;
       if (!fresh) continue;
       const lastWakeAt = fresh.session.lastWakeAt ?? '';
       const unanswered = fresh.directives.filter((directive) => directive.reply === null);
@@ -182,9 +187,6 @@ export class ArchitectRuntime implements AppRuntime {
           repaired = reread;
         }
         services.recoverPending(repaired);
-        // A restart ended any turn the owner was working in. The work is kept
-        // and resumes under its saved identity; it is never taken as complete.
-        repaired = (await store.update(repaired.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? repaired;
         if (plannedWorkRemains(repaired)) scheduler.request(repaired.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
       }
     }

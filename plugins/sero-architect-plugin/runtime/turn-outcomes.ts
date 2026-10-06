@@ -46,6 +46,6 @@ export function applyTurnOutcome(record: ProjectRecord, declared: OutcomeKind | 
   const silentTurns = record.session.silentTurns + 1;
   const next = { ...record, session: { ...record.session, silentTurns, turns } };
   if (silentTurns < SILENT_TURN_LIMIT || next.blockedReason !== null) return next;
-  const blocked = block(next, now, `the owner ended ${SILENT_TURN_LIMIT} turns in a row without declaring an outcome (sleep, decide or blocked)`);
+  const blocked = block(next, now, `the owner ended ${SILENT_TURN_LIMIT} turns in a row without declaring an outcome (sleep, decide, blocked or work continue)`);
   return blocked.ok ? blocked.record : next;
 }
