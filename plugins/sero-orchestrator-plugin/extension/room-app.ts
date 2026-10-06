@@ -31,6 +31,8 @@ export const ROOM_APP_ACTIONS = [
   'cancel',
   'delete',
   'resolve_approval',
+  'approve_revision',
+  'decline_revision',
   'intervene',
   'wake',
   'answer',
@@ -63,6 +65,7 @@ export const RoomAppToolParams = Type.Object({
   memberId: Type.Optional(Type.String({ description: 'For wake: the member to put back to work now. For history: whose session to read' })),
   detail: Type.Optional(Type.String({ description: 'For pause/cancel: why, shown to the user and the Room' })),
   approvalId: Type.Optional(Type.String({ description: 'For resolve_approval: the approval to answer' })),
+  revisionId: Type.Optional(Type.String({ description: 'For approve_revision and decline_revision: the held setup or team change to answer' })),
   decision: Type.Optional(StringEnum(APPROVAL_DECISIONS, { description: 'For resolve_approval: the answer' })),
   maxCostUsd: Type.Optional(Type.Number({ description: 'For prepare: the most this Room may spend' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'For prepare or resume: total elapsed-minute limit from the original start. Resume may explicitly extend it.' })),
@@ -88,6 +91,7 @@ export interface RoomAppToolParamsShape {
   memberId?: string;
   detail?: string;
   approvalId?: string;
+  revisionId?: string;
   decision?: (typeof APPROVAL_DECISIONS)[number];
   maxCostUsd?: number;
   maxMinutes?: number;
@@ -240,6 +244,14 @@ async function settledResult(
       if (!params.decision) return failure('decision is required for resolve_approval');
       const outcome = await app.resolveApproval(roomId, approvalId, params.decision);
       return outcome.ok ? done(`Approval ${approvalId} ${params.decision}.`) : failure(outcome.error);
+    }
+    case 'approve_revision':
+    case 'decline_revision': {
+      const revisionId = params.revisionId?.trim();
+      if (!revisionId) return failure(`revisionId is required for ${params.action}`);
+      const approving = params.action === 'approve_revision';
+      const outcome = approving ? await app.approveRevision(roomId, revisionId) : await app.declineRevision(roomId, revisionId);
+      return outcome.ok ? done(`Change ${revisionId} ${approving ? 'approved' : 'declined'}.`) : failure(outcome.error);
     }
     case 'intervene': {
       const now = params.deliver !== 'next-turn';

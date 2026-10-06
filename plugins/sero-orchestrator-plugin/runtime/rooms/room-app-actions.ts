@@ -25,6 +25,7 @@ import { adjustRoom, type AdjustRoomOutcome } from './adjust';
 import { planRoom } from './planner';
 import { buildRoomRecord } from './room-actions';
 import type { RoomAmendments } from './room-amendment';
+import { createRevisionActions, type RevisionActions, type SimpleOutcome } from './room-app-revisions';
 import type { RoomCoordinator } from './room-coordinator';
 import { readRoomArtifact, type RoomArtifactReadOutcome } from './room-app-artifacts';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
@@ -56,9 +57,9 @@ export interface RoomAppActionsContext extends RoomLiveContext {
   workspaceId: string;
 }
 
-export type SimpleOutcome = { ok: true } | { ok: false; error: string };
+export type { SimpleOutcome };
 
-export interface RoomAppActions extends RoomLiveActions {
+export interface RoomAppActions extends RoomLiveActions, RevisionActions {
   inspect: OrchestratorRoomHandle['inspect'];
   /** Plans a team from one brief and drafts the Room. Nothing runs yet. */
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
@@ -70,13 +71,6 @@ export interface RoomAppActions extends RoomLiveActions {
   cancel(roomId: string, detail?: string): Promise<SimpleOutcome>;
   remove(roomId: string): Promise<SimpleOutcome>;
   resolveApproval(roomId: string, approvalId: string, decision: 'approved' | 'rejected'): Promise<SimpleOutcome>;
-  /**
-   * Approves a held setup or team change. The host's grant is amended with the
-   * same id as before and shows the user exactly what the change adds.
-   */
-  approveRevision(roomId: string, revisionId: string): Promise<SimpleOutcome>;
-  /** Declines a held change. Room-local: the Room keeps its current setup. */
-  declineRevision(roomId: string, revisionId: string): Promise<SimpleOutcome>;
   /**
    * The user's word to the Room. Delivered as a SYSTEM message, never as a peer
    * message: it comes from outside the roster, and a member must not be able to
@@ -182,6 +176,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
 
   return {
     ...live,
+    ...createRevisionActions(ctx),
 
     async inspect(roomId) {
       const record = await store.readRoom(roomId);
@@ -393,18 +388,6 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
     async resolveApproval(roomId, approvalId, decision) {
       const outcome = await coordinator.resolveApproval(roomId, approvalId, decision);
       return outcome.ok ? { ok: true } : { ok: false, error: outcome.reason ?? 'That approval could not be answered.' };
-    },
-
-    async approveRevision(roomId, revisionId) {
-      if (!ctx.amendments) return { ok: false, error: 'This Room cannot amend its grant here.' };
-      const outcome = await ctx.amendments.approve(roomId, revisionId);
-      return outcome.ok ? { ok: true } : { ok: false, error: outcome.reason ?? 'That change could not be approved.' };
-    },
-
-    async declineRevision(roomId, revisionId) {
-      if (!ctx.amendments) return { ok: false, error: 'This Room cannot amend its grant here.' };
-      const outcome = await ctx.amendments.decline(roomId, revisionId);
-      return outcome.ok ? { ok: true } : { ok: false, error: outcome.reason ?? 'That change could not be declined.' };
     },
 
     async intervene(roomId, body, memberIds, wake = true) {

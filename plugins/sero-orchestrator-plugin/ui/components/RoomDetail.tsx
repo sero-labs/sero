@@ -36,6 +36,7 @@ import { RoomMessageDialog } from './RoomMessageDialog';
 import { RoomHoldCard } from './RoomHoldCard';
 import { RoomRoster } from './RoomRoster';
 import { RoomSidePanel } from './RoomSidePanel';
+import { RoomTeam } from './RoomTeam';
 import { RoomTopBar } from './RoomTopBar';
 import { RoomWatch } from './RoomWatch';
 
@@ -270,6 +271,15 @@ export function RoomDetail({
               room={room}
               members={members}
               finalLine={events.find((event) => event.kind === 'room-status')?.summary ?? null}
+              onOpenMember={selectMember}
+            />
+          ) : shownView === 'team' ? (
+            <RoomTeam
+              roomId={roomId}
+              memberIds={room.memberIds}
+              members={members}
+              busy={busy}
+              dispatch={dispatch}
               onOpenMember={selectMember}
             />
           ) : shownView === 'watch' ? (

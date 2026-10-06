@@ -61,6 +61,7 @@ export function parseOrchestratorView(viewId: string | undefined): OrchestratorV
   const requestedRoomView = params.get('view');
   const roomView = requestedRoomView === 'timeline'
     || requestedRoomView === 'watch'
+    || requestedRoomView === 'team'
     || requestedRoomView === 'result'
     ? requestedRoomView
     : undefined;
