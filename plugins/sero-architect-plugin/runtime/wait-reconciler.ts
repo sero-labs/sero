@@ -22,8 +22,10 @@ import {
   observeWait,
   openWaits,
   reservedWakes,
+  requeueUndelivered,
   reserveWake,
   unreservedMatches,
+  wakeStarted,
   waitMayWake,
   type WaitOutcomeKind,
   type WaitRegistration,
@@ -48,8 +50,12 @@ export interface WaitReconcilerDeps {
 export interface WaitReconciler {
   /** Re-reads every open wait's source, ends what ended, reserves wakes and requests them. */
   reconcile(projectId: string, sources?: WaitSources | null): Promise<void>;
-  /** Marks the reserved wakes as started. Returns the ones that are still valid. */
+  /** Takes the reserved wakes for a turn about to start. Returns the ones taken; none while work may not start. */
   consume(projectId: string): Promise<WaitRegistration[]>;
+  /** The turn's prompt was accepted: the wakes taken for it are delivered. */
+  started(projectId: string): Promise<void>;
+  /** Wakes taken for a turn that never started are reserved again. Startup and a failed start call it. */
+  requeue(projectId: string): Promise<void>;
   /** An outcome that could not be confirmed: recorded, and the project is held with that reason. */
   holdUncertain(projectId: string, waitId: string, detail: string): Promise<void>;
   dispose(): void;
@@ -146,6 +152,12 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
         return next === record ? null : next;
       });
       return consumed;
+    },
+    async started(projectId) {
+      await store.update(projectId, (record) => { const next = wakeStarted(record); return next === record ? null : next; });
+    },
+    async requeue(projectId) {
+      await store.update(projectId, (record) => { const next = requeueUndelivered(record); return next === record ? null : next; });
     },
     async holdUncertain(projectId, waitId, detail) {
       const now = deps.now();

@@ -16,6 +16,7 @@ import { block, charge, settle } from '../shared/lifecycle';
 import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
+import { waitCoversCompletion } from '../shared/waits';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import { SESSION_STARTED_AT } from './session-state';
@@ -118,6 +119,8 @@ function roomsOf(state: unknown): RoomView[] {
 interface Transition {
   kind: WakeKind;
   item: string;
+  /** The Workflow or Room a completion is about. */
+  childId?: string;
   /** The milestone moves to verifying with a reported claim. */
   reported: boolean;
   /**
@@ -140,7 +143,7 @@ function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undef
   }
   if (milestone.id === 'maintenance') return null;
   if (loop.status === 'complete' && seen?.status !== 'complete' && milestone.status !== 'done') {
-    return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, reported: true };
+    return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, childId: loop.id, reported: true };
   }
   if (loop.status === 'blocked' && seen?.status !== 'blocked') {
     return { kind: 'dispatch-blocked', item: `${label} is blocked${loop.block?.reason ? `: ${loop.block.reason}` : ''}`, reported: false };
@@ -160,7 +163,7 @@ function subscriptionStamps(loop: LoopView): { lastRunAt?: string; nextRunAt?: s
 function roomTransition(milestone: Milestone, room: RoomView, seen: Seen | undefined): Transition | null {
   const label = `milestone ${milestone.id} (Room ${room.id} "${room.title}")`;
   if (room.status === 'completed' && seen?.status !== 'completed' && milestone.status !== 'done') {
-    return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, reported: true };
+    return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, childId: room.id, reported: true };
   }
   // A Room this project paused itself is waiting, not blocked.
   const ownPause = room.status === 'paused' && milestone.dispatch?.heldBy !== undefined;
@@ -340,7 +343,11 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
     }
     // The index is authoritative: every push re-reads each open wait's source.
     await deps.waits?.reconcile(projectId, loops || rooms ? { loops, rooms } : null);
+    // A registered wait on the child already carries this completion to the
+    // owner in its own wake, so the ordinary one would be a second turn for it.
+    const covered = wakes.some((transition) => transition.childId) ? await store.read(projectId) : null;
     for (const transition of wakes) {
+      if (covered && transition.childId && waitCoversCompletion(covered, transition.childId)) continue;
       // An event that starts triage opens its objective's run before the owner's
       // first model call, so the wake and everything it causes stay attributable.
       if (transition.kind === 'external-event' && transition.objectiveId && deps.openMaintenanceRun) {

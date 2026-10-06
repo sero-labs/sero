@@ -42,7 +42,9 @@ export function plannedWorkRemains(record: ProjectRecord): boolean {
     m.status === 'approved'
     || (m.status === 'planned' && (record.autonomy !== 'milestones'
       || (m.openSpecChange && !m.plan && !record.pendingResearch?.some((entry) => entry.openSpecChange === m.openSpecChange))))
-    || (m.status === 'verifying' && m.evidence?.passed === true && !m.evidence.stale),
+    || (m.status === 'verifying' && m.evidence?.passed === true && !m.evidence.stale)
+    // The owner reported its own work and Sero closed before evidence was asked for.
+    || (m.status === 'verifying' && m.direct?.state === 'reported' && (!m.evidence || m.evidence.stale) && !record.pendingEvidence?.length),
   );
 }
 
@@ -158,6 +160,8 @@ export class ArchitectRuntime implements AppRuntime {
         : read;
       if (!fresh) continue;
       // Waits that ended while Sero was closed, a wake reserved but never started, and deadlines passed.
+      // A wake taken for a turn that never started is reserved again first.
+      await waits.requeue(fresh.id);
       await waits.reconcile(fresh.id);
       const lastWakeAt = fresh.session.lastWakeAt ?? '';
       const unanswered = fresh.directives.filter((directive) => directive.reply === null);
@@ -237,17 +241,29 @@ export class ArchitectRuntime implements AppRuntime {
         this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    let tookWaitWake = false;
     if (wake.kind === 'wait') {
-      // The turn is about to start: the reserved wakes are consumed now, once.
-      // A stop or cancellation since the reservation leaves nothing to consume.
+      // The wakes are taken once. They stay marked as awaiting their turn until
+      // its prompt is accepted. A stop, cancellation, pause or cap since the
+      // reservation leaves nothing to take, and a paused one is delivered on resume.
       const consumed = await this.waits?.consume(projectId);
       if (!consumed?.length) {
-        this.host.log(`project ${projectId} has no reserved wait wake; wait wake dropped`);
+        this.host.log(`project ${projectId} has no reserved wait wake it may start; wait wake dropped`);
         return;
       }
+      tookWaitWake = true;
       record = await store.read(projectId) ?? record;
     }
-    const result = await sessions.runTurn(record, wake);
+    let started = false;
+    let result: Awaited<ReturnType<OwnerSessions['runTurn']>>;
+    try {
+      result = await sessions.runTurn(record, wake, async () => {
+        started = true;
+        if (tookWaitWake) await this.waits?.started(projectId);
+      });
+    } finally {
+      if (tookWaitWake && !started) await this.waits?.requeue(projectId);
+    }
     // A turn that was stopped, failed or timed out did not finish its work.
     const after = result.status === 'completed' ? result.record
       : (await store.update(projectId, (current) => interruptDirectExecutions(current, `the owner turn ended as ${result.status}`))) ?? result.record;

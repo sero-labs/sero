@@ -50,7 +50,7 @@ export interface WaitRegistration {
   /** Set once, by the first observation. */
   outcome: { kind: WaitOutcomeKind; at: string; detail?: string } | null;
   /** One wake per wait: reserved before it is requested, consumed when its turn starts. */
-  wake: { reservedAt: string; consumedAt: string | null } | null;
+  wake: { reservedAt: string; consumedAt: string | null; awaitingTurn?: true } | null;
 }
 
 export interface WaitRequest {
@@ -173,12 +173,38 @@ export function reserveWake(record: ProjectRecord, waitId: string, now: string):
   return { ok: true, record: replaceWait(record, { ...wait, wake: { reservedAt: now, consumedAt: null } }) };
 }
 
-/** Marks a reserved wake as started. A stale, missing or already consumed one is refused. */
+/**
+ * Takes a reserved wake for a turn that is about to start. A stale, missing or
+ * already consumed one is refused, and so is any wake while the project may
+ * not start work: the reservation stays pending and is delivered after resume.
+ *
+ * The wake stays `awaitingTurn` until the turn's prompt is accepted, so a
+ * restart in between finds it and delivers it again instead of losing it.
+ */
 export function consumeWake(record: ProjectRecord, waitId: string, now: string): WakeResult {
   const wait = record.waits?.find((item) => item.id === waitId);
   if (!wait?.wake || wait.wake.consumedAt !== null) return { ok: false, reason: 'No reserved wake to consume.' };
   if (!current(record, wait)) return { ok: false, reason: 'The project was stopped after this wait was registered.' };
-  return { ok: true, record: replaceWait(record, { ...wait, wake: { ...wait.wake, consumedAt: now } }) };
+  if (!waitMayWake(record)) return { ok: false, reason: 'The project may not start work now. The wake stays reserved.' };
+  return { ok: true, record: replaceWait(record, { ...wait, wake: { ...wait.wake, consumedAt: now, awaitingTurn: true } }) };
+}
+
+/** The turn started: its wakes are delivered for good. */
+export function wakeStarted(record: ProjectRecord): ProjectRecord {
+  if (!record.waits?.some((wait) => wait.wake?.awaitingTurn)) return record;
+  return { ...record, waits: record.waits.map((wait) => {
+    if (!wait.wake?.awaitingTurn) return wait;
+    const { awaitingTurn: _started, ...wake } = wait.wake;
+    return { ...wait, wake };
+  }) };
+}
+
+/** Takes back wakes consumed for a turn that never started, so they are reserved again. */
+export function requeueUndelivered(record: ProjectRecord): ProjectRecord {
+  if (!record.waits?.some((wait) => wait.wake?.awaitingTurn)) return record;
+  return { ...record, waits: record.waits.map((wait) => (wait.wake?.awaitingTurn
+    ? { ...wait, wake: { reservedAt: wait.wake.reservedAt, consumedAt: null } }
+    : wait)) };
 }
 
 /** Ended waits whose wake is reserved and not yet started, and not made stale by a stop. */
@@ -201,4 +227,13 @@ export function describeWait(wait: WaitRegistration): string {
     case 'expired': return `the wait on ${what} expired before its condition was met. This is not completion.${detail}`;
     default: return `the wait on ${what} has no outcome yet.`;
   }
+}
+
+/**
+ * Whether a wait already has the owner's wake for this child's completion, so
+ * the ordinary completion wake would only start a second turn for one fact.
+ */
+export function waitCoversCompletion(record: ProjectRecord, childId: string): boolean {
+  return (record.waits ?? []).some((wait) => wait.source.kind === 'child' && wait.source.id === childId
+    && wait.outcome?.kind === 'satisfied' && wait.wake !== null && current(record, wait));
 }

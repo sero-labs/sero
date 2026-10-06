@@ -87,7 +87,12 @@ export type BeginDirectResult =
 export function beginDirectExecution(record: ProjectRecord, milestoneId: string, start: DirectExecutionStart): BeginDirectResult {
   const milestone = record.milestones.find((item) => item.id === milestoneId);
   if (!milestone) return { ok: false, reason: `No milestone "${milestoneId}".` };
-  if (isActiveDirect(milestone.direct)) return { ok: true, record, execution: milestone.direct, created: false };
+  const parked = parkedRefusal(milestone);
+  if (parked) return { ok: false, reason: parked };
+  const revision = record.working?.revision ?? null;
+  // Work that still answers the current requirements is the same work. Work
+  // that answers older ones is replaced below: it can no longer report.
+  if (isActiveDirect(milestone.direct) && milestone.direct.requirementRevision === revision) return { ok: true, record, execution: milestone.direct, created: false };
   if (milestone.pendingDispatch || (milestone.dispatch && milestone.status === 'running')) {
     return { ok: false, reason: `"${milestone.title}" already has delegated work running. Reconcile it before the Architect works on the milestone itself.` };
   }
@@ -102,7 +107,7 @@ export function beginDirectExecution(record: ProjectRecord, milestoneId: string,
     placement: start.placement,
     baseCommit: start.baseCommit,
     baseFingerprint: start.baseFingerprint,
-    requirementRevision: record.working?.revision ?? null,
+    requirementRevision: revision,
     state: 'running',
     startedAt: start.now,
     claim: null,
@@ -112,7 +117,10 @@ export function beginDirectExecution(record: ProjectRecord, milestoneId: string,
   };
   // An earlier report for this milestone is history once new work starts, so
   // its evidence state is cleared along with it.
-  const next: Milestone = { ...milestone, status: 'running', direct: execution, verification: null };
+  // The replaced execution stays as history. Its files stay where they are: the
+  // new execution starts from the state the caller read now.
+  const history = milestone.direct ? [...(milestone.directHistory ?? []), { ...milestone.direct, state: 'superseded' as const }] : milestone.directHistory;
+  const next: Milestone = { ...milestone, status: 'running', direct: execution, ...(history ? { directHistory: history } : {}), verification: null };
   return { ok: true, record: replaceMilestone(record, next), execution, created: true };
 }
 
@@ -183,7 +191,14 @@ function locate(record: ProjectRecord, milestoneId: string, executionId: string)
   if (!milestone) return `No milestone "${milestoneId}".`;
   const execution = currentDirect(milestone, executionId);
   if (!execution) return `Execution "${executionId}" is not the current work for "${milestone.title}". Its report stays as history.`;
-  return { milestone, execution };
+  return parkedRefusal(milestone) ?? { milestone, execution };
+}
+
+/** A milestone an unanswered decision parked takes no work and no report until the user answers. */
+function parkedRefusal(milestone: Milestone): string | null {
+  const decisions = milestone.parkedByDecisions?.length ? milestone.parkedByDecisions : milestone.parkedBy ? [milestone.parkedBy] : [];
+  if (milestone.status !== 'parked' || decisions.length === 0) return null;
+  return `"${milestone.title}" is parked by decision ${decisions.join(', ')}, which the user has not answered. No work starts, continues or reports on it until they do.`;
 }
 
 function withoutInterruption(execution: DirectExecution): DirectExecution {

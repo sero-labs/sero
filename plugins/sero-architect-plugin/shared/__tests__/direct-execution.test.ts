@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  activeDirectMilestone,
   beginDirectExecution,
   continueDirectExecution,
   interruptDirectExecutions,
@@ -111,5 +112,41 @@ describe('continuations without a workspace change are counted, not enforced', (
     const changed = continueDirectExecution(record, 'm1', 'exec-1', 'fp1');
     expect(changed.ok && changed.execution.idleContinuations).toBe(0);
     expect(changed.ok && changed.execution.continuations).toBe(3);
+  });
+});
+
+describe('requirements that change replace the running work', () => {
+  const revised = (record: ProjectRecord): ProjectRecord => ({ ...record, working: { ...record.working!, revision: 4 } });
+
+  it('supersedes the old execution, keeps it as history and starts a new one on the current revision', () => {
+    const next = beginDirectExecution(revised(begun().record), 'm1', { ...start('exec-2'), baseFingerprint: 'fp9' });
+    if (!next.ok) throw new Error(next.reason);
+    expect(next.created).toBe(true);
+    const saved = next.record.milestones[0];
+    expect(saved?.direct).toMatchObject({ id: 'exec-2', state: 'running', requirementRevision: 4, baseFingerprint: 'fp9' });
+    expect(saved?.directHistory).toMatchObject([{ id: 'exec-1', state: 'superseded', requirementRevision: 3 }]);
+    // The old identity can no longer report, and the new one can.
+    expect(reportDirectExecution(next.record, 'm1', 'exec-1', 'done', T0).ok).toBe(false);
+    expect(reportDirectExecution(next.record, 'm1', 'exec-2', 'done', T0).ok).toBe(true);
+    expect(activeDirectMilestone(next.record)?.direct?.id).toBe('exec-2');
+  });
+
+  it('still returns the same execution while the revision is unchanged', () => {
+    const again = beginDirectExecution(begun().record, 'm1', start('exec-2'));
+    expect(again.ok && again.execution.id).toBe('exec-1');
+  });
+});
+
+describe('a decision that parks the milestone holds its work', () => {
+  const parked = (record: ProjectRecord): ProjectRecord => ({
+    ...record,
+    milestones: record.milestones.map((item) => ({ ...item, status: 'parked' as const, parkedBy: 'dec-1', parkedFrom: 'running' as const })),
+  });
+
+  it('refuses begin, continue and report until the user answers', () => {
+    const held = parked(begun().record);
+    expect(beginDirectExecution(held, 'm1', start('exec-2'))).toMatchObject({ ok: false, reason: expect.stringContaining('dec-1') });
+    expect(continueDirectExecution(held, 'm1', 'exec-1', 'fp1')).toMatchObject({ ok: false });
+    expect(reportDirectExecution(held, 'm1', 'exec-1', 'done', T0)).toMatchObject({ ok: false });
   });
 });

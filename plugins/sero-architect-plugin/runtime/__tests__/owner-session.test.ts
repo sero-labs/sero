@@ -131,6 +131,28 @@ describe('owner session', () => {
       const result = await sessions.runTurn(record, wake);
       expect(result.record.overlay).toBe('limited');
     });
+
+    it('stops a busy turn the moment its usage takes the project over the cap, and never calls it complete', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      let release: () => void = () => undefined;
+      const stopped = new Promise<void>((resolve) => { release = resolve; });
+      const abort = vi.fn(async () => release());
+      host.sessions.abort = abort;
+      host.sessions.onTurn = async () => {
+        // Still working: the cost lands mid-turn, and the host's own end event arrives only after the abort.
+        host.sessions.costUsd = 5;
+        host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+        await stopped;
+      };
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      const result = await sessions.runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+      expect(result.record.overlay).toBe('limited');
+    });
   });
 
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {

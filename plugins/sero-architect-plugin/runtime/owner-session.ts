@@ -1,5 +1,6 @@
 import { activeRun } from '../shared/runs';
-import { recordCharge, tokenDelta, type TokenCounters } from './project-usage';
+import type { TokenCounters } from './project-usage';
+import { createUsageReader } from './owner-usage';
 import type { SpanRecorder } from './spans';
 import type { RunJournal } from './run-journal';
 /**
@@ -14,9 +15,9 @@ import { type PersistentSessionGrantProposal, type PersistentSessionRequest, typ
 
 import type { AgreementAuthority } from '../shared/agreement';
 import { activeDirectMilestone } from '../shared/direct-execution';
-import { block, charge } from '../shared/lifecycle';
-import type { ModelConfigSource } from '../shared/model-config';
+import { block } from '../shared/lifecycle';
 import { setAccountingIncomplete } from '../shared/accounting';
+import type { ModelConfigSource } from '../shared/model-config';
 import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
@@ -284,7 +285,7 @@ export class OwnerSessions {
    * One wake: contract first, then the turn, then the bookkeeping. The record
    * is re-read after the turn because the owner's actions wrote to it.
    */
-  async runTurn(record: ProjectRecord, wake: WakeEvent): Promise<OwnerTurnResult> {
+  async runTurn(record: ProjectRecord, wake: WakeEvent, onStarted?: () => Promise<void>): Promise<OwnerTurnResult> {
     let modelProblem: string | null = null;
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -335,30 +336,19 @@ export class OwnerSessions {
     const wakeId = turnRunId ? `${turnRunId}:owner-wake:${wake.kind}:${this.deps.host.newId('wake')}` : undefined;
     const spans = this.deps.spans;
     const { model, thinking } = opened.session;
-    let usageRead: Promise<void> | undefined;
-    const readUsage = (): Promise<void> => {
-      usageRead ??= (async () => {
-        const usage = await api.getSessionUsage(handleId).catch(() => null);
-        let delta = 0;
-        await this.deps.store.update(opened.id, (fresh) => {
-          const next = setAccountingIncomplete(fresh, usageSource, !usage || !!usage.incomplete);
-          if (!usage) return next;
-          const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
-          delta = cost - next.session.sessionCostUsd;
-          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, this.deps.host.now());
-        });
-        const tokens = usage ? tokenDelta(this.tokenMarks.get(usageSource), usage) : null;
-        if (usage) this.tokenMarks.set(usageSource, { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens });
-        // A charge with its tokens is call detail; one without is a bare total.
-        await recordCharge(this.deps, turnRecord, usageSource, delta, tokens ? 'call' : 'aggregate', turnRunId, {
-          ...(wakeId ? { parentOperationId: wakeId } : {}),
-          ...(model ? { model } : {}),
-          ...(thinking ? { thinking } : {}),
-          ...(tokens ? { usage: tokens } : {}),
-        });
-      })().finally(() => { usageRead = undefined; });
-      return usageRead;
-    };
+    let capAborted = false;
+    const usage = createUsageReader({
+      deps: this.deps, api, handleId, projectId: opened.id, usageSource, turnRecord, tokenMarks: this.tokenMarks,
+      turnRunId, wakeId, model, thinking,
+      // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
+      overCap: () => {
+        if (finished) return;
+        capAborted = true;
+        this.deps.host.log(`owner turn for ${opened.id} stopped: the project reached its cost cap`);
+        void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not stop the owner at the cost cap: ${String(error)}`));
+        resolveEnd('aborted');
+      },
+    });
     // The owner's request and tool state, for the project views. No text.
     const feedbackKey = `owner:${opened.id}`;
     const feedback = this.deps.host.feedback.open({
@@ -378,7 +368,7 @@ export class OwnerSessions {
         return;
       }
       if (event.type === 'tool_start' || event.type === 'tool_end') {
-        void readUsage().catch((error: unknown) => this.deps.host.log(`Could not save owner usage: ${String(error)}`));
+        void usage.read().catch((error: unknown) => this.deps.host.log(`Could not save owner usage: ${String(error)}`));
       }
       if (event.type !== 'turn_end') return;
       ended.set(event.turnId, event.status);
@@ -404,6 +394,7 @@ export class OwnerSessions {
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
         const { turnId } = await api.prompt(handleId, contract);
+        await onStarted?.();
         if (finished || stopRequested()) return 'aborted';
         watching = turnId;
         const result = ended.get(turnId) ?? (await closedEarly);
@@ -439,11 +430,12 @@ export class OwnerSessions {
       }));
     }
 
+    // A turn stopped at the cap is an interruption even if its end arrived first.
+    if (capAborted) status = 'aborted';
     const declared = this.deps.outcomes.end(opened.id);
     const now = this.deps.host.now();
     // The usage read talks to the host, so it happens before the queued write.
-    await usageRead;
-    await readUsage();
+    await usage.flush();
     if (spans && wakeId && turnRunId) {
       await spans.close({
         projectId: opened.id,

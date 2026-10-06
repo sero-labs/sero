@@ -85,6 +85,21 @@ describe('direct and delegated writers do not overlap', () => {
     expect(services.dispatch).not.toHaveBeenCalled();
   });
 
+  it('never lets a dispatch take a milestone the owner began while the dispatch was preparing', async () => {
+    const { actions, services, work, store } = await setup();
+    // The owner begins the same milestone while the dispatch resolves its project context.
+    services.resolveDispatchProject = vi.fn(async (record: ProjectRecord) => {
+      await work('begin', { milestoneId: 'm1' });
+      return { projectId: record.id, runId: `run-initial-${record.id}` };
+    });
+    const dispatched = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build it' }).catch((error: unknown) => error);
+    expect(dispatched instanceof Error || (dispatched as { ok?: boolean }).ok === false).toBe(true);
+    expect(services.dispatch).not.toHaveBeenCalled();
+    const saved = (await store.read('proj_1'))!.milestones[0]!;
+    expect(saved.pendingDispatch).toBeUndefined();
+    expect(saved.direct).toMatchObject({ state: 'running' });
+  });
+
   it('holds the owner while a Workflow writes the folder', async () => {
     const { work, store } = await setup({ milestones: [
       milestone('m1', { status: 'approved' }),
@@ -127,6 +142,18 @@ describe('continuing is an outcome, not progress', () => {
   it('counts interrupted work as work that remains, so resume wakes the owner for it', async () => {
     const { store } = await begun();
     expect(plannedWorkRemains((await store.read('proj_1'))!)).toBe(true);
+  });
+});
+
+describe('a restart after a direct completion report', () => {
+  it('counts a reported milestone with no evidence yet as work that remains, until evidence is in flight', async () => {
+    const { work, store, executionId } = await begun({ milestones: [milestone('m1', { status: 'approved' })] });
+    await work('report', { milestoneId: 'm1', executionId, text: 'Done.' });
+    const reported = (await store.read('proj_1'))!;
+    expect(plannedWorkRemains(reported)).toBe(true);
+    expect(plannedWorkRemains({ ...reported, pendingEvidence: [{ milestoneId: 'm1' } as never] })).toBe(false);
+    const withEvidence = { ...reported, milestones: reported.milestones.map((item) => (item.id === 'm1' ? { ...item, evidence: { ...passed, passed: false } } : item)) };
+    expect(plannedWorkRemains(withEvidence)).toBe(false);
   });
 });
 

@@ -164,6 +164,8 @@ export interface Milestone {
   dispatch: MilestoneDispatch | null;
   /** Work the owner does itself. Absent on delegated milestones and older records. */
   direct?: DirectExecution;
+  /** Earlier executions the current one replaced, kept as history. */
+  directHistory?: DirectExecution[];
   /** Durable intent written before the external run starts. A surviving value needs reconciliation. */
   pendingDispatch?: PendingMilestoneDispatch;
   evidence: EvidenceRecord | null;

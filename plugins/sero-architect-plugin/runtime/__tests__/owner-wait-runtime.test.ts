@@ -140,6 +140,66 @@ describe('a matched wait wakes the owner once', () => {
     }
   });
 
+  it('tells the owner once, in the wait wake, when a registered child completes', async () => {
+    const { runtime, act, push, host } = await started();
+    try {
+      await runtime.start();
+      await act({ source: 'child', target: 'm1' });
+      await push(files.loops, { loops: [loop('complete')] });
+      expect(host.sessions.prompts).toHaveLength(1);
+      expect(host.sessions.prompts[0]?.content).toMatch(/milestone m1[\s\S]*is satisfied/);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it('does not lose a wake when the session fails before its prompt is accepted', async () => {
+    const reserved = open({ outcome: { kind: 'satisfied', at: T0, detail: 'The Workflow reported completion.' }, wake: { reservedAt: T0, consumedAt: null } });
+    const { host, runtime, waitTurns, read } = await started({ waits: [reserved] }, 'complete');
+    const { open: realOpen, create: realCreate } = host.sessions;
+    host.sessions.open = async () => { throw new Error('the app died while opening'); };
+    host.sessions.create = async () => { throw new Error('the app died while opening'); };
+    try {
+      await runtime.start();
+      await runtime.scheduler?.idle('proj_1');
+      expect(waitTurns()).toHaveLength(0);
+      expect(reservedWakes(await read())).toHaveLength(1);
+    } finally {
+      await runtime.dispose();
+    }
+    host.sessions.open = realOpen;
+    host.sessions.create = realCreate;
+    const again = new ArchitectRuntime(host, {});
+    try {
+      await again.start();
+      await again.scheduler?.idle('proj_1');
+      expect(waitTurns()).toHaveLength(1);
+    } finally {
+      await again.dispose();
+    }
+  });
+
+  it('delivers once a wake that was taken for a turn the previous run never started', async () => {
+    const taken = open({ outcome: { kind: 'satisfied', at: T0, detail: 'The Workflow reported completion.' }, wake: { reservedAt: T0, consumedAt: T0, awaitingTurn: true } });
+    const { host, runtime, waitTurns, read } = await started({ waits: [taken] }, 'complete');
+    try {
+      await runtime.start();
+      await runtime.scheduler?.idle('proj_1');
+      expect(waitTurns()).toHaveLength(1);
+      expect((await read()).waits?.[0]?.wake?.awaitingTurn).toBeUndefined();
+    } finally {
+      await runtime.dispose();
+    }
+    const again = new ArchitectRuntime(host, {});
+    try {
+      await again.start();
+      await again.scheduler?.idle('proj_1');
+      expect(waitTurns()).toHaveLength(1);
+    } finally {
+      await again.dispose();
+    }
+  });
+
   it('finds a completion that landed while Sero was closed', async () => {
     const { runtime, waitTurns } = await started({ waits: [open()] }, 'complete');
     try {
@@ -192,6 +252,17 @@ describe('user controls govern the wake', () => {
     } finally {
       await runtime.dispose();
     }
+  });
+});
+
+describe('a reservation taken while the project may not start work', () => {
+  it('stays pending and starts no turn when the project was paused after it was reserved', async () => {
+    const reserved = open({ outcome: { kind: 'satisfied', at: T0 }, wake: { reservedAt: T0, consumedAt: null } });
+    const { host, store } = await started({ paused: true, overlay: 'paused', waits: [reserved] });
+    const reconciler = createWaitReconciler({ store, now: () => T0, wake: () => undefined, log: () => undefined, readSources: async () => null });
+    expect(await reconciler.consume('proj_1')).toHaveLength(0);
+    expect(reservedWakes((await store.read('proj_1'))!)).toHaveLength(1);
+    expect(host.sessions.prompts).toHaveLength(0);
   });
 });
 

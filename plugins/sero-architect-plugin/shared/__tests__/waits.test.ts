@@ -12,9 +12,12 @@ import {
   observeWait,
   registerWait,
   reservedWakes,
+  requeueUndelivered,
   reserveWake,
   stopWaits,
   unreservedMatches,
+  wakeStarted,
+  waitCoversCompletion,
   type WaitRegistration,
 } from '../waits';
 
@@ -123,6 +126,35 @@ describe('reserving and consuming a wake', () => {
     const held = block(base, T1, 'a reason');
     if (!held.ok) throw new Error(held.error);
     expect(reserveWake(held.record, 'wait-1', T1)).toMatchObject({ ok: false });
+  });
+
+  it('leaves a reserved wake pending when the project was paused after the reservation', () => {
+    const reserved = reserveWake(ended(), 'wait-1', T1);
+    if (!reserved.ok) throw new Error(reserved.reason);
+    const paused = pause(reserved.record, T1);
+    if (!paused.ok) throw new Error(paused.error);
+    expect(consumeWake(paused.record, 'wait-1', T1)).toMatchObject({ ok: false });
+    expect(reservedWakes(paused.record)).toHaveLength(1);
+  });
+
+  it('keeps a consumed wake awaiting its turn until the turn starts, and gives it back if it never does', () => {
+    const reserved = reserveWake(ended(), 'wait-1', T1);
+    if (!reserved.ok) throw new Error(reserved.reason);
+    const consumed = consumeWake(reserved.record, 'wait-1', T1);
+    if (!consumed.ok) throw new Error(consumed.reason);
+    expect(reservedWakes(consumed.record)).toHaveLength(0);
+    expect(reservedWakes(requeueUndelivered(consumed.record))).toHaveLength(1);
+    const delivered = wakeStarted(consumed.record);
+    expect(requeueUndelivered(delivered)).toBe(delivered);
+    expect(reservedWakes(delivered)).toHaveLength(0);
+  });
+
+  it('knows a satisfied child wait that holds a wake already covers the completion', () => {
+    const reserved = reserveWake(ended(), 'wait-1', T1);
+    if (!reserved.ok) throw new Error(reserved.reason);
+    expect(waitCoversCompletion(reserved.record, 'loop_1')).toBe(true);
+    expect(waitCoversCompletion(reserved.record, 'loop_2')).toBe(false);
+    expect(waitCoversCompletion(ended(), 'loop_1')).toBe(false);
   });
 
   it('makes a reserved wake stale when the project is stopped, and a stop cannot be revived', () => {
