@@ -145,7 +145,7 @@ export function withRevisionApplied(
 export function withRevisionClosed(
   record: RoomRecord,
   revision: RoomRevision,
-  outcome: Exclude<RevisionOutcome, 'applied' | 'awaiting-approval'>,
+  outcome: Exclude<RevisionOutcome, 'applied' | 'awaiting-approval' | 'pending' | 'held' | 'declined'>,
   reason: string,
   now: string,
 ): RoomRecord {

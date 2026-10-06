@@ -63,7 +63,12 @@ export interface PlannedApproval {
 export type RevisionPlan =
   | { verdict: 'apply'; summary: string }
   | { verdict: 'approval'; summary: string; approval: PlannedApproval }
-  | { verdict: 'refuse'; reason: string };
+  | { verdict: 'refuse'; reason: string }
+  /**
+   * A running Room's change that goes through the host: its grant is amended in
+   * place (`room-amend-plan.ts`). Never returned by `planRoomRevision` itself.
+   */
+  | { verdict: 'amend'; summary: string };
 
 const apply = (summary: string): RevisionPlan => ({ verdict: 'apply', summary });
 const refuse = (reason: string): RevisionPlan => ({ verdict: 'refuse', reason });

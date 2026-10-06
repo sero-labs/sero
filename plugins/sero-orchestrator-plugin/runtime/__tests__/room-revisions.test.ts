@@ -13,13 +13,18 @@
  * real mutation, so the property under test is the one the runtime has.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
+import type { RoomRevision } from '../../shared/room-message-types';
 import type { RoomRevisionProposal } from '../../shared/room-revision-types';
+import { requestRoomGrant } from '../rooms/member-grant';
+import { createMemberSessionPool, type MemberSessionPool } from '../rooms/member-session';
+import { createRoomAmendments, type RoomAmendments } from '../rooms/room-amendment';
+import type { FakePersistentSessions } from './fake-persistent-sessions';
 import { applyRevisionToRoom } from '../rooms/room-revision-mutate';
 import { applyRoomRevision, resolveRoomApproval, type RevisionDeps } from '../rooms/room-revisions';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
@@ -241,5 +246,239 @@ describe('answering an approval', () => {
     expect(again.ok).toBe(false);
     expect(again.reason).toBe('already resolved');
     expect(await envelopeOf()).toBe(100);
+  });
+});
+
+describe('amending the grant of a running Room', () => {
+  let amendments: RoomAmendments;
+  let pool: MemberSessionPool;
+  let sessions: FakePersistentSessions;
+
+  const revisionOf = async (id: string) => (await revisionsOf()).find((entry) => entry.id === id);
+
+  function runnerFor(overrides: Partial<Pick<MemberSessionPool, 'settled'>> = {}): RoomAmendments {
+    return createRoomAmendments({ host, store, sessions: { ...pool, ...overrides, ensure: pool.ensure, release: pool.release } });
+  }
+
+  async function proposeAmended(proposal: RoomRevisionProposal, commandId: string): Promise<RoomRevision> {
+    const result = await applyRoomRevision({ ...deps, amendments }, {
+      roomId: ROOM, proposal, actorMemberId: 'lead', reason: 'the Room needs it', commandId,
+    });
+    if (result.outcome !== 'pending') throw new Error(`expected a pending revision, got ${result.outcome}`);
+    return result.revision;
+  }
+
+  const dropWebFetch: RoomRevisionProposal = {
+    kind: 'change-configuration', memberId: 'scout', configuration: { tools: ['read'] },
+  };
+  const replaceScout: RoomRevisionProposal = {
+    kind: 'replace-member',
+    memberId: 'scout',
+    replacement: blueprintMember({
+      key: 'scout-2', displayName: 'Scout Two', role: 'Researcher', isConductor: false, tools: ['read'],
+    }),
+    handover: 'Carry on with the docs survey.',
+  };
+
+  beforeEach(async () => {
+    sessions = host.persistentSessions;
+    const room = roomFixture(envelopeWith(), MEMBERS);
+    const grant = await requestRoomGrant(host, room);
+    await store.updateState((state) => ({
+      ...state,
+      rooms: [{
+        ...room,
+        definition: { ...room.definition, grantId: grant.grantId, grantRevision: 0 },
+        members: room.members.map((member) => ({ ...member, status: 'idle' as const })),
+      }],
+    }));
+    pool = createMemberSessionPool({ host, store });
+    amendments = runnerFor();
+    // The scout already has a session, so a change has a session to preserve.
+    const record = await store.readRoom(ROOM);
+    const scout = record?.members.find((member) => member.id === 'scout');
+    if (!record || !scout) throw new Error('fixture');
+    await pool.ensure(record, scout);
+  });
+
+  it('keeps the same session and reports applied only after the reopen', async () => {
+    const proposals = sessions.proposals.length;
+    const sessionBefore = (await store.readMember(ROOM, 'scout'))?.session.sessionId;
+
+    const revision = await proposeAmended(dropWebFetch, 'cmd-drop');
+    // Saved first: nothing is effective, and the member starts nothing meanwhile.
+    expect(revision.outcome).toBe('pending');
+    expect((await store.readMember(ROOM, 'scout'))?.configurationChange)
+      .toMatchObject({ state: 'pending', workPaused: true, fields: [{ field: 'tools', value: ['read'] }] });
+
+    await amendments.settled(ROOM);
+
+    const scout = await store.readMember(ROOM, 'scout');
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'applied' });
+    expect(scout?.configuration.tools).toEqual(['read']);
+    expect(scout?.configurationChange).toMatchObject({ state: 'applied', grantRevision: 1, workPaused: false });
+    expect((await store.readRoom(ROOM))?.definition.grantRevision).toBe(1);
+    expect(scout?.session.sessionId).toBe(sessionBefore);
+    // The reopened session carries the new setup, on the same grant.
+    const reopen = sessions.requests.at(-1);
+    expect(reopen).toMatchObject({ operation: 'open', subject: 'scout', grantId: 'grant-1' });
+    expect(reopen?.tools).not.toContain('web_fetch');
+    expect(sessions.proposals).toHaveLength(proposals);
+    expect(sessions.amendments.map((entry) => entry.approval)).toEqual(['hold']);
+  });
+
+  it('waits for a running turn to end and never aborts it', async () => {
+    sessions.mode = 'manual';
+    const record = await store.readRoom(ROOM);
+    const scout = record?.members.find((member) => member.id === 'scout');
+    if (!record || !scout) throw new Error('fixture');
+    const turn = pool.runTurn(record, scout, { prompt: 'survey the docs' });
+    await vi.waitFor(() => expect(sessions.openTurns()).toContain('scout'));
+
+    await proposeAmended(dropWebFetch, 'cmd-mid-turn');
+    await Promise.resolve();
+    expect(sessions.amendments).toHaveLength(0);
+
+    sessions.endTurn('scout');
+    await turn;
+    await amendments.settled(ROOM);
+
+    expect(sessions.aborted).toEqual([]);
+    expect(sessions.amendments).toHaveLength(1);
+    expect((await store.readMember(ROOM, 'scout'))?.configurationChange?.state).toBe('applied');
+  });
+
+  it('holds what adds access, then applies the same revision once approved', async () => {
+    const revision = await proposeAmended(replaceScout, 'cmd-replace');
+    await amendments.settled(ROOM);
+
+    // Held: a new subject is new authority, nobody was asked, and nothing moved.
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+    const held = await store.readMember(ROOM, 'scout');
+    expect(held?.configurationChange).toMatchObject({ state: 'held', adds: [{ subject: 'scout-2', field: 'subject' }] });
+    expect(held?.status).toBe('idle');
+    expect((await store.readRoom(ROOM))?.members.map((member) => member.id)).not.toContain('scout-2');
+    expect(sessions.grantState.get('grant-1')?.revision).toBe(0);
+
+    expect(await amendments.approve(ROOM, revision.id)).toEqual({ ok: true });
+
+    const record = await store.readRoom(ROOM);
+    const old = record?.members.find((member) => member.id === 'scout');
+    const next = record?.members.find((member) => member.id === 'scout-2');
+    expect(sessions.amendments.map((entry) => [entry.amendmentId, entry.approval]))
+      .toEqual([['cmd-replace', 'hold'], ['cmd-replace', 'ask']]);
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'applied' });
+    // A distinct subject: the retired member keeps its session and history.
+    expect(old).toMatchObject({ status: 'retired', replacedByMemberId: 'scout-2' });
+    expect(old?.session.sessionId).toBe('session-scout');
+    expect(next).toMatchObject({ replacedFromMemberId: 'scout', status: 'idle' });
+    expect(next?.session.subject).toBe('scout-2');
+    expect(next?.mandate.currentTask).toBe('Carry on with the docs survey.');
+    expect(sessions.grantState.get('grant-1')?.retired).toEqual(['scout']);
+    expect(record?.definition.grantRevision).toBe(1);
+    expect(record?.runtime.usage.memberReplacements).toBe(1);
+  });
+
+  it('keeps the old configuration when the held change is declined', async () => {
+    const revision = await proposeAmended(replaceScout, 'cmd-decline');
+    await amendments.settled(ROOM);
+
+    expect(await amendments.decline(ROOM, revision.id)).toEqual({ ok: true });
+
+    const record = await store.readRoom(ROOM);
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'declined' });
+    expect(record?.members.find((member) => member.id === 'scout')).toMatchObject({
+      status: 'idle',
+      configurationChange: { state: 'declined', workPaused: false },
+    });
+    expect(record?.members).toHaveLength(MEMBERS.length);
+    expect(sessions.amendments).toHaveLength(1);
+  });
+
+  it('records a decline the user gives the host dialog as declined', async () => {
+    const revision = await proposeAmended(replaceScout, 'cmd-host-decline');
+    await amendments.settled(ROOM);
+    sessions.askAnswer = 'decline';
+
+    await amendments.approve(ROOM, revision.id);
+
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'declined' });
+    expect((await store.readRoom(ROOM))?.members).toHaveLength(MEMBERS.length);
+  });
+
+  it('holds on a stale revision without changing anything, and takes the host\'s number', async () => {
+    sessions.nextAmendment = 'stale';
+    const revision = await proposeAmended(dropWebFetch, 'cmd-stale');
+    await amendments.settled(ROOM);
+
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+    expect((await store.readMember(ROOM, 'scout'))?.configuration.tools).toEqual(['read', 'web_fetch']);
+    expect(sessions.proposals).toHaveLength(1);
+  });
+
+  it('holds when the host answer is lost, then finishes the same revision on retry', async () => {
+    sessions.nextAmendment = 'throw';
+    const revision = await proposeAmended(dropWebFetch, 'cmd-lost');
+    await amendments.settled(ROOM);
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+    expect((await store.readMember(ROOM, 'scout'))?.configuration.tools).toEqual(['read', 'web_fetch']);
+
+    expect(await amendments.approve(ROOM, revision.id)).toEqual({ ok: true });
+
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'applied' });
+    expect(sessions.grantState.get('grant-1')?.revision).toBe(1);
+  });
+
+  it('holds work and offers a retry when the session cannot be reopened', async () => {
+    sessions.failNextOpen = 'the model is unavailable';
+    const revision = await proposeAmended(dropWebFetch, 'cmd-reopen');
+    await amendments.settled(ROOM);
+
+    // The host has the change, so the member stays stopped until it is confirmed.
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+    expect((await store.readMember(ROOM, 'scout'))?.configurationChange)
+      .toMatchObject({ state: 'held', workPaused: true });
+    expect(await amendments.decline(ROOM, revision.id)).toMatchObject({ ok: false });
+
+    expect(await amendments.approve(ROOM, revision.id)).toEqual({ ok: true });
+
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'applied' });
+    expect(sessions.amendments).toHaveLength(1);
+    expect((await store.readMember(ROOM, 'scout'))?.configurationChange?.workPaused).toBe(false);
+  });
+
+  it('finishes the same revision after a restart that lost the Room save', async () => {
+    // The first runtime never gets past waiting for a safe point, so the host
+    // commit below is the one it would have made just before the crash.
+    const stuck = runnerFor({ settled: () => new Promise<void>(() => undefined) });
+    const result = await applyRoomRevision({ ...deps, amendments: stuck }, {
+      roomId: ROOM, proposal: replaceScout, actorMemberId: 'lead', reason: 'the Room needs it', commandId: 'cmd-crash',
+    });
+    if (result.outcome !== 'pending') throw new Error('expected pending');
+    const intent = result.revision.amendment;
+    if (!intent) throw new Error('intent was not saved');
+    await sessions.amendGrant({
+      grantId: intent.grantId,
+      amendmentId: intent.amendmentId,
+      expectedRevision: intent.expectedRevision,
+      subjects: intent.subjects,
+      retire: intent.retire,
+      approval: 'ask',
+      reason: 'the user approved it',
+    });
+    expect(sessions.consumed.get('grant-1')).toBe(1);
+    expect((await store.readRoom(ROOM))?.members.map((member) => member.id)).not.toContain('scout-2');
+
+    await runnerFor().reconcile();
+
+    const record = await store.readRoom(ROOM);
+    expect(await revisionOf(result.revision.id)).toMatchObject({ outcome: 'applied' });
+    expect(record?.members.map((member) => member.id)).toContain('scout-2');
+    expect(record?.definition.grantRevision).toBe(1);
+    // One grant, one amendment, one session slot used: the repeat changed nothing.
+    expect(sessions.proposals).toHaveLength(1);
+    expect(sessions.grantState.get('grant-1')?.revision).toBe(1);
+    expect(sessions.consumed.get('grant-1')).toBe(1);
+    expect(record?.runtime.usage.memberReplacements).toBe(1);
   });
 });

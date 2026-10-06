@@ -32,6 +32,9 @@ const TAB_LABEL: Record<Tab, string> = {
 /** What a revision DID, in the user's terms rather than the record's. */
 const OUTCOME_LABEL: Record<RoomRevision['outcome'], string> = {
   applied: 'applied',
+  pending: 'being applied',
+  held: 'held — needs a decision',
+  declined: 'declined',
   'awaiting-approval': 'waiting for you',
   rejected: 'you rejected it',
   refused: 'refused — outside the envelope',

@@ -26,7 +26,10 @@ import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import type { RoomStore, RoomTransaction } from './room-store';
-import { planRoomRevision } from './room-revision-plan';
+import { planRoomRevision, type RevisionPlan } from './room-revision-plan';
+import { planAmendableRevision } from './room-amend-plan';
+import { buildAmendmentIntent, changeValuesFor, withPendingIntent } from './room-amendment-record';
+import type { RoomAmendments } from './room-amendment';
 import {
   affectedMembers,
   buildApproval,
@@ -41,6 +44,8 @@ import type { RoomRecord } from './room-state';
 export type RevisionResult =
   | { outcome: 'applied'; revision: RoomRevision }
   | { outcome: 'awaiting-approval'; revision: RoomRevision; approval: RoomApprovalRequest }
+  /** A running Room's grant is being amended. Nothing is effective until it reports applied. */
+  | { outcome: 'pending'; revision: RoomRevision }
   | { outcome: 'refused'; reason: string }
   /** A duplicate commandId. The first application stands; this one is a no-op. */
   | { outcome: 'duplicate' };
@@ -63,6 +68,18 @@ export interface RevisionDeps {
   releaseMemberSession(roomId: string, memberId: string): Promise<void>;
   /** Tells affected members what changed, through the durable mailbox. */
   notify?(roomId: string, memberIds: string[], summary: string): Promise<void>;
+  /**
+   * Amends a running Room's grant for setup and roster changes. Absent, a Room
+   * that holds a grant keeps refusing them, because nothing could authorise them.
+   */
+  amendments?: Pick<RoomAmendments, 'start'>;
+}
+
+/** The plan this deps object can honour: amendment routing only where something can run it. */
+function planFor(deps: RevisionDeps, record: RoomRecord, proposal: RoomRevisionProposal, actorMemberId: string): RevisionPlan {
+  return deps.amendments
+    ? planAmendableRevision(record, proposal, actorMemberId)
+    : planRoomRevision(record, proposal, actorMemberId);
 }
 
 interface ConfigurationClaim {
@@ -99,7 +116,7 @@ function decideRevision(
   // whatever the roster says it is.
   if (!actor.isConductor) return refused('Only the Conductor can change the Room.');
 
-  const plan = planRoomRevision(record, input.proposal, input.actorMemberId);
+  const plan = planFor(deps, record, input.proposal, input.actorMemberId);
   if (plan.verdict === 'refuse') return refused(plan.reason);
 
   const draft: RevisionDraft = {
@@ -112,6 +129,8 @@ function decideRevision(
     id: deps.host.newId('rev'),
     now,
   };
+
+  if (plan.verdict === 'amend') return decideAmendment(deps, input, record, draft, now);
 
   if (plan.verdict === 'approval') {
     const approval = buildApproval(draft, plan.approval, deps.host.newId('appr'));
@@ -142,6 +161,34 @@ function decideRevision(
   };
 }
 
+/**
+ * Step (a) of an amendment: the intent, saved first. The member shows a pending
+ * change and starts nothing until it settles; the grant is not touched here.
+ */
+function decideAmendment(
+  deps: RevisionDeps,
+  input: ApplyRevisionInput,
+  record: RoomRecord,
+  draft: RevisionDraft,
+  now: string,
+): RoomTransaction<RevisionResult> {
+  const grantId = record.definition.grantId;
+  if (!grantId) return refused('This Room has no grant to amend.');
+  try {
+    const amendment = buildAmendmentIntent(deps.host, record, input.proposal, input.commandId, grantId, now);
+    const revision: RoomRevision = {
+      ...buildRevision(draft, { outcome: 'pending', requiresApproval: false, approvalId: null }),
+      amendment,
+    };
+    return {
+      record: withPendingIntent(record, revision, changeValuesFor(record, input.proposal), now),
+      result: { outcome: 'pending', revision },
+    };
+  } catch (error) {
+    return refused(`The change could not be prepared: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export async function applyRoomRevision(
   deps: RevisionDeps,
   input: ApplyRevisionInput,
@@ -151,7 +198,7 @@ export async function applyRoomRevision(
 
   const now = deps.host.now();
   let configurationClaim: ConfigurationClaim | null = null;
-  if (input.proposal.kind === 'change-configuration') {
+  if (input.proposal.kind === 'change-configuration' && !record.definition.grantId) {
     const memberId = input.proposal.memberId;
     const marker = `Updating configuration (${deps.host.newId('cfg')}).`;
     const outcome = await deps.store.transact<ConfigurationClaimResult>(input.roomId, null, (current) => {
@@ -160,7 +207,7 @@ export async function applyRoomRevision(
       }
       const member = current.members.find((candidate) => candidate.id === memberId);
       const actor = current.members.find((candidate) => candidate.id === input.actorMemberId);
-      const plan = planRoomRevision(current, input.proposal, input.actorMemberId);
+      const plan = planFor(deps, current, input.proposal, input.actorMemberId);
       const canClaim = Boolean(
         member && actor?.isConductor && plan.verdict === 'apply'
         && !member.statusDetail.startsWith('Updating configuration ('),
@@ -232,6 +279,9 @@ export async function applyRoomRevision(
   if (result.outcome === 'applied') {
     await announce(deps, input.roomId, input.actorMemberId, input.proposal, result.revision, now);
   }
+  // Started only once the intent is on disk, so a crash right here is finished
+  // by the restart reconcile rather than lost.
+  if (result.outcome === 'pending') deps.amendments?.start(input.roomId, result.revision.id);
   return result;
 }
 
