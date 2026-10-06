@@ -81,7 +81,8 @@ Members and Workflow workers share one tool rule. A session registers every
 tool its approval allows, loads a small set, and uses Pi's `tool_search` to
 load another. A tool outside the approval is never registered. A Workflow
 worker whose step lists tools treats that list as its starting set
-(`toolsAreLoadout`). Code Mode is available to workers and not to members.
+(`toolsAreLoadout`). A member has Code Mode only when its tool list names `codemode`. It starts
+loaded, and a script can call only the tools the member was approved for.
 
 ### Diagnose and recover a Room
 

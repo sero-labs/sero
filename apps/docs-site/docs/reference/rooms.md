@@ -71,8 +71,13 @@ same session with Pi's `tool_search`, with no new approval. A tool outside the
 approval is not registered, so the member cannot find or call it. One line in
 the member's prompt lists the approved tools it does not have, and why: its
 plugin is not installed, you turned it off, it is not available to a Room
-member, or it is outside the approval. Code Mode is not available to Room
-members. After the session reopens, a member can search for the tool again. Discovery is not a `sero-cli` command.
+member, or it is outside the approval. After the session reopens, a member can search
+for the tool again. Discovery is not a `sero-cli` command.
+
+A member has Code Mode when the Room gives it that tool, at the start approval
+or in a later change you approve. No member has it by default. It starts
+loaded, and a script can call only the tools that member was approved for. A
+read-only member's script cannot reach a write tool.
 
 ## Change a running Room
 

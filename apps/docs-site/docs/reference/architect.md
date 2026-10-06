@@ -214,8 +214,14 @@ session with Pi's `tool_search`. A tool outside your approval is not
 registered, so the owner cannot find or call it. One line in the owner's prompt
 lists the approved tools it does not have, and why: its plugin is not
 installed, you turned it off, it is not available to this kind of session, or
-it is outside the approval. Code Mode is not available to the owner. After
-the session reopens, the owner can search for the tool again.
+it is outside the approval. After the session reopens, the owner can search
+for the tool again.
+
+A new project also asks, in its start approval, for Code Mode when Sero offers
+it. An approved Code Mode starts loaded, because `tool_search` cannot find it.
+A script can call only the tools the session was approved for, so Code Mode
+adds no access. A project that already exists keeps its old approval and does
+not gain Code Mode.
 
 A new project asks, in its start approval, for the skills that are enabled in
 its workspace. The session starts with no skill loaded and finds them with

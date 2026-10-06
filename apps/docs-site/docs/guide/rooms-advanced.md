@@ -59,7 +59,8 @@ command that your account can run, including `git push` or `gh`.
 
 Run a Room only in a project that you permit it to change. Review the proposed
 tools before you start the Room. A tool that is not in your approval is not
-available to a member, and a later addition needs your approval.
+available to a member, and a later addition needs your approval. Code Mode is
+one of those tools: a member has it only when the Room gives it that tool.
 
 ## Change a running team
 

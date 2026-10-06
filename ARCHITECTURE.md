@@ -142,7 +142,11 @@ A managed session (an Architect owner, a Room member) and a Workflow worker
 register every tool their approval allows and load a small set. Pi's
 `tool_search` loads another approved tool in the same session. A tool outside
 the approval is never registered, so discovery cannot widen authority.
-`sero-cli` has no discovery commands.
+`sero-cli` has no discovery commands. Code Mode follows the same approval. An
+approved `codemode` starts loaded, because `tool_search` cannot find it, and a
+script can call only the tools the session registered. A new Architect owner
+asks for it at its start approval, an existing owner keeps its old approval,
+and a Room member has it only when the Room names it.
 
 An Architect owner or a Goal can wait on linked child work. The wait is saved
 with a stable source id. Its wake is reserved before it is requested and

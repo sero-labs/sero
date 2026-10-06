@@ -5,8 +5,8 @@ import type { SpanRecorder } from './spans';
 import type { RunJournal } from './run-journal';
 /**
  * The owner session: one host-managed persistent session per project, opened
- * from a user-approved grant that names only the platform tools and the
- * `sero-cli` bridge. Every turn starts with the contract built from the
+ * from a user-approved grant that names the platform tools, the `sero-cli`
+ * bridge and, for a new owner, Code Mode. Every turn starts with the contract built from the
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
@@ -25,7 +25,7 @@ import { delegationProposal } from './delegation';
 import type { ArchitectHost } from './host';
 import { chooseOwnerModel, type OwnerModelChoice } from './owner-model';
 import type { RecordStore } from './record-store';
-import { approvedOwnerSkills, newOwnerSkills, withOwnerSkills } from './owner-skills';
+import { approvedOwnerSkills, newOwnerSkills, ownerGrantTools, withOwnerSkills, withOwnerTools } from './owner-skills';
 import { OWNER_STALL_STEER, watchStall, type StallWatch } from './owner-stall';
 import { applyTurnOutcome, type OutcomeKind, type TurnOutcomes } from './turn-outcomes';
 
@@ -72,7 +72,10 @@ export function ownerGrantProposal(record: ProjectRecord, choice: OwnerModelChoi
  * approves the whole start once. Asked again only while no authority is stored.
  */
 async function startProposal(host: ArchitectHost, record: ProjectRecord, choice: OwnerModelChoice): Promise<PersistentSessionGrantProposal> {
-  const proposal = withOwnerSkills(ownerGrantProposal(record, choice), await newOwnerSkills(host, record));
+  const proposal = withOwnerTools(
+    withOwnerSkills(ownerGrantProposal(record, choice), await newOwnerSkills(host, record)),
+    await ownerGrantTools(host, record, OWNER_TOOLS),
+  );
   if (!record.agreement || record.agreement.authority !== null) return proposal;
   return {
     ...proposal,
@@ -96,7 +99,10 @@ export function ownerSessionRequest(record: ProjectRecord, operation: Persistent
     cwd: record.folder,
     model,
     thinking,
-    tools: grantedTools ?? [...OWNER_TOOLS],
+    // The initial loadout is the five owner tools the first turn needs, kept to
+    // what was approved. The rest of the approval is found with `tool_search`,
+    // and the host loads `sero-cli` and an approved `codemode` on its own.
+    tools: OWNER_TOOLS.filter((tool) => !grantedTools || grantedTools.includes(tool)),
     skills: [],
     systemPromptAdditions: buildOwnerPromptAdditions(record),
     sessionName: ownerSessionName(record),

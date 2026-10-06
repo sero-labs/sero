@@ -4,8 +4,9 @@
  * It widens only what is approved. The session still starts with no skill
  * loaded; the owner finds the rest with `tool_search`.
  *
- * Code Mode is not asked for. The host does not offer it to managed sessions
- * and gives a runtime no way to ask whether it does, so naming it would be a guess.
+ * Code Mode (`codemode`) is asked for the same way, by a NEW owner only, and
+ * only when the tool catalogue offers it. It joins the approved tools, not the
+ * initial loadout: the host loads an approved Code Mode on its own.
  */
 
 import type { PersistentSessionGrantHandle, PersistentSessionGrantProposal } from '@sero-ai/common';
@@ -37,4 +38,28 @@ export function withOwnerSkills(proposal: PersistentSessionGrantProposal, skills
 /** What the host approved, as the record keeps it apart from what a turn loads. */
 export function approvedOwnerSkills(handle: PersistentSessionGrantHandle): string[] {
   return [...(handle.subjects[OWNER_SUBJECT]?.allowedSkills ?? [])];
+}
+
+/** Pi's Code Mode. A script can call only the tools the session was approved for. */
+export const CODEMODE_TOOL = 'codemode';
+
+/**
+ * The tools an owner asks to be approved for. An owner that already has a grant
+ * asks again for exactly what it had, so a renewed grant neither adds Code Mode
+ * nor drops it. A new owner adds it when the catalogue lists it. The catalogue
+ * is the only signal: it is what the host offers a managed session, and the
+ * host drops a name it cannot resolve anyway.
+ */
+export async function ownerGrantTools(host: Pick<ArchitectHost, 'listWorkerCapabilities'>, record: ProjectRecord, base: readonly string[]): Promise<string[]> {
+  if (record.session.grantId) return [...(record.session.grantedTools ?? base)];
+  if (!record.workspaceId) return [...base];
+  const offered = (await host.listWorkerCapabilities(record.workspaceId)).tools;
+  return offered.includes(CODEMODE_TOOL) ? [...base, CODEMODE_TOOL] : [...base];
+}
+
+/** The same proposal with the owner's approved tool list replaced. */
+export function withOwnerTools(proposal: PersistentSessionGrantProposal, tools: string[]): PersistentSessionGrantProposal {
+  const owner = proposal.subjects[OWNER_SUBJECT];
+  if (!owner) return proposal;
+  return { ...proposal, subjects: { ...proposal.subjects, [OWNER_SUBJECT]: { ...owner, allowedTools: tools } } };
 }

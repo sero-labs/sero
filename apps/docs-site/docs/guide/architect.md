@@ -30,9 +30,9 @@ member. The session can access only the project folder and the tools you
 approve.
 
 For a new project, the same approval also asks for the skills that are enabled
-in the workspace. The session finds a tool or skill it needs by searching for
+in the workspace, and for Code Mode when Sero offers it. The session finds a tool or skill it needs by searching for
 it, and it can load only what you approved. A project that already exists keeps
-the access it had. To give it more, you approve an addition.
+the access it had, without Code Mode. To give it more, you approve an addition.
 
 ## Create a project
 
