@@ -72,8 +72,7 @@ approval is not registered, so the member cannot find or call it. One line in
 the member's prompt lists the approved tools it does not have, and why: its
 plugin is not installed, you turned it off, it is not available to a Room
 member, or it is outside the approval. Code Mode is not available to Room
-members. A tool loaded by search returns after the session reopens, once a
-model request has recorded it. Discovery is not a `sero-cli` command.
+members. After the session reopens, a member can search for the tool again. Discovery is not a `sero-cli` command.
 
 ## Change a running Room
 
