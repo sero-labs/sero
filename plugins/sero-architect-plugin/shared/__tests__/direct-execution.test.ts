@@ -12,6 +12,7 @@ import {
   reportDirectExecution,
   type DirectExecutionStart,
 } from '../direct-execution';
+import { plannedWorkRemains } from '../../runtime/index';
 import { createProjectRecord, type Milestone, type ProjectRecord } from '../record';
 
 const T0 = '2026-10-06T09:00:00.000Z';
@@ -148,5 +149,31 @@ describe('a decision that parks the milestone holds its work', () => {
     expect(beginDirectExecution(held, 'm1', start('exec-2'))).toMatchObject({ ok: false, reason: expect.stringContaining('dec-1') });
     expect(continueDirectExecution(held, 'm1', 'exec-1', 'fp1')).toMatchObject({ ok: false });
     expect(reportDirectExecution(held, 'm1', 'exec-1', 'done', T0)).toMatchObject({ ok: false });
+  });
+});
+
+describe('direct work that repairs a delegated milestone', () => {
+  const dispatch = { kind: 'workflow' as const, id: 'wf1', workspaceId: 'ws1', dispatchedAt: T0, chargedUsd: 0, destination: null };
+  const failedEvidence = { commit: 'abc', checkedAt: T0, commands: [], diffSummary: null, filesChanged: true, preview: null, passed: false, stale: false };
+  const reportedByDelegate = () => project([milestone({ status: 'verifying', verification: 'reported', dispatch, evidence: failedEvidence })]);
+
+  it('can begin again after a requirement change, because the delegate had already finished', () => {
+    const first = begun(reportedByDelegate());
+    const revised = { ...first.record, working: { ...first.record.working!, revision: 4 } };
+    const second = beginDirectExecution(revised, 'm1', start('exec-2'));
+    if (!second.ok) throw new Error(second.reason);
+    expect(reportDirectExecution(second.record, 'm1', 'exec-2', 'fixed', T0).ok).toBe(true);
+  });
+
+  it('still refuses while the delegate is running', () => {
+    expect(beginDirectExecution(project([milestone({ status: 'running', dispatch })]), 'm1', start()).ok).toBe(false);
+  });
+
+  it('leaves a reported milestone without current evidence, so a restart wakes the owner to verify it', () => {
+    const first = begun(reportedByDelegate());
+    const reported = reportDirectExecution(first.record, 'm1', 'exec-1', 'fixed', T0);
+    if (!reported.ok) throw new Error(reported.reason);
+    expect(reported.record.milestones[0]?.evidence?.stale).toBe(true);
+    expect(plannedWorkRemains({ ...reported.record, phase: 'build' })).toBe(true);
   });
 });

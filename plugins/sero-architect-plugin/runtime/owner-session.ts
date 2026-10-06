@@ -10,21 +10,20 @@ import type { RunJournal } from './run-journal';
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
-import { ARCHITECT_APP_ID, feedbackEventFromSession, type ModelTier } from '@sero-ai/common';
+import { ARCHITECT_APP_ID, feedbackEventFromSession } from '@sero-ai/common';
 import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import type { AgreementAuthority } from '../shared/agreement';
 import { activeDirectMilestone } from '../shared/direct-execution';
 import { block } from '../shared/lifecycle';
 import { setAccountingIncomplete } from '../shared/accounting';
-import type { ModelConfigSource } from '../shared/model-config';
 import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import { delegationProposal } from './delegation';
 import type { ArchitectHost } from './host';
-import { projectModelSource, resolveOwnerSelection, type SelectionSource } from './model-resolution';
+import { chooseOwnerModel, type OwnerModelChoice } from './owner-model';
 import type { RecordStore } from './record-store';
 import { approvedOwnerSkills, newOwnerSkills, withOwnerSkills } from './owner-skills';
 import { OWNER_STALL_STEER, watchStall, type StallWatch } from './owner-stall';
@@ -36,43 +35,7 @@ export const OWNER_TOOLS = ['read', 'bash', 'write', 'edit', 'sero-cli'] as cons
 const PROMPT_ADDITION_HEADROOM_BYTES = 512;
 export const OWNER_SUBJECT = 'owner';
 
-export interface OwnerModelChoice {
-  model: string;
-  thinking: string;
-  /**
-   * Which rule chose it. The page used to state the owner's model in a
-   * sentence under the tier table and leave the reader to work out how it
-   * related to the tiers above it.
-   */
-  source: SelectionSource;
-  /** The tier the choice takes precedence over, when it is not a tier itself. */
-  outranks?: ModelTier;
-}
-
-/**
- * Resolve the exact selection before requesting authority. Never choose another provider.
- *
- * With a record, the project's own tier overrides apply, so a project MED
- * override governs the owner unless the environment pin takes precedence.
- * Without one, the global selections resolve exactly as before.
- */
-export async function chooseOwnerModel(
-  host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'env'>,
-  source?: ModelConfigSource,
-): Promise<OwnerModelChoice> {
-  const resolved = await resolveOwnerSelection(
-    { listModels: () => host.listModels(), modelTiers: () => host.modelTiers(), env: host.env },
-    projectModelSource(source ?? {}, await host.modelTiers()),
-  );
-  if (!resolved.ok) throw new Error(resolved.error);
-  const chosen = resolved.value;
-  return {
-    model: chosen.model,
-    thinking: chosen.thinking,
-    source: chosen.source,
-    ...(chosen.outranks ? { outranks: chosen.outranks } : {}),
-  };
-}
+export { chooseOwnerModel, type OwnerModelChoice } from './owner-model';
 
 export function ownerSubjectPolicy(record: ProjectRecord, choice: OwnerModelChoice): PersistentSessionSubjectPolicy {
   const additions = buildOwnerPromptAdditions(record);
@@ -285,7 +248,14 @@ export class OwnerSessions {
    * One wake: contract first, then the turn, then the bookkeeping. The record
    * is re-read after the turn because the owner's actions wrote to it.
    */
-  async runTurn(record: ProjectRecord, wake: WakeEvent, onStarted?: () => Promise<void>): Promise<OwnerTurnResult> {
+  async runTurn(
+    record: ProjectRecord,
+    wake: WakeEvent,
+    /** Called once, when the turn actually begins. */
+    onStarted?: () => Promise<void>,
+    /** Asked with the fresh record just before the prompt. False sends nothing. */
+    mayStart?: (fresh: ProjectRecord) => boolean,
+  ): Promise<OwnerTurnResult> {
     let modelProblem: string | null = null;
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -342,7 +312,7 @@ export class OwnerSessions {
       turnRunId, wakeId, model, thinking,
       // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
       overCap: () => {
-        if (finished) return;
+        if (finished || capAborted) return;
         capAborted = true;
         this.deps.host.log(`owner turn for ${opened.id} stopped: the project reached its cost cap`);
         void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not stop the owner at the cost cap: ${String(error)}`));
@@ -356,8 +326,15 @@ export class OwnerSessions {
       scope: { appId: ARCHITECT_APP_ID, workspaceId: opened.workspaceId, projectId: opened.id },
     });
     let stall: StallWatch | undefined;
+    // The host's prompt resolves when the run ends, so the turn's own first
+    // event is the start signal. Acknowledged once, from whichever comes first.
+    let acknowledged: Promise<void> | undefined;
+    const acknowledge = (): Promise<void> => (acknowledged ??= onStarted ? onStarted() : Promise.resolve());
     const unsubscribe = api.subscribe(handleId, (event) => {
       stall?.touch();
+      if (event.type === 'turn_start') {
+        void acknowledge().catch((error: unknown) => this.deps.host.log(`Could not acknowledge the owner turn start: ${String(error)}`));
+      }
       const fact = feedbackEventFromSession(event, this.deps.host.now());
       if (fact) feedback.observe(fact);
       if (event.type === 'compacted') {
@@ -393,8 +370,14 @@ export class OwnerSessions {
       }
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
+        // Preparation took time: a pause or cap since the wake was admitted sends nothing.
+        if (mayStart) {
+          const fresh = await this.deps.store.read(opened.id);
+          if (fresh && !mayStart(fresh)) return 'aborted';
+          if (stopRequested()) return 'aborted';
+        }
         const { turnId } = await api.prompt(handleId, contract);
-        await onStarted?.();
+        await acknowledge();
         if (finished || stopRequested()) return 'aborted';
         watching = turnId;
         const result = ended.get(turnId) ?? (await closedEarly);

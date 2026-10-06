@@ -8,7 +8,7 @@
 import type { PersistentSessionsApi } from '@sero-ai/common';
 
 import { setAccountingIncomplete } from '../shared/accounting';
-import { charge, deriveOverlay } from '../shared/lifecycle';
+import { charge } from '../shared/lifecycle';
 import type { ProjectRecord } from '../shared/record';
 import type { ArchitectHost } from './host';
 import { recordCharge, tokenDelta, type TokenCounters } from './project-usage';
@@ -28,14 +28,21 @@ export interface OwnerUsageContext {
   wakeId?: string;
   model?: string | null;
   thinking?: string | null;
-  /** Called once when this read takes the project over its cap. */
+  /** Called when a read finds a turn that began under the cap at or over it, whoever crossed it. May repeat. */
   overCap(): void;
+}
+
+function overCostCap(record: ProjectRecord): boolean {
+  return record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd;
 }
 
 /** One read at a time: a read asked for while another runs joins it. */
 export function createUsageReader(context: OwnerUsageContext): { read: () => Promise<void>; flush: () => Promise<void> } {
   const { deps, api, handleId, projectId, usageSource, tokenMarks } = context;
   let usageRead: Promise<void> | undefined;
+  // A directive or decision wake the user asked for may run on a project that is
+  // already at its cap, so only a turn that began under the cap is stopped for it.
+  const startedUnderCap = !overCostCap(context.turnRecord);
   const read = (): Promise<void> => {
     usageRead ??= (async () => {
       const usage = await api.getSessionUsage(handleId).catch(() => null);
@@ -47,7 +54,7 @@ export function createUsageReader(context: OwnerUsageContext): { read: () => Pro
         const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
         delta = cost - next.session.sessionCostUsd;
         const charged = charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, deps.host.now());
-        crossedCap = deriveOverlay(next) !== 'limited' && deriveOverlay(charged) === 'limited';
+        crossedCap = startedUnderCap && overCostCap(charged);
         return charged;
       });
       if (crossedCap) context.overCap();

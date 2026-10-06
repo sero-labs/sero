@@ -318,6 +318,8 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
           wakes.push({
             kind: 'dispatch-complete',
             item: `milestone ${milestone.id} has a delivery receipt at ${room.deliveryRef}${isAccepted(updated) ? '' : ', but it is not verified and accepted, so it stays verifying'}`,
+            // Tied to its Room so a wait that covers the Room carries it in its one wake.
+            childId: room.id,
             reported: false,
           });
           for (const item of delivery.items) wakes.push({ kind: 'dispatch-complete', item, reported: false });

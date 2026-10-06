@@ -16,7 +16,7 @@ import { createProjectsActions, type ProjectsActions } from './projects-actions'
 import { ARCHITECT_OWNER_LIVE_TOPIC } from '../shared/feedback';
 import { createWorkWatch, type WorkWatch } from './work-watch';
 import { createWaitReconciler, type WaitReconciler } from './wait-reconciler';
-import { reservedWakes } from '../shared/waits';
+import { reservedWakes, waitMayWake } from '../shared/waits';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
 import { ensureInitialRun } from './run-lifecycle';
@@ -260,7 +260,7 @@ export class ArchitectRuntime implements AppRuntime {
       result = await sessions.runTurn(record, wake, async () => {
         started = true;
         if (tookWaitWake) await this.waits?.started(projectId);
-      });
+      }, tookWaitWake ? waitMayWake : undefined);
     } finally {
       if (tookWaitWake && !started) await this.waits?.requeue(projectId);
     }

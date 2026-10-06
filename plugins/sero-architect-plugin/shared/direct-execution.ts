@@ -93,7 +93,10 @@ export function beginDirectExecution(record: ProjectRecord, milestoneId: string,
   // Work that still answers the current requirements is the same work. Work
   // that answers older ones is replaced below: it can no longer report.
   if (isActiveDirect(milestone.direct) && milestone.direct.requirementRevision === revision) return { ok: true, record, execution: milestone.direct, created: false };
-  if (milestone.pendingDispatch || (milestone.dispatch && milestone.status === 'running')) {
+  // A delegate that reported before the owner took over is finished. Direct
+  // work sets the milestone running itself, so only the dispatch tells them apart.
+  const delegateLive = milestone.dispatch && !milestone.dispatch.finishedAt && milestone.status === 'running';
+  if (milestone.pendingDispatch || delegateLive) {
     return { ok: false, reason: `"${milestone.title}" already has delegated work running. Reconcile it before the Architect works on the milestone itself.` };
   }
   if (milestone.status === 'done' || milestone.status === 'parked') {
@@ -116,11 +119,13 @@ export function beginDirectExecution(record: ProjectRecord, milestoneId: string,
     lastFingerprint: start.baseFingerprint,
   };
   // An earlier report for this milestone is history once new work starts, so
-  // its evidence state is cleared along with it.
+  // its evidence no longer describes the files: it is marked stale and the
+  // verification state is cleared, so restart recovery sees a report to verify.
   // The replaced execution stays as history. Its files stay where they are: the
   // new execution starts from the state the caller read now.
   const history = milestone.direct ? [...(milestone.directHistory ?? []), { ...milestone.direct, state: 'superseded' as const }] : milestone.directHistory;
-  const next: Milestone = { ...milestone, status: 'running', direct: execution, ...(history ? { directHistory: history } : {}), verification: null };
+  const next: Milestone = { ...milestone, status: 'running', direct: execution, ...(history ? { directHistory: history } : {}), verification: null, ...(milestone.evidence ? { evidence: { ...milestone.evidence, stale: true } } : {}),
+    ...(milestone.dispatch ? { dispatch: { ...milestone.dispatch, finishedAt: milestone.dispatch.finishedAt ?? start.now } } : {}) };
   return { ok: true, record: replaceMilestone(record, next), execution, created: true };
 }
 

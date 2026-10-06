@@ -96,6 +96,8 @@ export interface MilestoneDispatch {
   disarmedTriggerIds?: string[];
   /** Who paused this run, so only the same hand resumes it. See `runtime/linked-work.ts`. */
   heldBy?: 'project' | 'owner';
+  /** Set when the owner took the milestone over after this run finished, so it is no longer a writer. */
+  finishedAt?: string;
 }
 
 export interface PendingMilestoneDispatch {

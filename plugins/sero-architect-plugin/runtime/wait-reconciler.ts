@@ -61,6 +61,12 @@ export interface WaitReconciler {
   dispose(): void;
 }
 
+/** The wait's line, plus the delivery receipt its milestone has: the receipt's own wake is folded into this one. */
+function describeWithReceipt(record: ProjectRecord, wait: WaitRegistration): string {
+  const receipt = wait.owner.milestoneId ? record.milestones.find((m) => m.id === wait.owner.milestoneId)?.receipt : undefined;
+  return receipt ? `${describeWait(wait)} The result has a delivery receipt at ${receipt}.` : describeWait(wait);
+}
+
 /** How a source ended, or null while it has not. */
 function childOutcome(id: string, sources: WaitSources): { kind: WaitOutcomeKind; detail: string } | null {
   const loop = sources.loops?.find((item) => item.id === id);
@@ -129,7 +135,7 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
     // A reserved wake that was never started is requested again here: after a
     // restart, a resume or a dropped wake. The scheduler merges the repeats.
     const pending = reservedWakes(after);
-    if (pending.length > 0) deps.wake(projectId, { kind: 'wait', at: now, items: pending.map(describeWait) });
+    if (pending.length > 0) deps.wake(projectId, { kind: 'wait', at: now, items: pending.map((wait) => describeWithReceipt(after, wait)) });
   }
 
   return {

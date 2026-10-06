@@ -155,6 +155,87 @@ describe('owner session', () => {
     });
   });
 
+  describe('cost cap during a running turn', () => {
+    const stoppable = (host: Awaited<ReturnType<typeof fakeHost>>, spendMidTurn: () => Promise<void>) => {
+      let release: () => void = () => undefined;
+      const stopped = new Promise<void>((resolve) => { release = resolve; });
+      const abort = vi.fn(async () => release());
+      host.sessions.abort = abort;
+      host.sessions.onTurn = async () => {
+        await spendMidTurn();
+        host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+        await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 50))]);
+      };
+      return abort;
+    };
+
+    it('stops the turn when delegated work, not the owner, takes the project over the cap', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => {
+        await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, spentUsd: 4 } }));
+      });
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('stops the turn when the user lowers the cap below what is already spent', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 10, spentUsd: 2 } });
+      await store.write(record);
+      const abort = stoppable(host, async () => {
+        await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, capUsd: 1 } }));
+      });
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('lets a directive turn that began on an already-limited project run', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => undefined);
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, { kind: 'directive', at: T0, items: ['directive d1'] });
+      expect(abort).not.toHaveBeenCalled();
+      expect(result.status).toBe('completed');
+    });
+  });
+
+  describe('a wake that asks to be acknowledged', () => {
+    it('is acknowledged when the turn begins, not when the whole run has ended', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      const onStarted = vi.fn(async () => undefined);
+      let startedDuringRun = false;
+      host.sessions.onTurn = async () => { startedDuringRun = onStarted.mock.calls.length === 1; };
+      await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, onStarted);
+      expect(startedDuringRun).toBe(true);
+      expect(onStarted).toHaveBeenCalledOnce();
+    });
+
+    it('sends no prompt and acknowledges nothing when the project may no longer start work', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      const onStarted = vi.fn(async () => undefined);
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, onStarted, () => false);
+      expect(host.sessions.prompts).toHaveLength(0);
+      expect(onStarted).not.toHaveBeenCalled();
+      expect(result.status).toBe('aborted');
+    });
+  });
+
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
