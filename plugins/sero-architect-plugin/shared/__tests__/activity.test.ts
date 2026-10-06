@@ -358,3 +358,12 @@ describe('a project blocked on delegated work', () => {
     expect(activity.owner).toBe('Room room_3240 · cancelled');
   });
 });
+
+describe('the owner line for work the Architect does itself', () => {
+  it('names the milestone while the owner works on it', () => {
+    const direct = milestone({ title: 'Add keyboard paging', direct: { id: 'd1', runId: null, owner: { subject: 'owner', sessionId: null, sessionPath: null }, placement: { mode: 'workspace', directory: '/p', workspaceId: null }, baseCommit: null, baseFingerprint: null, requirementRevision: null, state: 'running', startedAt: T0, claim: null, continuations: 0, idleContinuations: 0 } });
+    const base = project({ milestones: [direct] });
+    const inTurn = { ...base, session: { ...base.session, workingSince: '2026-09-19T10:05:00.000Z' } };
+    expect(projectActivity(inTurn, RUNNING_SESSION).owner).toBe('Architect is doing Add keyboard paging');
+  });
+});

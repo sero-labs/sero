@@ -13,6 +13,7 @@ import { ARCHITECT_APP_ID, feedbackEventFromSession, type ModelTier } from '@ser
 import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import type { AgreementAuthority } from '../shared/agreement';
+import { activeDirectMilestone } from '../shared/direct-execution';
 import { block, charge } from '../shared/lifecycle';
 import type { ModelConfigSource } from '../shared/model-config';
 import { setAccountingIncomplete } from '../shared/accounting';
@@ -316,7 +317,10 @@ export class OwnerSessions {
     const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
     const turnRecord = latest ?? opened;
-    const turnRunId = activeRun(turnRecord)?.id;
+    // A turn spent on the owner's own milestone belongs to that work's run, so
+    // usage that lands late is still charged where the work started.
+    const working = activeDirectMilestone(turnRecord)?.direct;
+    const turnRunId = working?.runId ?? activeRun(turnRecord)?.id;
     const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
@@ -392,7 +396,7 @@ export class OwnerSessions {
       // Not awaited: an observation never delays the work. The journal keeps
       // one writer per file, so this start still lands before the turn's charges.
       if (spans && wakeId && turnRunId) {
-        void spans.open({ projectId: opened.id, runId: turnRunId, operationId: wakeId, kind: 'owner-wake', ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) })
+        void spans.open({ projectId: opened.id, runId: turnRunId, operationId: wakeId, kind: 'owner-wake', ...(working ? { attemptId: working.id } : {}), ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) })
           .catch((error: unknown) => this.deps.host.log(`owner wake was not recorded: ${String(error)}`));
       }
       const turn = async (): Promise<OwnerTurnResult['status']> => {

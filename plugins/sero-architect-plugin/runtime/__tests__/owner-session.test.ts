@@ -253,6 +253,35 @@ describe('owner session', () => {
     expect(await costs('later')).toBe(0.75);
   });
 
+  it('charges a turn spent on the owner\'s own milestone once, to the run that work started under', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
+    const spans = createSpanRecorder({ journal, now: () => host.now() });
+    const outcomes = createTurnOutcomes();
+    const sessions = new OwnerSessions({ host, store, outcomes, journal, spans });
+    const first = openRun(buildingProject(), { id: 'initial', kind: 'initial' }, T0);
+    if (!first.ok) throw new Error(first.error);
+    // A later objective is the active run, but the work began under the first.
+    const later = openRun(first.record, { id: 'later', kind: 'maintenance', objectiveId: 'issue' }, T0);
+    if (!later.ok) throw new Error(later.error);
+    const direct = {
+      id: 'exec-1', runId: 'initial', owner: { subject: 'owner' as const, sessionId: 'sess-1', sessionPath: '/sessions/owner.jsonl' },
+      placement: { mode: 'workspace' as const, directory: later.record.folder, workspaceId: 'ws-1' }, baseCommit: 'base', baseFingerprint: 'fp0',
+      requirementRevision: null, state: 'running' as const, startedAt: T0, claim: null, continuations: 0, idleContinuations: 0,
+    };
+    const record = { ...later.record, milestones: [milestone('m1', { status: 'running', direct })] };
+    await store.write(record);
+    host.sessions.getSessionUsage = async () => ({ costUsd: 0.2, inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 1 });
+    host.sessions.onTurn = async () => { outcomes.declare('proj_1', 'continue'); };
+    await sessions.runTurn(record, wake);
+    const original = (await journal.readPage('proj_1', 'initial')).records;
+    expect(original.find((entry) => entry.operationKind === 'owner-wake')?.attemptId).toBe('exec-1');
+    expect(original.filter((entry) => entry.kind === 'usage').reduce((sum, entry) => sum + Number(entry.costUsd), 0)).toBeCloseTo(0.2);
+    expect((await journal.readPage('proj_1', 'later')).records.filter((entry) => entry.kind === 'usage')).toHaveLength(0);
+    expect((await store.read('proj_1'))?.budget.sources.owner).toBeCloseTo(0.2);
+  });
+
   it('records each owner turn as one wake that owns its charges, with the model and token deltas', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);

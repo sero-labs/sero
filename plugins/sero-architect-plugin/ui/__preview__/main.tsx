@@ -157,7 +157,7 @@ function ProjectPreview({ record, runtimeRunning }: {
   runtimeRunning: boolean;
 }) {
   const [tab, setTab] = useState<WorkTab | null>(() => params.get('view') === 'work' ? WORK_TABS.find((item) => item === params.get('tab')) ?? 'live' : null);
-  if (tab) return <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={setTab} onBack={() => setTab(null)} onProject={() => setTab(null)} onOpenHistory={() => undefined} />;
+  if (tab) return <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={setTab} onOpenEvidence={() => setTab("evidence")} onBack={() => setTab(null)} onProject={() => setTab(null)} onOpenHistory={() => undefined} />;
   return (
     <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} onOpenWork={setTab} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
   );

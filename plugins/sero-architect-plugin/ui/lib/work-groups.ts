@@ -3,6 +3,7 @@
 
 import { ARCHITECT_APP_ID, feedbackActivity, type WorkFeedback } from '@sero-ai/common';
 
+import { activeDirectMilestone } from '../../shared/direct-execution';
 import type { ProjectRecord } from '../../shared/record';
 
 export interface WorkGroup {
@@ -21,6 +22,12 @@ function linkedTitle(record: ProjectRecord, id: string): string | null {
   return research?.question ?? null;
 }
 
+/** "Architect", with the milestone it is doing itself while it does one. */
+function architectTitle(record: ProjectRecord): string {
+  const direct = activeDirectMilestone(record);
+  return direct ? `Architect · ${direct.title}` : 'Architect';
+}
+
 /** Work that has not ended, grouped by the Room or Workflow it runs in. */
 export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[], epoch: string | null = null): WorkGroup[] {
   const groups = new Map<string, WorkGroup>();
@@ -34,7 +41,7 @@ export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[],
     const key = own || !id ? 'architect' : `${kind}:${id}`;
     const group = groups.get(key) ?? {
       key,
-      title: key === 'architect' ? 'Architect' : `${kind === 'room' ? 'Room' : 'Workflow'}${linkedTitle(record, id) ? ` · ${linkedTitle(record, id)}` : ''}`,
+      title: key === 'architect' ? architectTitle(record) : `${kind === 'room' ? 'Room' : 'Workflow'}${linkedTitle(record, id) ? ` · ${linkedTitle(record, id)}` : ''}`,
       link: key === 'architect' || !record.workspaceId ? null : { kind, id, workspaceId: record.workspaceId },
       rows: [],
     };

@@ -241,7 +241,8 @@
 .ar-ms[data-status="done"] .ar-ms-text b { color: var(--ar-text-2); font-weight: 500; }
 .ar-ms[data-status="planned"] .ar-ms-text b, .ar-ms[data-status="approved"] .ar-ms-text b { color: var(--ar-text-3); font-weight: 500; }
 .ar-ms-text > span { font-size: 12px; color: var(--ar-text-3); }
-.ar-ms-right { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.ar-ms-right { display: grid; grid-template-columns: 62px 84px 150px; align-items: center; column-gap: 12px; padding-top: 2px; }
+.ar-ms-right > * { justify-self: start; }
 .ar-kind { font: 10px var(--font-mono); color: var(--ar-text-4); }
 .ar-ladder { margin-top: 8px; display: inline-flex; gap: 4px; align-items: center; }
 .ar-ladder span { height: 18px; padding: 0 7px; border-radius: 9px; border: 1px solid var(--ar-line); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--ar-text-4); display: inline-flex; align-items: center; }
