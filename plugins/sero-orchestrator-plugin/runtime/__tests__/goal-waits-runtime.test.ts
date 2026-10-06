@@ -202,6 +202,34 @@ describe('a wake that is deciding while the user stops or pauses', () => {
     expect(drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' }).ok).toBe(true);
   });
 
+  it('keeps the claim of a resume that landed while the wake waited for the session', async () => {
+    const ctx = setup();
+    const goal = await ctx.started();
+    await ctx.park(goal);
+    // Only the wake's own session lookup is held; the user's resume goes straight through.
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const read = ctx.host.session.getActiveForWorkspace;
+    let held = false;
+    ctx.host.session.getActiveForWorkspace = async (...args) => {
+      if (!held) { held = true; await gate; }
+      return read(...args);
+    };
+    ctx.setLoop('complete');
+    const waking = ctx.runtime.observeState(ctx.host.state);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const { runtime, drivers } = ctx;
+    expect((await runtime.resume(goal.id)).ok).toBe(true);
+    release();
+    await waking;
+    expect(await runtime.forSession(SESSION)).toMatchObject({ status: 'active', sessionId: 'sess-1' });
+    expect(drivers.holderOf('sess-1')).toEqual({ kind: 'goal', ownerId: goal.id });
+    // The resume is the one continuation; the watcher adds none.
+    expect(woken).toHaveLength(0);
+    await runtime.stop(goal.id);
+    expect(drivers.holderOf('sess-1')).toBeUndefined();
+  });
+
   it('leaves a stop the user made while the wake waited for the session', async () => {
     const { runtime, goal, waking, release } = await heldAtClaim();
     await runtime.stop(goal.id);

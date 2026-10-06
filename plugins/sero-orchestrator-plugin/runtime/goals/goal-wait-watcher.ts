@@ -130,8 +130,17 @@ export class GoalWaitWatcher {
       }
       claimed = result;
     }
-    // A claim taken for a wake that did not commit would hold the session for nothing.
-    if (claimed?.sessionId && woke.goal?.sessionId !== claimed.sessionId) this.deps.release(goalId, claimed.sessionId);
+    // A claim taken for a wake that did not commit would hold the session for nothing. A claim is
+    // one slot per session, not a count, so it is given back only when the freshest record shows
+    // the goal is not active on it: an active goal (this wake, or a resume that won the race)
+    // relies on that slot, and a later stop or pause releases it.
+    const taken = claimed?.sessionId;
+    if (taken) {
+      final = await store.update(goalId, (current) => {
+        if (current.status !== 'active' || current.sessionId !== taken) this.deps.release(goalId, taken);
+        return current;
+      }) ?? final;
+    }
     if (!final) return;
     this.arm(final);
     if (woke.goal?.status === 'active') notifyGoalWake(woke.goal);
