@@ -175,6 +175,7 @@ Sero bridges selected extension tools and commands into `sero-cli` so agents use
 - The goal tools `goal_complete`, `goal_blocked` and `goal_wait` are active only while a goal runs.
 - `research` is explicitly not bridged.
 - Admin tooling is intentionally not agent-accessible through this bridge.
+- `sero-cli` has no commands to search for or load a tool. A managed session (an Architect owner or a Room member) and a Workflow worker use Pi's `tool_search` for that. It finds only the tools the session's approval allows. See [Architect reference](/reference/architect#tools-and-skills) and [Rooms reference](/reference/rooms#member-access).
 - Session-owned bridged commands are visible only for the matching active session scope.
 - For JSON-heavy bridged commands, run `sero help <command>` first and follow the reported schema.
 

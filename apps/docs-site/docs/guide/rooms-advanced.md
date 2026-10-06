@@ -43,9 +43,9 @@ Before you select **Start**, set and approve each member's access level:
 - **Edit and push** also lets the member use version-control actions that
   publish changes.
 
-A running Room cannot increase a member's access. Its host grant fixes the team
-and each member's tools when the Room starts. If the Conductor requests more
-access, Sero rejects the request instead of showing it for approval.
+A running Room cannot give a member more than you approved unless you approve
+that addition. See [Change a running team](#change-a-running-team). A
+member's permission level cannot change while the Room runs.
 
 The Room can request more time or a higher cost limit. Sero shows these limit
 requests for you to approve or reject. Members, including the Conductor, cannot
@@ -58,20 +58,29 @@ security sandbox. A member with shell, or command-line, access can run any
 command that your account can run, including `git push` or `gh`.
 
 Run a Room only in a project that you permit it to change. Review the proposed
-tools before you start the Room because you cannot add tools while it runs.
+tools before you start the Room. A tool that is not in your approval is not
+available to a member, and a later addition needs your approval.
 
 ## Change a running team
 
 The Conductor can change a member's task, priorities, or instructions. It can
-also suspend, resume, or retire a member. It cannot add or replace a member
-after the Room starts.
+also suspend, resume, or retire a member. It can change a member's model,
+thinking level, tools or skills, add a member, or replace one.
 
 - **Suspend** stops new turns for a member but keeps its session and context.
 - **Resume** lets a suspended member continue.
 - **Retire** ends the member's work and releases its file claims.
-Add or replace members when you review the proposal. A running Room rejects
-these membership changes because its approved host grant has a fixed set of
-members.
+- A setup change covers a model, thinking level, tools or skills.
+- Adding brings in a new member. The member cannot need its own checkout.
+- Replacing retires a member and starts a new one from a handover. The
+  retired member's history stays.
+
+Sero keeps the Room's approval and every member's history. A change inside what
+you approved applies with no dialog, when the member finishes its current turn.
+A change that adds access is held until you approve that addition. If you
+decline it, the Room keeps its old setup. A member's permission level and its
+need for its own checkout cannot change while the Room runs. After a restart,
+Sero finishes or holds a change. It never applies it twice.
 
 Open **Changes** to review changes that the Conductor made to the team.
 
@@ -159,3 +168,5 @@ undo deletion.
 - [Create a Room](/guide/rooms)
 - [Rooms reference](/reference/rooms)
 - [Create a Workflow](/guide/workflows)
+- [Architect](/guide/architect): an Architect project can start Rooms and wait for them.
+- [Goals](/guide/goals)

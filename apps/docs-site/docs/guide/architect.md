@@ -29,6 +29,11 @@ starts, Sero asks for permission to run that session, as it does for a Room
 member. The session can access only the project folder and the tools you
 approve.
 
+For a new project, the same approval also asks for the skills that are enabled
+in the workspace. The session finds a tool or skill it needs by searching for
+it, and it can load only what you approved. A project that already exists keeps
+the access it had. To give it more, you approve an addition.
+
 ## Create a project
 
 1. Open **Architect** from the app bar and select **New project**.
@@ -178,7 +183,7 @@ Rooms work as before.
   block or the cost cap stops it. There is no automatic stop for a lack of
   progress: the cost cap is the hard limit. The run inspector shows how many
   continuations in a row changed no file.
-- **Interruption.** A stopped turn, a time limit or a restart marks the work
+- **Interruption.** A stopped turn, a stalled turn or a restart marks the work
   interrupted. The files and the saved identity stay, nothing counts as
   complete, and the Architect resumes the work.
 - **One writer.** The Architect's own work and a Workflow or Room that writes
@@ -194,6 +199,34 @@ Rooms work as before.
 
 In the project's milestone list, such a milestone shows `architect` as its kind.
 It links to **Watch work** while it runs and to **Evidence** after it reports.
+
+## Waiting for work
+
+When the Architect has started a Workflow or a Room and has nothing else to do,
+it can wait for that work. Sero wakes it once when the work completes, fails or
+passes a deadline that the Architect set. You do not need to resume it.
+
+- A wait that ends in a failure or a deadline is not completion. The Architect
+  sees the fact and decides what to do next. A milestone still closes only on
+  evidence.
+- Sero can wait for a linked Workflow or Room. It cannot yet wait for a managed
+  process or for CI checks, and it refuses such a wait. In that case the
+  Architect ends its turn and says what you should check. You resume the
+  project.
+- If Sero cannot confirm how the work ended, it holds the project and says why.
+- **Pause**, **Stop** and the cost cap still apply. A paused or stopped project
+  is not woken, and **Stop** cancels every open wait.
+
+[Goals](/guide/goals#how-a-goal-ends) wait for a Workflow in the same way.
+
+## When a turn goes quiet
+
+The Architect has no fixed time limit for a turn. A turn that keeps working runs
+on. If it shows no activity for 10 minutes, Sero asks it to save its work and
+end the turn. If it is still quiet 5 minutes later, Sero interrupts the turn
+and wakes the Architect once more. A second quiet turn in a row holds the
+project for you. Resume it when you are ready. Limits that you set, such as the
+cost cap, still stop the work.
 
 ## Milestones close on evidence
 
@@ -315,3 +348,5 @@ project**.
 - [Architect reference](/reference/architect): tools, record fields, statuses
   and storage.
 - [Orchestrator](/guide/orchestrator): Workflows, Rooms and Goals.
+- [Manage a Room](/guide/rooms-advanced): how a running Room changes its team and tools.
+- [Goals](/guide/goals): waits and limits for one chat session.

@@ -44,6 +44,52 @@ A report is a claim: evidence and acceptance are unchanged. Interrupted work
 keeps its files and identity. The owner contract text is `DIRECT_WORK_HELP` in
 `shared/owner-contract.ts`.
 
+## Waits
+
+The owner ends a wake with `work --operation wait`, handled in
+`runtime/owner-wait.ts`. `shared/waits.ts` holds the saved wait: a source kind
+and id, a condition, an optional deadline, the outcome, and one wake. The only
+observable source is `child` (`OBSERVABLE_SOURCES`), a Workflow or Room named by
+the project's own milestone or research id. `process` and `ci` are refused with
+a manual-resume message. Nothing the owner types is evaluated.
+
+- The intent is saved first, then the source is read once, so a completion that
+  landed before the call is not missed.
+- `runtime/wait-reconciler.ts` re-reads source state on a change, on startup and
+  on one timer armed for the nearest deadline. It does not poll.
+- The wake is reserved before it is requested (`reserveWake`) and consumed when
+  its turn starts (`consumeWake`). The one owner scheduler delivers it as a
+  `wait` wake in `shared/wake.ts`. The reconciler never starts a turn.
+- `expired` and `failed` outcomes wake the owner and are never completion.
+  `uncertain` holds the project (`holdUncertain`).
+- A stop moves `controlRevision` past every earlier wait, so nothing reserved
+  before it can wake the owner. A pause, a block, the cap or a missing approval
+  leave the outcome on the record with no wake (`waitMayWake`).
+
+## Stall recovery
+
+`runtime/owner-stall.ts` replaces the fixed owner turn limit. Every session
+event restarts one silence timer. At `OWNER_STALL_WINDOW_MS` (10 minutes) the
+owner is steered to checkpoint and declare an outcome. At a further
+`OWNER_STALL_GRACE_MS` (5 minutes) the turn is aborted, and `owner-session.ts`
+wakes the owner once more. A second stall in a row holds the project.
+`SILENT_TURN_LIMIT` still holds a project after three turns with no outcome.
+The values live in `shared/stall-limits.ts` and are safety values the user does
+not set. User limits such as the cost cap stay hard stops.
+`shared/effective-limits.ts` lists every limit with its origin (`user`,
+`safety`, `default`, `agent`) for the inspector.
+
+## Owner access
+
+`runtime/owner-skills.ts` adds the workspace's enabled skills to a NEW owner's
+start approval. An owner with a grant asks again for exactly what was approved,
+so a renewed grant neither widens nor drops it. Widening an existing owner is a
+host grant amendment that the user approves. The owner session registers every
+approved tool, loads a small set, and finds the rest with `tool_search`. It
+never gets Code Mode, and the architect plugin needs no discovery code of its
+own: the host builds the tool surface (`tool-surface.ts` in the persistent
+sessions capability).
+
 ## Where things live
 
 Persistent data is stored under `<SERO_HOME>/apps/architect/`. The host watches

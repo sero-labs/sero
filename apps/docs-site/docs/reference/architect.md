@@ -63,13 +63,15 @@ The runtime wakes the owner for these events, highest priority first:
 | `dispatch-blocked` | a Workflow or Room needs input or stopped |
 | `dispatch-complete` | a Workflow or Room finished and the evidence check ran |
 | `external-event` | the maintenance Workflow ran for an issue, a CI failure or its schedule |
+| `wait` | work the owner waited for ended, failed or passed its deadline; see [Waits](#waits) |
 | `continue` | the owner asked for another turn on a milestone it does itself |
 | `quiet` | the project was created, research finished, or planned work remains |
 
 One wake runs at a time. Wakes of the same kind merge. Ordinary work does not
 wake the owner while the project is paused, limited, blocked or stopped.
 Directives and decision responses can still wake it. Every wake ends with one
-of `sleep`, `decide`, `blocked` or `work --operation continue`; three turns in a row with no outcome
+of `sleep`, `decide`, `blocked`, `work --operation continue` or
+`work --operation wait`; three turns in a row with no outcome
 block the project.
 
 ## Owner tool
@@ -86,7 +88,7 @@ project id and is refused for any session that is not that project's owner.
 | `decide` | raises a decision and parks the milestones it names |
 | `research` | asks the runtime to run a structured research subagent |
 | `dispatch` | asks the runtime to create a Workflow or a Room for a milestone |
-| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, or `--operation report --executionId <id> --text "..." [--destination workspace-files]`; see Direct work |
+| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, `--operation report --executionId <id> --text "..." [--destination workspace-files]`, or `--operation wait --source child --target <id> [--deadlineMinutes <n>]`; see Direct work and Waits |
 | `evidence` | asks the runtime to run the checks; the owner cannot attach results itself |
 | `status` | reads the record |
 | `reply` | answers the open directive |
@@ -145,7 +147,7 @@ A `continue` wake queues behind every other wake. A pause, a block or the cost
 cap holds it. No rule stops the work for making no progress. The run inspector
 shows the continuations in a row that changed no file.
 
-A stopped turn, a time limit or a restart sets the work to `interrupted`. The
+A stopped turn, a stalled turn or a restart sets the work to `interrupted`. The
 files and the identity stay and nothing is taken as complete. The owner resumes
 with `continue`.
 
@@ -159,6 +161,69 @@ accepted and not delivered.
 
 On the project page, the milestone list shows `architect` as the kind. The link
 reads **Watch work** while the work runs and **Evidence** after the report.
+
+## Waits
+
+The owner can end a wake by waiting for work it started. It runs
+`work --operation wait --source child --target <id>`, where `<id>` is the
+milestone or research id of a Workflow or Room that the project is linked to.
+Sero saves the wait, and wakes the owner once when the work completes, fails or
+is gone.
+
+| Part | Rule |
+| --- | --- |
+| Source | `child` only: a linked Workflow or Room. Name it by its milestone or research id |
+| Deadline | `--deadlineMinutes`, from 1 minute to 7 days. Without it the wait has no deadline |
+| Wake | one per wait. The wake is saved before it is sent and marked used when its turn starts, so a restart does not send it twice |
+| Not available yet | `process` and `ci`. Sero refuses them. The owner ends the wake with `sleep` or `blocked` and says what you must check. You resume the project |
+| Already finished | the call is refused and returns the result |
+
+An expired wait and a failed wait wake the owner with that fact. Neither is
+completion: the milestone still closes on evidence. If Sero cannot confirm how
+the work ended, it holds the project and names the work. A pause, a block, the
+cost cap or an approval that is not given prevents the wake. The ended wait
+stays on the record. **Stop** ends every open wait, and none of them wakes the
+owner afterwards, even if you resume the project.
+
+A wait does not poll. Sero reads the work's saved state when it changes, when
+the runtime starts and when a deadline passes.
+
+## Stall recovery and limits
+
+Sero does not stop an owner turn at a fixed time. A turn that keeps working
+runs as long as it needs. Any tool call, result or text restarts a silence
+timer.
+
+| Silence | What happens |
+| --- | --- |
+| 10 minutes | the owner is asked to save its work and end the turn with an outcome |
+| 5 more minutes | the turn is interrupted and the owner is woken once more |
+| a second stall in a row | the project is held for you. Resume it when you are ready |
+
+These are internal safety values. You cannot change them. Limits that you set,
+such as the project cost cap, are hard stops and are checked as before. Three
+turns in a row with no declared outcome also hold the project. The run
+inspector lists each limit and who set it: you, a safety value, a default or an
+agent.
+
+## Tools and skills
+
+The owner session registers every tool your approval allows. It starts with a
+small loaded set, and it finds and loads another approved tool in the same
+session with Pi's `tool_search`. A tool outside your approval is not
+registered, so the owner cannot find or call it. One line in the owner's prompt
+lists the approved tools it does not have, and why: its plugin is not
+installed, you turned it off, it is not available to this kind of session, or
+it is outside the approval. Code Mode is not available to the owner. A tool
+loaded by search returns after the session reopens, once a model request has
+recorded it.
+
+A new project asks, in its start approval, for the skills that are enabled in
+its workspace. The session starts with no skill loaded and finds them with
+`tool_search`. A project that already exists keeps exactly the access it had.
+To give it more, the host amends the grant and you approve the addition. See
+[Rooms reference](/reference/rooms#change-a-running-room) for how a grant
+amendment works.
 
 ## Forced escalations
 
@@ -248,3 +313,5 @@ persist through the host layout service, never through browser storage.
 - [Orchestrator reference](/reference/orchestrator)
 - [Workflows reference](/reference/workflows)
 - [Rooms reference](/reference/rooms)
+- [Goals](/guide/goals)
+- [Sero CLI reference](/reference/sero-cli)
