@@ -37,6 +37,7 @@ import type { DelegationLink } from './delegation-policy';
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
+import { loadoutWithLoaded } from '@electron/features/tool-loadout';
 import { readSessionHistoryPage } from './history';
 import { validatePersistentSessionRequest } from './validate';
 
@@ -44,7 +45,14 @@ import { validatePersistentSessionRequest } from './validate';
 export type SessionInputs = Pick<
   CreateAgentSessionOptions,
   'resourceLoader' | 'customTools' | 'modelRuntime' | 'settingsManager' | 'model' | 'thinkingLevel' | 'tools'
->;
+> & {
+  /**
+   * The tools declared to the model when the session opens. Pi declares every
+   * tool named in `tools`, deferred ones included, so a session that defers
+   * tools must narrow the declared set itself. Omitted when nothing is deferred.
+   */
+  initialTools?: string[];
+};
 
 /** Everything the host needs injected, so the whole surface is testable. */
 export interface PersistentSessionHostDeps {
@@ -401,7 +409,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   ) {
     const grant = this.deps.grantStore.get(request.grantId);
     if (!grant) throw new Error(`Persistent session denied: grant ${request.grantId} is unknown.`);
-    const inputs = await this.deps.buildSessionInputs({
+    const { initialTools, ...inputs } = await this.deps.buildSessionInputs({
       grantId: request.grantId,
       subject: request.subject,
       workspaceId: grant.workspaceId,
@@ -431,6 +439,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       tools: inputs.tools,
       sessionStartEvent: sessionStartEventFor(sessionManager),
     });
+    if (initialTools) session.setActiveToolsByName(loadoutWithLoaded(initialTools, sessionManager.buildSessionContext().messages));
     preserveBashFailureStatus(session.agent);
     await startSessionExtensions(session);
     return session;

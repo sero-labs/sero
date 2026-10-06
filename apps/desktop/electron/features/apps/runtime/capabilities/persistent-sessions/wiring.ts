@@ -19,6 +19,13 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { dropToolsNotForSessionKind } from '@electron/features/plugins/bridge-policy';
+import {
+  createSeroToolSearchExtension,
+  deferExtensionTools,
+  deferToolsOutside,
+  TOOL_SEARCH_TOOL_NAME,
+  unavailableToolsNote,
+} from '@electron/features/tool-loadout';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import {
   restrictSearchToolOrigins,
@@ -34,7 +41,7 @@ import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-conte
 
 import { clampProposal, describeGrantAuthority } from './clamp';
 import { fitsDelegationPolicy, type DelegationLink } from './delegation-policy';
-import { applyPermissionProfile } from './permission-tools';
+import { classifyUnavailableTools, resolveMemberToolSurface } from './tool-surface';
 import { createMemberRuntimeTools } from './member-runtime-tools';
 import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
@@ -213,11 +220,15 @@ export async function installPersistentSessions(
     },
     buildSessionInputs: async (input) => {
       const infra = await ensureAiInfra();
-      // Second filter, after the allowlist: a profile that restricts nothing is
-      // decorative, and the approval dialog described the profile.
-      const { allowed, removed } = applyPermissionProfile(input.tools, input.policy.permissionProfile);
-      if (removed.length > 0) {
-        console.warn(`[persistent-sessions] permission profile removed: ${removed.join(', ')}`);
+      // The session registers everything the approval allows, after the profile
+      // (the second filter: a profile that restricts nothing is decorative, and
+      // the approval dialog described the profile). The request's tools only
+      // choose what starts loaded; the rest are deferred for `tool_search`.
+      const surface = resolveMemberToolSurface(input.policy, input.tools);
+      const allowed = surface.authorized;
+      const loadout = new Set(surface.loadout);
+      if (surface.denied.length > 0) {
+        console.warn(`[persistent-sessions] permission profile removed: ${surface.denied.join(', ')}`);
       }
       // The CLI scope of this session. Pi names its own session only after the
       // session exists, and the CLI registry needs the name BEFORE that — so the
@@ -240,14 +251,94 @@ export async function installPersistentSessions(
       const toolCwd = memberRuntime.backend === 'host' || !hostWorkspacePath
         ? input.cwd
         : toRuntimeCwd(hostWorkspacePath, input.cwd);
-      const runtimeTools = await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId);
+      const runtimeTools = deferToolsOutside(
+        await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId, surface.loadout),
+        loadout,
+      );
+      // Pi's `tool_search` is only worth its prompt text when a deferred tool
+      // exists to find. It joins the tool list below, once the loaded plugins
+      // show that one does.
+      const canDefer = allowed.some((name) => !loadout.has(name));
+      let hasDeferredTool = runtimeTools.some((tool) => !loadout.has(tool.name));
+      let unavailableNote: string | null = null;
       // The grant-owning app and the search plugin always load. Any other plugin
       // loads only because an approved tool comes from it, and only that tool
       // is kept from it.
       const basePackages = [target.manifest.packagePath, ...searchPluginPackages()];
       const approvedPackages = approvedToolPackages(allowed, basePackages);
+      const resourceLoader = await createMemberResourceLoader({
+        cwd: input.cwd,
+        // The POLICY's skills, intersected with what the request asked for —
+        // the request alone would be the caller's word for it.
+        allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
+        appendSystemPrompt: input.systemPromptAdditions,
+        settingsManager: infra.settingsManager,
+        // The app that holds the grant, plus the built-in search plugin. The
+        // search tools are read-only and the permission profile still gates
+        // them, so a member approved for `filesystem: 'read'` can find a file
+        // instead of guessing its path; a member approved for none cannot.
+        packages: [...basePackages, ...approvedPackages],
+        lateAppendSystemPrompt: () => {
+          if (!unavailableNote) return [];
+          // The addition cap is the user's bound on prompt text a caller can add.
+          // The host's own line counts against it, and never fails the open.
+          const used = input.systemPromptAdditions.reduce((total, line) => total + Buffer.byteLength(line, 'utf8'), 0);
+          if (used + Buffer.byteLength(unavailableNote, 'utf8') > input.policy.maxSystemPromptAdditionBytes) {
+            console.warn(`[persistent-sessions] ${input.subject} unavailable-tools note skipped: ${unavailableNote}`);
+            return [];
+          }
+          return [unavailableNote];
+        },
+        extensionFactories: [
+          ...(canDefer ? [createSeroToolSearchExtension()] : []),
+          createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
+            // No agent-management tools: a Room member must not be able to
+            // spawn agents outside the roster the user approved.
+            enableAgentManagementTools: false,
+            cliRegistry,
+          }),
+        ],
+        bridgeExtensions: (base) => {
+          // Apply this to every member. The grant-owning app is loaded beside
+          // FFF and could otherwise replace an approved search name with a
+          // different implementation, regardless of its permission profile.
+          const restricted = restrictSearchToolOrigins(base);
+          const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
+          const provided = new Set([
+            'sero-cli',
+            ...runtimeTools.map((tool) => tool.name),
+            ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
+          ]);
+          const missing = allowed.filter((name) => !provided.has(name));
+          if (missing.length > 0) {
+            console.warn(`[persistent-sessions] ${input.subject} approved tools not provided: ${missing.join(', ')}`);
+          }
+          const bridged = bridgeExtensionTools(forMember, { sessionId: cliScopeId, registry: cliRegistry });
+          // Registered but not declared: `tool_search` finds these. Bridged tools
+          // are already gone from the list; they stay reachable as commands.
+          if (deferExtensionTools(bridged, loadout).length > 0) hasDeferredTool = true;
+          unavailableNote = unavailableToolsNote(classifyUnavailableTools(surface, provided));
+          // The one line that says whether the member can talk at all. A Room
+          // whose members hold no `room` command looks like a Room that has
+          // nothing to say, so the commands and any extension that failed to
+          // load are both worth a line of log.
+          const commands = cliRegistry.list({ sessionId: cliScopeId }).map((command) => command.name);
+          console.log(
+            `[persistent-sessions] ${input.subject} commands: ${commands.join(', ') || 'none'}`
+            + ` (from ${bridged.extensions.map((extension) => extension.resolvedPath).join(', ') || 'no extensions'})`,
+          );
+          for (const failure of bridged.errors) {
+            console.log(`[persistent-sessions] ${input.subject} extension failed: ${failure.path}: ${failure.error}`);
+          }
+          return bridged;
+        },
+      });
       return {
-        tools: allowed,
+        // The names that load into the session, deferred ones included. Pi
+        // registers exactly these, so naming `tool_search` here is what switches it on.
+        tools: hasDeferredTool ? [...allowed, TOOL_SEARCH_TOOL_NAME] : allowed,
+        // Pi declares every named tool at open, so the loadout is set by hand.
+        ...(hasDeferredTool ? { initialTools: [...surface.loadout, TOOL_SEARCH_TOOL_NAME] } : {}),
         modelRuntime: infra.modelRuntime,
         settingsManager: infra.settingsManager,
         // Without this the session has no `sero-cli` tool object at all, so the
@@ -257,57 +348,7 @@ export async function installPersistentSessions(
           createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry),
           ...runtimeTools,
         ],
-        resourceLoader: await createMemberResourceLoader({
-          cwd: input.cwd,
-          // The POLICY's skills, intersected with what the request asked for —
-          // the request alone would be the caller's word for it.
-          allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
-          appendSystemPrompt: input.systemPromptAdditions,
-          settingsManager: infra.settingsManager,
-          // The app that holds the grant, plus the built-in search plugin. The
-          // search tools are read-only and the permission profile still gates
-          // them, so a member approved for `filesystem: 'read'` can find a file
-          // instead of guessing its path; a member approved for none cannot.
-          packages: [...basePackages, ...approvedPackages],
-          extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
-              // No agent-management tools: a Room member must not be able to
-              // spawn agents outside the roster the user approved.
-              enableAgentManagementTools: false,
-              cliRegistry,
-            }),
-          ],
-          bridgeExtensions: (base) => {
-            // Apply this to every member. The grant-owning app is loaded beside
-            // FFF and could otherwise replace an approved search name with a
-            // different implementation, regardless of its permission profile.
-            const restricted = restrictSearchToolOrigins(base);
-            const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
-            const provided = new Set([
-              'sero-cli',
-              ...runtimeTools.map((tool) => tool.name),
-              ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
-            ]);
-            const missing = allowed.filter((name) => !provided.has(name));
-            if (missing.length > 0) {
-              console.warn(`[persistent-sessions] ${input.subject} approved tools not provided: ${missing.join(', ')}`);
-            }
-            const bridged = bridgeExtensionTools(forMember, { sessionId: cliScopeId, registry: cliRegistry });
-            // The one line that says whether the member can talk at all. A Room
-            // whose members hold no `room` command looks like a Room that has
-            // nothing to say, so the commands and any extension that failed to
-            // load are both worth a line of log.
-            const commands = cliRegistry.list({ sessionId: cliScopeId }).map((command) => command.name);
-            console.log(
-              `[persistent-sessions] ${input.subject} commands: ${commands.join(', ') || 'none'}`
-              + ` (from ${bridged.extensions.map((extension) => extension.resolvedPath).join(', ') || 'no extensions'})`,
-            );
-            for (const failure of bridged.errors) {
-              console.log(`[persistent-sessions] ${input.subject} extension failed: ${failure.path}: ${failure.error}`);
-            }
-            return bridged;
-          },
-        }),
+        resourceLoader,
       };
     },
     log: (message) => console.warn(`[persistent-sessions] ${message}`),

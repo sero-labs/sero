@@ -14,6 +14,7 @@ import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createSubagentExtensionFactory } from './loader';
 import { createSeroCodemodeExtension } from '@electron/features/codemode';
+import { createSeroToolSearchExtension } from '@electron/features/tool-loadout';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   filterCompatiblePluginAgentsFiles,
@@ -75,6 +76,8 @@ export interface SubagentResourceLoaderOptions {
   bridgePluginTools?: boolean;
   /** Keep tools that their plugin declares for other kinds of session. Only the catalogue enumeration sets this. */
   keepToolsForOtherSessionKinds?: boolean;
+  /** Load Pi's `tool_search` so tools the run defers can be found. */
+  toolSearch?: boolean;
 }
 
 /**
@@ -101,6 +104,8 @@ export function createSubagentResourceLoader(
       ),
       // Every subagent session loads Pi's `codemode`, the same tool a chat gets.
       createSeroCodemodeExtension(),
+      // Pi's `tool_search`, registered inactive. The run switches it on only when it defers tools.
+      ...(options.toolSearch ? [createSeroToolSearchExtension()] : []),
     ],
     skillsOverride: (base) => {
       const filtered = loadSubagentSkills(base);
