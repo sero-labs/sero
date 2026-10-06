@@ -102,8 +102,15 @@ async function handleRequest(
     sendJson(res, 401, { output: 'Unauthorized', exitCode: 1 });
     return;
   }
-  if (!isScopedSessionValid(scope.workspaceId, scope.sessionId)) {
-    sendJson(res, 401, { output: 'Unauthorized session', exitCode: 1 });
+  const sessionState = scopedSessionState(scope.workspaceId, scope.sessionId);
+  if (sessionState !== 'valid') {
+    // A managed session (an Architect owner, a Room member) is not a chat. Its
+    // commands are checked by the sero-cli tool, so the shell path stays closed,
+    // and the refusal says where to go instead of leaving the agent to guess.
+    const output = sessionState === 'not-a-chat'
+      ? 'This session cannot run sero from the shell. Run the same command with the sero-cli tool.'
+      : 'Unauthorized session';
+    sendJson(res, 401, { output, exitCode: 1 });
     return;
   }
 
@@ -151,13 +158,14 @@ function authenticateBridgeRequest(authorization: string | undefined) {
   return consumeSeroCliBridgeTokenScope(authorization.slice(prefix.length));
 }
 
-function isScopedSessionValid(workspaceId: string, sessionId: string | null): boolean {
-  if (!sessionId) return true;
+function scopedSessionState(workspaceId: string, sessionId: string | null): 'valid' | 'invalid' | 'not-a-chat' {
+  if (!sessionId) return 'valid';
   try {
     const entry = getCliSessionBridge().getSessionEntry(sessionId);
-    return entry?.workspaceId === workspaceId;
+    if (!entry) return 'not-a-chat';
+    return entry.workspaceId === workspaceId ? 'valid' : 'invalid';
   } catch {
-    return false;
+    return 'invalid';
   }
 }
 
