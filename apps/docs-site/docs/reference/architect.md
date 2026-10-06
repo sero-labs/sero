@@ -23,8 +23,8 @@ unsupported thinking level is refused, and the reason is reported.
 | --- | --- |
 | Project | one idea, its folder, workspace, owner session, charter, milestones, decisions, directives, budget and history |
 | Owner | the persistent agent session for one project; the runtime runs it on the project's behalf |
-| Charter | the brief, milestone list, cost cap and autonomy setting proposed after discovery and approved by you |
-| Milestone | one unit of work, dispatched as a Workflow or a Room and closed only on evidence |
+| Charter | the brief, milestone list, cost cap and autonomy setting proposed after discovery and approved by you; only the deprecated charter flow uses it |
+| Milestone | one unit of work, dispatched as a Workflow or a Room or done by the owner itself, and closed only on evidence |
 | Decision | a question raised to you with options, consequences, a recommendation and a reason |
 | Directive | a message from you to the owner; it replies once |
 | Evidence | command results and a diff summary recorded by the runtime at a named commit; preview milestones also include a capture |
@@ -44,7 +44,7 @@ every write from the record's flags and is never set by hand.
 | --- | --- |
 | `planned` | on the charter, no plan approved yet |
 | `approved` | the plan is approved; the owner may dispatch it |
-| `running` | a Workflow or Room is running it |
+| `running` | a Workflow, a Room or the owner is running it |
 | `verifying` | the work reported completion; the runtime is checking the evidence |
 | `done` | accepted on verified evidence |
 | `parked` | waiting on an open decision; returns to its previous status when answered |
@@ -63,12 +63,13 @@ The runtime wakes the owner for these events, highest priority first:
 | `dispatch-blocked` | a Workflow or Room needs input or stopped |
 | `dispatch-complete` | a Workflow or Room finished and the evidence check ran |
 | `external-event` | the maintenance Workflow ran for an issue, a CI failure or its schedule |
+| `continue` | the owner asked for another turn on a milestone it does itself |
 | `quiet` | the project was created, research finished, or planned work remains |
 
 One wake runs at a time. Wakes of the same kind merge. Ordinary work does not
 wake the owner while the project is paused, limited, blocked or stopped.
 Directives and decision responses can still wake it. Every wake ends with one
-of `sleep`, `decide` or `blocked`; three turns in a row with no outcome
+of `sleep`, `decide`, `blocked` or `work --operation continue`; three turns in a row with no outcome
 block the project.
 
 ## Owner tool
@@ -85,6 +86,7 @@ project id and is refused for any session that is not that project's owner.
 | `decide` | raises a decision and parks the milestones it names |
 | `research` | asks the runtime to run a structured research subagent |
 | `dispatch` | asks the runtime to create a Workflow or a Room for a milestone |
+| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, or `--operation report --executionId <id> --text "..." [--destination workspace-files]`; see Direct work |
 | `evidence` | asks the runtime to run the checks; the owner cannot attach results itself |
 | `status` | reads the record |
 | `reply` | answers the open directive |
@@ -116,6 +118,47 @@ The user's chat and the project page use `architect_projects`.
 
 `pause` and `stop` do not cancel a running Workflow or Room. `delete` removes
 the record and the owner session's grant; files in the folder stay.
+
+## Direct work
+
+The owner can do a milestone itself instead of dispatching it. The `work`
+action refuses the request unless all of these hold:
+
+- the project was made under an agreement, not the deprecated charter flow;
+- the project runs in **Workspace** execution mode;
+- the milestone is not linked to an OpenSpec change;
+- the project is in `build`, `release` or `maintain` and has no overlay;
+- no Workflow or Room is writing the project folder.
+
+| Operation | Effect |
+| --- | --- |
+| `begin` | saves the execution identity and starts the work. A repeated call returns the same execution |
+| `continue` | ends the wake and requests a `continue` wake. A directive without a reply must be answered first |
+| `report` | records a completion claim for the current execution and moves the milestone to `verifying` |
+
+The identity holds the execution id, the run, the owner session, the folder,
+the starting commit and content, and the requirement revision. It is saved
+before any file changes. A report for replaced work, or for requirements that
+changed after the work started, is refused.
+
+A `continue` wake queues behind every other wake. A pause, a block or the cost
+cap holds it. No rule stops the work for making no progress. The run inspector
+shows the continuations in a row that changed no file.
+
+A stopped turn, a time limit or a restart sets the work to `interrupted`. The
+files and the identity stay and nothing is taken as complete. The owner resumes
+with `continue`.
+
+A report is a claim and leaves the milestone at `reported`. Evidence,
+acceptance and delivery follow the same rules as for dispatched work. The
+owner's own test runs are a self-check, not an independent review. With
+`--destination workspace-files`, the project folder is the delivery receipt and
+the milestone is `delivered` once it is accepted. Any other destination is
+refused: dispatch the delivery. With no destination, the milestone can be
+accepted and not delivered.
+
+On the project page, the milestone list shows `architect` as the kind. The link
+reads **Watch work** while the work runs and **Evidence** after the report.
 
 ## Forced escalations
 

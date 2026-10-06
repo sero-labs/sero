@@ -31,6 +31,19 @@ forwards the owner's current turn on `architect-owner-live`, and asks the
 Orchestrator Room handle for a linked Room's members, only while a Work view
 holds a lease.
 
+## Direct work
+
+The owner can do a milestone itself. `shared/direct-execution.ts` holds the
+execution record and its transitions: begin, continue, report and interrupt.
+`runtime/owner-direct.ts` runs the `work` action and its refusals (agreement
+projects only, Workspace mode only, no OpenSpec-linked milestone).
+`runtime/execution-location.ts` (`projectWriter`) keeps the owner's work and
+any Workflow or Room that writes the project folder from running together.
+`continue` is a wake kind in `shared/wake.ts`, delivered in `runtime/index.ts`.
+A report is a claim: evidence and acceptance are unchanged. Interrupted work
+keeps its files and identity. The owner contract text is `DIRECT_WORK_HELP` in
+`shared/owner-contract.ts`.
+
 ## Where things live
 
 Persistent data is stored under `<SERO_HOME>/apps/architect/`. The host watches
