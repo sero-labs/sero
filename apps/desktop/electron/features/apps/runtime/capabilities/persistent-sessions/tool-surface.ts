@@ -19,8 +19,12 @@ import { getToolPackagePath } from '@electron/features/subagent/runtime/tool-cat
 import type { UnavailableTool } from '@electron/features/tool-loadout';
 import { applyPermissionProfile } from './permission-tools';
 
-/** The one command surface every member needs from the first turn. It is never deferred. */
-const ALWAYS_LOADED = 'sero-cli';
+/**
+ * Never deferred. `sero-cli` is the command surface every member needs from the
+ * first turn. Pi's `tool_search` cannot find `codemode`, so an approved Code
+ * Mode has to start loaded or the session could never reach it.
+ */
+const ALWAYS_LOADED: readonly string[] = ['sero-cli', CODEMODE_TOOL_NAME];
 
 export interface MemberToolSurface {
   /** Everything the session registers: the approved list after the profile. */
@@ -37,14 +41,12 @@ export function resolveMemberToolSurface(
 ): MemberToolSurface {
   const { allowed: authorized, removed: denied } = applyPermissionProfile(policy.allowedTools, policy.permissionProfile);
   const wanted = new Set(requested);
-  const loadout = authorized.filter((name) => wanted.has(name) || name === ALWAYS_LOADED);
+  const loadout = authorized.filter((name) => wanted.has(name) || ALWAYS_LOADED.includes(name));
   return { authorized, loadout, denied };
 }
 
 /** Whether a member session can never have this tool, whatever the approval says. */
 export function isWithheldFromMembers(name: string): boolean {
-  // A member session never loads Code Mode.
-  if (name === CODEMODE_TOOL_NAME) return true;
   const packagePath = getToolPackagePath(name);
   return !!packagePath && !isToolForSessionKind(path.join(packagePath, 'package.json'), name, 'member');
 }

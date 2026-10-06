@@ -27,6 +27,12 @@ const VCS_WRITE_TOOLS = ['git_push', 'gh', 'git_commit', 'create_pr', 'git_manag
 const VCS_COMMIT_TOOLS = ['git_commit'];
 const READ_TOOLS = ['read', 'read_file', 'read_files', 'cat', 'ls', 'list_files', 'tree', 'find', 'glob', 'grep', 'multi_grep', 'ripgrep', 'file_search'];
 const ROOM_PROTOCOL_TOOLS = ['sero-cli'];
+/**
+ * Code Mode confers nothing of its own. A script can call only the tools the
+ * session registered, and those are this same filtered list, so each call
+ * still meets the profile.
+ */
+const SCRIPT_TOOLS = ['codemode'];
 
 function matches(tool: string, group: readonly string[]): boolean {
   const name = tool.toLowerCase();
@@ -52,6 +58,7 @@ export function applyPermissionProfile(
     if (matches(tool, VCS_WRITE_TOOLS)) return profile.vcs === 'push';
     if (matches(tool, READ_TOOLS)) return profile.filesystem !== 'none';
     if (matches(tool, ROOM_PROTOCOL_TOOLS)) return true;
+    if (matches(tool, SCRIPT_TOOLS)) return true;
     return false;
   };
 

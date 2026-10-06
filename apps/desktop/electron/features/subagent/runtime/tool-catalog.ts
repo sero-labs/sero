@@ -24,7 +24,6 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { isToolForSessionKind, onPluginBridgePolicyCleared, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
 import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
-import { CODEMODE_TOOL_NAME } from '@electron/features/codemode';
 import { createSubagentResourceLoader } from './resource-loader';
 
 /**
@@ -125,8 +124,6 @@ export function getToolPackagePath(toolName: string): string | undefined {
  */
 export function getToolCatalogFor(kind: ToolSessionKind): ContextToolInfo[] {
   return [...catalog.values()].filter((tool) => {
-    // The warm-up session loads `codemode`, and a member session does not.
-    if (kind === 'member' && tool.name === CODEMODE_TOOL_NAME) return false;
     const packagePath = toolPackages.get(tool.name);
     if (!packagePath) return true;
     if (kind === 'member' && !seenThisProcess.has(tool.name)) return false;

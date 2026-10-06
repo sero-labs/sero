@@ -337,14 +337,39 @@ describe('authorized tools versus the initial loadout', () => {
     expect(loader.loaderOptions.extensionFactories).toHaveLength(1);
   });
 
-  it('names a tool the profile removed, one this kind of session cannot have and one with no plugin', async () => {
-    const { inputs, late } = await build(['read', 'write', 'codemode', 'web_search', 'sero-cli'], ['read']);
+  it('names a tool the profile removed and one with no plugin', async () => {
+    const { inputs, late } = await build(['read', 'write', 'web_search', 'sero-cli'], ['read']);
 
     expect(inputs.tools).not.toContain('write');
     expect(late).toHaveLength(1);
     expect(late[0]).toContain('write (outside the approval)');
-    expect(late[0]).toContain('codemode (not available to this kind of session)');
     expect(late[0]).toContain('web_search (its plugin is not installed)');
+  });
+
+  it('loads Code Mode for a session approved for it, switched on from the first turn', async () => {
+    const { inputs, late, loader } = await build(['read', 'codemode', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).toContain('codemode');
+    // Search cannot find Code Mode, so it starts loaded although the request did not name it.
+    expect(inputs.initialTools).toEqual(['read', 'codemode', 'sero-cli']);
+    expect(late).toEqual([]);
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(2);
+  });
+
+  it('does not load Code Mode for a session that was not approved for it', async () => {
+    const { inputs, loader } = await build(['read', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).not.toContain('codemode');
+    expect(inputs.initialTools).toBeUndefined();
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(1);
+  });
+
+  it('keeps a script inside a read-only approval: the write tool is never registered', async () => {
+    const { inputs } = await build(['read', 'write', 'codemode', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).toContain('codemode');
+    expect(inputs.tools).not.toContain('write');
+    expect((inputs.customTools ?? []).filter(Boolean).map((tool) => tool.name)).not.toContain('write');
   });
 
   it('skips the note instead of failing the open when it does not fit the addition cap', async () => {

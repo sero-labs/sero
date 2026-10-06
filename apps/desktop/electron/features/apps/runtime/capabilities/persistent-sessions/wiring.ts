@@ -32,6 +32,7 @@ import {
   TOOL_SEARCH_TOOL_NAME,
   unavailableToolsNote,
 } from '@electron/features/tool-loadout';
+import { CODEMODE_TOOL_NAME, createSeroCodemodeExtension } from '@electron/features/codemode';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import {
   restrictSearchToolOrigins,
@@ -298,6 +299,7 @@ export async function installPersistentSessions(
       // exists to find. It joins the tool list below, once the loaded plugins
       // show that one does.
       const canDefer = allowed.some((name) => !loadout.has(name));
+      const codemodeApproved = allowed.includes(CODEMODE_TOOL_NAME);
       let hasDeferredTool = runtimeTools.some((tool) => !loadout.has(tool.name));
       let unavailableNote: string | null = null;
       // The grant-owning app and the search plugin always load. Any other plugin
@@ -330,6 +332,8 @@ export async function installPersistentSessions(
         },
         extensionFactories: [
           ...(canDefer ? [createSeroToolSearchExtension()] : []),
+          // Approved by name like any other tool. Without the approval the extension is not loaded at all.
+          ...(codemodeApproved ? [createSeroCodemodeExtension()] : []),
           createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
             // No agent-management tools: a Room member must not be able to
             // spawn agents outside the roster the user approved.
@@ -345,6 +349,7 @@ export async function installPersistentSessions(
           const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
           const provided = new Set([
             'sero-cli',
+            ...(codemodeApproved ? [CODEMODE_TOOL_NAME] : []),
             ...runtimeTools.map((tool) => tool.name),
             ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
           ]);
@@ -377,7 +382,10 @@ export async function installPersistentSessions(
         // registers exactly these, so naming `tool_search` here is what switches it on.
         tools: hasDeferredTool ? [...allowed, TOOL_SEARCH_TOOL_NAME] : allowed,
         // Pi declares every named tool at open, so the loadout is set by hand.
-        ...(hasDeferredTool ? { initialTools: [...surface.loadout, TOOL_SEARCH_TOOL_NAME] } : {}),
+        // Pi registers `codemode` switched off, so an approved one is switched on by name here too.
+        ...(hasDeferredTool || codemodeApproved
+          ? { initialTools: [...surface.loadout, ...(hasDeferredTool ? [TOOL_SEARCH_TOOL_NAME] : [])] }
+          : {}),
         modelRuntime: infra.modelRuntime,
         settingsManager: infra.settingsManager,
         // Without this the session has no `sero-cli` tool object at all, so the
