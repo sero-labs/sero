@@ -275,13 +275,18 @@ describe('amending the grant of a running Room', () => {
     kind: 'replace-member',
     memberId: 'scout',
     replacement: blueprintMember({
-      key: 'scout-2', displayName: 'Scout Two', role: 'Researcher', isConductor: false, tools: ['read'],
+      key: 'scout-2', displayName: 'Scout Two', role: 'Researcher', isConductor: false, tools: ['read'], model: 'anthropic/sonnet',
     }),
     handover: 'Carry on with the docs survey.',
   };
 
   beforeEach(async () => {
     sessions = host.persistentSessions;
+    host.availableModels = [{
+      provider: 'anthropic', displayName: 'Anthropic', logo: '',
+      models: ['sonnet', 'opus'].map((modelId) => ({ provider: 'anthropic', modelId, name: modelId, reasoning: true })),
+    }];
+    host.toolCatalog = ['read', 'write', 'web_fetch', 'bash'].map((name) => ({ name }));
     const room = roomFixture(envelopeWith(), MEMBERS);
     const grant = await requestRoomGrant(host, room);
     await store.updateState((state) => ({
@@ -480,5 +485,83 @@ describe('amending the grant of a running Room', () => {
     expect(sessions.grantState.get('grant-1')?.revision).toBe(1);
     expect(sessions.consumed.get('grant-1')).toBe(1);
     expect(record?.runtime.usage.memberReplacements).toBe(1);
+  });
+
+  it('declines a model the host does not have before it asks the host anything', async () => {
+    const revision = await proposeAmended({
+      kind: 'change-configuration', memberId: 'scout', configuration: { model: 'ghost/none' },
+    }, 'cmd-ghost');
+    await amendments.settled(ROOM);
+
+    expect(sessions.amendments).toHaveLength(0);
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'declined', rejectionReason: expect.stringContaining('ghost/none') });
+    expect((await store.readMember(ROOM, 'scout'))?.configurationChange).toMatchObject({ state: 'declined', workPaused: false });
+    expect((await store.readRoom(ROOM))?.definition.grantRevision).toBe(0);
+  });
+
+  it('applies the tools the host granted and says which one it did not', async () => {
+    sessions.clampSubject = (policy) => ({ ...policy, allowedTools: policy.allowedTools.filter((tool) => tool !== 'bash') });
+    const revision = await proposeAmended({
+      kind: 'change-configuration', memberId: 'scout', configuration: { tools: ['read', 'bash'] },
+    }, 'cmd-bash');
+    await amendments.settled(ROOM);
+    expect(await amendments.approve(ROOM, revision.id)).toEqual({ ok: true });
+
+    const scout = await store.readMember(ROOM, 'scout');
+    expect(scout?.configuration.tools).toEqual(['read']);
+    expect(sessions.requests.at(-1)?.tools).not.toContain('bash');
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'applied', amendment: { reason: expect.stringContaining('bash') } });
+  });
+
+  it('keeps a member stopped, and refuses a local decline, when the host committed a model the Room cannot use', async () => {
+    sessions.clampSubject = (policy) => ({ ...policy, allowedModels: [] });
+    const revision = await proposeAmended({
+      kind: 'change-configuration', memberId: 'scout', configuration: { model: 'anthropic/opus' },
+    }, 'cmd-opus');
+    await amendments.settled(ROOM);
+    await amendments.approve(ROOM, revision.id);
+
+    const scout = await store.readMember(ROOM, 'scout');
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+    expect(scout?.configurationChange).toMatchObject({ state: 'held', workPaused: true });
+    expect(scout?.configuration.model).toBe('sonnet');
+    expect(await amendments.decline(ROOM, revision.id)).toMatchObject({ ok: false });
+    expect(await revisionOf(revision.id)).toMatchObject({ outcome: 'held' });
+  });
+
+  describe('roster additions that are still waiting', () => {
+    const join = (key: string): RoomRevisionProposal => ({
+      kind: 'add-member',
+      member: blueprintMember({ key, displayName: key, role: 'Researcher', isConductor: false, tools: ['read'], model: 'anthropic/sonnet' }),
+    });
+    const proposeJoin = (key: string, commandId: string) => applyRoomRevision({ ...deps, amendments }, {
+      roomId: ROOM, proposal: join(key), actorMemberId: 'lead', reason: 'the Room needs it', commandId,
+    });
+
+    it('does not let a second pending addition take the last place, or the same key', async () => {
+      expect(await proposeJoin('extra-1', 'cmd-j1')).toMatchObject({ outcome: 'pending' });
+      expect(await proposeJoin('extra-2', 'cmd-j2')).toMatchObject({ outcome: 'refused', reason: expect.stringContaining('maximum') });
+      await store.updateRoom(ROOM, (record) => ({
+        ...record, definition: { ...record.definition, envelope: { ...record.definition.envelope, maxMembers: 6 } },
+      }));
+      expect(await proposeJoin('extra-1', 'cmd-j3')).toMatchObject({ outcome: 'refused', reason: expect.stringContaining('already a member') });
+    });
+
+    it('declines a waiting change that no longer fits when the host is about to be asked', async () => {
+      const stuck = runnerFor({ settled: () => new Promise<void>(() => undefined) });
+      const result = await applyRoomRevision({ ...deps, amendments: stuck }, {
+        roomId: ROOM, proposal: replaceScout, actorMemberId: 'lead', reason: 'the Room needs it', commandId: 'cmd-j4',
+      });
+      if (result.outcome !== 'pending') throw new Error('expected pending');
+      // The Room's replacement budget is lowered while the change waits.
+      await store.updateRoom(ROOM, (record) => ({
+        ...record, definition: { ...record.definition, envelope: { ...record.definition.envelope, maxMemberReplacements: 0 } },
+      }));
+
+      await runnerFor().reconcile();
+
+      expect(sessions.amendments).toHaveLength(0);
+      expect(await revisionOf(result.revision.id)).toMatchObject({ outcome: 'declined', rejectionReason: expect.stringContaining('replacements') });
+    });
   });
 });

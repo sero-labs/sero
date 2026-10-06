@@ -78,7 +78,7 @@ export class GoalRuntime {
     private readonly store: GoalStore,
     private readonly drivers: SessionDrivers,
   ) {
-    this.waits = new GoalWaitWatcher({ host, store, claim: (goalId, sessionPath) => this.claimSession(goalId, sessionPath) });
+    this.waits = new GoalWaitWatcher({ host, store, claim: (goalId, sessionPath) => this.claimSession(goalId, sessionPath), release: (goalId, sessionId) => this.drivers.release(sessionId, goalId) });
   }
 
   private ctx(): { now: string } {
@@ -355,13 +355,17 @@ export class GoalRuntime {
   }
 
   async pause(goalId: string, pauseReason: GoalPauseReason, reason: string): Promise<GoalOutcome> {
-    const goal = await this.store.get(goalId);
+    // Read-modify-write on the freshest record, so a wake that lands first is paused, not overwritten.
+    let changed = false;
+    const goal = await this.store.update(goalId, (current) => {
+      if (current.status === 'complete' || current.closedAt || current.status === 'paused') return current;
+      changed = true;
+      return pause(this.leaveActive(current), pauseReason, reason, this.ctx());
+    });
     if (!goal) return failure(`No goal ${goalId}.`);
     if (goal.status === 'complete' || goal.closedAt) return failure(`Goal ${goalId} is finished.`);
-    if (goal.status === 'paused') return { ok: true, text: `Goal ${goalId} is already paused.`, goal };
-    const next = pause(this.leaveActive(goal), pauseReason, reason, this.ctx());
-    await this.store.put(next);
-    return { ok: true, text: `Goal ${goalId} is paused: ${reason}`, goal: next };
+    if (!changed) return { ok: true, text: `Goal ${goalId} is already paused.`, goal };
+    return { ok: true, text: `Goal ${goalId} is paused: ${reason}`, goal };
   }
 
   /**
@@ -389,12 +393,15 @@ export class GoalRuntime {
 
   /** Ends the goal without claiming it was met. The record and its history stay. */
   async stop(goalId: string): Promise<GoalOutcome> {
-    const goal = await this.store.get(goalId);
+    let changed = false;
+    const goal = await this.store.update(goalId, (current) => {
+      if (current.status === 'complete' || current.closedAt) return current;
+      changed = true;
+      return { ...pause(this.leaveActive(stopWaits(current, this.host.now())), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
+    });
     if (!goal) return failure(`No goal ${goalId}.`);
-    if (goal.status === 'complete' || goal.closedAt) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
-    const stopped = { ...pause(this.leaveActive(stopWaits(goal, this.host.now())), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
-    await this.store.put(stopped);
-    return { ok: true, text: `Goal ${goalId} is stopped.`, goal: stopped };
+    if (!changed) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
+    return { ok: true, text: `Goal ${goalId} is stopped.`, goal };
   }
 
   /** Permanently removes a finished Goal record and its watched-index entry. */

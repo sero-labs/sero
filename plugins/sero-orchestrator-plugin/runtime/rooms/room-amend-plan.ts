@@ -13,8 +13,13 @@
 
 import type { RoomChangeValue } from '../../shared/room-amendment-types';
 import type { ConfigurationPatch, RoomRevisionProposal } from '../../shared/room-revision-types';
+import type { RoomRevision } from '../../shared/room-message-types';
 import type { Room, RoomMember } from '../../shared/room-types';
+import { toMemberRecord } from './member-grant';
 import { planRoomRevision, type RevisionPlan } from './room-revision-plan';
+
+/** A Room record, which also carries the revisions saved on it. */
+type RoomWithRevisions = Room & { revisions?: RoomRevision[] };
 
 const refuse = (reason: string): RevisionPlan => ({ verdict: 'refuse', reason });
 
@@ -65,15 +70,37 @@ function planConfiguration(room: Room, memberId: string, patch: ConfigurationPat
 }
 
 /**
+ * The Room as it will be once the roster changes already waiting have landed, so
+ * a second addition cannot take the place or the key a pending one already has.
+ */
+function withPendingRoster(room: RoomWithRevisions): Room {
+  let members = room.members;
+  for (const revision of room.revisions ?? []) {
+    const proposal = revision.proposal;
+    const state = revision.amendment?.state;
+    if (!proposal || (state !== 'pending' && state !== 'held')) continue;
+    if (proposal.kind !== 'add-member' && proposal.kind !== 'replace-member') continue;
+    const joining = proposal.kind === 'add-member' ? proposal.member : proposal.replacement;
+    if (proposal.kind === 'replace-member') {
+      members = members.map((member) => member.id === proposal.memberId ? { ...member, status: 'retired' as const } : member);
+    }
+    if (!members.some((member) => member.id === joining.key)) {
+      members = [...members, toMemberRecord(joining, room.definition.id, revision.createdAt, '')];
+    }
+  }
+  return { ...room, members };
+}
+
+/**
  * Joining and replacing keep every rule the draft path has (safe key, one
  * Conductor, roster budget, a handover). Only the "the grant cannot grow"
  * refusal goes: the host now decides what the grant can hold.
  */
-function planRoster(room: Room, proposal: RoomRevisionProposal, actorMemberId: string): RevisionPlan {
+function planRoster(room: RoomWithRevisions, proposal: RoomRevisionProposal, actorMemberId: string): RevisionPlan {
   if (proposal.kind !== 'add-member' && proposal.kind !== 'replace-member') return refuse('Not a roster change.');
   const joining = proposal.kind === 'add-member' ? proposal.member : proposal.replacement;
   // The base rules are re-used on a copy with no grant, so none of them is written twice.
-  const base = planRoomRevision({ ...room, definition: { ...room.definition, grantId: null } }, proposal, actorMemberId);
+  const base = planRoomRevision({ ...withPendingRoster(room), definition: { ...room.definition, grantId: null } }, proposal, actorMemberId);
   if (base.verdict === 'refuse' || base.verdict === 'amend') return base;
   if (joining.needsWorktree) {
     return refuse(`${joining.displayName} needs its own checkout, which a running Room cannot create yet.`);
@@ -90,7 +117,7 @@ function planRoster(room: Room, proposal: RoomRevisionProposal, actorMemberId: s
 
 /** `planRoomRevision`, except that a Room holding a grant routes setup and roster changes through it. */
 export function planAmendableRevision(
-  room: Room,
+  room: RoomWithRevisions,
   proposal: RoomRevisionProposal,
   actorMemberId: string,
 ): RevisionPlan {

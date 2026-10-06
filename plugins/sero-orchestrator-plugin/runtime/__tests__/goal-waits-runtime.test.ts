@@ -175,6 +175,45 @@ describe('user controls govern a Goal wake', () => {
   });
 });
 
+describe('a wake that is deciding while the user stops or pauses', () => {
+  async function heldAtClaim() {
+    const ctx = setup();
+    const goal = await ctx.started();
+    await ctx.park(goal);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const read = ctx.host.session.getActiveForWorkspace;
+    ctx.host.session.getActiveForWorkspace = async (...args) => { await gate; return read(...args); };
+    ctx.setLoop('complete');
+    const waking = ctx.runtime.observeState(ctx.host.state);
+    // Let the wake reach its wait for the session before the user acts.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return { ...ctx, goal, waking, release };
+  }
+
+  it('leaves a pause the user made while the wake waited for the session', async () => {
+    const { runtime, drivers, goal, waking, release } = await heldAtClaim();
+    await runtime.pause(goal.id, 'user', 'the user paused the goal');
+    release();
+    await waking;
+    expect(woken).toHaveLength(0);
+    expect(await runtime.forSession(SESSION)).toMatchObject({ status: 'paused', pauseReason: 'user' });
+    // The session was not left claimed for a wake that did not happen.
+    expect(drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' }).ok).toBe(true);
+  });
+
+  it('leaves a stop the user made while the wake waited for the session', async () => {
+    const { runtime, goal, waking, release } = await heldAtClaim();
+    await runtime.stop(goal.id);
+    release();
+    await waking;
+    expect(woken).toHaveLength(0);
+    const stopped = (await runtime.list())[0];
+    expect(stopped.status).toBe('paused');
+    expect(stopped.closedAt).toEqual(expect.any(String));
+  });
+});
+
 describe('failed and expired Goal waits', () => {
   it('wakes once to say the wait expired, never as completion', async () => {
     const { host, runtime, started, park } = setup();

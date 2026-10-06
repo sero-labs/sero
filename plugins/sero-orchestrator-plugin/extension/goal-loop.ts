@@ -125,6 +125,17 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
   let queuedGoalId: string | null = null;
   let turnGoalId: string | null = null;
   let lastCaller: GoalCaller | null = null;
+  // One continuation per completed turn. While the settled handler is still
+  // reading and writing, a wake that lands waits for it instead of starting a
+  // second turn beside the one the handler may be about to start.
+  let settling = false;
+  let startedWhileSettling = false;
+  let deferredWake: Goal | null = null;
+  const takeDeferredWake = (): Goal | null => {
+    const taken = deferredWake;
+    deferredWake = null;
+    return taken;
+  };
 
   const rememberCaller = (ctx: ExtensionContext): GoalCaller | null => {
     const caller = resolveGoalCaller(ctx);
@@ -139,6 +150,7 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     // A wait that woke this goal is consumed as its turn starts, whichever path
     // started it: the wake, the settled boundary, or a restored session.
     if (reservedWakes(goal).length > 0) void lastCaller?.runtime.consumeWakes(goal.id);
+    startedWhileSettling = true;
     continuationQueued = true;
     queuedGoalId = goal.id;
     pi.sendMessage(
@@ -212,6 +224,10 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     // A registered wait wakes a goal through this loop and no other driver.
     // While a turn is open, the settled boundary continues the now-active goal.
     onGoalWake(caller.sessionPath, (woken) => {
+      if (settling) {
+        deferredWake = woken;
+        return;
+      }
       if (boundaryOpen) return;
       terminalTools.set(true);
       assertGoalContract(pi, woken);
@@ -236,7 +252,28 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     if (goal.status === 'active') startTurn(goal);
   });
 
-  pi.on('agent_settled', async (_event, ctx: ExtensionContext) => {
+  pi.on('agent_settled', async (event, ctx: ExtensionContext) => {
+    settling = true;
+    startedWhileSettling = false;
+    deferredWake = null;
+    try {
+      await settle(event, ctx);
+    } finally {
+      settling = false;
+    }
+    // A wake that landed mid-settle is started now, once, unless this boundary
+    // already started the turn, a message is queued, or the goal has moved on.
+    const wake = takeDeferredWake();
+    if (!wake || startedWhileSettling || boundaryOpen || ctx.hasPendingMessages()) return;
+    const caller = lastCaller;
+    const current = caller ? await caller.runtime.forSession(caller.sessionPath) : null;
+    if (!current || current.id !== wake.id || current.status !== 'active' || boundaryOpen || settling) return;
+    terminalTools.set(true);
+    assertGoalContract(pi, current);
+    startTurn(current);
+  });
+
+  const settle = async (_event: unknown, ctx: ExtensionContext): Promise<void> => {
     const settledTurn = turn;
     const settledAutomatic = automatic;
     const settledGoalId = turnGoalId;
@@ -351,7 +388,7 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     if (ctx.hasPendingMessages()) return;
 
     startTurn(verdict.goal);
-  });
+  };
 
   return startTurn;
 }

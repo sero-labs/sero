@@ -62,6 +62,8 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   askAnswer: 'approve' | 'decline';
   /** The next fresh amendment gets this answer instead of being evaluated. */
   nextAmendment: 'stale' | 'refused' | 'throw' | null;
+  /** Set to have the host store a smaller policy than was asked, as its permission profile does. */
+  clampSubject: ((policy: PersistentSessionSubjectPolicy) => PersistentSessionSubjectPolicy) | null;
   /** Grants as the host holds them: revision, stored policies, retired subjects. */
   grantState: Map<string, { revision: number; subjects: Record<string, PersistentSessionSubjectPolicy>; retired: string[] }>;
   /** Sessions the host has counted against each grant's total. Retiring never lowers it. */
@@ -123,6 +125,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     amendments: [],
     askAnswer: 'approve',
     nextAmendment: null,
+    clampSubject: null,
     grantState: new Map(),
     consumed: new Map(),
     refuseGrant: false,
@@ -201,7 +204,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       grant.revision += 1;
       for (const [subject, policy] of Object.entries(amendment.subjects ?? {})) {
         if (!grant.subjects[subject]) api.consumed.set(amendment.grantId, (api.consumed.get(amendment.grantId) ?? 0) + 1);
-        grant.subjects[subject] = policy;
+        grant.subjects[subject] = api.clampSubject ? api.clampSubject(policy) : policy;
       }
       grant.retired.push(...(amendment.retire ?? []));
       return finish({

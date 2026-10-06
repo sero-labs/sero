@@ -60,4 +60,6 @@ export interface RoomRevisionAmendment {
   adds: PersistentSessionExpansion[];
   reason: string | null;
   grantRevision: number | null;
+  /** True once the host committed a grant the Room could not use. Only a retry can finish it, never a decline. */
+  committed?: boolean;
 }

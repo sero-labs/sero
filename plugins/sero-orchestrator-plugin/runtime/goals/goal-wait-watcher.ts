@@ -36,6 +36,8 @@ export interface GoalWaitWatcherDeps {
   host: Pick<OrchestratorHost, 'now' | 'log' | 'readState'>;
   store: GoalStore;
   claim(goalId: string, sessionPath: string): Promise<Claim>;
+  /** Gives back a claim taken for a wake that did not commit. */
+  release(goalId: string, sessionId: string): void;
 }
 
 /** How a Workflow ended, or null while it has not. A state that lacks it means it is gone. */
@@ -83,43 +85,67 @@ export class GoalWaitWatcher {
     for (const goal of targets) await this.settle(goal.id, state);
   }
 
-  private async settle(goalId: string, state: OrchestratorState | null): Promise<void> {
-    const { host, store } = this.deps;
-    const now = host.now();
-    const start = await store.get(goalId);
-    if (!start) return;
-    let next = start;
-    for (const wait of openWaits(start)) {
+  /** The waits' outcomes as the sources show them now. Pure: nothing is saved here. */
+  private observe(goal: Goal, state: OrchestratorState | null, now: string): Goal {
+    let next = goal;
+    for (const wait of openWaits(goal)) {
       const seen = state && wait.source.kind === 'child' ? childOutcome(wait.source.id, state) : null;
       if (seen) next = observeWait(next, wait.id, seen.kind, now, seen.detail);
     }
-    next = expireDueWaits(next, now);
-    const waking = unreservedMatches(next).length > 0 && next.status === 'waiting';
-    let activated: Goal | null = null;
-    if (waking) activated = await this.wake(next, now);
-    const final = activated ?? next;
-    if (final !== start) await store.put(final);
-    this.arm(final);
-    if (activated?.status === 'active') notifyGoalWake(activated);
+    return expireDueWaits(next, now);
   }
 
-  /** The same gates as the user's resume. Null leaves the goal waiting, its outcome kept. */
-  private async wake(goal: Goal, now: string): Promise<Goal | null> {
-    const ctx = { now };
-    const check = checkGoalLimits(goal, Date.parse(now));
-    if (!check.ok) return limit(goal, check.limit, `${check.reason} — a wait ended, and a limit is not lifted by waiting`, ctx);
-    const claimed = await this.deps.claim(goal.id, goal.sessionPath);
-    if ('conflict' in claimed) {
-      this.deps.host.log(`goal ${goal.id}: a wait ended but ${claimed.conflict}, so the goal stays waiting`);
-      return null;
+  /**
+   * One goal. The decision and its save are one read-modify-write on the
+   * freshest record, so a pause or stop that lands while the session claim is
+   * awaited is never undone: a goal that is no longer waiting is left alone.
+   */
+  private async settle(goalId: string, state: OrchestratorState | null): Promise<void> {
+    const { host, store } = this.deps;
+    const now = host.now();
+    let claimed: { sessionId: string | null } | null = null;
+    const woke = { goal: null as Goal | null };
+    let final: Goal | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      let needsClaim = false;
+      woke.goal = null;
+      final = await store.update(goalId, (current) => {
+        if (current.closedAt) return current;
+        const next = this.observe(current, state, now);
+        if (unreservedMatches(next).length === 0 || next.status !== 'waiting') return next === current ? current : next;
+        const check = checkGoalLimits(next, Date.parse(now));
+        if (!check.ok) return limit(next, check.limit, `${check.reason} — a wait ended, and a limit is not lifted by waiting`, { now });
+        if (!claimed) {
+          needsClaim = true;
+          return next === current ? current : next;
+        }
+        woke.goal = this.wake(next, claimed, now);
+        return woke.goal;
+      });
+      if (!needsClaim || !final) break;
+      const result = await this.deps.claim(goalId, final.sessionPath);
+      if ('conflict' in result) {
+        host.log(`goal ${goalId}: a wait ended but ${result.conflict}, so the goal stays waiting`);
+        break;
+      }
+      claimed = result;
     }
+    // A claim taken for a wake that did not commit would hold the session for nothing.
+    if (claimed?.sessionId && woke.goal?.sessionId !== claimed.sessionId) this.deps.release(goalId, claimed.sessionId);
+    if (!final) return;
+    this.arm(final);
+    if (woke.goal?.status === 'active') notifyGoalWake(woke.goal);
+  }
+
+  /** The same gates as the user's resume, the limits and the session claim, already passed. */
+  private wake(goal: Goal, claimed: { sessionId: string | null }, now: string): Goal {
     let next = goal;
     for (const wait of unreservedMatches(goal)) {
       const reserved = reserveWake(next, wait.id, now);
       if (reserved.ok) next = reserved.goal;
     }
     const lines = reservedWakes(next).map(describeWait).join(' ');
-    return activate({ ...next, sessionId: claimed.sessionId }, `a registered wait ended. ${lines}`, ctx);
+    return activate({ ...next, sessionId: claimed.sessionId }, `a registered wait ended. ${lines}`, { now });
   }
 
   private arm(goal: Goal): void {

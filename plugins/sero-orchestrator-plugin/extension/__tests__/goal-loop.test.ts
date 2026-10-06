@@ -684,6 +684,23 @@ describe('a registered wait continues the goal through this loop', () => {
     expect(continuations(sent)).toBe(1);
   });
 
+  it('starts one turn, not two, when the wait ends while the settled boundary is still working', async () => {
+    const { fire, sent } = await parked();
+    // The settled handler is held at its first read of the goal.
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const read = runtime.forSession.bind(runtime);
+    runtime.forSession = async (sessionPath) => { await gate; return read(sessionPath); };
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('Waiting for the Workflow.') });
+    const settled = fire('agent_settled', undefined, context());
+    await finishLoop();
+    release();
+    await settled;
+    runtime.forSession = read;
+    expect(continuations(sent)).toBe(1);
+  });
+
   it('delivers a wake that was reserved but never started when the session is restored, once', async () => {
     const { goalId } = await parked();
     // Nothing is listening: the process is about to die before the turn starts.

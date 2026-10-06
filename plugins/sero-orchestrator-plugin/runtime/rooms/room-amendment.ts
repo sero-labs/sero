@@ -21,6 +21,7 @@ import type { OrchestratorHost } from '../host';
 import { requirePersistentSessions } from './member-grant';
 import type { MemberSessionPool } from './member-session';
 import { timelineEvent } from './room-actions';
+import { unattemptedProblem } from './room-amendment-check';
 import {
   findAmendment,
   grantRevisionOf,
@@ -92,7 +93,13 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
     await store.updateRoom(roomId, (record) => withAmendmentState(record, revisionId, { ...update, now: host.now() }));
   }
 
-  async function hold(roomId: string, revisionId: string, reason: string, adds: PersistentSessionExpansion[] = []): Promise<AmendmentAnswer> {
+  async function hold(
+    roomId: string,
+    revisionId: string,
+    reason: string,
+    adds: PersistentSessionExpansion[] = [],
+    hostCommitted = false,
+  ): Promise<AmendmentAnswer> {
     const found = findAmendment(await readRecord(roomId), revisionId);
     // Once the Room is saved the new configuration is the only one a session may
     // open with, so its members stay stopped until the reopen is confirmed.
@@ -100,7 +107,9 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
       state: 'held',
       reason,
       adds,
-      workPaused: found?.amendment.phase === 'configured',
+      // A grant the host already committed but the Room cannot use leaves the member stopped too.
+      workPaused: found?.amendment.phase === 'configured' || hostCommitted,
+      ...(hostCommitted ? { amendment: { committed: true } } : {}),
     });
     host.log(`room ${roomId}: amendment ${revisionId} held: ${reason}`);
     await deps.resume?.(roomId);
@@ -143,7 +152,7 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
     }));
   }
 
-  /** The clamped policy must still contain what the member was configured with. */
+  /** The clamped policy must still contain the model, thinking level and skills the member was configured with. Tools are different: see `droppedTools`. */
   function clampProblem(record: RoomRecord, revisionId: string, result: Extract<PersistentSessionGrantAmendmentResult, { status: 'applied' }>): string | null {
     const found = findAmendment(record, revisionId);
     if (!found) return null;
@@ -155,9 +164,28 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
         ...(requested.allowedThinkingLevels ?? []).filter((level) => !(granted.allowedThinkingLevels ?? []).includes(level)),
         ...requested.allowedSkills.filter((skill) => !granted.allowedSkills.includes(skill)),
       ];
-      if (missing.length > 0) return `The host granted ${subject} less than was asked (${missing.join(', ')}), so nothing was changed.`;
+      if (missing.length > 0) return `The host granted ${subject} less than was asked (${missing.join(', ')}), so it cannot run as asked.`;
     }
     return null;
+  }
+
+  /**
+   * Tools the change asked for that the host did not grant. The host's permission
+   * profile may remove a tool, so the member runs with what was granted and the
+   * revision says which tool it did not get.
+   */
+  function droppedTools(record: RoomRecord, revisionId: string): string[] {
+    const found = findAmendment(record, revisionId);
+    const proposal = found?.revision.proposal;
+    if (!found || !proposal) return [];
+    if (proposal.kind === 'change-configuration' && proposal.configuration.tools === undefined) return [];
+    const dropped: string[] = [];
+    for (const [subject, requested] of Object.entries(found.amendment.subjects)) {
+      const granted = record.members.find((member) => member.id === subject)?.session.grantedTools;
+      if (!granted) continue;
+      dropped.push(...requested.allowedTools.filter((tool) => !granted.includes(tool)).map((tool) => `${subject} was not given the tool ${tool}`));
+    }
+    return dropped;
   }
 
   /** Step (d): the Room configuration and the new grant revision, in one durable write. */
@@ -180,6 +208,8 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
           ...member,
           // Asked for exactly what the host granted, or the open is denied.
           session: { ...member.session, grantedTools: granted.allowedTools },
+          // What the member runs with is what the host granted, never more.
+          configuration: { ...member.configuration, tools: member.configuration.tools.filter((tool) => granted.allowedTools.includes(tool)) },
           ...(joining
             ? { status: 'idle' as const, statusDetail: 'Taking over.', configurationChange: pendingChange(revisionId, [], now) }
             : {}),
@@ -228,11 +258,14 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
       return hold(roomId, revisionId, `The member session could not be reopened with its new setup: ${messageOf(error)}`);
     }
     const now = host.now();
+    const missing = droppedTools(await readRecord(roomId), revisionId);
+    const note = missing.length > 0 ? `${missing.join('; ')}: the host did not grant it, so it runs without it.` : null;
     await store.transact(roomId, null, (current) => {
       const again = findAmendment(current, revisionId);
       if (!again || again.amendment.state === 'applied') return { record: null, result: null };
       const next = withAmendmentState(current, revisionId, {
         state: 'applied',
+        reason: note,
         workPaused: false,
         grantRevision: again.amendment.grantRevision,
         now,
@@ -240,9 +273,10 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
       const applied = next.revisions.find((revision) => revision.id === revisionId);
       return { record: applied ? withRevisionApplied(next, next, applied, now) : next, result: null };
     });
-    await store.appendTimeline(roomId, [timelineEvent(host, roomId, 'revision', found.revision.actorMemberId, found.revision.summary)]);
+    const summary = note ? `${found.revision.summary} ${note}` : found.revision.summary;
+    await store.appendTimeline(roomId, [timelineEvent(host, roomId, 'revision', found.revision.actorMemberId, summary)]);
     const affected = [...found.amendment.memberIds, ...Object.keys(found.amendment.subjects)];
-    await deps.notify?.(roomId, [...new Set(affected)], found.revision.summary);
+    await deps.notify?.(roomId, [...new Set(affected)], summary);
     await deps.resume?.(roomId);
     return { ok: true };
   }
@@ -267,6 +301,12 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
       return hold(roomId, revisionId, 'A member is still working, so its setup was not changed yet.');
     }
 
+    // Nothing the host has not seen yet is sent if it can no longer work: it is declined here, while declining is still true.
+    if (!amendment.attempted) {
+      const problem = await unattemptedProblem(host, await readRecord(roomId), revisionId);
+      if (problem) return close(roomId, revisionId, 'declined', problem);
+    }
+
     let result: PersistentSessionGrantAmendmentResult;
     try {
       await beginHostCall(roomId, revisionId);
@@ -288,7 +328,7 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
     switch (result.status) {
       case 'applied': {
         const problem = clampProblem(await readRecord(roomId), revisionId, result);
-        if (problem) return hold(roomId, revisionId, problem);
+        if (problem) return hold(roomId, revisionId, `${problem} The host has already changed the grant, so this member stays stopped until it is retried.`, [], true);
         await saveConfiguration(roomId, revisionId, result);
         return reopenAndConfirm(roomId, revisionId);
       }
@@ -325,7 +365,7 @@ export function createRoomAmendments(deps: RoomAmendmentDeps): RoomAmendments {
         const found = findAmendment(await readRecord(roomId), revisionId);
         if (found?.amendment.state !== 'held') return { ok: false, reason: 'There is nothing held to decline.' };
         // Past the host commit the new setup is already the Room's, so only a retry can finish it.
-        if (found.amendment.phase === 'configured') {
+        if (found.amendment.phase === 'configured' || found.amendment.committed) {
           return { ok: false, reason: 'The host already applied this change. Try it again instead.' };
         }
         await close(roomId, revisionId, 'declined', 'You declined this change.');
