@@ -44,6 +44,13 @@ export const STATIC_PLATFORM_TOOLS: ContextToolInfo[] = [
 /** Tool name -> the plugin package that registers it. Filled from real sessions and saved with the cache. */
 const toolPackages = new Map<string, string>();
 
+/**
+ * A platform tool belongs to no plugin. A run from source reports it with a
+ * path inside the desktop app's own package, and treating that as its plugin
+ * drops `sero-cli` from every managed session's approval.
+ */
+const PLATFORM_TOOL_NAMES = new Set(STATIC_PLATFORM_TOOLS.map((tool) => tool.name));
+
 /** Tool names a real session has reported since this process started. The saved cache alone does not count. */
 const seenThisProcess = new Set<string>();
 
@@ -81,7 +88,7 @@ function loadPersisted(): void {
       // A plugin that was uninstalled leaves a tool no session can load. Drop it.
       if (tool.packagePath && !existsSync(path.join(tool.packagePath, 'package.json'))) continue;
       catalog.set(tool.name, { name: tool.name, description: tool.description });
-      if (tool.packagePath) toolPackages.set(tool.name, tool.packagePath);
+      if (tool.packagePath && !PLATFORM_TOOL_NAMES.has(tool.name)) toolPackages.set(tool.name, tool.packagePath);
     }
   } catch {
     // No cache yet — the baseline + startup enumeration fill it in.
@@ -138,6 +145,7 @@ export function getSubagentToolCatalog(): ContextToolInfo[] {
 export function recordRunToolCatalog(tools: ToolInfo[]): void {
   for (const tool of tools) {
     seenThisProcess.add(tool.name);
+    if (PLATFORM_TOOL_NAMES.has(tool.name)) continue;
     const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
     if (packagePath) toolPackages.set(tool.name, packagePath);
   }
