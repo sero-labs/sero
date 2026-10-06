@@ -247,11 +247,8 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
  * run that works some other way is not waited on forever.
  */
 function architectFinished(record: BaselineProjectRecord): boolean {
-  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
-  // The owner's own work in a Worktree project is in its checkout, never in the folder.
-  const worktreeWork = record.milestones.filter((milestone) => milestone.direct && milestone.direct.state !== 'superseded' && milestone.direct.placement.mode === 'worktree');
-  if (worktreeWork.length > 1) console.warn(`[baseline] ${projectId} has ${worktreeWork.length} worktree milestones; the checks read only the last one`);
-  const resultDirectory = worktreeWork.at(-1)?.direct?.placement.directory;
+  // Work is a milestone that was dispatched or that the owner did itself.
+  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null || milestone.direct !== undefined);
   const settled = dispatched.length > 0
     && dispatched.every((milestone) => milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
     && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
@@ -377,6 +374,10 @@ function provenanceOf(journal: readonly JournalRecord[]): ConfigurationProvenanc
 async function observeArchitect(projectId: string, finished: boolean, elapsedMs: number, restarted: boolean, recoveries: BaselineRecovery[]): Promise<Observed> {
   const record = await show(projectId);
   if (!record) throw new Error(`project ${projectId} disappeared`);
+  // The owner's own work in a Worktree project is in its checkout, never in the folder.
+  const worktreeWork = record.milestones.filter((milestone) => milestone.direct && milestone.direct.state !== 'superseded' && milestone.direct.placement.mode === 'worktree');
+  if (worktreeWork.length > 1) console.warn(`[baseline] ${projectId} has ${worktreeWork.length} worktree milestones; the checks read only the last one`);
+  const resultDirectory = worktreeWork.at(-1)?.direct?.placement.directory;
   const runs = record.runs ?? [];
   const journal = runs.flatMap((run) => journalOf(projectId, run.id));
   const trace = summarizeTrace(journal, { projectId, runId: runs.map((run) => run.id).join(','), knownSpendUsd: record.budget.spentUsd });
