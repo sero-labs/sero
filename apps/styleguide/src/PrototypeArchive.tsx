@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Architect — a milestone the Architect does itself (issue 620)', 'architect-direct-milestone.html'],
   [
     'Autonomous delivery — intake, short overview, Watch work, decision and recovery',
     'autonomous-delivery/index.html',
