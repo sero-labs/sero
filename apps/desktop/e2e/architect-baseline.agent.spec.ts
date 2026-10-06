@@ -183,8 +183,12 @@ async function projects<T>(action: string, ...args: unknown[]): Promise<T> {
 
 const show = (projectId: string): Promise<BaselineProjectRecord | null> => projects<BaselineProjectRecord | null>('show', projectId);
 
-/** The prompts that ask the user to permit work. Nothing else is clicked. */
-const APPROVAL_LABELS = ['Allow', 'Approve'] as const;
+/**
+ * The host's permission prompt. Nothing else is clicked. The Architect's own
+ * "Approve ..." buttons belong to whichever project is on screen, which may be
+ * an older one, so charters and plans are approved by project id instead.
+ */
+const APPROVAL_LABELS = ['Allow'] as const;
 
 /**
  * Answers every permission prompt on screen, and returns how many it answered.
@@ -197,7 +201,7 @@ const APPROVAL_LABELS = ['Allow', 'Approve'] as const;
 async function approvePrompts(label: string): Promise<number> {
   let answered = 0;
   for (const name of APPROVAL_LABELS) {
-    const buttons = page.getByRole('button', { name });
+    const buttons = page.getByRole('button', { name, exact: true });
     const count = await buttons.count().catch(() => 0);
     for (let index = 0; index < count; index += 1) {
       const button = buttons.nth(index);
