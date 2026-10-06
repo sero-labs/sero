@@ -56,4 +56,4 @@ No recommendation is made. The decision needs counted protocol failures across m
 
 ## Review
 
-Routed rounds on gpt-6-astra at high effort are on the pull request. Rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80 and one declined because the owner has no mutating git command.
+Routed rounds on gpt-6-astra at high effort are on the pull request. Rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80. Round 5 checked those fixes and raised four follow-on points, all fixed in cec47f6ea, including a check that a checkout is still on its saved branch.
