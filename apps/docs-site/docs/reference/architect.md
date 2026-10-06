@@ -165,6 +165,26 @@ run identity, or a restart that lost part of its telemetry all report as
 incomplete. Counters nobody reported stay absent rather than showing zero, and an
 older record keeps the amount it recorded without inventing the calls behind it.
 
+### Strategy comparisons
+
+Sero developers can compare the Architect with one persistent chat agent on the
+same task. The comparison holds these inputs equal: the request, the starting
+files, the acceptance checks, the model and effort, the capabilities, the cost
+cap and the time limit. Each strategy chooses how it does the work.
+
+| Rule | Effect |
+| --- | --- |
+| The outcome comes from the task's checks | no dispatch failure is not acceptance |
+| A run that did not finish is `incomplete` | it is kept, and it supports no claim |
+| An input that differs is named | the difference is not credited to the strategy |
+| A record is not compared with itself | two distinct runs are necessary |
+| Missing model or cost data stays missing | no total-cost claim from partial cost |
+| An intervention is recorded | that run does not show unassisted completion |
+
+The first baseline records have partial cost coverage and no run identity. They
+stay available with that classification. The procedure is in the Architect
+plugin README.
+
 ## State and storage
 
 | Path | Content |

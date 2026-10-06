@@ -11,7 +11,10 @@ import {
   baselineEvidenceGap,
   compareBaselines,
   isEfficiencyEvidence,
+  outcomeFromChecks,
+  type BaselineControlledInputs,
   type BaselineRecord,
+  type BaselineStrategy,
 } from '../baseline';
 
 const T0 = '2026-09-14T09:00:00.000Z';
@@ -32,6 +35,29 @@ const synthetic = (overrides: Partial<BaselineRecord> = {}): BaselineRecord => (
   budgetUsd: 5,
   evidence: 'synthetic',
   recordedAt: T0,
+  ...overrides,
+});
+
+const inputs = (overrides: Partial<BaselineControlledInputs> = {}): BaselineControlledInputs => ({
+  request: 'Fix the off-by-one in the pager',
+  workspaceFingerprint: 'sha256:aaa',
+  acceptanceRevision: 'checks-1',
+  model: 'provider/model',
+  thinking: 'medium',
+  capabilities: ['edit', 'read', 'shell'],
+  budgetUsd: 2,
+  budgetMinutes: 30,
+  requiresIndependentReview: false,
+  ...overrides,
+});
+
+/** A live run of one strategy, with everything a controlled comparison needs. */
+const run = (strategy: BaselineStrategy, overrides: Partial<BaselineRecord> = {}): BaselineRecord => synthetic({
+  objective: 'small-fix',
+  evidence: 'live',
+  run: { runId: `${strategy}-1`, strategy, revision: 'abc123', replicate: 1 },
+  inputs: inputs(),
+  checks: [{ id: 'tests', passed: true }],
   ...overrides,
 });
 
@@ -73,13 +99,49 @@ describe('synthetic data is never efficiency evidence', () => {
 });
 
 describe('comparison reports what changed and what stayed unknown', () => {
-  it('reports deltas when the two runs share an objective and criteria', () => {
-    const before = synthetic({ evidence: 'live', cost: { attributableUsd: 2, aggregateOnlyUsd: 0, coverage: 'call', incomplete: false } });
-    const after = synthetic({ evidence: 'live', cost: { attributableUsd: 1.5, aggregateOnlyUsd: 0, coverage: 'call', incomplete: false } });
+  it('reports deltas when two distinct runs held the same inputs', () => {
+    const before = run('architect', { cost: { attributableUsd: 2, aggregateOnlyUsd: 0, coverage: 'call', incomplete: false } });
+    const after = run('persistent-single-agent', { cost: { attributableUsd: 1.5, aggregateOnlyUsd: 0, coverage: 'call', incomplete: false } });
     const comparison = compareBaselines(before, after);
     expect(comparison.comparable).toBe(true);
     expect(comparison.deltas.attributableUsd).toBeCloseTo(-0.5);
     expect(comparison.unknowns).toEqual([]);
+  });
+
+  it('refuses to compare a run with itself', () => {
+    const record = run('architect');
+    expect(compareBaselines(record, record).comparable).toBe(false);
+    // A copy read back from disk is still the same run.
+    expect(compareBaselines(record, structuredClone(record)).comparable).toBe(false);
+  });
+
+  it('names the controlled inputs that differ instead of crediting the strategy', () => {
+    const comparison = compareBaselines(
+      run('architect'),
+      run('persistent-single-agent', { inputs: inputs({ model: 'provider/other', budgetUsd: 5 }) }),
+    );
+    expect(comparison.comparable).toBe(false);
+    expect(comparison.mismatches).toEqual(['model', 'budgetUsd']);
+  });
+
+  it('cannot claim a strategy effect when a delegate ran an unrecorded model', () => {
+    const comparison = compareBaselines(
+      run('architect', { models: [{ operationId: 'workflow:step-1', source: 'workflow' }] }),
+      run('persistent-single-agent'),
+    );
+    expect(comparison.unknowns.join(' ')).toContain('no recorded model or effort');
+  });
+
+  it('does not count a rescued run as unassisted', () => {
+    const rescued = run('architect', { interventions: [{ kind: 'state-repair', note: 'unstuck the record', at: T0 }] });
+    expect(baselineEvidenceGap(rescued)).toContain('intervention');
+    expect(compareBaselines(rescued, run('persistent-single-agent')).unknowns.join(' ')).toContain('intervention');
+  });
+
+  it('leaves a record saved before run identities unattributable', () => {
+    const legacy = synthetic({ evidence: 'live' });
+    const comparison = compareBaselines(legacy, synthetic({ evidence: 'live', recordedAt: '2026-09-15T09:00:00.000Z' }));
+    expect(comparison.unknowns.join(' ')).toContain('no run identity or controlled inputs');
   });
 
   it('refuses to compare across different acceptance criteria', () => {
@@ -97,5 +159,22 @@ describe('comparison reports what changed and what stayed unknown', () => {
   it('marks a comparison unknown when neither record names a model', () => {
     const comparison = compareBaselines(synthetic({ models: [] }), synthetic({ models: [], evidence: 'live' }));
     expect(comparison.unknowns).toContain('At least one record names no model, so a model change cannot be attributed.');
+  });
+});
+
+describe('an outcome comes from the task checks alone', () => {
+  it('keeps a finished run with no checks unaccepted', () => {
+    // Direct work has no dispatch to fail, so "no failure" must accept nothing.
+    expect(outcomeFromChecks([], true)).toBe('incomplete');
+    expect(outcomeFromChecks([{ id: 'tests', passed: null }], true)).toBe('incomplete');
+  });
+
+  it('rejects on one failed check and accepts only when every check passed', () => {
+    expect(outcomeFromChecks([{ id: 'tests', passed: true }, { id: 'review', passed: false }], true)).toBe('rejected');
+    expect(outcomeFromChecks([{ id: 'tests', passed: true }], true)).toBe('accepted');
+  });
+
+  it('keeps an unfinished run incomplete even when its checks pass', () => {
+    expect(outcomeFromChecks([{ id: 'tests', passed: true }], false)).toBe('incomplete');
   });
 });
