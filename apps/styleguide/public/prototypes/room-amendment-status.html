@@ -80,6 +80,7 @@ h1,h2,h3,p{margin:0}
       <button type="button" aria-pressed="true" data-state="pending">Pending</button>
       <button type="button" aria-pressed="false" data-state="applied">Applied</button>
       <button type="button" aria-pressed="false" data-state="held">Held for approval</button>
+      <button type="button" aria-pressed="false" data-state="declined">Declined</button>
     </div>
   </div>
 
@@ -143,15 +144,16 @@ function render(state, approved) {
   tools.textContent = approved ? SHELL : 'read, search';
   if (state === 'pending') st.innerHTML = 'Working<small>Applies at the next safe point</small>';
   if (state === 'applied') st.innerHTML = 'Working<small>Revision 4</small>';
+  if (state === 'declined') st.innerHTML = 'Working<small>Change declined</small>';
   if (state === 'held') {
     st.innerHTML = 'Working<small>Needs your approval</small><div class="ro-act"><button type="button" class="ar-btn" data-primary id="approve">Approve</button><button type="button" class="ar-btn" id="decline">Decline</button></div>';
     document.getElementById('approve').addEventListener('click', () => render('applied', true));
-    document.getElementById('decline').addEventListener('click', () => render('applied', false));
+    document.getElementById('decline').addEventListener('click', () => render('declined', false));
   }
 }
 buttons.forEach((b) => b.addEventListener('click', () => { location.hash = b.dataset.state; render(b.dataset.state, false); }));
 const first = location.hash.slice(1);
-render(['pending', 'applied', 'held'].includes(first) ? first : 'pending', false);
+render(['pending', 'applied', 'held', 'declined'].includes(first) ? first : 'pending', false);
 </script>
 </body>
 </html>
