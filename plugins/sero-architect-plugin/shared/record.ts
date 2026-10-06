@@ -272,6 +272,8 @@ export interface OwnerSessionState {
   sessionPath: string | null;
   /** The tools the host actually granted, which may be fewer than proposed. */
   grantedTools: string[] | null;
+  /** The skills the host approved. Approval only; the session loads none of them at start. */
+  grantedSkills?: string[];
   model: string | null;
   thinking: string | null;
   /**

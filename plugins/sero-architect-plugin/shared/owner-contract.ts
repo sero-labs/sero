@@ -321,6 +321,7 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     '',
     ...behaviourBlock(record, wake),
     '',
+    'You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.',
     `Every architect action takes --projectId ${record.id}. A call with another id is refused.`,
     'End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project.',
   ].join('\n');
