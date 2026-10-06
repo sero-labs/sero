@@ -28,7 +28,7 @@ Bounds: $1 and 8 minutes per run, $6 in total for the pilot and $2 for each repl
 
 - In the last two rows the project ran in Worktree mode. The owner called `work begin`, got a checkout at `.sero/worktrees/card-direct-m1` on its own branch, edited inside it, and the host committed the work to that branch. The project closed in about 60 seconds; the other 30 are the runner waiting for the last charge.
 - The first Worktree row has no test result because of the runner, not the product. The runner read the checkout folder after the host had released it. The runner now reads the branch. That run also overlapped a run I had stopped a minute earlier, which shared its profile.
-- The owner's approval in both Worktree runs listed `codemode` next to `read`, `bash`, `write`, `edit` and `sero-cli`. Neither owner called it.
+- One new owner's approval was read: the owner of the stopped run, on revision 69ade37c4. It listed `codemode` next to `read`, `bash`, `write`, `edit` and `sero-cli`, and the owner did not call it. The approvals of the two recorded Worktree runs were deleted with their projects before they were read.
 - In the stopped run the shell guard refused `git --no-pager diff` as a mutating command. That is an older fault, filed as issue 625.
 
 ### What the runs do not show

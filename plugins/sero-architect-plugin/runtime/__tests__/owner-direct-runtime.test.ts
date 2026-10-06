@@ -118,6 +118,18 @@ describe('the owner works in a worktree and is stopped', () => {
     expect(host.gitCalls[1]?.options).toEqual({ deleteMergedBranch: false });
   });
 
+  it('refuses a checkout that is no longer on its saved branch', async () => {
+    const host = await fakeHost();
+    host.existingPaths.add(dir);
+    const active = milestone('m1', { status: 'running', direct: inWorktree });
+    const record = agreedProject({ executionMode: 'worktree', milestones: [active] });
+    const worktrees = createDirectWorktrees(host);
+    host.execResults['git rev-parse --abbrev-ref HEAD'] = { exitCode: 0, stdout: 'feat/m1\n', stderr: '' };
+    expect((await worktrees.ensure(record, active, inWorktree.placement)).ok).toBe(true);
+    host.execResults['git rev-parse --abbrev-ref HEAD'] = { exitCode: 0, stdout: 'other\n', stderr: '' };
+    expect((await worktrees.ensure(record, active, inWorktree.placement)).ok).toBe(false);
+  });
+
   it('keeps the checkout when its work cannot be committed, and keeps one whose milestone is not delivered', async () => {
     const host = await fakeHost();
     host.existingPaths.add(dir);
