@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rooms: member configuration changes</title>
+<style>
+:root{
+  --bg-base:#0a0a0b;--bg-surface:#111113;--bg-elevated:#18181b;--bg-overlay:#1f1f23;--bg-muted:#27272a;
+  --border-subtle:#27272a;--border-default:#3f3f46;--border-focus:#34d399;
+  --text-primary:#fafafa;--text-secondary:#a1a1aa;--text-muted:#71717a;
+  --brand-primary:#34d399;--brand-primary-hover:#6ee7b7;
+  --status-success:#22c55e;--status-info:#3b82f6;
+  --status-success-muted:rgba(34,197,94,.10);--status-info-muted:rgba(59,130,246,.10);
+  --status-success-border:rgba(34,197,94,.20);--status-warning:#d97706;--status-warning-muted:rgba(217,119,6,.10);--status-warning-border:rgba(217,119,6,.20);--status-info-border:rgba(59,130,246,.20);
+  --status-info-subtle:rgba(59,130,246,.15);
+  --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono','Fira Code','Cascadia Code',Menlo,monospace;
+  --ar-text-2:var(--text-secondary);--ar-text-3:var(--text-muted);
+  --ar-text-4:color-mix(in srgb,var(--text-muted) 80%,var(--bg-base));
+  --ar-line:var(--border-subtle);--ar-line-strong:var(--border-default);
+  --ar-ok:var(--status-success);--ar-info:var(--status-info);--ar-brand:var(--brand-primary);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg-base);color-scheme:dark}
+body{font-family:var(--font-sans)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+[hidden]{display:none!important}
+.ar-app{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--bg-base);color:var(--text-primary);font-size:13px;line-height:1.5}
+.ar-i{width:14px;height:14px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ar-scroll{flex:1;min-height:0;overflow-y:auto}
+.ar-top{height:50px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--ar-line)}
+.ar-crumb{display:flex;align-items:center;gap:6px;color:var(--ar-text-3);font-size:13px;min-width:0}
+.ar-leaf{color:var(--text-primary);font-weight:560}
+.ar-body{padding:22px 26px 30px}
+.ar-btn{height:30px;padding:0 11px;border-radius:7px;font-size:12px;gap:7px;display:inline-flex;align-items:center;border:1px solid var(--border-default);background:var(--bg-base)}
+.ar-btn:hover{background:var(--bg-elevated)}
+.ar-btn[data-primary]{background:var(--ar-brand);border-color:var(--ar-brand);color:#04130c;font-weight:600}
+.ar-btn[data-primary]:hover{background:var(--brand-primary-hover)}
+.ar-sec-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:var(--ar-text-3);font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase}
+.ar-sec-head .ar-n{font:10px var(--font-mono);letter-spacing:0;text-transform:none}
+.ar-card{border:1px solid var(--ar-line);border-radius:10px;background:var(--bg-surface);padding:4px 18px}
+.sw{margin-left:auto;display:inline-flex;border:1px solid var(--ar-line-strong);border-radius:8px;overflow:hidden}
+.sw button{padding:4px 10px;font-size:11px;color:var(--ar-text-3)}
+.sw button[aria-pressed="true"]{background:var(--bg-elevated);color:var(--text-primary)}
+
+.ro-grid{display:grid;grid-template-columns:minmax(0,1fr) 160px 190px 210px;column-gap:16px;align-items:start}
+.ro-row{padding:12px 0}
+.ro-row+.ro-row{border-top:1px solid var(--ar-line)}
+.ro-head{padding:10px 0 8px;font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:650;color:var(--ar-text-4)}
+.ro-who{display:flex;gap:11px;min-width:0}
+.ro-face{width:26px;height:26px;border-radius:50%;background:var(--bg-muted);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--ar-text-2);flex:0 0 auto}
+.ro-who b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.ro-who div span{display:block;font-size:12px;color:var(--ar-text-3)}
+.ro-val{font:12px var(--font-mono);color:var(--text-primary);overflow-wrap:anywhere}
+.ro-next{display:flex;align-items:center;gap:5px;margin-top:3px;font:12px var(--font-mono);color:var(--status-warning)}
+.ro-st{font-size:12px;color:var(--ar-text-2)}
+.ro-st small{display:block;font-size:12px;color:var(--ar-text-3)}
+.ro-act{display:flex;gap:8px;margin-top:6px}
+.ro-row[data-retired] .ro-who b,.ro-row[data-retired] .ro-val{color:var(--ar-text-3);font-weight:500}
+.ro-link{color:var(--ar-brand);display:inline-flex;align-items:center;gap:5px;font-size:11px;margin-top:2px}
+.ro-link:hover{color:var(--brand-primary-hover)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+</svg>
+
+<div class="ar-app">
+  <div class="ar-top">
+    <div class="ar-crumb">
+      <svg class="ar-i"><use href="#i-left"/></svg><span>Rooms</span><span>/</span><span class="ar-leaf">Release prep</span>
+    </div>
+    <div class="sw" role="group" aria-label="Change state">
+      <button type="button" aria-pressed="true" data-state="pending">Pending</button>
+      <button type="button" aria-pressed="false" data-state="applied">Applied</button>
+      <button type="button" aria-pressed="false" data-state="held">Held for approval</button>
+    </div>
+  </div>
+
+  <div class="ar-scroll">
+    <div class="ar-body">
+      <div class="ar-sec-head"><span>Team</span><span class="ar-n">4</span></div>
+      <div class="ar-card">
+        <div class="ro-grid ro-head"><span>Member</span><span>Model</span><span>Tools</span><span>State</span></div>
+
+        <div class="ro-grid ro-row" style="border-top:1px solid var(--ar-line)">
+          <div class="ro-who"><span class="ro-face">N</span><div><b>Nova</b><span>Conductor</span></div></div>
+          <span class="ro-val">gpt-5.6-sol</span>
+          <span class="ro-val">read, search, edit</span>
+          <div class="ro-st">Working</div>
+        </div>
+
+        <div class="ro-grid ro-row" id="rhea">
+          <div class="ro-who"><span class="ro-face">R</span><div><b>Rhea</b><span>Reviewer</span></div></div>
+          <div>
+            <div class="ro-val">gpt-5.6-luna</div>
+            <div class="ro-next" id="next-model"><svg class="ar-i"><use href="#i-arrow"/></svg>gpt-5.6-sol</div>
+          </div>
+          <div>
+            <div class="ro-val" id="tools">read, search</div>
+            <div class="ro-next" id="next-tools" hidden><svg class="ar-i"><use href="#i-arrow"/></svg>add shell</div>
+          </div>
+          <div class="ro-st" id="rhea-st"></div>
+        </div>
+
+        <div class="ro-grid ro-row" data-retired>
+          <div class="ro-who"><span class="ro-face">I</span><div><b>Iris</b><span>Retired. Replaced by Kai</span></div></div>
+          <span class="ro-val">gpt-5.6-luna</span>
+          <span class="ro-val">read, search</span>
+          <div class="ro-st"><button type="button" class="ro-link">History <svg class="ar-i"><use href="#i-right"/></svg></button></div>
+        </div>
+
+        <div class="ro-grid ro-row">
+          <div class="ro-who"><span class="ro-face">K</span><div><b>Kai</b><span>Reviewer. Starts from Iris's handover</span></div></div>
+          <span class="ro-val">gpt-5.6-sol</span>
+          <span class="ro-val">read, search</span>
+          <div class="ro-st">Working</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const st = document.getElementById('rhea-st');
+const nextModel = document.getElementById('next-model');
+const nextTools = document.getElementById('next-tools');
+const model = document.querySelector('#rhea .ro-val');
+const tools = document.getElementById('tools');
+const buttons = [...document.querySelectorAll('[data-state]')];
+const SHELL = 'read, search, shell';
+function render(state, approved) {
+  buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === state)));
+  nextModel.hidden = state !== 'pending';
+  nextTools.hidden = state !== 'held';
+  model.textContent = state === 'applied' ? 'gpt-5.6-sol' : 'gpt-5.6-luna';
+  tools.textContent = approved ? SHELL : 'read, search';
+  if (state === 'pending') st.innerHTML = 'Working<small>Applies at the next safe point</small>';
+  if (state === 'applied') st.innerHTML = 'Working<small>Revision 4</small>';
+  if (state === 'held') {
+    st.innerHTML = 'Working<small>Needs your approval</small><div class="ro-act"><button type="button" class="ar-btn" data-primary id="approve">Approve</button><button type="button" class="ar-btn" id="decline">Decline</button></div>';
+    document.getElementById('approve').addEventListener('click', () => render('applied', true));
+    document.getElementById('decline').addEventListener('click', () => render('applied', false));
+  }
+}
+buttons.forEach((b) => b.addEventListener('click', () => { location.hash = b.dataset.state; render(b.dataset.state, false); }));
+const first = location.hash.slice(1);
+render(['pending', 'applied', 'held'].includes(first) ? first : 'pending', false);
+</script>
+</body>
+</html>
