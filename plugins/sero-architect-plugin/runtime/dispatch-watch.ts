@@ -26,6 +26,7 @@ import { applyRunHealth } from './run-health';
 import { hasSettledHeldRoom } from './linked-work';
 import { observeResearchRooms } from './research-room';
 import { observeResearchWorkflows } from './research-workflow';
+import type { WaitReconciler, WaitSources } from './wait-reconciler';
 
 /** The Orchestrator's own state directory, derived from the contract's index path so a move there moves here. */
 export const ORCHESTRATOR_STATE_DIR = path.dirname(ORCHESTRATOR_INDEX_FILE);
@@ -86,11 +87,15 @@ export interface DispatchWatchDeps {
   journal?: RunJournal;
   /** Resumes the Rooms a project pause stopped, once they have settled. */
   releaseHeld?(projectId: string): Promise<void>;
+  /** Ended Workflows and Rooms are matched against the owner's registered waits. */
+  waits?: Pick<WaitReconciler, 'reconcile'>;
 }
 
 export interface DispatchWatch {
   /** Starts following the project's workspace indexes; reads them once for missed transitions. */
   track(record: ProjectRecord): Promise<void>;
+  /** The Workflow and Room lists as the index files hold them now. Null when the project is not tracked. */
+  readSources(projectId: string): Promise<WaitSources | null>;
   untrack(projectId: string): void;
   /** Resolves once every queued index change has been applied. */
   flush(): Promise<void>;
@@ -333,6 +338,8 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         }
       }
     }
+    // The index is authoritative: every push re-reads each open wait's source.
+    await deps.waits?.reconcile(projectId, loops || rooms ? { loops, rooms } : null);
     for (const transition of wakes) {
       // An event that starts triage opens its objective's run before the owner's
       // first model call, so the wake and everything it causes stay attributable.
@@ -388,6 +395,13 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       }
       enqueue(() => apply(record.id, loops, rooms));
       await queue;
+    },
+    async readSources(projectId) {
+      const workspacePath = workspacePaths.get(projectId);
+      if (!workspacePath) return null;
+      const files = orchestratorIndexFiles(workspacePath);
+      const [loopsState, roomsState] = await Promise.all([host.readJson(files.loops), host.readJson(files.rooms)]);
+      return { loops: loopsOf(loopsState), rooms: roomsOf(roomsState) };
     },
     untrack(projectId) {
       for (const off of subscriptions.get(projectId) ?? []) off();

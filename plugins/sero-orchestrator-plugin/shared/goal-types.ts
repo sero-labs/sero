@@ -11,6 +11,7 @@
  * state change, because session entries alone die with forks and clears.
  */
 
+import type { GoalWaitRegistration } from './goal-waits';
 import type { LoopLimits } from './types';
 
 /**
@@ -127,6 +128,10 @@ export interface Goal {
   activeSince?: string;
   pauseReason?: GoalPauseReason;
   wait?: GoalWait;
+  /** Observable waits the agent registered. The reason-only `wait` above stays manual. Absent on older goals. */
+  waits?: GoalWaitRegistration[];
+  /** Bumped by a stop, so a wait registered before it is stale. Absent counts as 0. */
+  controlRevision?: number;
   block?: GoalBlock;
   limitReached?: GoalLimitKey;
   reportedComplete?: GoalCompletionReport;

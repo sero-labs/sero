@@ -22,12 +22,16 @@ import type { OwnerActionInput, OwnerActionOutcome } from '../shared/owner-actio
 import type { ProjectRecord } from '../shared/record';
 import { projectWriter } from './execution-location';
 import { mutateRecord, type RecordStore } from './record-store';
+import { ownerWait } from './owner-wait';
 import type { TurnOutcomes } from './turn-outcomes';
+import type { WaitReconciler } from './wait-reconciler';
 
 export interface OwnerDirectDeps {
   store: RecordStore;
   outcomes: TurnOutcomes;
   newId(prefix: string): string;
+  /** Observes the waits the owner registers. Absent in a runtime that cannot. */
+  waits?: Pick<WaitReconciler, 'reconcile'>;
   /** HEAD and a hash of the project content, read from the project folder. */
   workspaceState?: (record: ProjectRecord) => Promise<{ commit: string; fingerprint: string }>;
 }
@@ -53,6 +57,7 @@ function beginRefusal(record: ProjectRecord, milestoneId: string): OwnerActionOu
 
 export async function ownerWork(deps: OwnerDirectDeps, record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
   const { store, outcomes } = deps;
+  if (input.operation === 'wait') return ownerWait(deps, record, input, now);
   const readState = deps.workspaceState;
   if (!readState) return refuse('This runtime cannot read the project folder state, so the Architect cannot work on a milestone itself. Dispatch it.');
   const apply = async (change: (fresh: ProjectRecord) => BeginDirectResult, cause?: string): Promise<BeginDirectResult> => {
@@ -128,5 +133,5 @@ export async function ownerWork(deps: OwnerDirectDeps, record: ProjectRecord, in
     return ok(`Your report for milestone ${active.id} is recorded as a claim. The milestone is verifying. Ask for evidence with the evidence action; it closes only on passed evidence.`, { milestoneId: active.id, executionId });
   }
 
-  return refuse('operation is required: begin, continue or report.');
+  return refuse('operation is required: begin, continue, report or wait.');
 }

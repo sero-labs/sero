@@ -34,6 +34,7 @@ import { performDispatch } from './dispatch-link';
 import { checkLinkedChange, executeOwnerOpenSpec, linkedChangePrompt } from './openspec-owner';
 import { completionClaimed, missingEvidence } from './milestone-evidence';
 import { ownerWork } from './owner-direct';
+import type { WaitReconciler } from './wait-reconciler';
 import { proposeCharter } from './owner-charter';
 import { ownerControl } from './owner-control';
 import { retryMilestone } from './work-recovery-actions';
@@ -77,6 +78,7 @@ export interface OwnerActionsDeps {
   store: RecordStore;
   outcomes: TurnOutcomes;
   services: OwnerServices;
+  waits?: WaitReconciler;
 }
 
 export interface OwnerActions {
@@ -478,7 +480,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       case 'dispatch':
         return dispatch(record, input, now);
       case 'work':
-        return ownerWork({ store, outcomes, newId: (prefix) => host.newId(prefix), workspaceState: services.workspaceState }, record, input, now);
+        return ownerWork({ store, outcomes, newId: (prefix) => host.newId(prefix), workspaceState: services.workspaceState, waits: deps.waits }, record, input, now);
       case 'control':
         return ownerControl(linked, record, input, (draft, lead) => escalate(record, now, draft, lead));
       case 'evidence':

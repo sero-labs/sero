@@ -15,6 +15,8 @@ import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { ARCHITECT_OWNER_LIVE_TOPIC } from '../shared/feedback';
 import { createWorkWatch, type WorkWatch } from './work-watch';
+import { createWaitReconciler, type WaitReconciler } from './wait-reconciler';
+import { reservedWakes } from '../shared/waits';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
 import { ensureInitialRun } from './run-lifecycle';
@@ -56,6 +58,7 @@ export class ArchitectRuntime implements AppRuntime {
   private sessions: OwnerSessions | null = null;
   private workWatch: WorkWatch | null = null;
   private services: OwnerServices | null = null;
+  private waits: WaitReconciler | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
   owner: OwnerActions | null = null;
@@ -115,7 +118,11 @@ export class ArchitectRuntime implements AppRuntime {
     });
     this.scheduler = scheduler;
     const wake = (projectId: string, event: WakeEvent) => scheduler.request(projectId, event);
+    // The reconciler reads sources through the watch, and the watch hands it every index push.
+    const waits = createWaitReconciler({ store, now: () => this.host.now(), wake, log: this.host.log, readSources: async (projectId) => (await this.watch?.readSources(projectId)) ?? null });
+    this.waits = waits;
     const watch = createDispatchWatch({
+      waits,
       host: this.host,
       store,
       wake,
@@ -131,8 +138,8 @@ export class ArchitectRuntime implements AppRuntime {
     this.watch = watch;
     const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
-    this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch });
+    this.owner = createOwnerActions({ host: this.host, store, outcomes, services, waits });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch, waits });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 
@@ -150,6 +157,8 @@ export class ArchitectRuntime implements AppRuntime {
         ? (await store.update(read.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? read
         : read;
       if (!fresh) continue;
+      // Waits that ended while Sero was closed, a wake reserved but never started, and deadlines passed.
+      await waits.reconcile(fresh.id);
       const lastWakeAt = fresh.session.lastWakeAt ?? '';
       const unanswered = fresh.directives.filter((directive) => directive.reply === null);
       if (unanswered.length > 0) {
@@ -228,6 +237,16 @@ export class ArchitectRuntime implements AppRuntime {
         this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    if (wake.kind === 'wait') {
+      // The turn is about to start: the reserved wakes are consumed now, once.
+      // A stop or cancellation since the reservation leaves nothing to consume.
+      const consumed = await this.waits?.consume(projectId);
+      if (!consumed?.length) {
+        this.host.log(`project ${projectId} has no reserved wait wake; wait wake dropped`);
+        return;
+      }
+      record = await store.read(projectId) ?? record;
+    }
     const result = await sessions.runTurn(record, wake);
     // A turn that was stopped, failed or timed out did not finish its work.
     const after = result.status === 'completed' ? result.record
@@ -244,6 +263,8 @@ export class ArchitectRuntime implements AppRuntime {
     if (result.declared === 'sleep' && wake.kind !== 'quiet' && mayWakeForWork(after) && plannedWorkRemains(after)) {
       this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['nothing is running and planned work remains'] });
     }
+    // A wait that ended while this turn ran, or whose wake a limit dropped, is requested now.
+    if (reservedWakes(after).length > 0) await this.waits?.reconcile(projectId);
     if (after.overlay === 'decision' && record.overlay !== 'decision') {
       this.host.notify(`${after.name} needs a decision.`, 'info');
     }
@@ -260,6 +281,7 @@ export class ArchitectRuntime implements AppRuntime {
     await this.markRuntime(false);
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
+    this.waits?.dispose();
     this.workWatch?.dispose();
     await this.sessions?.disposeAll();
     this.store = null;

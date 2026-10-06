@@ -30,7 +30,7 @@ export type OwnerAction = (typeof OWNER_ACTIONS)[number];
 
 /**
  * The calls that end a wake explicitly. A status update alone does not.
- * `work` ends one only with `--operation continue`.
+ * `work` ends one only with `--operation continue` or `--operation wait`.
  */
 export const OUTCOME_ACTIONS: readonly OwnerAction[] = ['sleep', 'decide', 'blocked'];
 
@@ -103,9 +103,13 @@ export interface OwnerActionInput {
   stoppingCondition?: string;
   /** openspec: read the official CLI instructions/status or validate a linked change. */
   changeName?: string;
-  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel' | 'begin' | 'continue' | 'report';
+  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel' | 'begin' | 'continue' | 'report' | 'wait';
   /** work continue/report: the execution the call is for. */
   executionId?: string;
+  /** work wait: what the wait watches. Only `child` is monitored today. */
+  source?: string;
+  /** work wait: end the wait as expired after this many minutes. */
+  deadlineMinutes?: number;
   /** control: the milestone id or research id whose linked work is controlled. */
   target?: string;
   /** control resume: a new total working-time limit, which the user must approve. */

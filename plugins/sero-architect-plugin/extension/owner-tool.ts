@@ -64,9 +64,11 @@ export const OwnerToolParams = Type.Object({
   parks: Type.Optional(Type.String({ description: 'decide: milestone ids to park, comma-separated' })),
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
   changeName: Type.Optional(Type.String({ description: 'openspec/research: the OpenSpec change linked to a milestone; research requires a read-only Room' })),
-  operation: Type.Optional(StringEnum(['status', 'instructions', 'validate', 'pause', 'resume', 'retry', 'cancel', 'begin', 'continue', 'report'] as const, { description: 'openspec: status, instructions or validate. control: pause, resume, retry or cancel. work: begin, continue or report' })),
+  operation: Type.Optional(StringEnum(['status', 'instructions', 'validate', 'pause', 'resume', 'retry', 'cancel', 'begin', 'continue', 'report', 'wait'] as const, { description: 'openspec: status, instructions or validate. control: pause, resume, retry or cancel. work: begin, continue, report or wait' })),
   executionId: Type.Optional(Type.String({ description: 'work continue/report: the execution id that begin returned' })),
-  target: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow you control' })),
+  target: Type.Optional(Type.String({ description: 'control/work wait: the milestone id or research id whose Room or Workflow you control or wait for' })),
+  source: Type.Optional(Type.String({ description: 'work wait: child (the target\'s Room or Workflow). process and ci cannot be monitored yet and are refused' })),
+  deadlineMinutes: Type.Optional(Type.Number({ description: 'work wait: end the wait as expired after this many minutes' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time. The user decides' })),
   artifact: Type.Optional(StringEnum(['proposal', 'specs', 'design', 'tasks', 'apply'] as const, { description: 'openspec instructions: artifact to prepare' })),
   needsCommands: Type.Optional(Type.Boolean({ description: 'research, kind room only: true when the question can only be answered by running commands such as tests or builds. The Room then gets edit-workspace access, each member in its own worktree' })),
@@ -115,9 +117,11 @@ export interface OwnerToolParamsShape {
   parks?: string;
   stoppingCondition?: string;
   changeName?: string;
-  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel' | 'begin' | 'continue' | 'report';
+  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel' | 'begin' | 'continue' | 'report' | 'wait';
   executionId?: string;
   target?: string;
+  source?: string;
+  deadlineMinutes?: number;
   maxMinutes?: number;
   artifact?: 'proposal' | 'specs' | 'design' | 'tasks' | 'apply';
   needsCommands?: boolean;
@@ -215,6 +219,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     operation: params.operation,
     executionId: params.executionId,
     target: params.target,
+    source: params.source,
+    deadlineMinutes: params.deadlineMinutes,
     maxMinutes: params.maxMinutes,
     artifact: params.artifact,
     needsCommands: params.needsCommands,

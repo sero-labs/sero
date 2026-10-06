@@ -77,6 +77,9 @@ export function fakeSessionsApi(sessionPath = '/sessions/owner.jsonl'): FakeSess
       };
       return handle;
     },
+    async amendGrant(amendment) {
+      return { status: 'refused', amendmentId: amendment.amendmentId, revision: null, reason: 'Not used by these tests.' };
+    },
     async revokeGrant() {},
     async deleteGrant(grantId) { api.deletedGrants.push(grantId); },
     async revokeDelegationPolicy(policyId) { api.revokedPolicies.push(policyId); },

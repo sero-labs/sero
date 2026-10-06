@@ -35,6 +35,8 @@ import {
 } from '../shared/goal-contract';
 import type { Goal, GoalVerdict } from '../shared/goal-types';
 import { normalizeTurnText } from '../shared/goal-fingerprint';
+import { reservedWakes } from '../shared/goal-waits';
+import { onGoalWake } from '../runtime/goals/goal-wake';
 import { resolveGoalCaller, type GoalCaller } from './goal-session';
 import { hiddenTerminalTools, type TerminalToolSwitch } from './goal-terminal-switch';
 
@@ -134,6 +136,9 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
   /** Drives one turn for the goal, and books it to the goal's budget. */
   const startTurn: GoalTurnStarter = (goal) => {
     terminalTools.set(true);
+    // A wait that woke this goal is consumed as its turn starts, whichever path
+    // started it: the wake, the settled boundary, or a restored session.
+    if (reservedWakes(goal).length > 0) void lastCaller?.runtime.consumeWakes(goal.id);
     continuationQueued = true;
     queuedGoalId = goal.id;
     pi.sendMessage(
@@ -204,6 +209,14 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     terminalTools.claim();
     const caller = rememberCaller(ctx);
     if (!caller) return;
+    // A registered wait wakes a goal through this loop and no other driver.
+    // While a turn is open, the settled boundary continues the now-active goal.
+    onGoalWake(caller.sessionPath, (woken) => {
+      if (boundaryOpen) return;
+      terminalTools.set(true);
+      assertGoalContract(pi, woken);
+      startTurn(woken);
+    });
     const goal = await caller.runtime.reattach(caller.sessionPath);
     if (!goal) return;
     terminalTools.set(goal.status === 'active');

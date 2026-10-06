@@ -12,10 +12,12 @@ import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, ExtensionToolContext } from '@earendil-works/pi-coding-agent';
 import { Coordinator } from '../../runtime/coordinator';
 import { GoalRuntime } from '../../runtime/goals/goal-runtime';
+import { onGoalWake } from '../../runtime/goals/goal-wake';
 import { createGoalStore } from '../../runtime/goals/goal-store';
 import { registerCoordinator, registerGoalRuntime } from '../../runtime/registry';
 import { SessionDrivers } from '../../runtime/session-drivers';
-import { createFakeHost } from '../../runtime/__tests__/fake-host';
+import { createFakeHost, type FakeHost } from '../../runtime/__tests__/fake-host';
+import { oneStepPlan, seedActiveLoop } from '../../runtime/__tests__/fixtures';
 import { GOAL_CONTINUATION_MESSAGE_TYPE, GOAL_CONTRACT_MESSAGE_TYPE } from '../../shared/goal-contract';
 import { registerGoalCommands } from '../goal-commands';
 import { fingerprintTurn, registerGoalLoop, summarizeTurn } from '../goal-loop';
@@ -129,9 +131,10 @@ function assistantTurn(text: string, stopReason: 'stop' | 'aborted' = 'stop'): A
 
 let runtime: GoalRuntime;
 let drivers: SessionDrivers;
+let host: FakeHost;
 
 beforeEach(() => {
-  const host = createFakeHost({ workspacePath: WORKSPACE });
+  host = createFakeHost({ workspacePath: WORKSPACE });
   const files = new Map<string, unknown>();
   const store = createGoalStore(
     {
@@ -635,5 +638,66 @@ describe('goal terminal tools follow the goal', () => {
 
     expect(activeTools()).toEqual(['read']);
     expect((await runtime.forSession(SESSION))?.status).toBe('paused');
+  });
+});
+
+describe('a registered wait continues the goal through this loop', () => {
+  const finishLoop = async () => {
+    host.state = { ...host.state, loops: host.state.loops.map((loop) => ({ ...loop, status: 'complete' as const })) };
+    await runtime.observeState(host.state);
+  };
+  const continuations = (sent: { customType: string }[]) => sent.filter((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE).length;
+
+  async function parked() {
+    seedActiveLoop(host, oneStepPlan().plan, 'loop-1');
+    const fake = fakePi();
+    registerGoalTerminalTools(fake.pi);
+    registerGoalLoop(fake.pi, fake.terminals);
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'ship it', criteria: [] });
+    await fake.fire('session_start');
+    // The agent parks the goal on the Workflow during its turn.
+    await fake.fire('agent_start');
+    await fake.runTool('goal_wait', { goal_id: started.goal?.id, reason: 'for the Workflow', source: 'child', target: 'loop-1' });
+    await fake.fire('agent_end', { messages: assistantTurn('Waiting for the Workflow.') });
+    await fake.fire('agent_settled', undefined, context());
+    fake.sent.length = 0;
+    return { ...fake, goalId: started.goal?.id ?? '' };
+  }
+
+  it('starts exactly one turn when the Workflow ends while the session is idle, and consumes the wake', async () => {
+    const { sent, goalId } = await parked();
+    expect((await runtime.forSession(SESSION))?.status).toBe('waiting');
+    await finishLoop();
+    await finishLoop();
+    expect(continuations(sent)).toBe(1);
+    expect((await runtime.forSession(SESSION))?.waits?.[0].wake?.consumedAt).toEqual(expect.any(String));
+    expect(goalId).not.toBe('');
+  });
+
+  it('leaves a turn that is already running to the settled boundary, which continues once', async () => {
+    const { fire, sent } = await parked();
+    await fire('agent_start');
+    await finishLoop();
+    expect(continuations(sent)).toBe(0);
+    await fire('agent_end', { messages: assistantTurn('a user turn') });
+    await fire('agent_settled', undefined, context());
+    expect(continuations(sent)).toBe(1);
+  });
+
+  it('delivers a wake that was reserved but never started when the session is restored, once', async () => {
+    const { goalId } = await parked();
+    // Nothing is listening: the process is about to die before the turn starts.
+    onGoalWake(SESSION, () => undefined);
+    await finishLoop();
+    expect((await runtime.forSession(SESSION))?.waits?.[0].wake?.consumedAt).toBeNull();
+    // The process died before the turn started: a new loop restores the active goal.
+    const restored = fakePi();
+    registerGoalLoop(restored.pi, restored.terminals);
+    await restored.fire('session_start');
+    expect(continuations(restored.sent)).toBe(1);
+    // The consumption is written as the turn is started, not awaited by it.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect((await runtime.forSession(SESSION))?.waits?.[0].wake?.consumedAt).toEqual(expect.any(String));
+    expect(goalId).not.toBe('');
   });
 });

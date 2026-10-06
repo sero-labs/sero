@@ -3,7 +3,9 @@
 
 import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DeliveryAgreement, OverviewSummary, WorkingInterpretation } from './agreement';
+import type { BlockedWork } from './blocked-work';
 import type { DirectExecution } from './direct-execution';
+import type { WaitRegistration } from './waits';
 import type { EvidenceBinding } from './evidence-binding';
 import type { DispatchDestination } from './owner-actions';
 import { milestoneCounts, projectActivity } from './activity';
@@ -358,32 +360,13 @@ export interface ProjectRecord {
    * commands was findable only among the project's history entries.
    */
   blockedOn?: BlockedWork | null;
+  /** Observable waits the owner registered. Absent on records saved before waits existed. */
+  waits?: WaitRegistration[];
+  /** Bumped by a stop. A wait registered before the bump is stale. Absent counts as 0. */
+  controlRevision?: number;
 }
 
-/** The delegated work a project is blocked on, and what is known about it. */
-export interface BlockedWork {
-  kind: 'workflow' | 'room';
-  id: string;
-  /** What the work is called. Saved when the block is raised, where it is known. */
-  title: string | null;
-  /** The state the work ended in, e.g. `cancelled`. */
-  status: string;
-  /** When the Architect observed that ending. */
-  at: string;
-  /**
-   * Why it ended, when something recorded a cause. A cause is never inferred
-   * from a count of attempts: `PendingResearch.attempts` counts attempts to
-   * plan the work, not times the work itself stopped.
-   */
-  cause?: BlockedWorkCause;
-}
-
-export interface BlockedWorkCause {
-  /** The cause in plain words, for the project page. */
-  text: string;
-  /** The decision this cause came from, when it came from one. */
-  decisionId?: string;
-}
+export type { BlockedWork, BlockedWorkCause } from './blocked-work';
 
 export interface NewProjectInput {
   executionMode?: ExecutionMode;

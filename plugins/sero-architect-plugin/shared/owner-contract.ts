@@ -40,6 +40,7 @@ const DIRECT_WORK_HELP = [
   'You may do a milestone yourself instead of dispatching it. Choose by the work: do it yourself when one agent can finish it, and dispatch when it needs specialists, parallel work or an independent reviewer.',
   'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. Your report is a claim and your own tests are a self-check, never an independent review.',
   'Work marked interrupted was stopped part-way. Its files are kept. Inspect them and go on with work --operation continue; do not begin it again and do not repeat an outside action whose result you cannot confirm.',
+  'To wait for a Room or Workflow you started: work --operation wait --source child --target <milestone or research id> [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. A process or CI result cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
 ];
 
 function milestoneLine(milestone: Milestone): string {

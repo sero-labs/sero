@@ -18,10 +18,13 @@ import type {
   GoalTurnReport,
   GoalVerdict,
 } from '../../shared/goal-types';
+import type { OrchestratorState } from '../../shared/types';
 import { DEFAULT_GOAL_LIMITS } from '../../shared/goal-defaults';
 import type { OrchestratorHost } from '../host';
 import { describeDriverConflict, type SessionDrivers } from '../session-drivers';
+import { registerWait, stopWaits, supersedeWaits, type GoalWaitRequest } from '../../shared/goal-waits';
 import { checkGoalLimits } from './goal-limits';
+import { GoalWaitWatcher } from './goal-wait-watcher';
 import type { GoalStore } from './goal-store';
 import {
   activate,
@@ -54,11 +57,16 @@ function budgetSummary(goal: Goal): string {
 }
 
 export class GoalRuntime {
+  /** Observes registered waits and wakes the goal through its own loop. */
+  readonly waits: GoalWaitWatcher;
+
   constructor(
     private readonly host: OrchestratorHost,
     private readonly store: GoalStore,
     private readonly drivers: SessionDrivers,
-  ) {}
+  ) {
+    this.waits = new GoalWaitWatcher({ host, store, claim: (goalId, sessionPath) => this.claimSession(goalId, sessionPath) });
+  }
 
   private ctx(): { now: string } {
     return { now: this.host.now() };
@@ -83,6 +91,8 @@ export class GoalRuntime {
       await this.store.put(next);
       if (!check.ok) this.host.log(`goal ${goal.id} is limited on restart: ${check.reason}`);
     }
+    // A wait that ended while Sero was closed, or a wake reserved but never started.
+    await this.waits.reconcile();
   }
 
   async list(): Promise<Goal[]> {
@@ -274,16 +284,14 @@ export class GoalRuntime {
   }
 
   /**
-   * Parks the goal until the user resumes it.
-   *
-   * Nothing wakes a waiting goal on its own in phase 1: both a timer and a
-   * condition registered on the event queue need the waiting infrastructure of
-   * phase 2 (D04). The reason is therefore recorded, and the goal says plainly
-   * that it waits for the user, rather than promising a wake it cannot give.
+   * Parks the goal. With no registration this is the manual wait: the reason
+   * is recorded, nothing wakes the goal, and the user resumes it. With one, the
+   * goal waits on a source the runtime can read and continues by itself.
    */
-  async reportWait(goalId: string, sessionPath: string, reason: string): Promise<GoalOutcome> {
+  async reportWait(goalId: string, sessionPath: string, reason: string, request?: Omit<GoalWaitRequest, 'id' | 'now'>): Promise<GoalOutcome> {
     const found = await this.owned(goalId, sessionPath);
     if ('error' in found) return failure(found.error);
+    if (request) return this.registerWait(found, reason.trim(), request);
     const next = wait(this.leaveActive(found), { reason: reason.trim() }, this.ctx());
     await this.store.put(next);
     return {
@@ -291,6 +299,45 @@ export class GoalRuntime {
       text: `Goal ${goalId} is waiting: ${reason}. Resume it with /goal resume when the condition is met.`,
       goal: next,
     };
+  }
+
+  /**
+   * Parks the goal on a source the runtime can read. The intent is saved first,
+   * then the source is read once, so a completion that landed just before this
+   * call wakes the goal instead of being missed. A refusal parks nothing.
+   */
+  private async registerWait(goal: Goal, reason: string, request: Omit<GoalWaitRequest, 'id' | 'now'>): Promise<GoalOutcome> {
+    const registered = registerWait(goal, { ...request, id: this.host.newId('wait'), now: this.host.now() });
+    if (!registered.ok) return failure(registered.reason);
+    if (request.source.kind === 'child' && !(await this.host.readState())?.loops.some((loop) => loop.id === request.source.id)) {
+      return failure(`No Workflow "${request.source.id}" in this workspace to wait for.`);
+    }
+    const label = `${request.source.kind} ${request.source.id}`;
+    const parked = wait(this.leaveActive(registered.goal), { reason: reason || `waiting for ${label}` }, this.ctx());
+    await this.store.put(parked);
+    await this.waits.reconcile(goal.id);
+    const latest = (await this.store.get(goal.id)) ?? parked;
+    return {
+      ok: true,
+      text: latest.status === 'active'
+        ? `Goal ${goal.id}: ${label} had already ended. The goal continues after this turn.`
+        : `Goal ${goal.id} is waiting for ${label}${registered.wait.deadline ? ` until ${registered.wait.deadline} at most` : ''}. It continues by itself when that ends, fails or its deadline passes; a failure is not completion.`,
+      goal: latest,
+    };
+  }
+
+  /** Marks the wait wakes on a goal as started. The Goal loop calls this as it starts the turn. */
+  async consumeWakes(goalId: string): Promise<Goal | null> {
+    return this.waits.consume(goalId);
+  }
+
+  /** The loop state was written: every open wait's source is read again. */
+  async observeState(state: OrchestratorState): Promise<void> {
+    await this.waits.reconcile(undefined, state);
+  }
+
+  dispose(): void {
+    this.waits.dispose();
   }
 
   async pause(goalId: string, pauseReason: GoalPauseReason, reason: string): Promise<GoalOutcome> {
@@ -321,7 +368,7 @@ export class GoalRuntime {
     }
     const claimed = await this.claimSession(goal.id, goal.sessionPath);
     if ('conflict' in claimed) return failure(`Cannot resume the goal: ${claimed.conflict}.`);
-    const next = activate({ ...goal, sessionId: claimed.sessionId }, 'the user resumed the goal', this.ctx());
+    const next = activate({ ...supersedeWaits(goal, this.host.now()), sessionId: claimed.sessionId }, 'the user resumed the goal', this.ctx());
     await this.store.put(next);
     return { ok: true, text: `Goal ${goalId} is active again — ${budgetSummary(next)}.`, goal: next };
   }
@@ -331,7 +378,7 @@ export class GoalRuntime {
     const goal = await this.store.get(goalId);
     if (!goal) return failure(`No goal ${goalId}.`);
     if (goal.status === 'complete' || goal.closedAt) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
-    const stopped = { ...pause(this.leaveActive(goal), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
+    const stopped = { ...pause(this.leaveActive(stopWaits(goal, this.host.now())), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
     await this.store.put(stopped);
     return { ok: true, text: `Goal ${goalId} is stopped.`, goal: stopped };
   }
