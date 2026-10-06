@@ -201,7 +201,7 @@ const APPROVAL_LABELS = ['Allow'] as const;
 async function approvePrompts(label: string): Promise<number> {
   let answered = 0;
   for (const name of APPROVAL_LABELS) {
-    const buttons = page.getByRole('button', { name, exact: true });
+    const buttons = page.getByRole('button', { name });
     const count = await buttons.count().catch(() => 0);
     for (let index = 0; index < count; index += 1) {
       const button = buttons.nth(index);
