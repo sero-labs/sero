@@ -353,4 +353,32 @@ describe('a Room that completes with a delivery receipt', () => {
       await runtime.dispose();
     }
   });
+
+  it('gives one turn, not two, when the receipt is published while the Room is still completing', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const roomMilestone = milestone('m1', { status: 'running', dispatch: { kind: 'room', id: 'room_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
+    const record = agreedProject({ milestones: [roomMilestone] });
+    await store.write({ ...record, session: { ...record.session, lastWakeAt: '2026-09-08T09:00:00.000Z' } });
+    host.jsonFiles[files.loops] = { loops: [] };
+    host.jsonFiles[files.rooms] = { rooms: [{ id: 'room_1', title: 'Room', status: 'running', updatedAt: T0 }] };
+    const runtime = new ArchitectRuntime(host, {});
+    const push = async (status: string, deliveryRef?: string) => {
+      const state = { rooms: [{ id: 'room_1', title: 'Room', status, updatedAt: T0, ...(deliveryRef ? { deliveryRef } : {}) }] };
+      host.jsonFiles[files.rooms] = state;
+      host.emitState(files.rooms, state);
+      await (runtime as unknown as { watch: { flush(): Promise<void> } }).watch.flush();
+      await runtime.scheduler?.idle('proj_1');
+    };
+    try {
+      await runtime.start();
+      await runtime.owner?.execute({ sessionPath: host.sessions.sessionPath, cwd: '/home/dan/projects/hollow' }, { action: 'work', projectId: 'proj_1', operation: 'wait', source: 'child', target: 'm1' });
+      await push('completing', 'https://example.test/pr/7');
+      await push('completed', 'https://example.test/pr/7');
+      expect(host.sessions.prompts).toHaveLength(1);
+      expect(host.sessions.prompts[0]?.content).toContain('https://example.test/pr/7');
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });

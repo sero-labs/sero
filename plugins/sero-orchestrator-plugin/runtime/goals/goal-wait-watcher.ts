@@ -135,15 +135,24 @@ export class GoalWaitWatcher {
     // the goal is not active on it: an active goal (this wake, or a resume that won the race)
     // relies on that slot, and a later stop or pause releases it.
     const taken = claimed?.sessionId;
-    if (taken) {
+    // Whether the wake is still the goal's state when the notification would go out: a stop that
+    // queued ahead of this read leaves the goal stopped, and nothing may start another turn.
+    let wakeStands = false;
+    if (claimed) {
+      let ran = false;
       final = await store.update(goalId, (current) => {
-        if (current.status !== 'active' || current.sessionId !== taken) this.deps.release(goalId, taken);
+        ran = true;
+        const active = current.status === 'active' && current.sessionId === claimed.sessionId;
+        wakeStands = active && reservedWakes(current).length > 0;
+        if (taken && !active) this.deps.release(goalId, taken);
         return current;
       }) ?? final;
+      // The goal was deleted while the claim was awaited: nothing is left to hold the session.
+      if (!ran && taken) this.deps.release(goalId, taken);
     }
     if (!final) return;
     this.arm(final);
-    if (woke.goal?.status === 'active') notifyGoalWake(woke.goal);
+    if (woke.goal?.status === 'active' && wakeStands) notifyGoalWake(woke.goal);
   }
 
   /** The same gates as the user's resume, the limits and the session claim, already passed. */

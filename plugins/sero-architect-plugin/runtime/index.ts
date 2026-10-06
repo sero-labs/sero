@@ -217,7 +217,8 @@ export class ArchitectRuntime implements AppRuntime {
     if (!store || !sessions) return;
     let record = await store.read(projectId);
     if (!record) return;
-    const allowed = wake.kind === 'directive' || wake.kind === 'decision' || mayWakeForWork(record);
+    const asked = wake.kind === 'directive' || wake.kind === 'decision';
+    const allowed = asked || mayWakeForWork(record);
     if (!allowed) {
       this.host.log(`project ${projectId} is ${record.overlay}; ${wake.kind} wake dropped`);
       return;
@@ -260,7 +261,7 @@ export class ArchitectRuntime implements AppRuntime {
       result = await sessions.runTurn(record, wake, async () => {
         started = true;
         if (tookWaitWake) await this.waits?.started(projectId);
-      }, tookWaitWake ? waitMayWake : undefined);
+      }, tookWaitWake ? waitMayWake : asked ? undefined : mayWakeForWork);
     } finally {
       if (tookWaitWake && !started) await this.waits?.requeue(projectId);
     }

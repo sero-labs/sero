@@ -28,6 +28,8 @@ export interface OwnerUsageContext {
   wakeId?: string;
   model?: string | null;
   thinking?: string | null;
+  /** A directive or decision wake the user asked for: it may run on a project already at its cap. */
+  exemptFromCap: boolean;
   /** Called when a read finds a turn that began under the cap at or over it, whoever crossed it. May repeat. */
   overCap(): void;
 }
@@ -40,9 +42,9 @@ function overCostCap(record: ProjectRecord): boolean {
 export function createUsageReader(context: OwnerUsageContext): { read: () => Promise<void>; flush: () => Promise<void> } {
   const { deps, api, handleId, projectId, usageSource, tokenMarks } = context;
   let usageRead: Promise<void> | undefined;
-  // A directive or decision wake the user asked for may run on a project that is
-  // already at its cap, so only a turn that began under the cap is stopped for it.
-  const startedUnderCap = !overCostCap(context.turnRecord);
+  // An exempt wake may run on a project that is already at its cap, so it is stopped only if it
+  // began under the cap. Any other wake is always stopped, whatever the record said at preparation.
+  const startedUnderCap = !context.exemptFromCap || !overCostCap(context.turnRecord);
   const read = (): Promise<void> => {
     usageRead ??= (async () => {
       const usage = await api.getSessionUsage(handleId).catch(() => null);

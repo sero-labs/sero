@@ -16,7 +16,7 @@ import { block, charge, settle } from '../shared/lifecycle';
 import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
-import { waitCoversCompletion } from '../shared/waits';
+import { openWaits, waitCoversCompletion } from '../shared/waits';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import { SESSION_STARTED_AT } from './session-state';
@@ -345,11 +345,13 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
     }
     // The index is authoritative: every push re-reads each open wait's source.
     await deps.waits?.reconcile(projectId, loops || rooms ? { loops, rooms } : null);
-    // A registered wait on the child already carries this completion to the
-    // owner in its own wake, so the ordinary one would be a second turn for it.
+    // A registered wait on the child, open or already satisfied, carries this
+    // completion, and the receipt (saved on the milestone) the Room publishes just before it in its own wake, so
+    // the ordinary one would be a second turn for it.
     const covered = wakes.some((transition) => transition.childId) ? await store.read(projectId) : null;
     for (const transition of wakes) {
-      if (covered && transition.childId && waitCoversCompletion(covered, transition.childId)) continue;
+      if (covered && transition.childId
+        && (waitCoversCompletion(covered, transition.childId) || (!transition.reported && openWaits(covered).some((wait) => wait.source.kind === 'child' && wait.source.id === transition.childId)))) continue;
       // An event that starts triage opens its objective's run before the owner's
       // first model call, so the wake and everything it causes stay attributable.
       if (transition.kind === 'external-event' && transition.objectiveId && deps.openMaintenanceRun) {

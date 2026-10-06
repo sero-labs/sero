@@ -1,5 +1,6 @@
 import { createRunJournal } from '../run-journal';
 import { closeRun, openRun } from '../../shared/runs';
+import { mayWakeForWork } from '../../shared/lifecycle';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { OWNER_STALL_GRACE_MS, OWNER_STALL_WINDOW_MS } from '../owner-stall';
@@ -191,6 +192,34 @@ describe('owner session', () => {
       const abort = stoppable(host, async () => {
         await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, capUsd: 1 } }));
       });
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('sends nothing for an ordinary wake when the cap was lowered below spend during preparation', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 10, spentUsd: 2 } });
+      await store.write(record);
+      const open = host.sessions.open;
+      const create = host.sessions.create;
+      const lower = async () => { await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, capUsd: 1 } })); };
+      host.sessions.open = async (...args) => { await lower(); return open(...args); };
+      host.sessions.create = async (...args) => { await lower(); return create(...args); };
+      const prompt = vi.spyOn(host.sessions, 'prompt');
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, undefined, mayWakeForWork);
+      expect(prompt).not.toHaveBeenCalled();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('stops an ordinary wake that began already over the cap, which only directive and decision wakes may do', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => undefined);
       const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
       expect(abort).toHaveBeenCalledOnce();
       expect(result.status).toBe('aborted');

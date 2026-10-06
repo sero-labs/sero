@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Goal } from '../../shared/goal-types';
 import { buildGoalContinuation } from '../../shared/goal-contract';
 import { GoalRuntime } from '../goals/goal-runtime';
-import { createGoalStore, type GoalStoreIo } from '../goals/goal-store';
+import { createGoalStore, type GoalStore, type GoalStoreIo } from '../goals/goal-store';
 import { onGoalWake } from '../goals/goal-wake';
 import { SessionDrivers } from '../session-drivers';
 import { createFakeHost, type FakeHost } from './fake-host';
@@ -228,6 +228,41 @@ describe('a wake that is deciding while the user stops or pauses', () => {
     expect(woken).toHaveLength(0);
     await runtime.stop(goal.id);
     expect(drivers.holderOf('sess-1')).toBeUndefined();
+  });
+
+  it('gives the session back when the goal was stopped and deleted while the wake waited for it', async () => {
+    const { runtime, drivers, goal, waking, release } = await heldAtClaim();
+    await runtime.stop(goal.id);
+    await runtime.remove(goal.id);
+    release();
+    await waking;
+    expect(woken).toHaveLength(0);
+    expect(drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' }).ok).toBe(true);
+  });
+
+  it('starts no turn when a stop lands between the wake being saved and it being announced', async () => {
+    const host = createFakeHost();
+    host.frozenNow = T0;
+    seedActiveLoop(host, oneStepPlan().plan, 'loop-1');
+    const real = createGoalStore(memoryIo(), '/state');
+    // The user's stop joins the store queue right behind the watcher's wake write.
+    const store: GoalStore = {
+      ...real,
+      async update(goalId, change) {
+        const saved = await real.update(goalId, change);
+        if (saved?.status === 'active') void real.update(goalId, (goal) => ({ ...goal, status: 'paused', closedAt: T0 }));
+        return saved;
+      },
+    };
+    const runtime = new GoalRuntime(host, store, new SessionDrivers());
+    onGoalWake(SESSION, (goal) => { woken.push(goal); });
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'ship it', criteria: [], limits: {} });
+    if (!started.goal) throw new Error(started.text);
+    await runtime.reportWait(started.goal.id, SESSION, 'for the Workflow', { source: { kind: 'child', id: 'loop-1' } });
+    woken.length = 0;
+    host.state = { ...host.state, loops: host.state.loops.map((loop) => ({ ...loop, status: 'complete' as const })) };
+    await runtime.observeState(host.state);
+    expect(woken).toHaveLength(0);
   });
 
   it('leaves a stop the user made while the wake waited for the session', async () => {

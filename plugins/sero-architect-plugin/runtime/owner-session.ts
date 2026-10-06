@@ -310,6 +310,7 @@ export class OwnerSessions {
     const usage = createUsageReader({
       deps: this.deps, api, handleId, projectId: opened.id, usageSource, turnRecord, tokenMarks: this.tokenMarks,
       turnRunId, wakeId, model, thinking,
+      exemptFromCap: wake.kind === 'directive' || wake.kind === 'decision',
       // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
       overCap: () => {
         if (finished || capAborted) return;
