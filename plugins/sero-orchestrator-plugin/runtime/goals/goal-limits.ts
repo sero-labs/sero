@@ -8,7 +8,7 @@
  * again. Callers must say that rather than imply a hard cap.
  */
 
-import type { Goal, GoalLimitKey } from '../../shared/goal-types';
+import type { Goal, GoalLimitKey, GoalLimitOrigin, GoalLimitOrigins, GoalLimits } from '../../shared/goal-types';
 
 export type GoalLimitCheck = { ok: true } | { ok: false; limit: GoalLimitKey; reason: string };
 
@@ -48,4 +48,42 @@ export function checkGoalLimits(goal: Goal, nowMs: number): GoalLimitCheck {
     return { ok: false, limit: 'maxCostUsd', reason: `reached the cost budget of $${limits.maxCostUsd.toFixed(2)}` };
   }
   return OK;
+}
+
+const LIMIT_NAMES: Record<GoalLimitKey, string> = {
+  maxAttemptsTotal: 'automatic-turn limit',
+  maxWallClockMs: 'active-time limit',
+  maxTotalTokens: 'token limit',
+  maxCostUsd: 'cost limit',
+};
+
+export type GoalLimitChange =
+  | { ok: true; limits: GoalLimits; origins: GoalLimitOrigins }
+  | { ok: false; reason: string };
+
+/**
+ * Applies a limit change. The user may set anything. An agent may tighten a
+ * limit the user set, or set one the user left unset (which then stays the
+ * agent's); raising or removing the user's limit is refused, all or nothing.
+ */
+export function changeGoalLimits(goal: Goal, requested: GoalLimits, by: GoalLimitOrigin): GoalLimitChange {
+  const limits: GoalLimits = { ...goal.limits };
+  const origins: GoalLimitOrigins = { ...goal.limitOrigins };
+  for (const key of Object.keys(requested) as GoalLimitKey[]) {
+    const next = requested[key];
+    const current = goal.limits[key];
+    const userSet = current !== undefined && (goal.limitOrigins?.[key] ?? 'user') === 'user';
+    if (by === 'agent' && userSet && (next === undefined || next > current)) {
+      return { ok: false, reason: `The ${LIMIT_NAMES[key]} was set by the user, so it cannot be raised or removed from here. It can be lowered, or the user can change it.` };
+    }
+    if (next === undefined) {
+      delete limits[key];
+      delete origins[key];
+    } else {
+      limits[key] = next;
+      // An agent tightening the user's limit does not make it the agent's.
+      if (!(by === 'agent' && userSet)) origins[key] = by;
+    }
+  }
+  return { ok: true, limits, origins };
 }

@@ -48,6 +48,14 @@ export type GoalLimitKey = 'maxAttemptsTotal' | 'maxWallClockMs' | 'maxTotalToke
 export type GoalLimits = Pick<LoopLimits, GoalLimitKey>;
 
 /**
+ * Who set a limit. An agent may tighten a user's limit or set one the user left
+ * unset, but may not raise or remove a user's limit. A limit with no recorded
+ * origin (a goal saved before this was tracked) counts as the user's.
+ */
+export type GoalLimitOrigin = 'user' | 'agent';
+export type GoalLimitOrigins = Partial<Record<GoalLimitKey, GoalLimitOrigin>>;
+
+/**
  * What the goal has spent. Only turns the goal itself started are charged —
  * user turns, resumes and edits are not.
  */
@@ -122,6 +130,8 @@ export interface Goal {
   criteria: string[];
   status: GoalStatus;
   limits: GoalLimits;
+  /** Who set each limit. Absent on goals saved before origins were recorded. */
+  limitOrigins?: GoalLimitOrigins;
   usage: GoalUsage;
   progress: GoalProgressLedger;
   /** Start of the current `active` span, folded into `usage.activeMs` when it ends. */

@@ -12,6 +12,9 @@
 
 import type {
   Goal,
+  GoalLimitKey,
+  GoalLimitOrigin,
+  GoalLimitOrigins,
   GoalLimits,
   GoalOutcome,
   GoalPauseReason,
@@ -23,7 +26,7 @@ import { DEFAULT_GOAL_LIMITS } from '../../shared/goal-defaults';
 import type { OrchestratorHost } from '../host';
 import { describeDriverConflict, type SessionDrivers } from '../session-drivers';
 import { registerWait, stopWaits, supersedeWaits, type GoalWaitRequest } from '../../shared/goal-waits';
-import { checkGoalLimits } from './goal-limits';
+import { changeGoalLimits, checkGoalLimits } from './goal-limits';
 import { GoalWaitWatcher } from './goal-wait-watcher';
 import type { GoalStore } from './goal-store';
 import {
@@ -42,6 +45,16 @@ export interface GoalStartRequest {
   objective: string;
   criteria: string[];
   limits?: GoalLimits;
+  /** Who typed `limits`. Anything not typed is a default the agent may change. Absent means the user. */
+  limitsBy?: GoalLimitOrigin;
+}
+
+/** Typed limits take the asker's origin; the built-in defaults belong to no user. */
+function startingOrigins(request: GoalStartRequest): GoalLimitOrigins {
+  const origins: GoalLimitOrigins = {};
+  for (const key of Object.keys(DEFAULT_GOAL_LIMITS) as GoalLimitKey[]) origins[key] = 'agent';
+  for (const key of Object.keys(request.limits ?? {}) as GoalLimitKey[]) origins[key] = request.limitsBy ?? 'user';
+  return origins;
 }
 
 function failure(text: string): GoalOutcome {
@@ -154,6 +167,7 @@ export class GoalRuntime {
       criteria: request.criteria.map((criterion) => criterion.trim()).filter(Boolean),
       status: 'active',
       limits: { ...DEFAULT_GOAL_LIMITS, ...request.limits },
+      limitOrigins: startingOrigins(request),
       usage: { automaticTurns: 0, totalTokens: 0, costUsd: 0, activeMs: 0 },
       progress: { repeats: 0 },
       activeSince: now,
@@ -395,10 +409,13 @@ export class GoalRuntime {
   }
 
   /** Raises or lowers a budget on a goal the user wants to keep going. */
-  async setLimits(goalId: string, limits: GoalLimits): Promise<GoalOutcome> {
+  /** `by` says who is asking: an agent cannot raise or remove a limit the user set. */
+  async setLimits(goalId: string, limits: GoalLimits, by: GoalLimitOrigin): Promise<GoalOutcome> {
     const goal = await this.store.get(goalId);
     if (!goal) return failure(`No goal ${goalId}.`);
-    const next = { ...goal, limits: { ...goal.limits, ...limits }, updatedAt: this.host.now() };
+    const change = changeGoalLimits(goal, limits, by);
+    if (!change.ok) return failure(change.reason);
+    const next = { ...goal, limits: change.limits, limitOrigins: change.origins, updatedAt: this.host.now() };
     await this.store.put(next);
     return { ok: true, text: `Goal ${goalId} budgets updated — ${budgetSummary(next)}.`, goal: next };
   }
