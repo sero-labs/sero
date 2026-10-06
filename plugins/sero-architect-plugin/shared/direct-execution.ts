@@ -31,8 +31,11 @@ export interface DirectExecution {
   runId: string | null;
   /** The owner session that does the work, as the record held it at the start. */
   owner: { subject: 'owner'; sessionId: string | null; sessionPath: string | null };
-  /** Where the files are. Resolved once, then reused on every resume. */
-  placement: { mode: ExecutionMode; directory: string; workspaceId: string | null };
+  /**
+   * Where the files are. Resolved once, then reused on every resume. A
+   * worktree execution also names its branch: that branch is the result.
+   */
+  placement: { mode: ExecutionMode; directory: string; workspaceId: string | null; branch?: string };
   /** HEAD before the first edit, for the diff the evidence shows. */
   baseCommit: string | null;
   /** Hash of the project content before the first edit. */
@@ -65,6 +68,17 @@ export interface DirectExecutionStart {
 /** An execution that still owns its milestone's files. */
 export function isActiveDirect(execution: DirectExecution | undefined): execution is DirectExecution {
   return execution?.state === 'running' || execution?.state === 'interrupted';
+}
+
+/** The checkout a worktree execution works in, or null when the work is in the project folder. */
+export function directWorktree(milestone: Milestone): DirectExecution['placement'] | null {
+  const execution = milestone.direct;
+  return execution && execution.state !== 'superseded' && execution.placement.mode === 'worktree' ? execution.placement : null;
+}
+
+/** Where the owner must work for a worktree execution. One wording for the reply and the per-wake contract. */
+export function worktreeWorkRule(placement: DirectExecution['placement']): string {
+  return `Your own work on this milestone is in the checkout ${placement.directory}${placement.branch ? ` (branch ${placement.branch})` : ''}. Every path you read, write or edit must be inside it: use absolute paths, or cd there first in each shell command. Do not edit the project folder for this milestone.`;
 }
 
 /** The milestone's execution when it is the current one, by id. */

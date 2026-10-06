@@ -36,13 +36,31 @@ holds a lease.
 The owner can do a milestone itself. `shared/direct-execution.ts` holds the
 execution record and its transitions: begin, continue, report and interrupt.
 `runtime/owner-direct.ts` runs the `work` action and its refusals (agreement
-projects only, Workspace mode only, no OpenSpec-linked milestone).
+projects only, no OpenSpec-linked milestone).
 `runtime/execution-location.ts` (`projectWriter`) keeps the owner's work and
 any Workflow or Room that writes the project folder from running together.
 `continue` is a wake kind in `shared/wake.ts`, delivered in `runtime/index.ts`.
 A report is a claim: evidence and acceptance are unchanged. Interrupted work
 keeps its files and identity. The owner contract text is `DIRECT_WORK_HELP` in
 `shared/owner-contract.ts`.
+
+In a Workspace project the owner edits the project folder, and only one thing
+writes it at a time. In a Worktree project `begin` makes a managed checkout for
+the milestone (`runtime/direct-worktree.ts`, key `direct-<milestone id>`),
+inside the project folder at `.sero/worktrees/`, so the owner's own file tools
+reach it. The directory and branch are saved with the execution before `begin`
+returns, so a repeat or a restart finds the same checkout. The per-wake
+contract names the directory while the work is active. Base commit, fingerprint,
+evidence commands and the diff all read that directory. `report` commits the
+checkout to its branch first and is refused, with the execution left running,
+if that fails; an interruption commits it too. With
+`--destination workspace-files` the branch name becomes the receipt, and the
+usual acceptance and delivery steps follow. The checkout is released after the
+milestone is accepted and delivered, or parked: its work is committed first,
+nothing is forced, and a branch Git does not call merged is never deleted. A
+released checkout is restored from its branch if the work resumes. A worktree
+execution does not count as a project-folder writer, but one execution at a
+time still holds the owner, and a dispatch on its own milestone is refused.
 
 ## Waits
 

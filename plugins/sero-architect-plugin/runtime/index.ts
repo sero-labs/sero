@@ -25,6 +25,7 @@ import { openMaintenanceRun } from './run-lifecycle';
 import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
 import { activeDirectMilestone, interruptDirectExecutions } from '../shared/direct-execution';
+import { createDirectWorktrees } from './direct-worktree';
 import { createServices } from './services';
 import { markRuntimeRunning, SESSION_STARTED_AT } from './session-state';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -159,6 +160,7 @@ export class ArchitectRuntime implements AppRuntime {
         ? (await store.update(read.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? read
         : read;
       if (!fresh) continue;
+      await createDirectWorktrees(this.host).preserveInterrupted(fresh);
       // Waits that ended while Sero was closed, a wake reserved but never started, and deadlines passed.
       // A wake taken for a turn that never started is reserved again first.
       await waits.requeue(fresh.id);
@@ -268,6 +270,11 @@ export class ArchitectRuntime implements AppRuntime {
     // A turn that was stopped, failed or timed out did not finish its work.
     const after = result.status === 'completed' ? result.record
       : (await store.update(projectId, (current) => interruptDirectExecutions(current, `the owner turn ended as ${result.status}`))) ?? result.record;
+    // Work stopped part-way is committed to its branch, and a checkout whose
+    // milestone is delivered or parked is released after its work is kept.
+    const worktrees = createDirectWorktrees(this.host);
+    if (result.status !== 'completed') await worktrees.preserveInterrupted(after);
+    await worktrees.releaseSettled(after);
     // The owner asked for another turn on its own work. Directives, answers and
     // work events queued meanwhile go first, and a pause, block or cap holds it.
     const direct = activeDirectMilestone(after);

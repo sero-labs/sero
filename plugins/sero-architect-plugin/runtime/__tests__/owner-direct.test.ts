@@ -30,14 +30,15 @@ async function setup(overrides: Partial<ProjectRecord> = {}) {
     restartResearch: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record) => record),
-    workspaceState: vi.fn(async () => ({ commit: 'base-1', fingerprint })),
+    // A directory other than the project folder reads its own content.
+    workspaceState: vi.fn(async (record: ProjectRecord, directory?: string) => ({ commit: 'base-1', fingerprint: directory && directory !== record.folder ? `${fingerprint}@${directory}` : fingerprint })),
   };
   await store.write(agreedProject({ milestones: [milestone('m1', { status: 'approved' }), milestone('m2', { status: 'approved' })], ...overrides }));
   const actions = createOwnerActions({ host, store, outcomes, services });
   const work = (operation: 'begin' | 'continue' | 'report', extra: Record<string, unknown> = {}) =>
     actions.execute(owner, { action: 'work', projectId: 'proj_1', operation, ...extra });
   const m1 = async () => (await store.read('proj_1'))!.milestones[0]!;
-  return { store, outcomes, services, actions, work, m1, changeFiles: (next: string) => { fingerprint = next; } };
+  return { host, store, outcomes, services, actions, work, m1, changeFiles: (next: string) => { fingerprint = next; } };
 }
 
 async function begun(overrides: Partial<ProjectRecord> = {}) {
@@ -61,13 +62,6 @@ describe('the owner starts a milestone itself', () => {
     const { work, executionId } = await begun();
     const again = await work('begin', { milestoneId: 'm1' });
     expect(again.details?.executionId).toBe(executionId);
-  });
-
-  it('does not edit the root workspace of a Worktree project', async () => {
-    const { work, m1 } = await setup({ executionMode: 'worktree' });
-    const refused = await work('begin', { milestoneId: 'm1' });
-    expect(refused.ok).toBe(false);
-    expect((await m1()).direct).toBeUndefined();
   });
 
   it('starts nothing while the project is paused', async () => {
@@ -210,5 +204,98 @@ describe('a completion report is a claim', () => {
     const { work, m1, executionId } = await begun();
     expect((await work('report', { executionId, text: 'Fixed it.', destination: 'email-send' })).ok).toBe(false);
     expect((await m1()).status).toBe('running');
+  });
+});
+
+const WORKTREE = '/home/dan/projects/hollow/.sero/worktrees/card-direct-m1';
+
+describe('the owner works in a worktree in a Worktree project', () => {
+  it('makes the checkout once, saves it with the execution, and reads the base from it', async () => {
+    const { host, work, m1 } = await setup({ executionMode: 'worktree' });
+    const started = await work('begin', { milestoneId: 'm1' });
+    expect(started.ok).toBe(true);
+    expect(started.text).toContain(WORKTREE);
+    expect(started.text).toContain('inside it');
+    expect((await m1()).direct).toMatchObject({
+      placement: { mode: 'worktree', directory: WORKTREE, workspaceId: 'ws-1', branch: expect.stringContaining('direct-m1') },
+      baseFingerprint: `fp0@${WORKTREE}`,
+    });
+    const again = await work('begin', { milestoneId: 'm1' });
+    expect(again.details?.executionId).toBe(started.details?.executionId);
+    expect(host.gitCalls.filter((call) => call.call === 'create')).toHaveLength(1);
+  });
+
+  it('saves nothing when the checkout cannot be made, and says why', async () => {
+    const { host, work, m1 } = await setup({ executionMode: 'worktree' });
+    host.gitFailures.create = 'the disk is full';
+    const refused = await work('begin', { milestoneId: 'm1' });
+    expect(refused.ok).toBe(false);
+    expect(refused.text).toContain('the disk is full');
+    expect((await m1()).direct).toBeUndefined();
+    expect((await m1()).status).toBe('approved');
+  });
+
+  it('adopts a checkout a crash left behind instead of making a second', async () => {
+    const { host, work, m1 } = await setup({ executionMode: 'worktree' });
+    host.existingPaths.add(WORKTREE);
+    host.execResults['git rev-parse --abbrev-ref HEAD'] = { exitCode: 0, stdout: 'feat/left-behind\n', stderr: '' };
+    expect((await work('begin', { milestoneId: 'm1' })).ok).toBe(true);
+    expect(host.gitCalls.filter((call) => call.call === 'create')).toHaveLength(0);
+    expect((await m1()).direct?.placement).toMatchObject({ directory: WORKTREE, branch: 'feat/left-behind' });
+  });
+
+  it('reuses the checkout when new requirements start the work again', async () => {
+    const { host, store, work, m1 } = await setup({ executionMode: 'worktree' });
+    await work('begin', { milestoneId: 'm1' });
+    const first = (await m1()).direct!;
+    await store.update('proj_1', (fresh) => ({ ...fresh, working: { revision: 7, objective: 'x', approach: '', assumptions: [], criteria: [], reason: null, updatedAt: T0 } }));
+    await work('begin', { milestoneId: 'm1' });
+    expect((await m1()).direct).toMatchObject({ placement: { directory: WORKTREE, branch: first.placement.branch } });
+    expect((await m1()).direct?.id).not.toBe(first.id);
+    expect(host.gitCalls.filter((call) => call.call === 'create')).toHaveLength(1);
+  });
+
+  it('is not a project-folder writer, yet still holds its own milestone and its own turn', async () => {
+    const { actions, services, work, host } = await setup({ executionMode: 'worktree' });
+    await work('begin', { milestoneId: 'm1' });
+    const same = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build it' });
+    expect(same.ok).toBe(false);
+    expect(services.dispatch).not.toHaveBeenCalled();
+    const other = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm2', kind: 'workflow', prompt: 'Build combat' });
+    expect(other.text).not.toContain('folder is in use');
+    expect(services.dispatch).toHaveBeenCalledOnce();
+    // One direct execution at a time.
+    const second = await work('begin', { milestoneId: 'm2' });
+    expect(second.text).toContain('already working on m1');
+    expect(host.gitCalls.filter((call) => call.call === 'create')).toHaveLength(1);
+  });
+
+  it('continues in the worktree, restoring it from its branch if it was released', async () => {
+    const { host, work, changeFiles } = await setup({ executionMode: 'worktree' });
+    await work('begin', { milestoneId: 'm1' });
+    host.existingPaths.delete(WORKTREE);
+    changeFiles('fp1');
+    expect((await work('continue')).ok).toBe(true);
+    expect(host.gitCalls.find((call) => call.call === 'create' && (call.options as { existingBranch?: string } | undefined)?.existingBranch)).toBeDefined();
+  });
+
+  it('commits the worktree at report, and records the branch as the receipt for workspace-files', async () => {
+    const { host, work, m1 } = await setup({ executionMode: 'worktree' });
+    const started = await work('begin', { milestoneId: 'm1' });
+    const branch = (await m1()).direct?.placement.branch;
+    const reported = await work('report', { executionId: String(started.details?.executionId), text: 'Done.', destination: 'workspace-files' });
+    expect(reported.ok).toBe(true);
+    expect(host.gitCalls.filter((call) => call.call === 'checkpoint').map((call) => call.path)).toEqual([WORKTREE]);
+    expect(await m1()).toMatchObject({ status: 'verifying', receipt: branch });
+  });
+
+  it('refuses a report whose work cannot be committed and leaves the execution running', async () => {
+    const { host, work, m1 } = await setup({ executionMode: 'worktree' });
+    const started = await work('begin', { milestoneId: 'm1' });
+    host.gitFailures.checkpoint = 'hook rejected the commit';
+    const refused = await work('report', { executionId: String(started.details?.executionId), text: 'Done.' });
+    expect(refused.ok).toBe(false);
+    expect(refused.text).toContain('hook rejected the commit');
+    expect(await m1()).toMatchObject({ status: 'running', direct: { state: 'running' }, receipt: null });
   });
 });

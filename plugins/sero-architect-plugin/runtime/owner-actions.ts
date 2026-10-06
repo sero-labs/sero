@@ -33,6 +33,7 @@ import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
 import { checkLinkedChange, executeOwnerOpenSpec, linkedChangePrompt } from './openspec-owner';
 import { completionClaimed, missingEvidence } from './milestone-evidence';
+import { createDirectWorktrees } from './direct-worktree';
 import { ownerWork } from './owner-direct';
 import type { WaitReconciler } from './wait-reconciler';
 import { proposeCharter } from './owner-charter';
@@ -68,13 +69,13 @@ export interface OwnerServices {
   /** Restarts background operations that were durable before the previous process stopped. */
   recoverPending(record: ProjectRecord): void;
   /** HEAD and a hash of the project content, for work the owner does itself. */
-  workspaceState?(record: ProjectRecord): Promise<{ commit: string; fingerprint: string }>;
+  workspaceState?(record: ProjectRecord, directory?: string): Promise<{ commit: string; fingerprint: string }>;
   /** True when files changed since the evidence was taken. The runtime marks it stale and reruns it. */
   evidenceIsStale(record: ProjectRecord, milestone: Milestone): Promise<boolean>;
 }
 
 export interface OwnerActionsDeps {
-  host: Pick<ArchitectHost, 'now' | 'newId' | 'log'> & Partial<Pick<ArchitectHost, 'exec'>>;
+  host: Pick<ArchitectHost, 'now' | 'newId' | 'log'> & Partial<Pick<ArchitectHost, 'exec' | 'git' | 'pathExists'>>;
   store: RecordStore;
   outcomes: TurnOutcomes;
   services: OwnerServices;
@@ -480,7 +481,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       case 'dispatch':
         return dispatch(record, input, now);
       case 'work':
-        return ownerWork({ store, outcomes, newId: (prefix) => host.newId(prefix), workspaceState: services.workspaceState, waits: deps.waits }, record, input, now);
+        return ownerWork({ store, outcomes, newId: (prefix) => host.newId(prefix), workspaceState: services.workspaceState, worktrees: host.git && host.exec && host.pathExists ? createDirectWorktrees({ git: host.git, exec: host.exec, pathExists: host.pathExists, log: host.log }) : undefined, waits: deps.waits }, record, input, now);
       case 'control':
         return ownerControl(linked, record, input, (draft, lead) => escalate(record, now, draft, lead));
       case 'evidence':

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { DirectExecution } from '../../shared/direct-execution';
 import type { ProjectRecord } from '../../shared/record';
 import { ArchitectRuntime } from '../index';
+import { createDirectWorktrees } from '../direct-worktree';
 import { agreedProject, cleanupHosts, fakeHost, milestone, storeFor, T0, type FakeHost } from './helpers';
 
 afterEach(cleanupHosts);
@@ -78,5 +79,45 @@ describe('the owner continues its own work', () => {
     } finally {
       await runtime.dispose();
     }
+  });
+});
+
+describe('the owner works in a worktree and is stopped', () => {
+  const dir = '/home/dan/projects/hollow/.sero/worktrees/card-direct-m1';
+  const inWorktree: DirectExecution = { ...execution, placement: { mode: 'worktree', directory: dir, workspaceId: 'ws-1', branch: 'feat/m1' } };
+
+  it('commits interrupted work to its branch and keeps the checkout', async () => {
+    const { host, runtime, direct } = await started({ paused: true, executionMode: 'worktree', milestones: [milestone('m1', { status: 'running', direct: inWorktree })] });
+    host.existingPaths.add(dir);
+    try {
+      await runtime.start();
+      await runtime.scheduler?.idle('proj_1');
+      expect(await direct()).toMatchObject({ state: 'interrupted' });
+      expect(host.gitCalls.filter((call) => call.call === 'checkpoint').map((call) => call.path)).toEqual([dir]);
+      expect(host.gitCalls.some((call) => call.call === 'remove')).toBe(false);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it('releases a delivered checkout after committing it, never forcing and never deleting an unmerged branch', async () => {
+    const host = await fakeHost();
+    host.existingPaths.add(dir);
+    const record = agreedProject({ executionMode: 'worktree', milestones: [milestone('m1', { status: 'done', verification: 'delivered', receipt: 'feat/m1', direct: { ...inWorktree, state: 'reported' } })] });
+    await createDirectWorktrees(host).releaseSettled(record);
+    expect(host.gitCalls.map((call) => call.call)).toEqual(['checkpoint', 'remove']);
+    expect(host.gitCalls[1]?.options).toEqual({ deleteMergedBranch: true });
+  });
+
+  it('keeps the checkout when its work cannot be committed, and keeps one whose milestone is not delivered', async () => {
+    const host = await fakeHost();
+    host.existingPaths.add(dir);
+    const delivered = agreedProject({ executionMode: 'worktree', milestones: [milestone('m1', { status: 'done', receipt: 'feat/m1', direct: { ...inWorktree, state: 'reported' } })] });
+    host.gitFailures.checkpoint = 'hook rejected the commit';
+    await createDirectWorktrees(host).releaseSettled(delivered);
+    const accepted = agreedProject({ executionMode: 'worktree', milestones: [milestone('m1', { status: 'done', receipt: null, direct: { ...inWorktree, state: 'reported' } })] });
+    host.gitFailures.checkpoint = undefined;
+    await createDirectWorktrees(host).releaseSettled(accepted);
+    expect(host.gitCalls.some((call) => call.call === 'remove')).toBe(false);
   });
 });

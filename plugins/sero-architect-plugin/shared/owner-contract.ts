@@ -7,6 +7,7 @@
  */
 
 import { hasAgreement } from './agreement';
+import { activeDirectMilestone, worktreeWorkRule } from './direct-execution';
 import { outstandingUsd } from './budget';
 import { provenBy } from './evidence-binding';
 import { openDecisions, type Milestone, type ProjectRecord } from './record';
@@ -38,10 +39,16 @@ function budgetLines(record: ProjectRecord): string[] {
  */
 const DIRECT_WORK_HELP = [
   'You may do a milestone yourself instead of dispatching it. Choose by the work: do it yourself when one agent can finish it, and dispatch when it needs specialists, parallel work or an independent reviewer.',
-  'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. Your report is a claim and your own tests are a self-check, never an independent review.',
+  'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. In a Worktree project, begin makes a checkout for the milestone and names it: work only there. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. In a Worktree project the report commits your work to the branch of that checkout, and --destination workspace-files records that branch as the receipt. Your report is a claim and your own tests are a self-check, never an independent review.',
   'Work marked interrupted was stopped part-way. Its files are kept. Inspect them and go on with work --operation continue; do not begin it again and do not repeat an outside action whose result you cannot confirm.',
   'To wait for a Room or Workflow you started: work --operation wait --source child --target <milestone or research id> [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. A process or CI result cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
 ];
+
+/** Where the owner must work while a worktree execution is active. Short: it travels in every wake. */
+function directWorktreeRule(record: ProjectRecord): string[] {
+  const placement = activeDirectMilestone(record)?.direct?.placement;
+  return placement?.mode === 'worktree' ? [worktreeWorkRule(placement)] : [];
+}
 
 function milestoneLine(milestone: Milestone): string {
   const parts = [`- ${milestone.id} "${milestone.title}": ${milestone.status}`];
@@ -293,7 +300,8 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     `You are the owner of Architect project "${quote(record.name)}" (id ${record.id}). This contract replaces every earlier Architect contract in this conversation.`,
     `Phase: ${record.phase}. Overlay: ${overlay}.`,
     `Execution location: ${record.executionMode ?? 'not selected; the user must choose in project settings before new work'}.`,
-    ...(record.executionMode === 'workspace' ? ['All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.'] : record.executionMode === 'worktree' ? ['Delegated editing work uses isolated worktrees. Keep owner coordination in the project folder and preserve each worker directory.'] : []),
+    ...(record.executionMode === 'workspace' ? ['All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.'] : record.executionMode === 'worktree' ? ['Delegated editing work uses isolated worktrees, and so does your own work on a milestone (work --operation begin makes the checkout). Keep owner coordination in the project folder and preserve each worker directory.'] : []),
+    ...directWorktreeRule(record),
     // The revision is stated because a selection can change while a session runs.
     // The owner then knows which revision it is working against instead of
     // assuming the one it was granted.
@@ -322,6 +330,7 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     ...behaviourBlock(record, wake),
     '',
     'You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.',
+    'If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.',
     `Every architect action takes --projectId ${record.id}. A call with another id is refused.`,
     'End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project.',
   ].join('\n');

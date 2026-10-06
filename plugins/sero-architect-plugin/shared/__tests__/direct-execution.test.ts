@@ -8,6 +8,7 @@ import {
   activeDirectMilestone,
   beginDirectExecution,
   continueDirectExecution,
+  directWorktree,
   interruptDirectExecutions,
   reportDirectExecution,
   type DirectExecutionStart,
@@ -175,5 +176,18 @@ describe('direct work that repairs a delegated milestone', () => {
     if (!reported.ok) throw new Error(reported.reason);
     expect(reported.record.milestones[0]?.evidence?.stale).toBe(true);
     expect(plannedWorkRemains({ ...reported.record, phase: 'build' })).toBe(true);
+  });
+});
+
+describe('a worktree execution', () => {
+  const placement = { mode: 'worktree' as const, directory: '/tmp/pager/.sero/worktrees/card-direct-m1', workspaceId: 'ws1', branch: 'feat/fix-pager' };
+
+  it('keeps its checkout and branch, and tells the owner where to work', () => {
+    const result = beginDirectExecution(project(), 'm1', { ...start(), placement });
+    if (!result.ok) throw new Error(result.reason);
+    const milestoneAfter = result.record.milestones[0]!;
+    expect(directWorktree(milestoneAfter)).toEqual(placement);
+    expect(directWorktree({ ...milestoneAfter, direct: { ...result.execution, state: 'superseded' } })).toBeNull();
+    expect(directWorktree(milestone())).toBeNull();
   });
 });

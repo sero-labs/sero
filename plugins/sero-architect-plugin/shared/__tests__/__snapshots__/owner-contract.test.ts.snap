@@ -32,6 +32,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -68,6 +69,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -104,6 +106,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -148,6 +151,7 @@ A review that has to execute something needs a workspace it can run in. Do not a
 If evidence fails, inspect the failed checks and current workspace files first. For local defects within the approved plan, repair the files with your granted tools, then request fresh evidence. Do not redispatch the same milestone or reset it to approved. Do not repeat external actions whose result is uncertain. If repair needs a scope, permission or budget change, raise a decision instead.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -184,6 +188,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -220,6 +225,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -256,6 +262,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -292,6 +299,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -326,6 +334,7 @@ Unanswered directives: none.
 The charter is proposed and waits for the user's approval. Do not start work. Call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -362,6 +371,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -394,6 +404,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -426,6 +437,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -459,6 +471,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -493,6 +506,7 @@ Use completed findings to write the brief. If needed research is pending, call s
 After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -525,6 +539,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -556,6 +571,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -587,6 +603,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -619,6 +636,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -648,6 +666,7 @@ Unanswered directives: none.
 The workspace is still being set up. Call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -679,6 +698,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -715,6 +735,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -751,6 +772,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -787,6 +809,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -821,6 +844,7 @@ Unanswered directives: none.
 Keep working. Respond to the events that woke you, dispatch fixes as milestones, and verify them the same way as in build.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -857,6 +881,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -893,6 +918,7 @@ The user decides what happens next.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -929,6 +955,7 @@ A decision is open. The milestones it parks stay parked and you must not act on 
 Milestones the decision does not name continue: you may plan, dispatch and verify those.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -965,6 +992,7 @@ Do not dispatch or research. In-flight work continues under its own limits. The 
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -999,6 +1027,7 @@ Unanswered directives: none.
 Keep working. Prepare the release: evidence for the release artifact, then the release itself. A delivery to an external destination needs a user decision first.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -1035,6 +1064,7 @@ The project is PAUSED by the user. Do not dispatch, research or plan.
 If a directive is unanswered, reply to it with the reply action, then call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
+If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;

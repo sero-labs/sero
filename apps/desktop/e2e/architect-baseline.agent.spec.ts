@@ -30,6 +30,10 @@
  * no new run starts once recorded spend reaches it), SERO_BASELINE_REPEATS the runs
  * per strategy and scenario (default 2). SERO_BASELINE_ONLY and
  * SERO_BASELINE_STRATEGY filter by scenario id or strategy, comma separated.
+ * SERO_BASELINE_EXECUTION_MODE (workspace or worktree, default workspace) is the
+ * Architect project's execution location. In worktree mode the owner works in a
+ * checkout under the folder's .sero/worktrees, so the acceptance checks run against
+ * the checkout of the milestone the owner did itself, not the untouched folder.
  * Results go to e2e/screenshots/architect-baseline/pilot/. The earlier baseline.json
  * and its images beside it are historical evidence and are never touched.
  */
@@ -56,6 +60,7 @@ const ENABLED = process.env.SERO_E2E_ARCHITECT_BASELINE === '1';
 const list = (value: string | undefined): string[] | null => (value && value !== 'all' ? value.split(',').map((item) => item.trim()) : null);
 const ONLY = list(process.env.SERO_BASELINE_ONLY);
 const ONLY_STRATEGY = list(process.env.SERO_BASELINE_STRATEGY);
+const EXECUTION_MODE = process.env.SERO_BASELINE_EXECUTION_MODE ?? 'workspace';
 const CAP_USD = Number(process.env.SERO_BASELINE_CAP ?? '2');
 const MINUTES = Number(process.env.SERO_BASELINE_MINUTES ?? '20');
 const TOTAL_CAP_USD = Number(process.env.SERO_BASELINE_TOTAL_CAP ?? 'NaN');
@@ -88,7 +93,10 @@ interface BaselineProjectRecord {
   folder: string;
   budget: { capUsd: number | null; spentUsd: number; incomplete?: boolean };
   decisions: { id: string; question: string; options: { id: string; label: string }[]; answer: { optionId: string } | null }[];
-  milestones: { id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; failure?: string } | null; pendingDispatch?: unknown }[];
+  milestones: {
+    id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; failure?: string } | null; pendingDispatch?: unknown;
+    direct?: { state: string; placement: { mode: string; directory: string } };
+  }[];
   runs?: { id: string; startedAt: string; endedAt: string | null; outcome?: string }[];
   session: { turns: number; sessionPath: string | null; model?: string | null; thinking?: string | null };
 }
@@ -103,6 +111,8 @@ interface Observed {
   ownerTokensPerTurn?: number[];
   interventions: BaselineIntervention[];
   recoveries: BaselineRecovery[];
+  /** Where the delivered files are when they are not in the project folder: the owner's worktree. */
+  resultDirectory?: string;
 }
 
 let app: ElectronApplication;
@@ -238,6 +248,10 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
  */
 function architectFinished(record: BaselineProjectRecord): boolean {
   const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
+  // The owner's own work in a Worktree project is in its checkout, never in the folder.
+  const worktreeWork = record.milestones.filter((milestone) => milestone.direct && milestone.direct.state !== 'superseded' && milestone.direct.placement.mode === 'worktree');
+  if (worktreeWork.length > 1) console.warn(`[baseline] ${projectId} has ${worktreeWork.length} worktree milestones; the checks read only the last one`);
+  const resultDirectory = worktreeWork.at(-1)?.direct?.placement.directory;
   const settled = dispatched.length > 0
     && dispatched.every((milestone) => milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
     && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
@@ -406,6 +420,7 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
     ...(owner && owner.tokensPerTurn.length > 0 ? { ownerTokensPerTurn: owner.tokensPerTurn } : {}),
     interventions: [],
     recoveries,
+    ...(resultDirectory ? { resultDirectory } : {}),
   };
 }
 
@@ -417,7 +432,7 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   seedWorkspace(scenario, folder);
   const workspaceId = await page.evaluate(async ({ dir, name }) => (await window.sero.workspace.addFolder(dir, name)).id, { dir: folder, name: path.basename(folder) });
   const created = await projects<{ ok: boolean; text: string; projectId?: string }>('create', {
-    idea: scenario.request, workspaceId, executionMode: 'workspace', capUsd: CAP_USD,
+    idea: scenario.request, workspaceId, executionMode: EXECUTION_MODE, capUsd: CAP_USD,
   });
   expect(created.ok, created.text).toBe(true);
   const projectId = created.projectId ?? '';
@@ -613,7 +628,7 @@ async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folde
 // ── Records and comparisons ─────────────────────────────────────────
 
 function toRecord(scenario: ScenarioDefinition, plan: RunPlan, strategy: BaselineStrategy, folder: string, observed: Observed): BaselineRecord {
-  const checks = runChecks(folder, scenario.checks);
+  const checks = runChecks(observed.resultDirectory ?? folder, scenario.checks);
   return {
     candidate: strategy,
     objective: scenario.id,
@@ -743,6 +758,7 @@ test.beforeAll(async () => {
   if (BASELINE_HOME.startsWith(E2E_DATA_ROOT + path.sep)) {
     throw new Error(`SERO_BASELINE_HOME must not sit inside ${E2E_DATA_ROOT}: the Playwright global setup deletes it.`);
   }
+  if (EXECUTION_MODE !== 'workspace' && EXECUTION_MODE !== 'worktree') throw new Error(`SERO_BASELINE_EXECUTION_MODE must be workspace or worktree, not "${EXECUTION_MODE}".`);
   for (const [name, value] of [['SERO_BASELINE_CAP', CAP_USD], ['SERO_BASELINE_MINUTES', MINUTES], ['SERO_BASELINE_REPEATS', REPEATS]] as const) {
     if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be a positive number.`);
   }
