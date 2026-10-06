@@ -41,6 +41,7 @@ function tool(name: string, description: string): ToolDefinition {
 
 const ALPHA = tool('alpha_reader', 'Read the alpha ledger');
 const BETA = tool('beta_publisher', 'Publish the beta report to the team');
+const HOST_NOTE = 'Approved tools that this session does not have: delta_tool (its plugin is not installed).';
 const GAMMA = tool('gamma_secret', 'Open the gamma vault');
 
 describe('authorized tools versus loaded tools on a real Pi session', () => {
@@ -74,6 +75,7 @@ describe('authorized tools versus loaded tools on a real Pi session', () => {
       cwd,
       agentDir,
       extensionFactories: [createSeroCodemodeExtension(), createSeroToolSearchExtension()],
+      appendSystemPromptOverride: (base) => [...base, HOST_NOTE],
     });
     await loader.reload();
     const { session } = await createAgentSession({
@@ -155,5 +157,15 @@ describe('authorized tools versus loaded tools on a real Pi session', () => {
 
     expect(session.getActiveToolNames()).toEqual(expect.arrayContaining([ALPHA.name, BETA.name]));
     expect(session.getActiveToolNames()).not.toContain(GAMMA.name);
+  });
+
+  it('keeps the host prompt lines when a search loads a tool', async () => {
+    const session = await openSession([ALPHA, BETA], [ALPHA.name], SessionManager.inMemory());
+    expect(session.systemPrompt).toContain(HOST_NOTE);
+
+    await search(session, 'publish the report');
+
+    expect(session.getActiveToolNames()).toContain(BETA.name);
+    expect(session.systemPrompt).toContain(HOST_NOTE);
   });
 });
