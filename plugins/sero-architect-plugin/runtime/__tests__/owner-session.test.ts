@@ -1,7 +1,8 @@
 import { createRunJournal } from '../run-journal';
 import { closeRun, openRun } from '../../shared/runs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
+import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
+import { OWNER_STALL_GRACE_MS, OWNER_STALL_WINDOW_MS } from '../owner-stall';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { createSpanRecorder } from '../spans';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
@@ -35,7 +36,7 @@ describe('owner session', () => {
     expect(host.sessions.prompts[0]?.content).not.toContain('Unanswered directives: none.');
   });
 
-  it.each(['prompt', 'turn-end'] as const)('bounds an owner stalled at %s and preserves completed work', async (point) => {
+  it.each(['prompt', 'turn-end'] as const)('steers then stops an owner silent at %s, keeps completed work and holds on a repeat', async (point) => {
     const host = await fakeHost();
     const store = await storeFor(host);
     const record = buildingProject({ milestones: [milestone('m1', { status: 'done', verification: 'accepted' }), milestone('m2')] });
@@ -47,23 +48,89 @@ describe('owner session', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const pending = sessions.runTurn(record, wake);
     await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce());
-    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
-    // The first turn over the limit is stopped and tried again, with no block.
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS);
+    // Silence is first met with one steer to checkpoint, and nothing is stopped yet.
+    expect(host.sessions.steers).toHaveLength(1);
+    expect(abort).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_GRACE_MS);
+    // Still silent: the turn is stopped and tried again, with no block.
     const first = await pending;
     expect(first).toMatchObject({ status: 'error', retry: true });
     expect(first.record.blockedReason).toBeNull();
     const again = sessions.runTurn(first.record, wake);
     await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2));
-    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS + OWNER_STALL_GRACE_MS);
     const result = await again;
     expect(abort).toHaveBeenCalledTimes(2);
     expect(result.status).toBe('error');
     expect(result.retry).toBeUndefined();
-    expect(result.record.blockedReason).toContain('exceeded 10 minutes');
+    expect(result.record.blockedReason).toContain('showed no activity');
     expect(result.record.session.workingSince).toBeNull();
     expect(result.record.milestones).toEqual(record.milestones);
     expect(result.record.session.silentTurns).toBe(0);
     expect(result.record.session.turns).toBe(record.session.turns + 2);
+  });
+
+  describe('stall recovery', () => {
+    const quiet: { toFake: ('setTimeout' | 'clearTimeout')[] } = { toFake: ['setTimeout', 'clearTimeout'] };
+
+    it('lets a turn that keeps emitting events run far past the stall window', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      host.sessions.prompt = async () => ({ turnId: 'busy' });
+      const abort = vi.spyOn(host.sessions, 'abort');
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      vi.useFakeTimers(quiet);
+      const pending = sessions.runTurn(record, wake);
+      await vi.waitFor(() => expect(host.sessions.requests).toHaveLength(1));
+      await vi.advanceTimersByTimeAsync(0);
+      // Four times the window, with an event every half window.
+      for (let i = 0; i < 8; i++) {
+        await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS / 2);
+        host.sessions.emit('h1', { type: 'text', text: 'working' });
+      }
+      expect(host.sessions.steers).toHaveLength(0);
+      expect(abort).not.toHaveBeenCalled();
+      host.sessions.emit('h1', { type: 'turn_end', turnId: 'busy', status: 'completed', at: T0 });
+      expect((await pending).status).toBe('completed');
+    });
+
+    it('treats an event after the steer as progress and never reports a stopped turn as complete', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      host.sessions.prompt = async () => ({ turnId: 'slow' });
+      const abort = vi.spyOn(host.sessions, 'abort');
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      vi.useFakeTimers(quiet);
+      const pending = sessions.runTurn(record, wake);
+      await vi.waitFor(() => expect(host.sessions.requests).toHaveLength(1));
+      await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS);
+      expect(host.sessions.steers).toHaveLength(1);
+      host.sessions.emit('h1', { type: 'text', text: 'checkpointing' });
+      await vi.advanceTimersByTimeAsync(OWNER_STALL_GRACE_MS - 1);
+      expect(abort).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).not.toBe('completed');
+      expect(result.retry).toBe(true);
+    });
+
+    it('still stops at the project cost cap while the turn keeps progressing', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      host.sessions.costUsd = 5;
+      host.sessions.onTurn = async () => host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      const result = await sessions.runTurn(record, wake);
+      expect(result.record.overlay).toBe('limited');
+    });
   });
 
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {

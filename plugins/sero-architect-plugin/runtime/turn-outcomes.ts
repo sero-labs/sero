@@ -6,10 +6,11 @@
 
 import { block } from '../shared/lifecycle';
 import type { ProjectRecord } from '../shared/record';
+import { SILENT_TURN_LIMIT } from '../shared/stall-limits';
 
 export type OutcomeKind = 'sleep' | 'decide' | 'blocked' | 'continue' | 'wait';
 
-export const SILENT_TURN_LIMIT = 3;
+export { SILENT_TURN_LIMIT };
 
 export interface TurnOutcomes {
   /** Marks a turn as started; clears any earlier declaration. */

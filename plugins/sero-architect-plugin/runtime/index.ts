@@ -258,7 +258,7 @@ export class ArchitectRuntime implements AppRuntime {
       this.scheduler?.request(projectId, { kind: 'continue', at: this.host.now(), items: [`continue milestone ${direct.id} "${direct.title}" (execution ${direct.direct.id})`] });
     }
     if (result.retry && mayWakeForWork(after)) {
-      this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn passed its 10 minute limit and was stopped; the record holds what was done, so continue from it in shorter steps'] });
+      this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn went silent and was stopped; the record holds what was done, so continue from it in shorter steps and checkpoint as you go'] });
     }
     if (result.declared === 'sleep' && wake.kind !== 'quiet' && mayWakeForWork(after) && plannedWorkRemains(after)) {
       this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['nothing is running and planned work remains'] });

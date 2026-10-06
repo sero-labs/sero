@@ -25,6 +25,8 @@ import { delegationProposal } from './delegation';
 import type { ArchitectHost } from './host';
 import { projectModelSource, resolveOwnerSelection, type SelectionSource } from './model-resolution';
 import type { RecordStore } from './record-store';
+import { approvedOwnerSkills, newOwnerSkills, withOwnerSkills } from './owner-skills';
+import { OWNER_STALL_STEER, watchStall, type StallWatch } from './owner-stall';
 import { applyTurnOutcome, type OutcomeKind, type TurnOutcomes } from './turn-outcomes';
 
 /** The platform tools plus the bridge. Nothing else is reachable from a managed session. */
@@ -106,7 +108,7 @@ export function ownerGrantProposal(record: ProjectRecord, choice: OwnerModelChoi
  * approves the whole start once. Asked again only while no authority is stored.
  */
 async function startProposal(host: ArchitectHost, record: ProjectRecord, choice: OwnerModelChoice): Promise<PersistentSessionGrantProposal> {
-  const proposal = ownerGrantProposal(record, choice);
+  const proposal = withOwnerSkills(ownerGrantProposal(record, choice), await newOwnerSkills(host, record));
   if (!record.agreement || record.agreement.authority !== null) return proposal;
   return {
     ...proposal,
@@ -148,13 +150,11 @@ export interface OwnerSessionDeps {
   onHandle?: (projectId: string) => void;
 }
 
-export const OWNER_TURN_TIMEOUT_MS = 10 * 60_000;
-
 export interface OwnerTurnResult {
   record: ProjectRecord;
   status: 'completed' | 'aborted' | 'error';
   declared: OutcomeKind | null;
-  /** The turn passed its time limit for the first time: the caller wakes the owner once more. */
+  /** The turn stalled for the first time: the caller wakes the owner once more. */
   retry?: boolean;
 }
 
@@ -179,7 +179,7 @@ export class OwnerSessions {
    * charge carries no tokens rather than the whole session's count.
    */
   private readonly tokenMarks = new Map<string, TokenCounters>();
-  /** Projects whose last turn passed the time limit. A second one in a row blocks. */
+  /** Projects whose last turn stalled and was stopped. A second one in a row holds the project. */
   private readonly overran = new Set<string>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
@@ -204,7 +204,7 @@ export class OwnerSessions {
     const modelTiers = await this.deps.host.modelTiers();
     // Asking the user is slow, so the answer is written afterwards, on the
     // record as it stands then.
-    let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice; authority: AgreementAuthority | null } | null = null;
+    let granted: { grantId: string; tools: string[]; skills: string[]; choice: OwnerModelChoice; authority: AgreementAuthority | null } | null = null;
     let refusal = '';
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -216,7 +216,7 @@ export class OwnerSessions {
       // not an approved start. Saying it was would let work run with no envelope.
       if (proposal.delegation && !policy) throw new Error('the host did not store the access this project may pass on');
       const authority = policy ? { policyId: policy.policyId, workspaceId: policy.workspaceId, roles: policy.roles, maxLiveSessions: policy.maxLiveSessions, maxTotalSessions: policy.maxTotalSessions } : null;
-      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], choice, authority };
+      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], skills: approvedOwnerSkills(handle), choice, authority };
     } catch (error) {
       refusal = error instanceof Error ? error.message : String(error);
     }
@@ -251,6 +251,7 @@ export class OwnerSessions {
           } : {}),
           grantId: granted.grantId,
           grantedTools: granted.tools,
+          grantedSkills: granted.skills,
           model: granted.choice.model,
           thinking: granted.choice.thinking,
           modelSource: granted.choice.source,
@@ -364,7 +365,9 @@ export class OwnerSessions {
       key: feedbackKey, kind: 'owner-wake', owner: 'Architect', subject: opened.name,
       scope: { appId: ARCHITECT_APP_ID, workspaceId: opened.workspaceId, projectId: opened.id },
     });
+    let stall: StallWatch | undefined;
     const unsubscribe = api.subscribe(handleId, (event) => {
+      stall?.touch();
       const fact = feedbackEventFromSession(event, this.deps.host.now());
       if (fact) feedback.observe(fact);
       if (event.type === 'compacted') {
@@ -385,8 +388,7 @@ export class OwnerSessions {
 
     let status: OwnerTurnResult['status'];
     let failure = 'The Architect turn failed. Open the session log for details, then resume to retry.';
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    let timedOut = false;
+    let stalledOut = false;
     let finished = false;
     try {
       await this.deps.store.update(opened.id, (fresh) => ({
@@ -409,11 +411,16 @@ export class OwnerSessions {
         return result;
       };
       status = await Promise.race([turn(), new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          timedOut = true;
-          reject(new Error('The owner turn exceeded 10 minutes and was stopped. Existing work is preserved. Resume the project to continue.'));
-          void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort timed-out owner: ${String(error)}`));
-        }, OWNER_TURN_TIMEOUT_MS);
+        stall = watchStall({
+          steer: () => {
+            void api.steer(handleId, OWNER_STALL_STEER).catch((error: unknown) => this.deps.host.log(`Could not steer stalled owner: ${String(error)}`));
+          },
+          stalled: () => {
+            stalledOut = true;
+            reject(new Error('The owner turn showed no activity and was stopped. Existing work is preserved. Resume the project to continue.'));
+            void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort stalled owner: ${String(error)}`));
+          },
+        });
       })]);
     } catch (error) {
       failure = `The Architect could not continue: ${error instanceof Error ? error.message : String(error)}`;
@@ -421,7 +428,7 @@ export class OwnerSessions {
       status = 'error';
     } finally {
       finished = true;
-      if (timeout) clearTimeout(timeout);
+      stall?.stop();
       this.waiting.delete(opened.id);
       unsubscribe();
       // A turn that was stopped or timed out reported no end of its own.
@@ -446,8 +453,8 @@ export class OwnerSessions {
         ...(status === 'error' ? { error: failure } : {}),
       }).catch((error: unknown) => this.deps.host.log(`owner wake end was not recorded: ${String(error)}`));
     }
-    // One turn over the limit is tried again; the project blocks on the second.
-    const retry = timedOut && !this.overran.has(opened.id);
+    // One stalled turn is tried again; a second in a row holds the project for the person.
+    const retry = stalledOut && !this.overran.has(opened.id);
     if (retry) this.overran.add(opened.id);
     else this.overran.delete(opened.id);
     const next = await this.deps.store.update(opened.id, (fresh) => {
