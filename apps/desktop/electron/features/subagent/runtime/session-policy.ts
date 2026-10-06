@@ -183,28 +183,41 @@ export function planWorkerTools(input: {
     };
   }
 
-  const loadout = new Set(allowlist);
-  const base = sessionToolOptions(policy, customTools, undefined).tools;
+  // A tool the user turned off is never registered as active, even when the
+  // planner picked it.
+  const picked = allowlist.filter((name) => !disabledTools.has(name));
+  // Without `tool_search` a deferred tool could never be found, so the picked
+  // list stays the hard bound and nothing is deferred.
+  if (disabledTools.has(TOOL_SEARCH_TOOL_NAME)) {
+    return {
+      options: { noTools: 'builtin', tools: picked },
+      customTools,
+      activateCodemode: picked.includes(CODEMODE_TOOL_NAME),
+    };
+  }
+
+  const loadout = new Set(picked);
+  const base =sessionToolOptions(policy, customTools, undefined).tools;
   const extensionTools = input.extensions().extensions.flatMap((extension) => [...extension.tools.keys()]);
   // Under the full policy every plugin tool the loaded extensions provide is
   // allowed. A restricted policy allows only what it already lists.
   const policyTools = policy === 'all' ? [...customTools.map((tool) => tool.name), ...extensionTools] : base ?? [];
   const authorized = new Set([
-    ...allowlist,
+    ...picked,
     ...policyTools.filter((name) => !disabledTools.has(name) && name !== TOOL_SEARCH_TOOL_NAME),
   ]);
   // Code Mode is registered whenever the user has not turned it off.
   if (!disabledTools.has(CODEMODE_TOOL_NAME)) authorized.add(CODEMODE_TOOL_NAME);
 
   const deferredExtensionTools = deferExtensionTools(input.extensions(), loadout);
-  const hasDeferred = deferredExtensionTools.length > 0
+  const hasDeferred = deferredExtensionTools.some((name) => !disabledTools.has(name))
     || customTools.some((tool) => !loadout.has(tool.name));
   return {
     options: {
       noTools: 'builtin',
       tools: [...authorized, ...(hasDeferred ? [TOOL_SEARCH_TOOL_NAME] : [])],
     },
-    ...(hasDeferred ? { initialTools: [...allowlist, TOOL_SEARCH_TOOL_NAME] } : {}),
+    ...(hasDeferred ? { initialTools: [...picked, TOOL_SEARCH_TOOL_NAME] } : {}),
     customTools: deferToolsOutside(customTools, loadout),
     // A tool outside the loadout is found, not started.
     activateCodemode: loadout.has(CODEMODE_TOOL_NAME),

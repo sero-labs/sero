@@ -37,7 +37,7 @@ import type {
 } from '@sero-ai/common';
 
 import type { DelegationLink } from './delegation-policy';
-import { runAmendment } from './amendment-runner';
+import { runAmendmentOnce, type AmendmentsInFlight } from './amendment-runner';
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
@@ -190,17 +190,10 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     };
   }
 
-  /** One run per grant and amendment id, so a repeat that arrives mid-dialog shares the answer. */
-  private readonly amending = new Map<string, Promise<PersistentSessionGrantAmendmentResult>>();
+  private readonly amending: AmendmentsInFlight = new Map();
 
-  async amendGrant(input: PersistentSessionGrantAmendment): Promise<PersistentSessionGrantAmendmentResult> {
-    const amendment = structuredClone(input);
-    const key = `${amendment.grantId}:${amendment.amendmentId}`;
-    const running = this.amending.get(key);
-    if (running) return running;
-    const run = runAmendment(this.deps, amendment).finally(() => this.amending.delete(key));
-    this.amending.set(key, run);
-    return run;
+  amendGrant(input: PersistentSessionGrantAmendment): Promise<PersistentSessionGrantAmendmentResult> {
+    return runAmendmentOnce(this.amending, this.deps, input);
   }
 
   async revokeGrant(grantId: string): Promise<void> {
@@ -241,7 +234,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   async create(request: PersistentSessionRequest): Promise<PersistentSessionHandle> {
     const validation = await this.validate({ ...request, operation: 'create' });
 
-    const reservation = await this.deps.grantStore.reserve(request.grantId, request.subject);
+    const reservation = await this.deps.grantStore.reserve(request.grantId, request.subject, validation.policy);
     if (!reservation.ok) throw new Error(`Cannot create session: ${reservation.reason}.`);
 
     const grant = this.deps.grantStore.get(request.grantId);
@@ -267,7 +260,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         // Revocation won the race. The session exists but is unauthorised, so
         // it must not survive — the store cannot dispose it, only we can.
         await shutdownAndDispose(session, 'persistent session (revoked during create)');
-        throw new Error('Cannot create session: grant-revoked.');
+        throw new Error(`Cannot create session: ${commit.reason}.`);
       }
 
       const sessionId = sessionManager.getSessionId();
@@ -300,7 +293,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     if (!grant) throw new Error('Cannot open session: grant-not-found.');
 
     const handleId = this.deps.newId('psh');
-    const reservation = await this.deps.grantStore.reserveLive(request.grantId, request.subject, handleId);
+    const reservation = await this.deps.grantStore.reserveLive(request.grantId, request.subject, handleId, validation.policy);
     if (!reservation.ok) throw new Error(`Cannot open session: ${reservation.reason}.`);
 
     try {
@@ -312,7 +305,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         // not dispose a session that was not registered yet, so disposing it is
         // ours to do — same rule as `create`.
         await shutdownAndDispose(session, 'persistent session (revoked during open)');
-        throw new Error('Cannot open session: grant-revoked.');
+        throw new Error(`Cannot open session: ${commit.reason}.`);
       }
       const sessionId = sessionManager.getSessionId();
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });

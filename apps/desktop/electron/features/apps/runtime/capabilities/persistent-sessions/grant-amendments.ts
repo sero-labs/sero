@@ -23,6 +23,7 @@ import type {
 } from '@sero-ai/common';
 
 import { PERMISSION_ORDER, canonical, isInside } from './clamp';
+import { amendmentFingerprint } from './amendment-fingerprint';
 import { subjectWithinRole } from './delegation-policy';
 import type { StoredDelegationPolicy, StoredGrant } from './grant-store-types';
 
@@ -37,6 +38,23 @@ export interface AmendTx {
 export type AmendStep = PersistentSessionGrantAmendmentResult | { ask: PersistentSessionExpansion[] };
 
 const PROFILE_FIELDS = Object.keys(PERMISSION_ORDER) as (keyof PersistentSessionPermissionProfile)[];
+
+/**
+ * The stored answer to a repeated amendment id, or null. The same id for a
+ * different change is refused, so a reused id never returns another change's
+ * answer.
+ */
+export function storedAnswer(grant: StoredGrant, amendment: PersistentSessionGrantAmendment): PersistentSessionGrantAmendmentResult | null {
+  const stored = grant.amendments?.[amendment.amendmentId];
+  if (!stored) return null;
+  if (stored.fingerprint === amendmentFingerprint(amendment)) return stored.result;
+  return {
+    status: 'refused',
+    amendmentId: amendment.amendmentId,
+    revision: grant.revision ?? 0,
+    reason: 'this amendment id was already used for a different change',
+  };
+}
 
 /** Refusal for a subject that may start no more sessions, or null. */
 export function retiredRefusal(grant: StoredGrant, subject: string): 'subject-retired' | null {
@@ -113,7 +131,7 @@ export async function settleAmendment(
   if (!grant || grant.appId !== appId) return refused('the grant is unknown', null);
   const revision = grant.revision ?? 0;
   // Idempotency comes first: a caller that lost the answer asks again.
-  const stored = grant.amendments?.[amendmentId];
+  const stored = storedAnswer(grant, amendment);
   if (stored) return stored;
   if (grant.status !== 'active') return refused('the grant is revoked', revision);
   if (grant.delegatedBy && tx.policy(grant.delegatedBy.policyId)?.status !== 'active') {
@@ -138,7 +156,7 @@ export async function settleAmendment(
   const before = { subjects: grant.subjects, retired: grant.retired, revision: grant.revision, amendments: grant.amendments };
   if (expansion.length > 0 && !answer) {
     const declined: PersistentSessionGrantAmendmentResult = { status: 'declined', amendmentId, revision };
-    grant.amendments = { ...grant.amendments, [amendmentId]: declined };
+    grant.amendments = { ...grant.amendments, [amendmentId]: { fingerprint: amendmentFingerprint(amendment), result: declined } };
     return commit(tx, grant, before, declined);
   }
   grant.subjects = { ...grant.subjects, ...structuredClone(clamped) };
@@ -152,7 +170,7 @@ export async function settleAmendment(
     retired: [...grant.retired],
     approvedByUser: expansion.length > 0,
   };
-  grant.amendments = { ...grant.amendments, [amendmentId]: applied };
+  grant.amendments = { ...grant.amendments, [amendmentId]: { fingerprint: amendmentFingerprint(amendment), result: applied } };
   return commit(tx, grant, before, applied);
 }
 

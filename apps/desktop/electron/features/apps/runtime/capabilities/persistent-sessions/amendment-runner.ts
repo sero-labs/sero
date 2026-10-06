@@ -5,7 +5,8 @@
 
 import type { PersistentSessionGrantAmendment, PersistentSessionGrantAmendmentResult } from '@sero-ai/common';
 
-import { settleAmendment } from './grant-amendments';
+import { amendmentFingerprint } from './amendment-fingerprint';
+import { settleAmendment, storedAnswer } from './grant-amendments';
 import type { PersistentSessionHostDeps } from './host';
 
 export async function runAmendment(
@@ -18,7 +19,7 @@ export async function runAmendment(
   const grant = grantStore.get(amendment.grantId);
   if (!grant || grant.appId !== appId) return refused('the grant is unknown');
   // A repeat is answered from the stored result even when clamping would now differ.
-  const stored = grant.amendments?.[amendment.amendmentId];
+  const stored = storedAnswer(grant, amendment);
   if (stored) return stored;
   const clamped = await deps.clampSubjects(grant.workspaceId, amendment.subjects ?? {});
   if (!clamped) return refused('the workspace of this grant is not available');
@@ -31,4 +32,30 @@ export async function runAmendment(
     .catch(() => false);
   const second = await grantStore.amend((tx) => settleAmendment(tx, appId, amendment, clamped, answer));
   return 'ask' in second ? refused('the grant changed while approval was asked') : second;
+}
+
+/** One run per grant and amendment id: a repeat that arrives mid-dialog shares the answer. */
+export type AmendmentsInFlight = Map<string, { fingerprint: string; run: Promise<PersistentSessionGrantAmendmentResult> }>;
+
+export async function runAmendmentOnce(
+  inFlight: AmendmentsInFlight,
+  deps: Parameters<typeof runAmendment>[0],
+  input: PersistentSessionGrantAmendment,
+): Promise<PersistentSessionGrantAmendmentResult> {
+  const amendment = structuredClone(input);
+  const key = `${amendment.grantId}:${amendment.amendmentId}`;
+  const fingerprint = amendmentFingerprint(amendment);
+  const running = inFlight.get(key);
+  if (running) {
+    if (running.fingerprint === fingerprint) return running.run;
+    return {
+      status: 'refused',
+      amendmentId: amendment.amendmentId,
+      revision: null,
+      reason: 'this amendment id is already in use for a different change',
+    };
+  }
+  const run = runAmendment(deps, amendment).finally(() => inFlight.delete(key));
+  inFlight.set(key, { fingerprint, run });
+  return run;
 }

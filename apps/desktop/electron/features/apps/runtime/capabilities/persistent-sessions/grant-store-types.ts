@@ -46,7 +46,7 @@ export interface StoredGrant {
    * is recorded so a rollback knows exactly which binding it created — without
    * it, reconciliation has to guess by matching paths.
    */
-  pending: Record<string, { subject: string; startedAt: string }>;
+  pending: Record<string, { subject: string; startedAt: string; seenPolicy?: PersistentSessionSubjectPolicy }>;
   /**
    * The delegation policy this grant was issued under, and the approval that
    * policy came from. Absent on a grant the user approved directly, which never
@@ -57,8 +57,12 @@ export interface StoredGrant {
   revision?: number;
   /** Subjects that start no more sessions. Their files, bindings and lifetime count stay. */
   retired?: string[];
-  /** Applied and declined amendment results by id, so a repeat returns the stored answer. */
-  amendments?: Record<string, PersistentSessionGrantAmendmentResult>;
+  /**
+   * Applied and declined amendment results by id, so a repeat returns the stored
+   * answer. Each is bound to the change it answered: the same id for a
+   * different change is refused.
+   */
+  amendments?: Record<string, { fingerprint: string; result: PersistentSessionGrantAmendmentResult }>;
 }
 
 /**
@@ -104,7 +108,8 @@ export type ReserveResult =
         | 'total-limit'
         | 'subject-already-bound'
         | 'subject-already-open'
-        | 'subject-retired';
+        | 'subject-retired'
+        | 'grant-changed';
     };
 
 /**
@@ -112,7 +117,9 @@ export type ReserveResult =
  * already constructed, so the caller MUST dispose it — the store cannot, and a
  * silently kept session would outlive the grant that authorised it.
  */
-export type CommitResult = { ok: true } | { ok: false; reason: 'grant-revoked'; disposeRequired: true };
+export type CommitResult =
+  | { ok: true }
+  | { ok: false; reason: 'grant-revoked' | 'subject-retired' | 'grant-changed'; disposeRequired: true };
 
 export interface GrantStoreDeps {
   persistence: GrantStatePersistence;

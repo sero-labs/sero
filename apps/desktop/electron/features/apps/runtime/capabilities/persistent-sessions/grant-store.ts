@@ -30,11 +30,11 @@
 import { existsSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
-import type { PersistentSessionGrantProposal } from '@sero-ai/common';
+import type { PersistentSessionGrantProposal, PersistentSessionSubjectPolicy } from '@sero-ai/common';
 
-import { retiredRefusal, type AmendTx } from './grant-amendments';
+import type { AmendTx } from './grant-amendments';
+import { authorityConflict, commitFailure } from './session-authority';
 import {
-  isInsideDir,
   type CommitResult,
   type GrantStoreDeps,
   type ReserveResult,
@@ -60,6 +60,8 @@ export class GrantStore {
   /** Subjects with a live session, so a second concurrent open is refused. */
   private readonly openSubjects = new Map<string, Set<string>>();
   private readonly subjectByHandle = new Map<string, string>();
+  /** The policy each reopening session was validated against, until it commits. */
+  private readonly seenByHandle = new Map<string, PersistentSessionSubjectPolicy>();
   private loaded = false;
   private tail: Promise<unknown> = Promise.resolve();
 
@@ -189,13 +191,14 @@ export class GrantStore {
    * therefore records only the subject, and rollback is a plain "this subject
    * has no session".
    */
-  async reserve(grantId: string, subject: string): Promise<ReserveResult> {
+  async reserve(grantId: string, subject: string, seenPolicy?: PersistentSessionSubjectPolicy): Promise<ReserveResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       if (!grant) return { ok: false as const, reason: 'grant-not-found' as const };
       if (grant.status !== 'active') return { ok: false as const, reason: 'grant-revoked' as const };
 
-      if (retiredRefusal(grant, subject)) return { ok: false as const, reason: 'subject-retired' as const };
+      const conflict = authorityConflict(grant, subject, seenPolicy);
+      if (conflict) return { ok: false as const, reason: conflict };
       const liveCount = this.live.get(grantId)?.size ?? 0;
       const pendingCount = Object.keys(grant.pending).length;
       if (liveCount + pendingCount >= grant.maxLiveSessions) {
@@ -222,7 +225,7 @@ export class GrantStore {
       }
 
       const reservationId = this.deps.newId('resv');
-      grant.pending[reservationId] = { subject, startedAt: this.deps.now() };
+      grant.pending[reservationId] = { subject, startedAt: this.deps.now(), ...(seenPolicy ? { seenPolicy } : {}) };
       await this.deps.persistence.write(this.grants);
       return { ok: true as const, reservationId };
     });
@@ -245,29 +248,12 @@ export class GrantStore {
       const reservation = grant?.pending[reservationId];
       if (!grant || !reservation) return { ok: true as const };
 
-      if (grant.status !== 'active') {
+      // Whatever fails, the reservation is dropped and the caller disposes the session it built.
+      const failure = commitFailure(grant, reservation, sessionPath);
+      if (failure) {
         delete grant.pending[reservationId];
         await this.deps.persistence.write(this.grants);
-        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
-      }
-
-      // Verify the path construction produced before trusting it. Pi is given
-      // the grant's directory, so this should always hold — but a binding is
-      // permanent, and a wrong one would let `open` reach outside the grant
-      // forever.
-      if (!isInsideDir(sessionPath, grant.sessionDir)) {
-        delete grant.pending[reservationId];
-        await this.deps.persistence.write(this.grants);
-        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
-      }
-      // One path per subject, globally within the grant: two subjects sharing a
-      // file would alias each other's session.
-      const pathOwner = Object.entries(grant.sessionPaths)
-        .find(([subject, bound]) => bound === sessionPath && subject !== reservation.subject);
-      if (pathOwner) {
-        delete grant.pending[reservationId];
-        await this.deps.persistence.write(this.grants);
-        return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+        return { ok: false as const, reason: failure, disposeRequired: true as const };
       }
 
       delete grant.pending[reservationId];
@@ -307,7 +293,12 @@ export class GrantStore {
    * SUBJECT-AWARE: two concurrent opens for one subject would otherwise both
    * pass a bare count check and construct two live sessions over one file.
    */
-  async reserveLive(grantId: string, subject: string, handleId: string): Promise<ReserveResult> {
+  async reserveLive(
+    grantId: string,
+    subject: string,
+    handleId: string,
+    seenPolicy?: PersistentSessionSubjectPolicy,
+  ): Promise<ReserveResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
       if (!grant) return { ok: false as const, reason: 'grant-not-found' as const };
@@ -315,7 +306,8 @@ export class GrantStore {
       if (this.openSubjects.get(grantId)?.has(subject)) {
         return { ok: false as const, reason: 'subject-already-open' as const };
       }
-      if (retiredRefusal(grant, subject)) return { ok: false as const, reason: 'subject-retired' as const };
+      const conflict = authorityConflict(grant, subject, seenPolicy);
+      if (conflict) return { ok: false as const, reason: conflict };
       const liveCount = this.live.get(grantId)?.size ?? 0;
       if (liveCount + Object.keys(grant.pending).length >= grant.maxLiveSessions) {
         return { ok: false as const, reason: 'live-limit' as const };
@@ -323,6 +315,7 @@ export class GrantStore {
       const policyRefusal = this.policyRefusal(grant, 'live');
       if (policyRefusal) return { ok: false as const, reason: policyRefusal };
       this.trackLive(grantId, handleId, subject);
+      if (seenPolicy) this.seenByHandle.set(handleId, seenPolicy);
       return { ok: true as const, reservationId: handleId };
     });
   }
@@ -340,9 +333,15 @@ export class GrantStore {
   async commitLive(grantId: string, handleId: string): Promise<CommitResult> {
     return this.serialize(async () => {
       const grant = this.grants[grantId];
-      if (grant?.status === 'active' && this.live.get(grantId)?.has(handleId)) return { ok: true as const };
+      const subject = this.subjectByHandle.get(handleId);
+      const seen = this.seenByHandle.get(handleId);
+      this.seenByHandle.delete(handleId);
+      const stillOurs = grant?.status === 'active' && subject && this.live.get(grantId)?.has(handleId);
+      // A revoked grant, or a subject retired or re-scoped while the session was built.
+      const failure = stillOurs ? authorityConflict(grant, subject, seen) : 'grant-revoked' as const;
+      if (!failure) return { ok: true as const };
       this.releaseLive(grantId, handleId);
-      return { ok: false as const, reason: 'grant-revoked' as const, disposeRequired: true as const };
+      return { ok: false as const, reason: failure, disposeRequired: true as const };
     });
   }
 
@@ -364,6 +363,7 @@ export class GrantStore {
       this.openSubjects.get(grantId)?.delete(subject);
       this.subjectByHandle.delete(handleId);
     }
+    this.seenByHandle.delete(handleId);
   }
 
   liveHandles(grantId: string): string[] {

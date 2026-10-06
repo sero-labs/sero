@@ -114,6 +114,30 @@ describe('planWorkerTools', () => {
     expect(plan.options.tools).toContain('bash');
   });
 
+  it('does not restore a disabled tool the planner picked, nor load it first', () => {
+    const plan = planWorkerTools({
+      ...base,
+      allowlist: ['read', 'bash'],
+      allowlistIsLoadout: true,
+      disabledTools: new Set(['bash']),
+    });
+
+    expect(plan.options.tools).not.toContain('bash');
+    expect(plan.initialTools).toEqual(['read', 'tool_search']);
+  });
+
+  it('keeps the picked list as a hard bound when the user disabled tool_search', () => {
+    const plan = planWorkerTools({
+      ...base,
+      allowlist: ['read', 'bash', 'web_search'],
+      allowlistIsLoadout: true,
+      disabledTools: new Set(['tool_search', 'bash']),
+    });
+
+    expect(plan.options).toEqual({ noTools: 'builtin', tools: ['read', 'web_search'] });
+    expect(plan.initialTools).toBeUndefined();
+  });
+
   it('keeps a read-only worker read-only even with a loadout', () => {
     const plan = planWorkerTools({
       ...base,

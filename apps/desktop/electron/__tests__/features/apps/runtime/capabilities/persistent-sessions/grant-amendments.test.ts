@@ -205,4 +205,43 @@ describe('grant amendments', () => {
     expect(slots.find((slot) => !slot.ok)).toMatchObject({ reason: 'total-limit' });
     expect(storedGrant(ctx.fake, grant.grantId).revision).toBe(2);
   });
+  it('answers a repeat of the same change from the stored result, however it is ordered', async () => {
+    const ctx = setup();
+    const grant = await grantWith(ctx, { subjects: { implementer: policy(), reviewer: policy() } });
+    const change = { subjects: { reviewer: { ...policy(), allowedTools: [] } }, retire: ['implementer', 'implementer'] };
+    const first = await ctx.host.amendGrant(amend(grant.grantId, change));
+    const repeat = await ctx.host.amendGrant(amend(grant.grantId, { retire: ['implementer'], subjects: change.subjects }));
+
+    expect(first).toMatchObject({ status: 'applied', revision: 1 });
+    expect(repeat).toEqual(first);
+  });
+
+  it('refuses a stored amendment id reused for a different change, and changes nothing', async () => {
+    const ctx = setup();
+    const grant = await grantWith(ctx, { subjects: { implementer: policy(), reviewer: policy() } });
+    await ctx.host.amendGrant(amend(grant.grantId, { retire: ['implementer'] }));
+
+    const reused = await ctx.host.amendGrant(amend(grant.grantId, { retire: ['reviewer'] }));
+
+    expect(reused).toMatchObject({ status: 'refused' });
+    expect(storedGrant(ctx.fake, grant.grantId).retired).toEqual(['implementer']);
+    expect(storedGrant(ctx.fake, grant.grantId).revision).toBe(1);
+  });
+
+  it('refuses an amendment id reused for a different change while the first one waits on the dialog', async () => {
+    let answer: (approved: boolean) => void = () => undefined;
+    const ctx = setup({ approve: () => new Promise<boolean>((resolve) => { answer = resolve; }) });
+    const grant = await grantWith(ctx, { subjects: { implementer: policy() } });
+    const first = ctx.host.amendGrant(amend(grant.grantId, { approval: 'ask', subjects: { builder: writer() } }));
+    await vi.waitFor(() => expect(ctx.approveExpansion).toHaveBeenCalled());
+
+    const reused = await ctx.host.amendGrant(amend(grant.grantId, { approval: 'ask', subjects: { builder: policy() } }));
+    const sameChange = ctx.host.amendGrant(amend(grant.grantId, { approval: 'ask', subjects: { builder: writer() } }));
+    answer(true);
+
+    expect(reused).toMatchObject({ status: 'refused' });
+    expect(ctx.approveExpansion).toHaveBeenCalledTimes(1);
+    expect(await first).toMatchObject({ status: 'applied' });
+    expect(await sameChange).toEqual(await first);
+  });
 });

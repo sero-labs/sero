@@ -733,6 +733,26 @@ describe('runSubagent context overrides', () => {
     expect(mocks.activateCodemode).not.toHaveBeenCalled();
   });
 
+  it('does not let a planner loadout bring back a disabled tool', async () => {
+    mocks.createRuntimeTools.mockResolvedValueOnce([
+      { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'read', description: '', parameters: {}, execute: vi.fn() },
+    ] as never);
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['read', 'bash'];
+    config.toolsAreLoadout = true;
+    config.disabledTools = ['bash'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools: string[] };
+    expect(options.tools).not.toContain('bash');
+    expect(session.setActiveToolsByName.mock.calls.flat(2)).not.toContain('bash');
+  });
+
   it('keeps codemode for a read-only policy', async () => {
     mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
     const config = createConfig(new AbortController().signal);
