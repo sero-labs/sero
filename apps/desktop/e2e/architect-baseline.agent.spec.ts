@@ -34,6 +34,7 @@
  * and its images beside it are historical evidence and are never touched.
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -207,6 +208,19 @@ async function approvePrompts(label: string): Promise<number> {
     }
   }
   return answered;
+}
+
+/**
+ * Seeds the starting files as a committed git repository, the same for both
+ * strategies. Evidence and diffs need a commit to compare against, and neither
+ * candidate should have to spend a turn creating one.
+ */
+function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
+  scenario.seed(folder);
+  const git = (...args: string[]): void => { execFileSync('git', ['-c', 'user.name=Baseline', '-c', 'user.email=baseline@example.invalid', ...args], { cwd: folder, stdio: 'ignore' }); };
+  git('init', '-q');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'Starting files');
 }
 
 // ── Architect candidate ──────────────────────────────────────────────
@@ -393,11 +407,13 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
 
 async function runArchitect(scenario: ScenarioDefinition, folder: string, deadline: number): Promise<Observed> {
   const startedAt = Date.now();
-  // The folder is seeded before the project is created, because creating one
-  // runs `git init` and a research Room with no files to read blocks asking for them.
-  scenario.seed(folder);
+  // The project starts on a workspace that already holds the seeded files. A new
+  // folder would be refused because it exists, and an empty one gives a research
+  // Room nothing to read.
+  seedWorkspace(scenario, folder);
+  const workspaceId = await page.evaluate(async ({ dir, name }) => (await window.sero.workspace.addFolder(dir, name)).id, { dir: folder, name: path.basename(folder) });
   const created = await projects<{ ok: boolean; text: string; projectId?: string }>('create', {
-    idea: scenario.request, folder, executionMode: 'workspace', capUsd: CAP_USD,
+    idea: scenario.request, workspaceId, executionMode: 'workspace', capUsd: CAP_USD,
   });
   expect(created.ok, created.text).toBe(true);
   const projectId = created.projectId ?? '';
@@ -423,6 +439,7 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   if (finished) await sleep(30_000);
   const observed = await observeArchitect(projectId, finished, Date.now() - startedAt, restarted, recoveries);
   await projects<unknown>('delete', projectId).catch((error: unknown) => console.error(`[baseline] could not delete ${projectId}: ${String(error)}`));
+  await page.evaluate((id) => window.sero.workspace.remove(id), workspaceId).catch(() => undefined);
   return observed;
 }
 
@@ -527,7 +544,7 @@ async function pinSession(sessionId: string): Promise<ConfigurationProvenance> {
 
 async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folder: string, deadline: number): Promise<Observed> {
   const startedAt = Date.now();
-  scenario.seed(folder);
+  seedWorkspace(scenario, folder);
   const { workspace, session } = await createOpenAgentSession(page, folder, `baseline ${scenario.id} r${plan.replicate}`);
   const models = [await pinSession(session.id)];
   const spentUsd = (): number => observeSession(session.path)?.costUsd ?? 0;
