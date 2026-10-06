@@ -161,6 +161,9 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     cwd: options.cwd,
     platformTools: options.platformTools,
     tools: stepTools,
+    // The planner's picks are what the step starts with, not a limit: the step
+    // can find and load any other tool the user has not turned off.
+    toolsAreLoadout: stepTools !== undefined,
     disabledTools: ctxOverride?.disabledTools,
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
