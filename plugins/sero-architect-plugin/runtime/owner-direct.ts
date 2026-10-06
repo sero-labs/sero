@@ -56,6 +56,8 @@ function beginRefusal(record: ProjectRecord, milestoneId: string): OwnerActionOu
   if (milestone.openSpecChange) return refuse('An OpenSpec change is implemented by a Workflow. Dispatch this milestone.');
   if (milestone.status === 'planned' && record.autonomy === 'milestones') return refuse(`Milestone ${milestone.id} needs the user's approval of its plan first.`);
   if (record.executionMode === 'worktree') {
+    // Evidence is reading this milestone's checkout. New work in it now would be paired with results for older files.
+    if (record.pendingEvidence?.some((pending) => pending.milestoneId === milestone.id)) return refuse(`Evidence for milestone ${milestone.id} is still running. Call sleep and wait for it to finish before you start work on it again.`);
     // The milestone has a checkout of its own, so the project folder's writers
     // do not matter. Two executions at once would still be two owners' work.
     const other = activeDirectMilestone(record);
@@ -101,19 +103,23 @@ export async function ownerWork(deps: OwnerDirectDeps, record: ProjectRecord, in
       opened = await deps.worktrees.open(record, milestone);
       if (!opened.ok) return refuse(opened.reason);
     }
-    const placement: DirectExecution['placement'] = opened?.placement ?? { mode: record.executionMode ?? 'workspace', directory: record.folder, workspaceId: record.workspaceId };
+    const placement: DirectExecution['placement'] = opened?.placement ?? (same ? saved.placement : { mode: record.executionMode ?? 'workspace', directory: record.folder, workspaceId: record.workspaceId });
     const state = await readState(record, placement.directory);
     const begun = await apply((fresh) => {
       // The record may have moved while git ran, so the checks run on it again.
       const late = beginRefusal(fresh, milestoneId);
       if (late) return { ok: false, reason: late.text };
-      return beginDirectExecution(fresh, milestoneId, {
+      const started = beginDirectExecution(fresh, milestoneId, {
         id: deps.newId('exec'),
         now,
         placement,
         baseCommit: state.commit,
         baseFingerprint: state.fingerprint,
       });
+      // The requirements moved after the first look, so a replacement execution is due,
+      // but no checkout was opened for it. The project folder is never its placement.
+      if (started.ok && started.created && fresh.executionMode === 'worktree' && !opened) return { ok: false, reason: 'The requirements changed while work was starting, so it needs a fresh checkout. Call begin again.' };
+      return started;
     }, 'Architect started work on it');
     if (!begun.ok) return refuse(begun.reason);
     const { execution } = begun;

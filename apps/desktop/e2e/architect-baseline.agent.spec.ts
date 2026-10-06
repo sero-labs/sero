@@ -95,7 +95,7 @@ interface BaselineProjectRecord {
   decisions: { id: string; question: string; options: { id: string; label: string }[]; answer: { optionId: string } | null }[];
   milestones: {
     id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; failure?: string } | null; pendingDispatch?: unknown;
-    direct?: { state: string; placement: { mode: string; directory: string } };
+    direct?: { state: string; placement: { mode: string; directory: string; branch?: string } };
   }[];
   runs?: { id: string; startedAt: string; endedAt: string | null; outcome?: string }[];
   session: { turns: number; sessionPath: string | null; model?: string | null; thinking?: string | null };
@@ -113,6 +113,8 @@ interface Observed {
   recoveries: BaselineRecovery[];
   /** Where the delivered files are when they are not in the project folder: the owner's worktree. */
   resultDirectory?: string;
+  /** The branch that work is saved on. A settled milestone's checkout is released, so the branch outlives it. */
+  resultBranch?: string;
 }
 
 let app: ElectronApplication;
@@ -378,6 +380,7 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
   const worktreeWork = record.milestones.filter((milestone) => milestone.direct && milestone.direct.state !== 'superseded' && milestone.direct.placement.mode === 'worktree');
   if (worktreeWork.length > 1) console.warn(`[baseline] ${projectId} has ${worktreeWork.length} worktree milestones; the checks read only the last one`);
   const resultDirectory = worktreeWork.at(-1)?.direct?.placement.directory;
+  const resultBranch = worktreeWork.at(-1)?.direct?.placement.branch;
   const runs = record.runs ?? [];
   const journal = runs.flatMap((run) => journalOf(projectId, run.id));
   const trace = summarizeTrace(journal, { projectId, runId: runs.map((run) => run.id).join(','), knownSpendUsd: record.budget.spentUsd });
@@ -422,6 +425,7 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
     interventions: [],
     recoveries,
     ...(resultDirectory ? { resultDirectory } : {}),
+    ...(resultBranch ? { resultBranch } : {}),
   };
 }
 
@@ -628,8 +632,17 @@ async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folde
 
 // ── Records and comparisons ─────────────────────────────────────────
 
+/** Where the checks read the result: the owner's checkout, or its branch once the checkout is released. */
+function resultFolder(folder: string, observed: Observed): string {
+  if (!observed.resultDirectory) return folder;
+  if (fs.existsSync(observed.resultDirectory) || !observed.resultBranch) return observed.resultDirectory;
+  const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-result-'));
+  execFileSync('git', ['worktree', 'add', '--detach', checkout, observed.resultBranch], { cwd: folder, stdio: 'ignore' });
+  return checkout;
+}
+
 function toRecord(scenario: ScenarioDefinition, plan: RunPlan, strategy: BaselineStrategy, folder: string, observed: Observed): BaselineRecord {
-  const checks = runChecks(observed.resultDirectory ?? folder, scenario.checks);
+  const checks = runChecks(resultFolder(folder, observed), scenario.checks);
   return {
     candidate: strategy,
     objective: scenario.id,

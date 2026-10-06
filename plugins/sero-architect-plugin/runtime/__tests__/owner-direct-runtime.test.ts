@@ -109,6 +109,15 @@ describe('the owner works in a worktree and is stopped', () => {
     expect(host.gitCalls[1]?.options).toEqual({ deleteMergedBranch: true });
   });
 
+  it('keeps the branch of a parked milestone so its work can resume', async () => {
+    const host = await fakeHost();
+    host.existingPaths.add(dir);
+    const record = agreedProject({ executionMode: 'worktree', milestones: [milestone('m1', { status: 'parked', direct: { ...inWorktree, state: 'running' } })] });
+    await createDirectWorktrees(host).releaseSettled(record);
+    expect(host.gitCalls.map((call) => call.call)).toEqual(['checkpoint', 'remove']);
+    expect(host.gitCalls[1]?.options).toEqual({ deleteMergedBranch: false });
+  });
+
   it('keeps the checkout when its work cannot be committed, and keeps one whose milestone is not delivered', async () => {
     const host = await fakeHost();
     host.existingPaths.add(dir);

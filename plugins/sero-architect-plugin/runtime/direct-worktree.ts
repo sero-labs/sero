@@ -119,7 +119,8 @@ export function createDirectWorktrees(host: WorktreeHost): DirectWorktrees {
           continue;
         }
         try {
-          await host.git.removeWorktree(record.folder, directWorktreeKey(milestone.id), { deleteMergedBranch: true });
+          // A parked milestone with no edits has a branch equal to the default branch, which Git calls merged. It is kept so the work can resume.
+          await host.git.removeWorktree(record.folder, directWorktreeKey(milestone.id), { deleteMergedBranch: milestone.status === 'done' });
         } catch (error) {
           host.log(`kept the checkout of ${milestone.id}: ${reasonOf(error)}`);
         }

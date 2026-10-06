@@ -363,6 +363,21 @@ describe('runtime services', () => {
     expect(host.execCalls.some((call) => call.cwd === '/home/dan/projects/hollow')).toBe(false);
   });
 
+  it('serves a worktree milestone\'s preview from its worktree, inside the registered project folder', async () => {
+    const dir = '/home/dan/projects/hollow/.sero/worktrees/card-direct-m1';
+    const direct = { id: 'exec-1', runId: null, owner: { subject: 'owner' as const, sessionId: null, sessionPath: null }, placement: { mode: 'worktree' as const, directory: dir, workspaceId: 'ws-1', branch: 'feat/m1' }, baseCommit: 'base-1', baseFingerprint: 'fp0', requirementRevision: null, state: 'reported' as const, startedAt: T0, claim: { reportedAt: T0, summary: 'done' }, continuations: 0, idleContinuations: 0 };
+    const target = milestone('m1', { status: 'verifying', verification: 'reported', direct, preview: { route: '/' } });
+    const project = buildingProject({ milestones: [target] });
+    const { host, services, wakes } = await setup(project);
+    host.existingPaths.add(dir);
+    host.detectDevServerCommand = async () => 'pnpm dev';
+    const started: Array<{ workspacePath: string; cwdPath: string }> = [];
+    host.startDevServer = async (input) => { started.push({ workspacePath: input.workspacePath, cwdPath: input.cwdPath }); return { reason: 'stopped here' }; };
+    await services.evidence(project, target, { commands: ['pnpm test'], route: '/' });
+    await waitFor(() => wakes.length > 0);
+    expect(started).toEqual([{ workspacePath: '/home/dan/projects/hollow', cwdPath: dir }]);
+  });
+
   it('rejects an HTTP error preview without shutting down the shared preview server', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
     const { host, services, wakes } = await setup(buildingProject({ milestones: [preview] }));

@@ -255,6 +255,16 @@ describe('the owner works in a worktree in a Worktree project', () => {
     expect(host.gitCalls.filter((call) => call.call === 'create')).toHaveLength(1);
   });
 
+  it('refuses to begin a milestone again while its evidence is still running', async () => {
+    const { store, work, m1 } = await setup({ executionMode: 'worktree' });
+    await work('begin', { milestoneId: 'm1' });
+    const first = (await m1()).direct!;
+    await store.update('proj_1', (fresh) => ({ ...fresh, pendingEvidence: [{ milestoneId: 'm1', commands: ['pnpm test'], route: null, startedAt: T0 }] }));
+    const refused = await work('begin', { milestoneId: 'm1' });
+    expect(refused.ok).toBe(false);
+    expect((await m1()).direct?.id).toBe(first.id);
+  });
+
   it('is not a project-folder writer, yet still holds its own milestone and its own turn', async () => {
     const { actions, services, work, host } = await setup({ executionMode: 'worktree' });
     await work('begin', { milestoneId: 'm1' });

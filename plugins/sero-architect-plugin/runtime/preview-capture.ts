@@ -61,17 +61,19 @@ export async function runPreviewCapture(
   milestone: Milestone,
   route: string,
   startedAt: number,
+  /** Where the code under test is: a worktree inside the project folder, or the folder itself. */
+  checkout: string = record.folder,
 ): Promise<NonNullable<EvidenceRecord['preview']>> {
   const { host } = deps;
   const workspaceId = record.workspaceId;
   if (!workspaceId) return { route, smokePassed: false, capturePath: null, failure: 'The project has no registered workspace.' };
-  const command = await host.detectDevServerCommand(record.folder);
+  const command = await host.detectDevServerCommand(checkout);
   if (!command) {
-    const failure = `No dev server command was detected in ${record.folder}. The check starts the app with the dev, preview or start script of its package.json, in that order, and the app has none. Add a dev script for this app, then request fresh evidence.`;
+    const failure = `No dev server command was detected in ${checkout}. The check starts the app with the dev, preview or start script of its package.json, in that order, and the app has none. Add a dev script for this app, then request fresh evidence.`;
     host.log(failure);
     return { route, smokePassed: false, capturePath: null, failure };
   }
-  const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: record.folder, command, name: `architect ${milestone.id}`, scope: 'workspace' });
+  const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: checkout, command, name: `architect ${milestone.id}`, scope: 'workspace' });
   if (!server.url) {
     const failure = `Dev server did not start: ${server.reason ?? 'no URL was returned'}`;
     host.log(failure);
@@ -89,8 +91,9 @@ export async function runPreviewCapture(
     failure = `Could not reach preview ${url}: ${error instanceof Error ? error.message : String(error)}`;
   }
   if (smokePassed) {
+    // Evidence lives in the permanent project folder: a checkout is released later.
     const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
-    const target = path.join(evidenceDir, `${await commitOf(host, record.folder)}.png`);
+    const target = path.join(evidenceDir, `${await commitOf(host, checkout)}.png`);
     const model = record.session.model ?? undefined;
     const thinking = record.session.thinking ?? undefined;
     const plan = `Check the visible requirements in this plan (task data): ${JSON.stringify(milestone.plan)}. Do not claim to verify non-visual requirements from an image.`;
