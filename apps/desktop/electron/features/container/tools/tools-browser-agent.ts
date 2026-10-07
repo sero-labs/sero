@@ -110,6 +110,36 @@ async function closeBrowserSessionQuietly(runtime: RuntimeBackend, adapter: Brow
   await runtime.exec({ command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, ['close', '--json']), timeoutMs: 10_000 }).catch(() => undefined);
 }
 
+/** How every runtime backend reports a command it stopped at its time limit. */
+const COMMAND_TIMED_OUT = /^Command timed out after/;
+
+/**
+ * Stop a browser session whose daemon no longer answers.
+ *
+ * A page stuck in its own code blocks the daemon, and then `close` and `open`
+ * hang as well: measured on a page in an endless loop, both waited out their
+ * limit. Only stopping the daemon and its browser frees the session name, and
+ * the next command starts a fresh one. A Windows host has no `pkill`, so there
+ * the session stays stuck until Sero restarts.
+ */
+/**
+ * Whether the session still answers a question that needs no work from the
+ * page. A slow command on a healthy page is left alone: only a session that
+ * cannot answer this is reset.
+ */
+async function browserSessionAnswers(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter, workspaceId: string, executablePath: string | null): Promise<boolean> {
+  const probe = await runtime.exec({ command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, ['get', 'url', '--json']), timeoutMs: 5_000 })
+    .catch(() => null);
+  return probe !== null && !COMMAND_TIMED_OUT.test(probe.stderr);
+}
+
+async function resetHungBrowserSession(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
+  if (runtime.backend === 'host' && process.platform === 'win32') return;
+  const base = `"$HOME/.agent-browser/${browserSessionName(workspaceId, runtime.backend)}"`;
+  const command = `pid=$(cat ${base}.pid 2>/dev/null); if [ -n "$pid" ]; then pkill -9 -P "$pid"; kill -9 "$pid"; fi; rm -f ${base}.pid ${base}.sock`;
+  await runtime.exec({ command, timeoutMs: 10_000 }).catch(() => undefined);
+}
+
 function isNavigationError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /Page\.navigate|Navigation failed|ERR_|net::|timed out/i.test(message);
@@ -130,6 +160,14 @@ async function runAgent(
     command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, [...args, '--json'], env),
     timeoutMs: options.execTimeoutMs ?? 60_000,
   });
+  if (COMMAND_TIMED_OUT.test(result.stderr) && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+    await resetHungBrowserSession(runtime, workspaceId);
+    throw new Error(
+      `The automation browser gave no answer in ${Math.round((options.execTimeoutMs ?? 60_000) / 1000)}s. `
+      + 'The page is probably busy in its own code, for example an endless loop, and a page in that state answers nothing. '
+      + 'The browser was reset. Launch it again, and expect the same action to hang the page again until the page is fixed.',
+    );
+  }
   const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';
