@@ -119,8 +119,7 @@ const COMMAND_TIMED_OUT = /^Command timed out after/;
  * A page stuck in its own code blocks the daemon, and then `close` and `open`
  * hang as well: measured on a page in an endless loop, both waited out their
  * limit. Only stopping the daemon and its browser frees the session name, and
- * the next command starts a fresh one. A Windows host has no `pkill`, so there
- * the session stays stuck until Sero restarts.
+ * the next command starts a fresh one.
  */
 /**
  * Whether the session still answers a question that needs no work from the
@@ -134,9 +133,14 @@ async function browserSessionAnswers(runtime: RuntimeBackend, adapter: BrowserRu
 }
 
 async function resetHungBrowserSession(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
-  if (runtime.backend === 'host' && process.platform === 'win32') return;
   const base = `"$HOME/.agent-browser/${browserSessionName(workspaceId, runtime.backend)}"`;
-  const command = `pid=$(cat ${base}.pid 2>/dev/null); if [ -n "$pid" ]; then pkill -9 -P "$pid"; kill -9 "$pid"; fi; rm -f ${base}.pid ${base}.sock`;
+  // A Windows host runs commands in Git Bash, which has no `pkill`. `taskkill /T`
+  // stops the daemon and the browser it started; the doubled slashes stop Git
+  // Bash from rewriting the switches as paths.
+  const stop = runtime.backend === 'host' && process.platform === 'win32'
+    ? 'taskkill //PID "$pid" //T //F'
+    : 'pkill -9 -P "$pid"; kill -9 "$pid"';
+  const command = `pid=$(cat ${base}.pid 2>/dev/null); if [ -n "$pid" ]; then ${stop}; fi; rm -f ${base}.pid ${base}.sock ${base}.port`;
   await runtime.exec({ command, timeoutMs: 10_000 }).catch(() => undefined);
 }
 
