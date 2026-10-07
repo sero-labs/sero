@@ -55,6 +55,32 @@ describe('CLI bridge rich output', () => {
     expect(result.details).toEqual({ exitCode: 0, source: 'plugin', width: 800 });
   });
 
+  it('counts a model-issued command against the turn limit and never one a script issued', async () => {
+    installCliSessionBridge({
+      getSessionEntry: () => undefined,
+      getActiveSessionForWorkspace: () => undefined,
+      getActiveTurnId: () => 'turn-1',
+      noteTurnStart: () => {},
+      noteTurnEnd: () => {},
+      consumeTurnBudget: () => ({ allowed: false, count: 50, limit: 50 }),
+      setSessionTitle: () => {},
+    });
+    const registry = new CliRegistry();
+    registry.register(bridgeTool('plugin_ping', {
+      name: 'plugin_ping',
+      label: 'Ping',
+      description: 'Ping',
+      parameters: Type.Object({}),
+      execute: async () => ({ content: [{ type: 'text', text: 'pong' }], details: {} }),
+    }));
+    const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
+    const run = (toolCallId: string) => tool.execute(toolCallId, { command: 'plugin_ping' }, undefined, undefined, { cwd: '/tmp/ws-1' } as never);
+
+    expect((await run('tool-1')).details).toMatchObject({ exitCode: 1 });
+    // Pi names a call a Code Mode script made `<parent id>/<n>`.
+    expect((await run('tool-1/7')).details).toMatchObject({ exitCode: 0 });
+  });
+
   it('preserves image blocks for multi-command batches with rich output', async () => {
     const registry = new CliRegistry();
     registry.register({
