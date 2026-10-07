@@ -6,7 +6,7 @@ import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime
 import {
   agentBrowserCommand,
   defaultRecordingPath,
-  defaultScreenshotPath,
+  screenshotPath,
   ensureAgentBrowserAvailable,
   ensureFfmpegAvailable,
   resolveBrowserAutomationRuntime,
@@ -465,7 +465,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
         }
 
         if (action === 'screenshot') {
-          const shotPath = defaultScreenshotPath(adapter);
+          const shotPath = screenshotPath(runtime, adapter);
           const shotDir = runtimeDirname(shotPath);
           if (shotDir) await runtime.createDirectory({ path: shotDir, recursive: true });
           await runtime.delete({ path: shotPath }).catch(() => undefined);
