@@ -78,6 +78,14 @@ describe('preserveBashFailureStatus', () => {
 
     expect((await agent.afterToolCall?.(boundaryContext('bash', 1)))?.isError).toBe(true);
   });
+
+  it('reports a failed sero-cli command as failed, so a Code Mode script stops on it', async () => {
+    const agent: Pick<Agent, 'afterToolCall'> = { afterToolCall: undefined };
+    preserveBashFailureStatus(agent);
+
+    expect((await agent.afterToolCall?.(boundaryContext('sero-cli', 1)))?.isError).toBe(true);
+    expect((await agent.afterToolCall?.(boundaryContext('sero-cli', 0)))?.isError).toBeUndefined();
+  });
 });
 
 /** Calls the Sero bash tool once with a failing command, then answers. */
