@@ -64,6 +64,11 @@ describe('subagent extension loader', () => {
     expect(await startPrompt(['read'])).not.toContain('## Sero CLI');
   });
 
+  it('tells a session to prefer a script only when it has codemode', async () => {
+    expect(await startPrompt(['read', 'codemode'])).toContain('## Code Mode');
+    expect(await startPrompt(['read'])).not.toContain('## Code Mode');
+  });
+
   it('gives a host subagent one Pi docs pointer, which the pi-docs skill reads', async () => {
     const prompt = await startPrompt(['read']);
     expect(prompt.match(/Pi docs:/g)).toHaveLength(1);
