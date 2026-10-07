@@ -78,7 +78,10 @@ describe.skipIf(!available)('the automation browser in a real host workspace', (
     const tool = createAgentBrowser(backend, `shot${process.pid}`, async () => ({ adapter, executablePath: CHROME }));
     const run = (params: Record<string, unknown>) => tool.execute('tc', params as never, undefined, undefined, undefined as never);
     try {
-      await run({ action: 'launch', url: 'data:text/html,<title>shot</title><h1>hello</h1>' });
+      // Waiting for a page that has already loaded must not cost the full wait limit.
+      const startedAt = Date.now();
+      await run({ action: 'launch', url: 'data:text/html,<title>shot</title><h1>hello</h1>', wait_until: 'load' });
+      expect(Date.now() - startedAt).toBeLessThan(10_000);
       const shot = await run({ action: 'screenshot' });
 
       const image = shot.content.find((block) => block.type === 'image') as { data: string } | undefined;
