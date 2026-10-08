@@ -37,10 +37,14 @@ export async function readPicture(record: ProjectRecord, milestoneId: string | u
   const file = pictureFile(record, milestoneId);
   if (!file) return { ok: false, text: 'No picture is saved for this step.' };
   try {
-    const stat = await fs.stat(file);
+    // A link is followed first, so a picture that points outside the project is not read.
+    const real = await fs.realpath(file);
+    const folder = (await fs.realpath(record.folder)) + path.sep;
+    if (!real.startsWith(folder)) return { ok: false, text: 'The picture cannot be shown.' };
+    const stat = await fs.stat(real);
     if (!stat.isFile() || stat.size > MAX_BYTES) return { ok: false, text: 'The picture cannot be shown.' };
     if (newerThan && stat.mtime.toISOString() <= newerThan) return { ok: false, text: 'No newer picture.' };
-    const bytes = await fs.readFile(file);
+    const bytes = await fs.readFile(real);
     return { ok: true, text: 'Picture read.', dataUrl: `data:image/png;base64,${bytes.toString('base64')}`, at: stat.mtime.toISOString() };
   } catch {
     return { ok: false, text: 'No picture is saved.' };

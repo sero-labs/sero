@@ -38,7 +38,7 @@ vi.mock('@sero-ai/app-runtime', async () => ({
 // The seam under test is how the tile reads what the members report, not the transport.
 vi.mock('../lib/use-work-watch', () => ({
   useLinkedMemberLive: (_projectId: string, _workspaceId: string | null, _roomId: string, memberId: string) => memberLive[memberId] ?? null,
-  useOwnerWatch: () => ({ live: null, recent: [] }),
+  useOwnerWatch: () => ({ live: null, recent: [], finished: 0 }),
 }));
 
 let container: HTMLDivElement;

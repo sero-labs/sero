@@ -6,7 +6,7 @@ import { useProjectFeedback, useProjectWork } from './lib/use-project-feedback';
 import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
-import { boardOf, liveRows, rowAction, type Board, type LiveRow, type MadeRow } from './lib/board';
+import { boardOf, liveRows, rowAction, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
 import { openDispatch } from './lib/page-helpers';
 import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
 import { BoardLive } from './components/BoardLive';
@@ -279,8 +279,8 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
   const hasPreview = usePreviewAvailable(id, record.milestones.map((milestone) => milestone.status).join(','));
   const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
   const checked = record.milestones.some((milestone) => milestone.evidence);
-  // The result shows the newest proof picture: the last step that has one.
-  const proof = board.steps.findLast((step) => step.proofKey !== null);
+  // The result shows the newest proof picture: the step checked last that has one.
+  const proof = board.steps.reduce<BoardStep | null>((newest, step) => (step.proofKey !== null && (!newest?.proofKey || step.proofKey > newest.proofKey) ? step : newest), null);
   // The top tile already says the newest sentence. It is not said twice.
   const resultText = record.overview?.result && record.overview.result.text !== board.sentence ? record.overview.result.text : null;
   return (

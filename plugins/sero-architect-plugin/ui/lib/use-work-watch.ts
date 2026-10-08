@@ -24,6 +24,8 @@ export interface OwnerWatch {
   live: PersistentSessionLiveSnapshot | null;
   /** The last few tool calls of this turn that finished, newest first. */
   recent: OwnerLiveNotice['recent'];
+  /** How many tool calls of this turn have finished. */
+  finished: number;
 }
 
 /** The owner's current turn and its last few finished actions, while `active`. */
@@ -59,7 +61,7 @@ export function useOwnerWatch(projectId: string, active: boolean): OwnerWatch {
     };
   }, [active, projectId, observerId, run]);
 
-  return active && held?.projectId === projectId ? { live: held.live, recent: held.recent ?? [] } : { live: null, recent: [] };
+  return active && held?.projectId === projectId ? { live: held.live, recent: held.recent ?? [], finished: held.finished ?? 0 } : { live: null, recent: [], finished: 0 };
 }
 
 /** One member of a Room this project started, while `active`. */

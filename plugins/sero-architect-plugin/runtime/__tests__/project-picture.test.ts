@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -36,6 +36,16 @@ async function save(file: string): Promise<void> {
 }
 
 describe('the pictures a board reads', () => {
+  it('does not read a picture that links outside the project', async () => {
+    const record = await project(evidenceFile);
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'architect-outside-'));
+    folders.push(outside);
+    await save(path.join(outside, 'secret.png'));
+    await mkdir(path.dirname(evidenceFile(record.folder)), { recursive: true });
+    await symlink(path.join(outside, 'secret.png'), evidenceFile(record.folder));
+    expect((await readPicture(record, record.milestones[0]!.id)).ok).toBe(false);
+  });
+
   it('returns the capture a step saved', async () => {
     const record = await project(evidenceFile);
     await save(evidenceFile(record.folder));

@@ -62,9 +62,9 @@ function Now({ entry, view }: { entry: WorkFeedback; view: NowView }) {
 }
 
 function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: WorkFeedback; turnSince: string | null }) {
-  const { live, recent } = useOwnerWatch(projectId, true);
+  const { live, recent, finished } = useOwnerWatch(projectId, true);
   // A screenshot is saved when a browser call ends, so each change of action is a reason to look.
-  const seen = useProjectPicture(projectId, undefined, `${live?.turnId ?? ''}:${live?.tool?.callId ?? live?.tool?.startedAt ?? ''}:${recent.length}`);
+  const seen = useProjectPicture(projectId, undefined, `${live?.turnId ?? ''}:${live?.tool?.callId ?? live?.tool?.startedAt ?? ''}:${finished}`);
   // A screenshot from before this turn shows a page the Architect is no longer on.
   const browser = seen && turnSince && seen.at >= turnSince ? seen : null;
   const view: NowView = {

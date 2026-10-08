@@ -58,6 +58,7 @@ interface OwnerLease {
   lastTurnId: string | null;
   /** Finished tool calls of the current turn, newest first. */
   recent: { toolName: string; summary: string }[];
+  finished: number;
 }
 
 const sameCall = (a: LiveTool, b: LiveTool) => a.callId !== null || b.callId !== null ? a.callId === b.callId : a.startedAt === b.startedAt;
@@ -71,6 +72,7 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
       projectId,
       live: handleId ? deps.sessions()?.liveSnapshot(handleId) ?? null : null,
       recent: owners.get(projectId)?.recent ?? [],
+      finished: owners.get(projectId)?.finished ?? 0,
     };
   };
 
@@ -108,12 +110,14 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
     const turnId = live?.turnId ?? null;
     if (turnId !== null && turnId !== lease.lastTurnId) {
       lease.recent = [];
+      lease.finished = 0;
       lease.lastTool = null;
     }
     const tool = live?.tool ?? null;
     if (lease.lastTool && !(tool && sameCall(lease.lastTool, tool))) {
       const { toolName, summary } = lease.lastTool;
       lease.recent = [{ toolName, summary }, ...lease.recent].slice(0, RECENT_LIMIT);
+      lease.finished += 1;
     }
     lease.lastTool = tool;
     if (turnId !== null) lease.lastTurnId = turnId;
@@ -128,6 +132,7 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
     lease.lastTool = null;
     lease.lastTurnId = null;
     lease.recent = [];
+    lease.finished = 0;
     // The tool in flight when the watch opens is noted, so its end is counted.
     if (handleId && api) track(lease, api.liveSnapshot(handleId));
     lease.off = handleId && api ? api.subscribe(handleId, () => {
@@ -144,7 +149,7 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
 
   return {
     watchOwner(projectId, observerId) {
-      const lease = current(projectId) ?? { observers: new Map<string, number>(), handleId: null, off: null, timer: null, lastTool: null, lastTurnId: null, recent: [] };
+      const lease = current(projectId) ?? { observers: new Map<string, number>(), handleId: null, off: null, timer: null, lastTool: null, lastTurnId: null, recent: [], finished: 0 };
       lease.observers.set(observerId, deps.now() + WATCH_LEASE_MS);
       owners.set(projectId, lease);
       bind(projectId, lease);
