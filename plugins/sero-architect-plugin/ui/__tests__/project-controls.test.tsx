@@ -752,6 +752,8 @@ describe('the kinds of nothing', () => {
       decisions: [],
       milestones: [],
       charter: null,
+      // No written plan either: a plan with no steps would still be a Plan tile.
+      brief: null,
       research: [],
       blockedReason: 'Research Room room_3240 is cancelled.',
       blockedOn: {

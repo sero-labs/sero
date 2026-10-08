@@ -38,6 +38,7 @@ export const PROJECT_ACTIONS = [
   'retry',
   'preview',
   'preview_available',
+  'picture',
   'stop',
   'control',
   'raise_cap',
@@ -75,7 +76,7 @@ export const ProjectsToolParams = Type.Object({
   model: Type.Optional(Type.String({ description: 'set_model_tier: the model as provider/modelId' })),
   thinking: Type.Optional(StringEnum(THINKING_LEVELS, { description: 'set_model_tier: the thinking level for that model' })),
   target: Type.Optional(StringEnum(APPROVE_TARGETS, { description: 'approve: charter or milestone' })),
-  milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id' })),
+  milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id. picture: the step whose proof picture to read; omit for the last browser screenshot' })),
   decisionId: Type.Optional(Type.String({ description: 'answer: the decision id' })),
   optionId: Type.Optional(Type.String({ description: 'answer: the chosen option id' })),
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
@@ -89,6 +90,7 @@ export const ProjectsToolParams = Type.Object({
   workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
   roomId: Type.Optional(Type.String({ description: 'watch_room/unwatch_room: a Room this project started' })),
   observerId: Type.Optional(Type.String({ description: 'watch_*/unwatch_*: the id of the open view that holds the watch' })),
+  newerThan: Type.Optional(Type.String({ description: 'picture: the time of the picture the view already holds, so the same one is not sent again' })),
   workId: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow is controlled' })),
   operation: Type.Optional(StringEnum(CONTROL_OPERATIONS, { description: 'control: pause, resume, retry or cancel' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time' })),
@@ -99,6 +101,7 @@ export interface ProjectsToolParamsShape {
   projectId?: string;
   roomId?: string;
   observerId?: string;
+  newerThan?: string;
   idea?: string;
   openSpecEnabled?: boolean;
   folder?: string;
@@ -277,6 +280,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       const outcome = await actions.previewAvailable(id);
       return result(outcome.ok, outcome.text);
+    }
+    case 'picture': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.picture(id, params.milestoneId, params.newerThan);
+      return result(outcome.ok, outcome.text, outcome.ok ? { dataUrl: outcome.dataUrl, at: outcome.at } : {});
     }
     case 'retry': {
       const missing = need(id, 'projectId') ?? need(params.milestoneId, 'milestoneId');

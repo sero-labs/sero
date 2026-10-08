@@ -128,6 +128,8 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
     lease.lastTool = null;
     lease.lastTurnId = null;
     lease.recent = [];
+    // The tool in flight when the watch opens is noted, so its end is counted.
+    if (handleId && api) track(lease, api.liveSnapshot(handleId));
     lease.off = handleId && api ? api.subscribe(handleId, () => {
       track(lease, api.liveSnapshot(handleId));
       push(projectId);

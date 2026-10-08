@@ -6,6 +6,7 @@ import { SubagentLiveBlock } from '@sero-ai/ui';
 import type { ProjectRecord } from '../../shared/record';
 import { rowAction, textTail, toolPhrase, type LiveRow } from '../lib/board';
 import { openDispatch } from '../lib/page-helpers';
+import { useProjectPicture } from '../lib/use-project-picture';
 import { useLinkedMemberLive, useOwnerWatch } from '../lib/use-work-watch';
 
 function clock(ms: number): string {
@@ -60,15 +61,29 @@ function Now({ entry, view }: { entry: WorkFeedback; view: NowView }) {
   );
 }
 
-function OwnerNow({ projectId, entry }: { projectId: string; entry: WorkFeedback }) {
+function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: WorkFeedback; turnSince: string | null }) {
   const { live, recent } = useOwnerWatch(projectId, true);
+  // A screenshot is saved when a browser call ends, so each change of action is a reason to look.
+  const seen = useProjectPicture(projectId, undefined, `${live?.turnId ?? ''}:${live?.tool?.callId ?? live?.tool?.startedAt ?? ''}:${recent.length}`);
+  // A screenshot from before this turn shows a page the Architect is no longer on.
+  const browser = seen && turnSince && seen.at >= turnSince ? seen : null;
   const view: NowView = {
     action: live?.tool ? toolPhrase(live.tool.toolName) : live?.request ? toolPhrase(null) : null,
     detail: live?.tool?.summary ?? '',
     text: live?.text ?? '',
     recent,
   };
-  return <Now entry={entry} view={view} />;
+  return (
+    <div className={browser ? 'bd-now bd-now-seen' : 'bd-now'}>
+      <div><Now entry={entry} view={view} /></div>
+      {browser && (
+        <figure className="bd-sees">
+          <img src={browser.dataUrl} alt="The last screenshot Architect took in its browser" />
+          <figcaption>What Architect last saw in the browser</figcaption>
+        </figure>
+      )}
+    </div>
+  );
 }
 
 function MemberNow({ record, roomId, memberId, entry }: { record: ProjectRecord; roomId: string; memberId: string; entry: WorkFeedback }) {
@@ -83,7 +98,7 @@ function MemberNow({ record, roomId, memberId, entry }: { record: ProjectRecord;
 }
 
 function SelectedNow({ record, entry }: { record: ProjectRecord; entry: WorkFeedback }) {
-  if (entry.kind === 'owner-wake') return <OwnerNow projectId={record.id} entry={entry} />;
+  if (entry.kind === 'owner-wake') return <OwnerNow projectId={record.id} entry={entry} turnSince={record.session.workingSince ?? null} />;
   if (entry.kind === 'room-member' && entry.scope.workId && entry.scope.memberId) {
     return <MemberNow record={record} roomId={entry.scope.workId} memberId={entry.scope.memberId} entry={entry} />;
   }

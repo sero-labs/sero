@@ -25,6 +25,8 @@ export interface BoardStep {
   note: string;
   /** Checks were saved for this step, so its evidence can be opened. */
   checked: boolean;
+  /** Names the picture those checks captured, and changes when a new one is saved. Null when there is none. */
+  proofKey: string | null;
 }
 
 export interface MadeRow {
@@ -44,6 +46,10 @@ export interface Board {
   progress: { done: number; total: number } | null;
   main: MainTile[];
   steps: BoardStep[];
+  /** What the Architect takes the work to be, shown while no step exists yet. */
+  planNote: string | null;
+  /** Research was started or saved, so the Research view has something in it. */
+  researched: boolean;
   made: MadeRow[];
 }
 
@@ -97,10 +103,10 @@ export function textTail(text: string, limit = 420): string {
 
 function sentenceOf(record: ProjectRecord): string {
   const overview = record.overview;
-  const newest = [overview?.result, overview?.acknowledgement, overview?.objective]
+  const newest = [overview?.result, overview?.acknowledgement, overview?.objective, overview?.outcome]
     .filter((item) => item !== undefined)
     .sort((a, b) => b.at.localeCompare(a.at))[0];
-  return newest?.text ?? overview?.outcome?.text ?? record.idea;
+  return newest?.text ?? record.idea;
 }
 
 const TONES: Partial<Record<ProjectActivity['state'], BoardTone>> = {
@@ -120,7 +126,7 @@ function stepOf(milestone: Milestone): BoardStep {
   else if (milestone.status === 'verifying') note = 'Being checked.';
   else if (state === 'doing') note = 'In progress.';
   else if (milestone.status === 'parked') note = milestone.parkedBy ? 'Waits for your answer.' : 'Set aside.';
-  return { id: milestone.id, title: milestone.title, state, note, checked: milestone.evidence !== null };
+  return { id: milestone.id, title: milestone.title, state, note, checked: milestone.evidence !== null, proofKey: milestone.evidence?.preview?.capturePath ? milestone.evidence.checkedAt : null };
 }
 
 function madeRows(record: ProjectRecord): MadeRow[] {
@@ -153,13 +159,16 @@ const stop = (text: string): string => (/[.!?…]$/.test(text.trim()) ? text.tri
  * `activity` is the derived state the rest of the app uses, so the board never
  * disagrees with the projects list. `live` says whether this session sees work
  * running, `action` is what that work is doing in plain words, and `waitingFor`
- * names an open wait the Architect registered.
+ * names an open wait the Architect registered. `beneath` is the state without
+ * the open questions, so a stop is not lost behind one.
  */
-export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string; waitingFor?: string }): Board {
+export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string; waitingFor?: string; beneath?: ProjectActivity }): Board {
   const asks = needsYouItems(record).length > 0;
   const started = activity.action !== 'Review access';
-  // A stop holds the control that fixes it. A question is answered on its own tile.
-  const stopped = activity.state === 'stopped' || !started || (activity.state === 'waiting-for-you' && !asks);
+  // A stop holds the control that fixes it. A question is answered on its own tile,
+  // and a stop that the question would hide is still shown under it.
+  const under = context.beneath ?? activity;
+  const stopped = under.state === 'stopped' || !started || (under.state === 'waiting-for-you' && !asks);
   const main: MainTile[] = [];
   if (asks) main.push('ask');
   if (stopped) main.push('stopped');
@@ -194,6 +203,8 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
     progress: counts.total > 0 ? { done: counts.accepted, total: counts.total } : null,
     main,
     steps: started ? record.milestones.filter((milestone) => milestone.id !== MAINTENANCE_MILESTONE_ID).map(stepOf) : [],
+    planNote: started ? record.working?.objective ?? (record.brief ? 'A plan is written.' : null) : null,
+    researched: started && (record.research.length > 0 || (record.pendingResearch ?? []).length > 0),
     made: started ? madeRows(record) : [],
   };
 }

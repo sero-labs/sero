@@ -6,9 +6,9 @@
 
 The project page SHALL be one board that follows the approved prototype `apps/styleguide/public/prototypes/architect-one-screen.html`. A top tile SHALL always show the Architect's latest saved sentence, or the user's request when none is saved, with one state line, and meters for plan progress and spend. The progress meter SHALL appear only when a plan exists. Working SHALL be shown only for work this session has observed.
 
-The state line SHALL read Working, Waiting for you or Stopped for those states, and otherwise the project's own state such as Paused by you or Delivered. Under the top tile the board SHALL stack the large tiles that apply, in this order: a decision or approval the user must give; a stop that needs the user, with its saved cause and its recovery control; work that is running. A delivered result SHALL be the large tile when none of those apply. A project with nothing to decide, recover, watch or deliver SHALL have no large tile. A Plan tile SHALL exist only when the project has plan steps, and a Decisions made tile only when at least one decision exists. The board MUST NOT show an empty or placeholder tile. A message box for the Architect SHALL remain available.
+The state line SHALL read Working, Waiting for you or Stopped for those states, and otherwise the project's own state such as Paused by you or Delivered. Under the top tile the board SHALL stack the large tiles that apply, in this order: a decision or approval the user must give; a stop that needs the user, with its saved cause and its recovery control; work that is running. A delivered result SHALL be the large tile when none of those apply. A project with nothing to decide, recover, watch or deliver SHALL have no large tile. A Plan tile SHALL exist only when the project has plan steps, a written plan or research, and a Decisions made tile only when at least one decision exists. The board MUST NOT show an empty or placeholder tile. A message box for the Architect SHALL remain available.
 
-A checked plan step SHALL link to its checks. Full plans, research, evidence, model settings, the inspector and history SHALL open as separate views. Every action on the board SHALL use the same authoritative tool action as the equivalent menu or detail control.
+A checked plan step SHALL link to its checks and show the picture those checks captured, when there is one. A delivered result SHALL show the newest of those pictures. While the Architect works, the live tile SHALL show the last screenshot it took in its browser during the current turn. Full plans, research, evidence, model settings, the inspector and history SHALL open as separate views. Every action on the board SHALL use the same authoritative tool action as the equivalent menu or detail control.
 
 #### Scenario: Just started
 - **WHEN** a project has started and has no plan and no question
@@ -35,7 +35,7 @@ A checked plan step SHALL link to its checks. Full plans, research, evidence, mo
 - **AND** the state line reads Delivered
 
 #### Scenario: Nothing to show is not a tile
-- **WHEN** a project has no plan steps, or no decisions
+- **WHEN** a project has no plan steps, written plan or research, or no decisions
 - **THEN** that tile is absent and the remaining tiles use the space
 
 #### Scenario: History is not on the page
@@ -44,7 +44,7 @@ A checked plan step SHALL link to its checks. Full plans, research, evidence, mo
 
 ### Requirement: Live work is on the board
 
-While observed work runs, the board SHALL show it without a further click. For each agent that is working it SHALL show who it is, what it is doing in plain words with the tool's own short detail, and how long the current action has run. It SHALL show the arriving text of the Architect, or of the one agent the user selects when several work at once, and up to three of the most recent finished actions. It SHALL link to the complete saved session. Showing live work MUST NOT alter execution or grant authority, and live text MUST NOT be saved by the board.
+While observed work runs, the board SHALL show it without a further click. For each agent that is working it SHALL show who it is, what it is doing in plain words with the tool's own short detail, and how long the current action has run. It SHALL show the arriving text of the Architect, or of the one agent the user selects when several work at once. For the Architect's own work it SHALL show up to three of the most recent finished actions. It SHALL link to the complete saved session. Showing live work MUST NOT alter execution or grant authority, and live text MUST NOT be saved by the board.
 
 #### Scenario: The Architect works itself
 - **WHEN** the Architect is editing files in its own turn
@@ -55,7 +55,7 @@ While observed work runs, the board SHALL show it without a further click. For e
 - **THEN** the live tile lists both with their actions and timers, and shows the text of the selected one
 
 #### Scenario: Recent actions follow the work
-- **WHEN** three actions finish while the board is open
+- **WHEN** three of the Architect's own actions finish while the board is open
 - **THEN** the live tile lists them, newest first, under the action in hand
 - **AND** a new turn starts the list again
 

@@ -152,6 +152,17 @@ describe('the actions the owner just finished', () => {
     watch.dispose();
   });
 
+  it('counts a tool that was already running when the watch opened', () => {
+    const ctx = setup();
+    ctx.handles.set(PROJECT, 'h1');
+    ctx.sessions.partials.set('h1', running('turn-1', 1));
+    ctx.watch.watchOwner(PROJECT, 'view-1');
+    ctx.sessions.partials.set('h1', { ...live('thinking'), turnId: 'turn-1' });
+    ctx.sessions.emit('h1', { type: 'turn_start', turnId: 'turn-1', at: T0 });
+    expect(ctx.watch.watchOwner(PROJECT, 'view-1').recent.map((entry) => entry.summary)).toEqual(['step 1']);
+    ctx.watch.dispose();
+  });
+
   it('counts a tool that ended with no other tool after it, and starts a new turn empty', () => {
     const { watch, show } = watching();
     show(running('turn-1', 1));
