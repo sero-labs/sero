@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppNavigation } from '@sero-ai/app-runtime';
 
-export const WORK_TABS = ['live', 'plan', 'research', 'evidence'] as const;
+export const WORK_TABS = ['plan', 'research', 'evidence'] as const;
 export type WorkTab = (typeof WORK_TABS)[number];
 
 export type ArchitectView =
@@ -46,7 +46,9 @@ export function parseViewId(id: string | undefined): ArchitectView | null {
   if (sub === 'models') return { mode: 'models', projectId: rest };
   if (sub === 'inspector') return { mode: 'inspector', projectId: rest };
   if (sub === 'work') {
-    const tab = WORK_TABS.find((item) => item === focus) ?? 'live';
+    // Live work is on the project board now, so an old link to it opens the board.
+    if (focus === 'live') return { mode: 'project', projectId: rest };
+    const tab = WORK_TABS.find((item) => item === focus) ?? 'plan';
     return { mode: 'work', projectId: rest, tab, ...(tab === 'evidence' && extra ? { focusMilestoneId: extra } : {}) };
   }
   return { mode: 'project', projectId: rest };

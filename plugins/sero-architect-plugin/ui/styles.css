@@ -1,5 +1,6 @@
 @import "@sero-ai/ui/styles/plugin.css";
 @import "@sero-ai/ui/styles/ai-elements.css";
+@import "./board.css";
 
 /* REQUIRED: scan plugin-local UI files so external remotes emit the utility
    classes they use instead of accidentally depending on host CSS. */

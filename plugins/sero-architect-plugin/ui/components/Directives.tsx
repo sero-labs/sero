@@ -14,10 +14,14 @@ export interface DirectiveComposerProps {
    * control is a way into this box, not a second way to send a directive.
    */
   inputRef?: RefObject<HTMLTextAreaElement | null>;
+  /** Text the box starts with, when the user opened it from a decision. */
+  initialDraft?: string;
+  /** Put the cursor in the box when it appears. */
+  autoFocus?: boolean;
 }
 
-export function DirectiveComposer({ disabled: phaseDisabled, onSend, onRequestChange, inputRef }: DirectiveComposerProps) {
-  const [draft, setDraft] = useState('');
+export function DirectiveComposer({ disabled: phaseDisabled, onSend, onRequestChange, inputRef, initialDraft = '', autoFocus = false }: DirectiveComposerProps) {
+  const [draft, setDraft] = useState(initialDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const disabled = phaseDisabled || busy;
@@ -48,12 +52,13 @@ export function DirectiveComposer({ disabled: phaseDisabled, onSend, onRequestCh
         <textarea
           ref={inputRef}
           rows={1}
+          autoFocus={autoFocus}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void send(onSend);
           }}
-          placeholder="Send a note to Architect"
+          placeholder="Tell Architect something, or ask it a question"
           aria-label="Note to Architect"
           disabled={disabled}
         />

@@ -7,7 +7,7 @@
  * It reads no meaning from the text and sorts the work into no category.
  */
 
-import type { AcceptanceCriterion, WorkingInterpretation } from './agreement';
+import type { AcceptanceCriterion, Assumption, WorkingInterpretation } from './agreement';
 
 /** Storage bounds. Text over a bound goes back to the owner; it is never cut. */
 export const WORKING_LIMITS = { objective: 400, approach: 8000, item: 400, assumptions: 40, criteria: 40 } as const;
@@ -15,7 +15,7 @@ export const WORKING_LIMITS = { objective: 400, approach: 8000, item: 400, assum
 export interface WorkingInput {
   objective?: string;
   approach?: string;
-  /** JSON `["..."]`. */
+  /** JSON `[{"text":"...","why":"..."}]`; `why` is optional. */
   assumptionsJson?: string;
   /** JSON `[{"id":"c1","text":"...","userStated":true,"gap":"why it is not met"}]`. */
   criteriaJson?: string;
@@ -35,16 +35,20 @@ function parseJsonArray(raw: string, name: string): unknown[] | string {
   }
 }
 
-function parseAssumptions(raw: string): string[] | string {
+function parseAssumptions(raw: string): Assumption[] | string {
   const parsed = parseJsonArray(raw, 'assumptionsJson');
   if (typeof parsed === 'string') return parsed;
   if (parsed.length > WORKING_LIMITS.assumptions) return `At most ${WORKING_LIMITS.assumptions} assumptions fit. Keep the ones the work depends on.`;
-  const assumptions: string[] = [];
+  const assumptions: Assumption[] = [];
   for (const entry of parsed) {
-    const text = typeof entry === 'string' ? entry.trim() : '';
-    if (!text) return 'Every assumption must be a non-empty string.';
-    if (text.length > WORKING_LIMITS.item) return `An assumption has ${text.length} characters and the limit is ${WORKING_LIMITS.item}. Shorten it.`;
-    assumptions.push(text);
+    const item = typeof entry === 'string' ? { text: entry } : entry as { text?: unknown; why?: unknown } | null;
+    const text = typeof item?.text === 'string' ? item.text.trim() : '';
+    const why = typeof item?.why === 'string' ? item.why.trim() : '';
+    if (!text || (item?.why !== undefined && typeof item.why !== 'string')) return 'Every assumption must be a non-empty string or an object like {"text":"...","why":"..."} (why is optional).';
+    for (const part of [text, why]) {
+      if (part.length > WORKING_LIMITS.item) return `An assumption has ${part.length} characters and the limit is ${WORKING_LIMITS.item}. Shorten it.`;
+    }
+    assumptions.push(why ? { text, why } : { text });
   }
   return assumptions;
 }
