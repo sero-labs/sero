@@ -934,6 +934,12 @@ importers:
 
   plugins/sero-architect-plugin:
     dependencies:
+      '@dicebear/bottts-neutral':
+        specifier: 9.4.2
+        version: 9.4.2(@dicebear/core@9.4.3)
+      '@dicebear/core':
+        specifier: 9.4.3
+        version: 9.4.3
       '@earendil-works/pi-ai':
         specifier: catalog:peer
         version: 1.0.2(@aws-sdk/credential-provider-node@3.972.84)(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.6.5))(@smithy/hash-node@4.5.2)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.11.2)(ws@8.21.3)(zod@4.6.5)

@@ -170,7 +170,9 @@ describe('a refused control', () => {
     act(() => root.render(
       <ProjectPage permissionPending runtimeRunning record={UNAPPROVED} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
-    expect(container.textContent).toContain('Not started');
+    // The question is open and nothing is refused, so the page asks for the approval.
+    expect(container.textContent).toContain('Approve the start');
+    expect(container.textContent).not.toContain('Access is not approved');
     expect([...container.querySelectorAll('button')].some((el) => el.textContent?.includes('Review access'))).toBe(false);
   });
 

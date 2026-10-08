@@ -6,7 +6,7 @@ import { useProjectFeedback, useProjectWork } from './lib/use-project-feedback';
 import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
-import { boardOf, liveRows, rowAction, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
+import { boardOf, liveRows, liveSummary, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
 import { openDispatch } from './lib/page-helpers';
 import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
 import { BoardLive } from './components/BoardLive';
@@ -233,7 +233,9 @@ function PageNotice({ record, actions, notice, page }: { record: ProjectRecord; 
 const UNLINKED = 'dispatch state could not be confirmed after restart:';
 
 /** The stop tile: the saved cause in the user's words, and the controls that recover it. */
-function StoppedTile({ record, activity, form, headerActions }: { record: ProjectRecord; activity: ReturnType<typeof projectActivity>; form: ReactNode; headerActions: HeaderAction[] }) {
+function StoppedTile({ record, activity, form, headerActions, asking }: { record: ProjectRecord; activity: ReturnType<typeof projectActivity>; form: ReactNode; headerActions: HeaderAction[]; asking: boolean }) {
+  // The start prompt is open. Nothing is refused yet, so the tile says what to do and not that access is missing.
+  if (asking) return <BoardStopped label="Needs you" tone="waiting" headline="Approve the start" what="Sero asks you to approve the access. Paid work starts when you approve." reason={null}>{null}</BoardStopped>;
   const unlinked = record.blockedReason?.startsWith(UNLINKED);
   const reason = unlinked
     ? 'Architect lost the link to a workflow when Sero restarted. The work may have started, so Architect will not start another copy. The existing workflow must be reconnected before this project can continue.'
@@ -269,10 +271,14 @@ interface BoardColumnProps {
   headerActions: HeaderAction[];
   onOpenWork(tab: WorkTab): void;
   onChangeDecision(row: MadeRow): void;
+  /** A plan is on the board. What was decided is then listed under it. */
+  hasPlan: boolean;
+  /** The host's start prompt is open. */
+  asking: boolean;
 }
 
 /** The large tiles that apply now, in their fixed order, then the decisions made. */
-function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision }: BoardColumnProps) {
+function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision, hasPlan, asking }: BoardColumnProps) {
   const id = record.id;
   const preview = useProjectPreview(id);
   // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
@@ -287,7 +293,7 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
     <div className="bd-col">
       <PageNotice record={record} actions={actions} notice={notice} page={page} />
       {board.main.includes('ask') && <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
-      {board.main.includes('stopped') && <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} />}
+      {board.main.includes('stopped') && <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} asking={asking} />}
       {/* A stop or a question already says why nothing runs, and holds its own control. */}
       {started && wait && !board.main.includes('stopped') && !board.main.includes('ask') && <WaitCard record={record} actions={actions} />}
       {board.main.includes('live') && <BoardLive record={record} rows={rows} onOpenSession={page.controls.openSession} />}
@@ -303,7 +309,8 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
       {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
       {preview.url && <PreviewFrame url={preview.url} />}
       {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
-      {board.made.length > 0 && <BoardMade rows={board.made} onChange={onChangeDecision} />}
+      {/* Beside a plan, what was decided is listed under it, so live work does not push it off the screen. */}
+      {!hasPlan && board.made.length > 0 && <BoardMade rows={board.made} onChange={onChangeDecision} />}
     </div>
   );
 }
@@ -331,10 +338,12 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
   const board = boardOf(record, activity, {
     beneath,
     live: rows.length > 0,
-    action: rows[0] ? rowAction(rows[0].entry) : undefined,
+    action: liveSummary(rows),
+    asking: permissionPending,
     waitingFor: wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined,
   });
   // The Plan tile exists when there are steps, a written plan or research to open.
+  const changeDecision = (row: MadeRow): void => setSeed((was) => ({ count: was.count + 1, text: `Change this decision: "${row.text}". ` }));
   const hasPlan = board.steps.length > 0 || board.planNote !== null || board.researched;
 
   return (
@@ -353,11 +362,14 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
           notice={notice}
           headerActions={headerActions}
           onOpenWork={onOpenWork}
-          onChangeDecision={(row) => setSeed((was) => ({ count: was.count + 1, text: `Change this decision: "${row.text}". ` }))}
+          onChangeDecision={changeDecision}
+          hasPlan={hasPlan}
+          asking={permissionPending && !started}
         />
         {hasPlan && (
           <div className="bd-side">
             <BoardPlan projectId={id} steps={board.steps} note={board.planNote} onOpenPlan={() => onOpenWork('plan')} onOpenResearch={board.researched ? () => onOpenWork('research') : null} onOpenChecks={() => onOpenWork('evidence')} />
+            {board.made.length > 0 && <BoardMade rows={board.made} onChange={changeDecision} />}
           </div>
         )}
       </div>
