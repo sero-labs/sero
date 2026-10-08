@@ -138,7 +138,7 @@ function ProjectView({ view, onProject, onOpenEvidence, disclosures, ...props }:
   if (view.mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
   if (view.mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={disclosures.folds} />;
   if (view.mode === 'work') return <WorkPage record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} tab={view.tab} focusMilestoneId={view.focusMilestoneId} onTab={props.onOpenWork} onOpenEvidence={onOpenEvidence} onBack={props.onBack} onProject={onProject} onOpenHistory={props.onOpenHistory} />;
-  return <ProjectPage {...props} />;
+  return <ProjectPage {...props} onOpenEvidence={onOpenEvidence} />;
 }
 
 export default ArchitectApp;

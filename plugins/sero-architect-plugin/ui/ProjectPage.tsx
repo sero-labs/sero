@@ -47,6 +47,8 @@ export interface ProjectPageProps {
   onOpenHistory(): void;
   /** Opens the work behind the overview, on one of its tabs. */
   onOpenWork(tab: WorkTab): void;
+  /** Opens the checks of one step, with its screenshot. */
+  onOpenEvidence?(milestoneId: string): void;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
@@ -317,7 +319,7 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
   );
 }
 
-export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
+export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, onOpenEvidence, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   const directiveRef = useRef<HTMLTextAreaElement>(null);
@@ -370,7 +372,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
         />
         {hasPlan && (
           <div className="bd-side">
-            <BoardPlan projectId={id} steps={board.steps} note={board.planNote} onOpenPlan={() => onOpenWork('plan')} onOpenResearch={board.researched ? () => onOpenWork('research') : null} onOpenChecks={() => onOpenWork('evidence')} />
+            <BoardPlan projectId={id} steps={board.steps} note={board.planNote} onOpenPlan={() => onOpenWork('plan')} onOpenResearch={board.researched ? () => onOpenWork('research') : null} onOpenChecks={(milestoneId) => (onOpenEvidence ? onOpenEvidence(milestoneId) : onOpenWork('evidence'))} />
             {board.made.length > 0 && <BoardMade rows={board.made} onChange={changeDecision} />}
           </div>
         )}

@@ -38,7 +38,8 @@ const HOME = process.env.SERO_STORY_HOME ?? path.resolve(__dirname, '..', '.sero
 const CAP_USD = Number(process.env.SERO_STORY_CAP ?? '3');
 const MAX_MINUTES = Number(process.env.SERO_STORY_MINUTES ?? '45');
 const QUIET_MINUTES = Number(process.env.SERO_STORY_QUIET_MINUTES ?? '8');
-const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-story');
+/** SERO_STORY_OUT names a folder inside architect-story/, so a second run keeps the first run's pictures. */
+const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-story', process.env.SERO_STORY_OUT ?? '');
 /** Workspaces must sit under the real home directory. The folder is kept after the run. */
 const PROJECTS_ROOT = path.join(os.homedir(), '.sero-ux-projects');
 const GOAL = process.env.SERO_STORY_GOAL ?? [
@@ -210,15 +211,22 @@ test.afterAll(async () => {
 
 test('the board of the project the last run left', async () => {
   test.skip(!LOOK || PROMPT, 'Set SERO_STORY_LOOK=1 to picture the last project without starting work.');
-  const record = records().sort((a, b) => b.name.localeCompare(a.name))[0];
+  const record = records().filter((item) => item.agreement?.approvedAt).sort((a, b) => b.name.localeCompare(a.name))[0];
   expect(record, 'there is no project in this profile').toBeTruthy();
   fs.mkdirSync(path.join(SHOTS, 'look'), { recursive: true });
   await openArchitect();
+  await page.locator('.ar-app').waitFor({ timeout: 30_000 });
+  // Architect reopens on the project it showed last. Go to the list, then to this one.
+  await page.locator('.ar-crumb').getByRole('button', { name: 'Back to projects' }).click({ timeout: 3_000 }).catch(() => undefined);
   await backToBoard(record!.name);
   await page.waitForTimeout(2_500);
   await page.screenshot({ path: path.join(SHOTS, 'look', 'board.png') });
   await page.locator('.bd-made summary').first().click({ timeout: 5_000 }).catch(() => undefined);
   await page.screenshot({ path: path.join(SHOTS, 'look', 'board-decision-open.png') });
+  // One press on a step's proof shows that step's screenshot and checks.
+  await page.locator('.bd-thumb').first().click({ timeout: 5_000 }).catch(() => undefined);
+  await page.waitForTimeout(2_000);
+  await page.screenshot({ path: path.join(SHOTS, 'look', 'proof.png') });
 });
 
 test('the start prompt of a new project, left unapproved', async () => {
@@ -254,8 +262,10 @@ test('one request, from the first screen to the result, pictured at each stage',
   // ── The request ──
   await openArchitect();
   await page.locator('.ar-app').waitFor({ timeout: 30_000 });
+  // Architect reopens on the project it showed last. A new project starts from the list.
+  await page.locator('.ar-crumb').getByRole('button', { name: 'Back to projects' }).click({ timeout: 3_000 }).catch(() => undefined);
   await page.waitForTimeout(1_500);
-  await stage('Architect, before a project exists', 'architect-home');
+  await stage('Architect, before the project exists', 'architect-home');
   await page.getByRole('button', { name: 'New project' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('What do you want?').fill(GOAL);

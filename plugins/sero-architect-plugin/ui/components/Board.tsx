@@ -142,10 +142,10 @@ function Step({ projectId, step, onOpenChecks }: { projectId: string; step: Boar
         <b>{step.title}</b>
         {step.note && <small>{step.note}</small>}
         {step.checked && (
-          <div className="bd-thumb">
+          <button type="button" className="bd-thumb" onClick={() => onOpenChecks(step.id)}>
             <ProofPicture projectId={projectId} step={step} />
-            <button type="button" className="bd-link" onClick={() => onOpenChecks(step.id)}>See the proof</button>
-          </div>
+            <span className="bd-link">See the proof</span>
+          </button>
         )}
       </div>
     </div>
@@ -176,12 +176,15 @@ export function BoardMade({ rows, onChange }: { rows: readonly MadeRow[]; onChan
       <ul className="bd-made">
         {rows.map((row) => (
           <li key={row.key}>
-            {/* One or two lines until it is opened. The text has the full width: nothing sits beside it. */}
+            {/* Who decided it and the way to change it share one line. The decision has the full width under it. */}
+            <p className="bd-who" data-you={row.by === 'you' ? '' : undefined}>
+              <span>{row.by === 'you' ? 'You' : 'Architect'}</span>
+              <button type="button" className="bd-change" onClick={() => onChange(row)}>Change</button>
+            </p>
             <details>
               <summary>{row.text}</summary>
               {row.why && <p>{row.why}</p>}
             </details>
-            <span className="bd-who" data-you={row.by === 'you' ? '' : undefined}>{row.by === 'you' ? 'You' : 'Architect'} · <button type="button" className="bd-link" onClick={() => onChange(row)}>Change</button></span>
           </li>
         ))}
       </ul>

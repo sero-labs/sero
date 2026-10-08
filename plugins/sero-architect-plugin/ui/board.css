@@ -19,7 +19,7 @@
 .bd-board { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) 420px; grid-auto-rows: min-content; gap: 14px; padding: 6px 20px 18px; align-content: start; }
 .bd-board[data-solo] { grid-template-columns: minmax(0, 1fr); }
 .bd-tile { background: var(--bd-tile); border: 1px solid var(--bd-line); border-radius: 16px; backdrop-filter: blur(24px) saturate(140%); box-shadow: inset 0 1px 0 var(--bd-rim); padding: 20px 22px; min-width: 0; }
-.bd-canvas .bd-label { font-size: var(--text-sm, .9rem); font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
+.bd-canvas .bd-label { font-size: var(--text-sm, .9rem); font-weight: 600; color: var(--brand-primary); display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
 .bd-label[data-tone="waiting"] { color: var(--status-warning); }
 .bd-label[data-tone="stopped"] { color: var(--status-error); }
 .bd-label[data-tone]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -93,8 +93,8 @@ button.bd-row:hover { background: var(--bd-raised); }
 /* The action in hand, or the last one. One line, always there. */
 .bd-canvas .bd-step-now { margin: 0; height: 1.2rem; line-height: 1.2rem; font-size: var(--text-sm, .9rem); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-step-now[data-past] { color: var(--text-muted); }
-/* Four lines, always. Short text starts at the top; long text loses its oldest words off the top. */
-.bd-canvas .bd-stream { margin: 6px 0 0; height: 4.8rem; max-width: 640px; overflow: hidden; }
+/* Six lines, always. Short text starts at the top; long text loses its oldest words off the top. */
+.bd-canvas .bd-stream { margin: 6px 0 0; height: 7.2rem; max-width: 640px; overflow: hidden; }
 .bd-canvas .bd-stream p { margin: 0; max-height: 100%; overflow: hidden; display: flex; flex-direction: column-reverse; color: var(--text-secondary); font-size: var(--text-sm, .9rem); line-height: 1.2rem; }
 .bd-stream p span { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bd-stream p:empty { display: none; }
@@ -115,26 +115,34 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-mark svg { width: 11px; height: 11px; stroke-width: 3; }
 .bd-step b { font-weight: 560; }
 .bd-step small { display: block; color: var(--text-secondary); font-size: var(--text-xs, .8rem); }
-.bd-thumb { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+.bd-thumb { margin-top: 8px; display: flex; gap: 10px; align-items: center; border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.bd-thumb:hover img { border-color: var(--brand-primary); }
+.bd-thumb:hover .bd-link { color: var(--text-primary); }
 .bd-thumb img { width: 74px; height: 74px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--bd-line); }
 .bd-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-content: start; }
 .bd-result .bd-label { grid-column: 1 / -1; }
 .bd-picture { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; border: 1px solid var(--bd-line); }
-.bd-now-seen { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-items: start; }
-.bd-sees { margin: 0; display: grid; gap: 8px; color: var(--text-muted); font-size: var(--text-xs, .8rem); }
-/* No taller than the words beside it, so the tile keeps its height when a picture arrives. */
-.bd-sees img { display: block; max-width: 220px; max-height: 5.4rem; border-radius: 6px; border: 1px solid var(--bd-line); }
+/* The picture is a frame of one size, as tall as the words beside it. The tile is the same height with or without it. */
+.bd-now-seen { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; gap: 0 24px; align-items: stretch; }
+.bd-sees { position: relative; margin: 0; height: calc(8.4rem + 6px); border-radius: 8px; overflow: hidden; border: 1px solid var(--bd-line); background: var(--bd-raised); }
+.bd-sees img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.bd-sees figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; font-size: var(--text-xs, .8rem); color: #fff; background: rgb(0 0 0 / .62); }
 /* Decisions made: a list of short rows. A row opens to show the whole sentence and its reason. */
 .bd-made { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr; }
-.bd-board[data-solo] .bd-made { grid-template-columns: 1fr 1fr; column-gap: 36px; }
-.bd-made li { padding: 9px 0; border-top: 1px solid var(--bd-line); min-width: 0; }
-.bd-made li:first-child, .bd-board[data-solo] .bd-made li:nth-child(2) { border-top: 0; padding-top: 0; }
-.bd-made summary { list-style: none; cursor: pointer; font-size: var(--text-sm, .9rem); line-height: 1.2rem; color: var(--text-primary); overflow-wrap: anywhere; }
+/* Without a plan the list has the full width: columns of a readable width, as many as fit. */
+.bd-board[data-solo] .bd-made { grid-template-columns: repeat(auto-fill, minmax(300px, 420px)); column-gap: 36px; }
+.bd-made li { padding: 14px 0; border-top: 1px solid var(--bd-line); min-width: 0; }
+.bd-made li:first-child { border-top: 0; padding-top: 2px; }
+.bd-board[data-solo] .bd-made li { border-top: 0; padding: 2px 0 12px; }
+.bd-made li:last-child { padding-bottom: 2px; }
+.bd-canvas .bd-who { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; font-size: var(--text-xs, .8rem); line-height: 1rem; color: var(--text-muted); }
+.bd-who[data-you] span { color: var(--brand-primary); }
+.bd-change { border: 0; background: none; padding: 0; font: inherit; color: var(--text-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.bd-change:hover { color: var(--text-primary); }
+.bd-made summary { list-style: none; cursor: pointer; font-size: var(--text-sm, .9rem); line-height: 1.35rem; color: var(--text-primary); overflow-wrap: anywhere; }
 .bd-made summary::-webkit-details-marker { display: none; }
 .bd-made details:not([open]) summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.bd-made details p { margin: 4px 0 0; color: var(--text-secondary); font-size: var(--text-xs, .8rem); line-height: 1rem; }
-.bd-who { display: block; margin-top: 3px; font-size: var(--text-xs, .8rem); color: var(--text-muted); white-space: nowrap; }
-.bd-who[data-you] { color: var(--brand-primary); }
+.bd-made details p { margin: 6px 0 0; color: var(--text-secondary); font-size: var(--text-xs, .8rem); line-height: 1.15rem; }
 
 .bd-say { flex: 0 0 auto; margin: 0 20px 16px; padding: 10px 10px 10px 18px; }
 .bd-say .ar-composer { margin: 0; display: flex; gap: 10px; align-items: center; }

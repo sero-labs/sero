@@ -44,10 +44,12 @@ interface NowView {
  */
 function Now({ entry, view }: { entry: WorkFeedback; view: NowView }) {
   const step = view.tool ?? view.last;
-  const line = step ? `${toolPhrase(step.toolName)}${step.summary ? ` · ${step.summary}` : ''}` : entry.wait?.kind === 'tool' ? rowAction(entry) : '';
+  // With no action and no words yet, the tile still says the agent is at work. It is never empty.
+  const quiet = !step && !view.text.trim();
+  const line = step ? `${toolPhrase(step.toolName)}${step.summary ? ` · ${step.summary}` : ''}` : quiet ? rowAction(entry) : '';
   return (
     <>
-      <p className="bd-step-now" data-past={!view.tool && view.last ? '' : undefined}>{line}</p>
+      <p className="bd-step-now" data-past={(!view.tool && view.last) || quiet ? '' : undefined}>{line}</p>
       <div className="bd-stream" aria-live="off">{view.text.trim() && <p><span>{textTail(view.text)}</span></p>}</div>
     </>
   );
@@ -66,7 +68,7 @@ function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: W
       {browser && (
         <figure className="bd-sees">
           <img src={browser.dataUrl} alt="The last screenshot Architect took in its browser" />
-          <figcaption>What Architect last saw in the browser</figcaption>
+          <figcaption>Last seen in the browser</figcaption>
         </figure>
       )}
     </div>

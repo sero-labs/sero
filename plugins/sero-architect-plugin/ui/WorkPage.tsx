@@ -100,13 +100,11 @@ function PlanTab({ record, onOpenHistory, onOpenWork }: Pick<WorkPageProps, 'rec
 
 function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' | 'focusMilestoneId'>) {
   const focusRef = useRef<HTMLElement>(null);
-  // Scrolling to the linked check and opening it are DOM effects, not state.
+  // Scrolling to the linked check is a DOM effect, not state.
   useEffect(() => {
     const node = focusRef.current;
     if (!node) return;
     node.scrollIntoView?.({ block: 'start' });
-    const evidence = node.querySelector<HTMLDetailsElement>('details.ar-evidence');
-    if (evidence) evidence.open = true;
   }, [focusMilestoneId]);
   const checked = record.milestones.filter((milestone) => milestone.evidence);
   if (checked.length === 0) return <p className="wk-line">No checks are recorded yet.</p>;
@@ -115,7 +113,7 @@ function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' 
       {checked.map((milestone) => (
         <section key={milestone.id} ref={milestone.id === focusMilestoneId ? focusRef : undefined} data-milestone={milestone.id}>
           <h3 className="wk-h">{milestone.title}</h3>
-          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
+          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} milestoneId={milestone.id} />}
         </section>
       ))}
     </div>
