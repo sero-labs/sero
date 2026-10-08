@@ -24,7 +24,7 @@ The record already holds almost everything the board shows:
 **Non-Goals:**
 
 - No new owner tool. "Architect decided" reads `working.assumptions`.
-- No pictures. Evidence saves a capture path, and no screen can read that file today.
+- No streaming view of the browser. Live shows the last screenshot the Architect took, refreshed when its action changes.
 - No redesign of Plan, Research, Evidence, History or the inspector.
 
 ## Decisions
@@ -48,6 +48,8 @@ The record already holds almost everything the board shows:
 **Glass surfaces.** New rules are prefixed `bd-` in a new `ui/board.css`. Tiles read the `--glass-*` tokens from `@sero-ai/ui`, with the dark values as fallbacks, so the board matches the Dashboard in both themes.
 
 **The Work view keeps three tabs.** Live is removed from `WORK_TABS`. A stored `live` tab opens `plan`.
+
+**Pictures come through one runtime request.** `picture` on the projects tool reads a PNG and returns it as a data URL. With a step id it reads that step's saved capture, and only inside the project's evidence folder. With no step it reads `.sero/tmp/automation-browser-shot.png`, where the browser tool saves a screenshot in a host workspace. The view passes the time of the picture it holds, so the same bytes are not sent twice. Live shows the browser screenshot only when it was saved during the current turn. Alternative considered: a file URL the view loads itself. Rejected: the request keeps the two readable paths in one checked place.
 
 ## Risks / Trade-offs
 

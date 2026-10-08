@@ -18,7 +18,9 @@ The Architect project page does not say what is happening. It is one small card 
 - The Work view loses its Live tab. Plan, Research and Evidence stay as detail views reached from the board.
 - The board uses the glass dashboard surfaces from `@sero-ai/ui`, so it matches the Sero Dashboard.
 
-Out of scope: the projects list, intake, History, the inspector, model settings, and pictures on the board. The prototype draws a proof picture and a view of the Architect's browser. No screen can read a saved picture today, so a checked step links to its checks and the pictures are a follow-up.
+- Pictures: a checked step shows the screenshot its checks saved, the result shows the newest one, and Live shows the last screenshot the Architect took in its browser this turn. The runtime gains a `picture` request that reads those files.
+
+Out of scope: the projects list, intake, History, the inspector, model settings, and a continuously updating view of the Architect's browser.
 
 ## Capabilities
 

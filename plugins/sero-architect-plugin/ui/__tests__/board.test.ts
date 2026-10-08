@@ -42,6 +42,23 @@ describe('which large tiles the board shows', () => {
     expect(board.tone).toBe('done');
   });
 
+  it('keeps a stopped Workflow and its fix on the board while a question is open', () => {
+    const base = FIXTURES.build!;
+    const failed = { ...base.milestones[1]!, dispatch: { ...base.milestones[1]!.dispatch!, failure: 'The step ran out of time.' } };
+    const record: ProjectRecord = { ...base, decisions: [DECISION], milestones: [base.milestones[0]!, failed] };
+    const options = { sessionStartedAt: sessionStartedAt(), runtimeRunning: true, feedback: null };
+    const beneath = projectActivity({ ...record, decisions: [] }, options);
+    const board = boardOf(record, projectActivity(record, options), { live: false, beneath });
+    expect(board.main).toEqual(['ask', 'stopped']);
+  });
+
+  it('offers the written plan and the research before any step exists', () => {
+    const record: ProjectRecord = { ...DELIVERY_FIXTURES['board-start']!, working: DELIVERY_FIXTURES['board-working']!.working };
+    const board = boardFor(record);
+    expect(board.steps).toEqual([]);
+    expect(board.planNote).toBe(record.working?.objective);
+  });
+
   it('keeps a paused project paused while its last turns finish', () => {
     const board = boardFor(DELIVERY_FIXTURES['delivery-pausing']!, true, 'Editing a file');
     expect(board.word).toBe('Paused by you.');

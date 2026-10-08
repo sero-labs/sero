@@ -6,6 +6,7 @@ import { hasAgreement } from '../../shared/agreement';
 import type { Decision, ProjectRecord } from '../../shared/record';
 import { elapsedLabel, type Board, type BoardStep, type MadeRow } from '../lib/board';
 import { money, spendRatio, spendTone } from '../lib/format';
+import { useProjectPicture } from '../lib/use-project-picture';
 import type { WorkTab } from '../lib/navigation';
 import { needsYouItems, parkedTitles } from '../lib/view-model';
 import { CharterCard, MilestoneApprovalCard, type NeedsYouActions } from './NeedsYou';
@@ -109,9 +110,9 @@ export function BoardStopped({ label, headline, what, reason, detail, children }
   );
 }
 
-export function BoardResult({ headline, text, preview, onOpenChecks }: { headline: string; text: string | null; preview: { busy: boolean; open(): void } | null; onOpenChecks: (() => void) | null }) {
+export function BoardResult({ headline, text, preview, onOpenChecks, picture }: { headline: string; text: string | null; preview: { busy: boolean; open(): void } | null; onOpenChecks: (() => void) | null; picture?: ReactNode }) {
   return (
-    <section className="bd-tile bd-main" aria-label="Result">
+    <section className="bd-tile bd-main bd-result" aria-label="Result">
       <h2 className="bd-label">Result</h2>
       <div className="bd-result-text">
         <h3>{headline}</h3>
@@ -121,28 +122,48 @@ export function BoardResult({ headline, text, preview, onOpenChecks }: { headlin
           {onOpenChecks && <Button size="sm" variant="outline" className="ar-btn" onClick={onOpenChecks}>See the checks</Button>}
         </div>
       </div>
+      {picture}
     </section>
   );
 }
 
-function Step({ step, onOpenChecks }: { step: BoardStep; onOpenChecks(milestoneId: string): void }) {
+/** A step's proof picture. Nothing is drawn until the picture arrives. */
+export function ProofPicture({ projectId, step, className }: { projectId: string; step: BoardStep; className?: string }) {
+  const picture = useProjectPicture(projectId, step.id, step.proofKey ?? '', step.proofKey !== null);
+  if (!picture) return null;
+  return <img className={className} src={picture.dataUrl} alt={`Screenshot that proves: ${step.title}`} />;
+}
+
+function Step({ projectId, step, onOpenChecks }: { projectId: string; step: BoardStep; onOpenChecks(milestoneId: string): void }) {
   return (
     <div className="bd-step" data-state={step.state}>
       <span className="bd-mark">{step.state === 'done' && <Check />}</span>
       <div>
         <b>{step.title}</b>
         {step.note && <small>{step.note}</small>}
-        {step.checked && <div className="bd-thumb"><button type="button" className="bd-link" onClick={() => onOpenChecks(step.id)}>See the proof</button></div>}
+        {step.checked && (
+          <div className="bd-thumb">
+            <ProofPicture projectId={projectId} step={step} />
+            <button type="button" className="bd-link" onClick={() => onOpenChecks(step.id)}>See the proof</button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export function BoardPlan({ steps, onOpenPlan, onOpenChecks }: { steps: readonly BoardStep[]; onOpenPlan(): void; onOpenChecks(milestoneId: string): void }) {
+export function BoardPlan({ projectId, steps, note, onOpenPlan, onOpenResearch, onOpenChecks }: { projectId: string; steps: readonly BoardStep[]; note: string | null; onOpenPlan(): void; onOpenResearch: (() => void) | null; onOpenChecks(milestoneId: string): void }) {
   return (
     <section className="bd-tile" aria-label="Plan">
-      <h2 className="bd-label"><span>Plan</span><button type="button" className="bd-link bd-end" onClick={onOpenPlan}>Full plan</button></h2>
-      {steps.map((step) => <Step key={step.id} step={step} onOpenChecks={onOpenChecks} />)}
+      <h2 className="bd-label">
+        <span>Plan</span>
+        <span className="bd-end bd-links">
+          {onOpenResearch && <button type="button" className="bd-link" onClick={onOpenResearch}>Research</button>}
+          <button type="button" className="bd-link" onClick={onOpenPlan}>Full plan</button>
+        </span>
+      </h2>
+      {steps.length === 0 && note && <p className="bd-plan-note">{note}</p>}
+      {steps.map((step) => <Step key={step.id} projectId={projectId} step={step} onOpenChecks={onOpenChecks} />)}
     </section>
   );
 }

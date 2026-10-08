@@ -8,7 +8,7 @@ import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { boardOf, liveRows, rowAction, type Board, type LiveRow, type MadeRow } from './lib/board';
 import { openDispatch } from './lib/page-helpers';
-import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped } from './components/Board';
+import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
 import { BoardLive } from './components/BoardLive';
 import { CapInput } from './components/CapInput';
 import { DirectiveComposer } from './components/Directives';
@@ -260,7 +260,10 @@ interface BoardColumnProps {
   actions: ArchitectActions;
   page: ReturnType<typeof useProjectPageControls>;
   board: Board;
+  /** The state a stop tile reports: the project's state with open questions set aside. */
   activity: ReturnType<typeof projectActivity>;
+  /** The project waits on a check or on the user. Work in hand is the Live tile's to show. */
+  wait: boolean;
   rows: readonly LiveRow[];
   notice: string | null;
   headerActions: HeaderAction[];
@@ -269,13 +272,15 @@ interface BoardColumnProps {
 }
 
 /** The large tiles that apply now, in their fixed order, then the decisions made. */
-function BoardColumn({ record, actions, page, board, activity, rows, notice, headerActions, onOpenWork, onChangeDecision }: BoardColumnProps) {
+function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision }: BoardColumnProps) {
   const id = record.id;
   const preview = useProjectPreview(id);
   // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
   const hasPreview = usePreviewAvailable(id, record.milestones.map((milestone) => milestone.status).join(','));
   const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
   const checked = record.milestones.some((milestone) => milestone.evidence);
+  // The result shows the newest proof picture: the last step that has one.
+  const proof = board.steps.findLast((step) => step.proofKey !== null);
   // The top tile already says the newest sentence. It is not said twice.
   const resultText = record.overview?.result && record.overview.result.text !== board.sentence ? record.overview.result.text : null;
   return (
@@ -284,7 +289,7 @@ function BoardColumn({ record, actions, page, board, activity, rows, notice, hea
       {board.main.includes('ask') && <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
       {board.main.includes('stopped') && <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} />}
       {/* A stop or a question already says why nothing runs, and holds its own control. */}
-      {started && !board.main.includes('stopped') && !board.main.includes('ask') && <WaitCard record={record} actions={actions} />}
+      {started && wait && !board.main.includes('stopped') && !board.main.includes('ask') && <WaitCard record={record} actions={actions} />}
       {board.main.includes('live') && <BoardLive record={record} rows={rows} onOpenSession={page.controls.openSession} />}
       {board.main.includes('result') && (
         <BoardResult
@@ -292,6 +297,7 @@ function BoardColumn({ record, actions, page, board, activity, rows, notice, hea
           text={resultText}
           preview={hasPreview ? { busy: preview.busy, open: () => void preview.open() } : null}
           onOpenChecks={checked ? () => onOpenWork('evidence') : null}
+          picture={proof && <ProofPicture projectId={id} step={proof} className="bd-picture" />}
         />
       )}
       {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
@@ -319,32 +325,39 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
   const rows = liveRows(record, work, epoch, runtimeRunning);
   const wait = waitCard(record, Date.parse(record.updatedAt));
+  // The state with the open questions set aside. A failed Workflow keeps its fix on screen while a question waits.
+  const open = record.decisions.some((decision) => decision.answer === null);
+  const beneath = open ? projectActivity({ ...record, decisions: record.decisions.filter((decision) => decision.answer !== null) }, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback }) : activity;
   const board = boardOf(record, activity, {
+    beneath,
     live: rows.length > 0,
     action: rows[0] ? rowAction(rows[0].entry) : undefined,
     waitingFor: wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined,
   });
+  // The Plan tile exists when there are steps, a written plan or research to open.
+  const hasPlan = board.steps.length > 0 || board.planNote !== null || board.researched;
 
   return (
     <div className="bd-canvas">
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
-      <div className="bd-board" data-solo={board.steps.length === 0 ? '' : undefined}>
+      <div className="bd-board" data-solo={hasPlan ? undefined : ''}>
         <BoardHero record={record} board={board} />
         <BoardColumn
           record={record}
           actions={actions}
           page={page}
           board={board}
-          activity={activity}
+          activity={beneath}
+          wait={wait !== null && wait.kind !== 'working'}
           rows={rows}
           notice={notice}
           headerActions={headerActions}
           onOpenWork={onOpenWork}
           onChangeDecision={(row) => setSeed((was) => ({ count: was.count + 1, text: `Change this decision: "${row.text}". ` }))}
         />
-        {board.steps.length > 0 && (
+        {hasPlan && (
           <div className="bd-side">
-            <BoardPlan steps={board.steps} onOpenPlan={() => onOpenWork('plan')} onOpenChecks={() => onOpenWork('evidence')} />
+            <BoardPlan projectId={id} steps={board.steps} note={board.planNote} onOpenPlan={() => onOpenWork('plan')} onOpenResearch={board.researched ? () => onOpenWork('research') : null} onOpenChecks={() => onOpenWork('evidence')} />
           </div>
         )}
       </div>

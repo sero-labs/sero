@@ -19,6 +19,12 @@
 - [x] 3.5 Build the Plan and Decisions made tiles, with a link to the checks on a checked step and Change filling the message box. Verify with a component test that Change fills and focuses the box and sends nothing.
 - [x] 3.6 Replace the body of `ProjectPage.tsx` with the board and remove the parts it replaces (`StateLine`, the overview links, the header action plumbing that moved). Keep each file at or below 500 lines. Verify with `pnpm typecheck` and the Architect test suite.
 
+## 6. Pictures
+
+- [x] 6.1 Add the `picture` request: a step's saved capture, or the last browser screenshot, with the path check and the newer-than rule. Verify with tests against real files.
+- [x] 6.2 Show the proof picture on a checked step and on the result, and the last browser screenshot in Live for the current turn. Verify in the preview harness with a stubbed picture.
+- [ ] 6.3 Check the pictures and the Live tile in the running app, with a real project that has a capture and a working Architect.
+
 ## 4. Work view and preview fixtures
 
 - [x] 4.1 Remove the Live tab from the Work view and send a saved or linked live tab to the project board. Verify with a navigation test.
@@ -26,5 +32,5 @@
 
 ## 5. Compare with the prototype
 
-- [x] 5.1 Capture the built board and the prototype at the four moments at the same size and compare them frame by frame. Fix every difference or record why it stays. Deliver the paired screenshots. The pairs are in `evidence/`. Differences that stay: no pictures (see the proposal), the top bar keeps Open session and the project menu, the meter reads "steps done", and a question keeps its optional note field.
+- [x] 5.1 Capture the built board and the prototype at the four moments at the same size and compare them frame by frame. Fix every difference or record why it stays. Deliver the paired screenshots. The pairs are in `evidence/`. Differences that stay: the top bar keeps Open session and the project menu, the meter reads "steps done", and a question keeps its optional note field.
 - [x] 5.2 Run root `pnpm typecheck --force`, the Architect suite and React Doctor on the changed UI. Verify all pass.

@@ -24,6 +24,7 @@ import { clearModelDefaultAction, parseModelEntry, refreshModelTiersAction, setM
 import { validateEntry } from './model-resolution';
 import { setProjectTierOverride } from '../shared/model-config';
 import { previewAvailable, previewProject, repairProject, retryMilestone } from './work-recovery-actions';
+import { readPicture, type PictureOutcome } from './project-picture';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
@@ -73,6 +74,8 @@ export interface ProjectsActions {
   preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
   /** Whether the project has a preview to open. Starts nothing. */
   previewAvailable(projectId: string): Promise<ProjectsOutcome>;
+  /** A step's proof picture, or the Architect's last browser screenshot when no step is named. */
+  picture(projectId: string, milestoneId?: string, newerThan?: string): Promise<PictureOutcome>;
   repair(projectId: string, workflowId?: string): Promise<RepairOutcome>;
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
@@ -134,6 +137,10 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
     preview: (projectId) => previewProject(recovery, projectId),
     previewAvailable: (projectId) => previewAvailable(recovery, projectId),
+    async picture(projectId, milestoneId, newerThan) {
+      const record = await read(projectId);
+      return record ? readPicture(record, milestoneId, newerThan) : { ok: false, text: `No project "${projectId}".` };
+    },
     repair: (projectId, workflowId) => repairProject(recovery, projectId, workflowId),
     retry: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd),
 

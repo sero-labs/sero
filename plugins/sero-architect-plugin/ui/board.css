@@ -91,6 +91,8 @@ button.bd-row:hover { background: var(--bd-raised); }
 
 
 /* Plan and Decisions made: only when they have something in them. */
+.bd-links { display: flex; gap: 14px; }
+.bd-canvas .bd-plan-note { color: var(--text-secondary); }
 .bd-step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
 .bd-step + .bd-step { margin-top: 12px; }
 .bd-mark { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--bd-line); display: grid; place-items: center; margin-top: 2px; }
@@ -100,7 +102,14 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-mark svg { width: 11px; height: 11px; stroke-width: 3; }
 .bd-step b { font-weight: 560; }
 .bd-step small { display: block; color: var(--text-secondary); font-size: 13px; }
-.bd-thumb { margin-top: 6px; }
+.bd-thumb { margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+.bd-thumb img { width: 74px; height: 74px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--bd-line); }
+.bd-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-content: start; }
+.bd-result .bd-label { grid-column: 1 / -1; }
+.bd-picture { display: block; width: 320px; height: auto; max-height: 240px; object-fit: cover; object-position: top; border-radius: 6px; border: 1px solid var(--bd-line); }
+.bd-now-seen { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-items: start; }
+.bd-sees { margin: 0; display: grid; gap: 8px; color: var(--text-muted); font-size: 12px; }
+.bd-sees img { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; border: 1px solid var(--bd-line); }
 .bd-made { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 36px; }
 .bd-board[data-solo] .bd-made { grid-template-columns: 1fr 1fr 1fr; }
 .bd-made li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: start; align-content: start; }

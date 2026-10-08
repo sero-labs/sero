@@ -162,8 +162,14 @@ export function deliveryFeedback(state: string): FeedbackSnapshotReply {
 // ── The board, at the four moments the prototype draws ──────────────────────
 // One bug-fix request that the Architect does itself, so the live row is its own.
 
+/** A finished step's checks saved a capture, so the board has a proof picture to ask for. */
+const proved = (id: string, title: string): Milestone => {
+  const done = checked(id, title);
+  return { ...done, dispatch: null, evidence: done.evidence && { ...done.evidence, preview: { route: '/', smokePassed: true, capturePath: `/evidence/${id}.png` } } };
+};
+
 const step = (id: string, title: string, status: Milestone['status'], extra: Partial<Milestone> = {}): Milestone =>
-  (status === 'done' ? { ...checked(id, title), dispatch: null, ...extra } : room(id, title, status, { dispatch: null, ...extra }));
+  (status === 'done' ? { ...proved(id, title), ...extra } : room(id, title, status, { dispatch: null, ...extra }));
 
 const NOTES = 'Notes clear in the row, column and box';
 const SOLVED = 'A finished puzzle is always recognised';
@@ -198,6 +204,7 @@ Object.assign(DELIVERY_FIXTURES, {
     decisions: [{ ...answered, question: 'Should a puzzle with more than one answer count as solved?', reason: 'Some Fiendish puzzles have two valid answers. The game accepts only the one it saved.', dependsOn: ['solved'], answer: null }],
   }),
   'board-working': sudoku({
+    session: { ...base.session, workingSince: ago(90) },
     createdAt: ago(600), budget: { ...base.budget, spentUsd: 1.31 }, decisions: [answered],
     milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'running')],
     overview: { objective: { text: 'Thanks. I am changing the finished-puzzle check now, then I will play a Fiendish puzzle to its second answer to prove it.', at: ago(20) } },
@@ -225,3 +232,37 @@ Object.assign(DELIVERY_FIXTURES, {
     }],
   }),
 } satisfies Record<string, ProjectRecord>);
+
+// ── What the runtime answers in the harness ─────────────────────────────────
+// The board asks the runtime for the live turn and for pictures. The harness has
+// no runtime, so these answer in its place with the same shapes.
+
+const ROWS = ['53..7....', '6..195...', '.98....6.', '8...6...3', '4..8.3..1', '7...2...6', '.6..7.28.', '...419..5', '....8..79'];
+
+/** A drawing of the game, standing in for a saved screenshot. */
+function gamePicture(): string {
+  const cells = ROWS.flatMap((row, r) => [...row].map((digit, c) => {
+    const fill = r === 6 && c === 4 ? '#bbf7d0' : '#fafaf7';
+    const text = digit === '.' ? '' : `<text x="${c * 40 + 20}" y="${r * 40 + 27}" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="#18181b">${digit}</text>`;
+    return `<rect x="${c * 40}" y="${r * 40}" width="40" height="40" fill="${fill}" stroke="#d4d4d8"/>${text}`;
+  }));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360">${cells.join('')}<path d="M120 0v360M240 0v360M0 120h360M0 240h360" stroke="#52525b" stroke-width="2"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/** The answer to a projects-tool call the board makes. Anything else has no details. */
+export function previewToolDetails(params: Record<string, unknown>): Record<string, unknown> {
+  if (params.action === 'picture') return params.newerThan ? {} : { dataUrl: gamePicture(), at: ago(20) };
+  if (params.action === 'watch_owner' && params.projectId === 'sudoku') {
+    return { ownerLive: {
+      projectId: 'sudoku',
+      live: {
+        turnId: 't1', truncated: false, request: null, revision: 4, updatedAt: ago(1),
+        text: 'I am filling the board with the second answer, to see if the game says Solved.',
+        tool: { toolName: 'automation_browser', summary: 'open http://localhost:5273', callId: 'c9', startedAt: ago(14) },
+      },
+      recent: [{ toolName: 'bash', summary: 'npm test' }, { toolName: 'edit', summary: 'src/solved.ts' }, { toolName: 'read', summary: 'src/solved.ts' }],
+    } };
+  }
+  return {};
+}
