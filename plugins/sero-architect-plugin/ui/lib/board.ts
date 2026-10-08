@@ -152,9 +152,10 @@ const stop = (text: string): string => (/[.!?…]$/.test(text.trim()) ? text.tri
  *
  * `activity` is the derived state the rest of the app uses, so the board never
  * disagrees with the projects list. `live` says whether this session sees work
- * running, and `action` is what that work is doing, in plain words.
+ * running, `action` is what that work is doing in plain words, and `waitingFor`
+ * names an open wait the Architect registered.
  */
-export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string }): Board {
+export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string; waitingFor?: string }): Board {
   const asks = needsYouItems(record).length > 0;
   const started = activity.action !== 'Review access';
   // A stop holds the control that fixes it. A question is answered on its own tile.
@@ -174,15 +175,20 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
     // The stop tile states the cause and holds its fix, so the cause is not said twice.
     word = !started ? 'Not started.' : activity.state === 'waiting-for-you' ? 'Waiting for you.' : 'Stopped.';
     detail = context.live ? 'Other work continues.' : 'Nothing is running.';
-  } else if (context.live || activity.state === 'working') {
+  } else if (activity.state !== 'paused' && (context.live || activity.state === 'working')) {
+    // A paused project keeps its own line: it says the turns in flight are finishing.
     word = 'Working.';
     detail = stop(context.action ?? activity.owner);
+  } else if (activity.state === 'idle' && context.waitingFor) {
+    // The Architect registered a wait. That is why nothing runs, so the line says so.
+    word = 'Waiting.';
+    detail = stop(`For ${context.waitingFor}`);
   }
 
   const counts = milestoneCounts(record);
   return {
     sentence: sentenceOf(record),
-    tone: asks ? 'waiting' : context.live ? 'working' : TONES[activity.state] ?? 'quiet',
+    tone: asks ? 'waiting' : context.live && activity.state !== 'paused' ? 'working' : TONES[activity.state] ?? 'quiet',
     word,
     detail,
     progress: counts.total > 0 ? { done: counts.accepted, total: counts.total } : null,

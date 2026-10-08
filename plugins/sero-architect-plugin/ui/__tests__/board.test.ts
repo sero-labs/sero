@@ -42,6 +42,20 @@ describe('which large tiles the board shows', () => {
     expect(board.tone).toBe('done');
   });
 
+  it('keeps a paused project paused while its last turns finish', () => {
+    const board = boardFor(DELIVERY_FIXTURES['delivery-pausing']!, true, 'Editing a file');
+    expect(board.word).toBe('Paused by you.');
+    expect(board.tone).not.toBe('working');
+  });
+
+  it('says the project waits when the Architect registered a wait and nothing runs', () => {
+    const record = DELIVERY_FIXTURES['board-waiting']!;
+    const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning: true, feedback: null });
+    const board = boardOf(record, activity, { live: false, waitingFor: 'the test Room' });
+    expect(board.word).toBe('Waiting.');
+    expect(board.detail).toContain('the test Room');
+  });
+
   it('keeps asking while other work continues', () => {
     const board = boardFor({ ...DELIVERY_FIXTURES['board-working']!, decisions: [DECISION] }, true);
     expect(board.main).toEqual(['ask', 'live']);
