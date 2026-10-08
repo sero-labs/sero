@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect: a board for decisions</title>
+<style>
+/* Token values copied from packages/ui/src/styles/globals.css (.dark) and the
+   glass board in packages/ui/src/styles/glass-board.css. */
+:root{
+  --text-primary:#fafafa;--text-secondary:#a1a1aa;--text-muted:#71717a;
+  --brand-primary:#34d399;--brand-primary-hover:#6ee7b7;--accent-primary:#a78bfa;
+  --status-success:#22c55e;--status-warning:#f59e0b;
+  --glass-tile:rgba(255,255,255,.06);--glass-surface:rgba(255,255,255,.09);--glass-flat:rgba(255,255,255,.05);
+  --glass-border:rgba(255,255,255,.12);--glass-rim:rgba(255,255,255,.08);--glass-hover:rgba(255,255,255,.13);
+  --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono','Fira Code',Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;color-scheme:dark}
+body{font-family:var(--font-sans);color:var(--text-primary);font-size:14px;line-height:1.5;
+  background:radial-gradient(90% 70% at 85% -10%,color-mix(in srgb,var(--accent-primary) 34%,transparent),transparent 60%),
+             radial-gradient(80% 60% at -10% 110%,color-mix(in srgb,var(--brand-primary) 24%,transparent),transparent 60%),#060608}
+button,textarea{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;text-align:left}
+:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px}
+h1,h2,h3,p,ul{margin:0;padding:0}li{list-style:none}
+svg.i{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.app{height:100%;display:flex;flex-direction:column;min-height:0}
+.top{height:50px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 20px;font-size:13px}
+.logo{width:22px;height:22px;border-radius:6px;border:1px solid var(--glass-border);display:grid;place-items:center;color:var(--brand-primary)}
+.crumb{display:flex;align-items:center;gap:6px;color:var(--text-muted)}
+.crumb b{color:var(--text-primary);font-weight:600}
+.top-end{margin-left:auto;display:flex;gap:8px}
+.btn{height:32px;padding:0 13px;border-radius:9px;font-size:13px;font-weight:560;gap:7px;display:inline-flex;align-items:center;border:1px solid var(--glass-border);background:var(--glass-flat)}
+.btn:hover{background:var(--glass-hover)}
+.btn-solid{background:var(--brand-primary);border-color:var(--brand-primary);color:#04130c}
+.btn-solid:hover{background:var(--brand-primary-hover)}
+
+.board{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-auto-rows:min-content;gap:14px;padding:6px 20px 18px;align-content:start}
+.board[data-solo]{grid-template-columns:minmax(0,1fr)}
+.tile{background:var(--glass-tile);border:1px solid var(--glass-border);border-radius:16px;backdrop-filter:blur(24px) saturate(140%);box-shadow:inset 0 1px 0 var(--glass-rim);padding:20px 22px}
+.label{font-size:13px;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.link{color:var(--text-secondary);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.link:hover{color:var(--text-primary)}
+
+/* Architect says where things are. Always here. */
+.hero{grid-column:1/-1;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:16px;align-items:start}
+.face{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--brand-primary) 16%,transparent);color:var(--brand-primary);border:1px solid color-mix(in srgb,var(--brand-primary) 35%,transparent)}
+.face svg{width:22px;height:22px}
+.says{font-size:19px;line-height:1.4;letter-spacing:-.015em;font-weight:500;max-width:820px}
+.doing{display:flex;align-items:center;gap:9px;margin-top:12px;color:var(--text-secondary)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--status-success)}
+.doing[data-s="working"] .dot{animation:pulse 1.4s ease-in-out infinite}
+.doing[data-s="ask"] .dot{background:var(--status-warning)}
+.doing b{color:var(--text-primary);font-weight:600}
+.nums{width:230px;display:grid;gap:10px;font-size:13px;color:var(--text-secondary)}
+.meter{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:baseline}
+.meter b{color:var(--text-primary);font-weight:600}
+.meter i{grid-column:1/-1;height:4px;border-radius:2px;background:var(--glass-surface);overflow:hidden;display:flex;gap:3px}
+.meter i u{flex:1;border-radius:2px;background:var(--glass-surface)}
+.meter i u[data-on]{background:var(--status-success)}
+.meter i s{display:block;height:100%;background:var(--brand-primary);border-radius:2px}
+.meter i[data-seg]{background:none}
+
+/* The big tile: the one thing that matters now. */
+.col{display:grid;gap:14px;align-content:start;min-width:0}
+.sees[hidden]{display:none}
+.ask .label{color:var(--status-warning)}
+.ask .label::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--status-warning)}
+.ask h3{font-size:21px;font-weight:600;letter-spacing:-.015em}
+.ask>p{color:var(--text-secondary);margin-top:6px;font-size:15px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+.opt{border:1px solid var(--glass-border);background:var(--glass-surface);border-radius:12px;padding:16px 18px;display:grid;gap:5px;align-content:start}
+.opt:hover{background:var(--glass-hover);border-color:var(--brand-primary)}
+.opt b{font-weight:600;font-size:15px}.opt small{color:var(--text-secondary);font-size:13px}
+.rec{font-size:12px;font-weight:600;color:var(--brand-primary)}
+
+.live{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 28px;align-content:start}
+.live .label{grid-column:1/-1;justify-content:space-between}
+.clock{font:12px var(--font-mono);color:var(--text-muted);font-weight:400}
+.act{font-size:22px;font-weight:600;letter-spacing:-.015em}
+.detail{font:12px var(--font-mono);color:var(--text-muted);margin-top:4px}
+.stream{margin-top:16px;color:var(--text-secondary);font-size:15px;min-height:48px;max-width:560px}
+.stream::after{content:"";display:inline-block;width:2px;height:16px;background:var(--brand-primary);vertical-align:-2px;margin-left:2px;animation:pulse 1s steps(2) infinite}
+.before{margin-top:22px;display:grid;gap:5px;color:var(--text-muted);font-size:13px}
+.before li:first-child{color:var(--text-secondary)}
+.sees{grid-row:span 2;display:grid;gap:8px;color:var(--text-muted);font-size:12px;align-content:start}
+.foot{grid-column:1/-1;margin-top:8px}
+
+.result{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 28px;align-content:start}
+.result .label{grid-column:1/-1}
+.result h3{font-size:21px;font-weight:600;letter-spacing:-.015em}
+.result p{color:var(--text-secondary);margin-top:8px;font-size:15px;max-width:560px}
+.btns{display:flex;gap:8px;margin-top:20px;align-items:center}
+.btns span{color:var(--text-muted);font-size:13px;margin-left:6px}
+
+/* The side: only tiles that have something in them. */
+.side{display:grid;gap:14px;align-content:start}
+.step{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}
+.step+.step{margin-top:12px}
+.mark{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--glass-border);display:grid;place-items:center;margin-top:2px}
+.step[data-s="done"] .mark{background:var(--status-success);border-color:var(--status-success);color:#04130c}
+.step[data-s="doing"] .mark{border-color:var(--status-success)}
+.step[data-s="doing"] .mark::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--status-success)}
+.mark svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.step b{font-weight:560}.step small{display:block;color:var(--text-secondary);font-size:13px}
+.thumb{margin-top:8px;display:flex;gap:10px;align-items:center}
+.made{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px}
+.board[data-solo] .made{grid-template-columns:1fr 1fr 1fr}
+.made li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:start;align-content:start}
+.made b{font-weight:560}
+.made small{grid-column:1/-1;color:var(--text-secondary);font-size:13px}
+.who{font-size:12px;color:var(--text-muted);white-space:nowrap}
+.who[data-you]{color:var(--brand-primary)}
+
+.sudoku{--c:26px;display:grid;grid-template-columns:repeat(9,var(--c));grid-auto-rows:var(--c);border:2px solid #d4d4d8;border-radius:6px;background:#fafaf7;color:#18181b;font:600 13px var(--font-sans);flex:0 0 auto}
+.sudoku.sm{--c:8px;font-size:0;border-width:1px}
+.sudoku span{display:grid;place-items:center;border-right:1px solid #d4d4d8;border-bottom:1px solid #d4d4d8}
+.sudoku span:nth-child(3n){border-right-color:#52525b}.sudoku span:nth-child(9n){border-right:0}
+.sudoku span:nth-child(n+19):nth-child(-n+27),.sudoku span:nth-child(n+46):nth-child(-n+54){border-bottom-color:#52525b}
+.sudoku .new{background:#bbf7d0}.sudoku .was{background:#fef3c7}
+
+.say{flex:0 0 auto;margin:0 20px 16px;display:flex;gap:10px;padding:10px 10px 10px 18px;align-items:center}
+.say textarea{flex:1;height:24px;resize:none;border:0;background:none;outline:none}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot,.stream::after{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="logo"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36z"/></svg></span>
+    <nav class="crumb" aria-label="Breadcrumb"><span>Architect</span><svg class="i" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg><b>TestArchitectFinal</b></nav>
+    <div class="top-end">
+      <button class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M9 5v14m6-14v14"/></svg>Pause</button>
+      <button class="btn" aria-label="Project menu"><svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+    </div>
+  </header>
+
+  <main class="board" id="board"></main>
+  <form class="tile say" id="say">
+    <textarea aria-label="Message to Architect" placeholder="Tell Architect something, or ask it a question"></textarea>
+    <button class="btn" type="submit"><svg class="i" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg>Send</button>
+  </form>
+</div>
+<script>
+const COMPASS = '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36z"/></svg>';
+const TICK = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const ROWS = ['53..7....', '6..195...', '.98....6.', '8...6...3', '4..8.3..1', '7...2...6', '.6..7.28.', '...419..5', '....8..79'];
+const board = (small) => `<div class="sudoku ${small ? 'sm' : ''}" role="img" aria-label="The game">${ROWS.map((row, r) => [...row].map((cell, c) =>
+  `<span class="${r === 6 && c === 4 ? 'new' : r === 2 && c === 4 ? 'was' : ''}">${cell === '.' ? '' : cell}</span>`).join('')).join('')}</div>`;
+
+const CAP = { text: 'Spend up to $5', by: 'you', why: 'Work stops and asks you at the cap.' };
+const FIRST = { text: 'Fix the notes bug first', by: 'architect', why: 'It is small and does not touch the other bug.' };
+const REAL = { text: 'Check both fixes in the real game', by: 'architect', why: 'You reported these as a player, so a passing test is not enough.' };
+const ANY = { text: 'Accept any valid answer', by: 'you', why: 'For puzzles with more than one answer.' };
+const STEP1 = 'Notes clear in the row, column and box';
+const STEP2 = 'A finished puzzle is always recognised';
+
+/* One project at four moments. Each names only what exists at that moment. */
+const MOMENTS = {
+  start: {
+    says: 'I am reading the game code to find the cause of both bugs. I will show you a plan before I change anything.',
+    status: ['working', 'Working.'], spent: 0.12, time: '1 min',
+    live: [
+      { act: 'Reading the game code', detail: 'src/notes.ts', says: 'This is where a note is removed when a digit is placed. It only looks along the row.' },
+      { act: 'Reading the game code', detail: 'src/solved.ts', says: 'The finished check compares the board to one saved answer.' },
+    ],
+    before: [], made: [CAP],
+  },
+  ask: {
+    says: 'The notes bug is fixed and I checked it in the real game. The finished-puzzle bug has two possible fixes, and they change the game in different ways. I need you to pick one.',
+    status: ['ask', 'Waiting for you.', 'Nothing is running.'], fixed: 1, spent: 1.18, time: '9 min',
+    ask: true,
+    plan: [['done', STEP1, '14 tests pass. Checked in the game.', true], ['todo', STEP2, 'Waits for your answer.']],
+    made: [REAL, FIRST, CAP],
+  },
+  working: {
+    says: 'Thanks. I am changing the finished-puzzle check now, then I will play a Fiendish puzzle to its second answer to prove it.',
+    status: ['working', 'Working.'], fixed: 1, spent: 1.31, time: '10 min',
+    live: [
+      { act: 'Editing the finished-puzzle check', detail: 'src/solved.ts', says: 'The check compares the board to one saved answer. I am replacing it with a check of the rules.' },
+      { act: 'Running the tests', detail: 'npm test', says: 'Nineteen tests. The new one covers a puzzle that has two answers.' },
+      { act: 'Playing a Fiendish puzzle in the browser', detail: 'http://localhost:5273', says: 'I am filling the board with the second answer, to see if the game says Solved.', sees: true },
+    ],
+    before: ['Read how the game saves its answer'],
+    plan: [['done', STEP1, '14 tests pass. Checked in the game.', true], ['doing', STEP2, 'In progress.']],
+    made: [ANY, REAL, FIRST, CAP],
+  },
+  done: {
+    says: 'Both bugs are fixed and I checked each one by playing the game. It is ready for you to try.',
+    status: ['done', 'Finished.', 'Nothing is running.'], fixed: 2, spent: 1.86, time: '13 min',
+    result: true,
+    plan: [['done', STEP1, '14 tests pass. Checked in the game.', true], ['done', STEP2, '19 tests pass. Checked in the game.', true]],
+    made: [ANY, REAL, FIRST, CAP],
+  },
+};
+
+const tiles = {
+  hero: (m) => `<section class="tile hero" aria-label="Architect"><span class="face">${COMPASS}</span>
+    <div><p class="says">${m.says}</p><p class="doing" data-s="${m.status[0]}"><span class="dot"></span><span id="doing"><b>${m.status[1]}</b> ${m.status[2] ?? ''}</span></p></div>
+    <div class="nums">
+      ${m.fixed === undefined ? '' : `<div class="meter"><span><b>${m.fixed} of 2</b> bugs fixed</span><i data-seg><u ${m.fixed > 0 ? 'data-on' : ''}></u><u ${m.fixed > 1 ? 'data-on' : ''}></u></i></div>`}
+      <div class="meter"><span><b>$${m.spent.toFixed(2)}</b> of $5</span><span>${m.time}</span><i><s style="width:${m.spent / 5 * 100}%"></s></i></div>
+    </div></section>`,
+  ask: () => `<section class="tile main ask" aria-label="Needs you"><h2 class="label">Needs you</h2>
+    <h3>Should a puzzle with more than one answer count as solved?</h3>
+    <p>Some Fiendish puzzles have two valid answers. The game accepts only the one it saved.</p>
+    <div class="opts">
+      <button class="opt"><span class="rec">Architect suggests this</span><b>Accept any valid answer</b><small>Small change. Fixes every puzzle already saved.</small></button>
+      <button class="opt"><span class="rec">&nbsp;</span><b>Make every new puzzle have one answer</b><small>Bigger change. Old saved games keep the bug.</small></button>
+    </div></section>`,
+  live: (m) => `<section class="tile main live" aria-label="Live"><h2 class="label"><span>Live</span><span class="clock" id="clock">0:00</span></h2>
+    <div><p class="act" id="act"></p><p class="detail" id="detail"></p><p class="stream" id="stream"></p></div>
+    <div class="sees" id="sees" hidden>${board(false)}<span>What Architect sees in the browser now</span></div>
+    <ul class="before" id="before">${m.before.map((line) => `<li>${line}</li>`).join('')}</ul>
+    <p class="foot"><button class="link">Open the full session</button></p></section>`,
+  result: () => `<section class="tile main result" aria-label="Result"><h2 class="label">Result</h2>
+    <div><h3>Both bugs are fixed.</h3>
+      <p>Notes now clear in the row, column and box. A finished board is accepted when it follows the rules, so puzzles with two answers are recognised.</p>
+      <div class="btns"><button class="btn btn-solid">Open the game</button><button class="btn">See what changed</button><span>3 files</span></div></div>
+    <div class="sees">${board(false)}<span>The game after both fixes</span></div></section>`,
+  plan: (m) => `<section class="tile" aria-label="Plan"><h2 class="label">Plan</h2>${m.plan.map(([state, title, note, proof]) =>
+    `<div class="step" data-s="${state}"><span class="mark">${state === 'done' ? TICK : ''}</span><div><b>${title}</b><small>${note}</small>${
+      proof ? `<div class="thumb">${board(true)}<button class="link">See the proof</button></div>` : ''}</div></div>`).join('')}</section>`,
+  made: (m) => `<section class="tile" aria-label="Decisions made"><h2 class="label">Decisions made</h2><ul class="made">${m.made.map((item) =>
+    `<li><b>${item.text}</b><span class="who" ${item.by === 'you' ? 'data-you' : ''}>${item.by === 'you' ? 'You' : 'Architect'} · <button class="link">Change</button></span><small>${item.why}</small></li>`).join('')}</ul></section>`,
+};
+
+let timers = [];
+function show(key) {
+  const m = MOMENTS[key];
+  for (const timer of timers) clearInterval(timer);
+  timers = [];
+  // The big tile is the one thing that matters now. The side holds whatever else exists.
+  const main = m.ask ? tiles.ask() : m.result ? tiles.result() : tiles.live(m);
+  const made = m.made.length > 0 ? tiles.made(m) : '';
+  const el = document.getElementById('board');
+  el.toggleAttribute('data-solo', !m.plan);
+  el.innerHTML = `${tiles.hero(m)}<div class="col">${main}${made}</div>${m.plan ? `<div class="side">${tiles.plan(m)}</div>` : ''}`;
+  for (const option of el.querySelectorAll('.opt')) option.addEventListener('click', () => show('working'));
+  if (m.live) runLive(m.live);
+}
+
+/** The step in hand, the Architect's words as they arrive, and the last few steps. */
+function runLive(steps) {
+  let index = -1, started = Date.now(), typer;
+  const next = () => {
+    const before = document.getElementById('before');
+    if (index >= 0 && steps[index].act !== steps[(index + 1) % steps.length].act) {
+      before.insertAdjacentHTML('afterbegin', `<li>${steps[index].act}</li>`);
+      while (before.children.length > 3) before.lastElementChild.remove();
+    }
+    index = (index + 1) % steps.length;
+    const step = steps[index];
+    started = Date.now();
+    document.getElementById('act').textContent = step.act;
+    document.getElementById('detail').textContent = step.detail;
+    document.getElementById('sees').hidden = !step.sees;
+    document.getElementById('doing').innerHTML = `<b>Working.</b> ${step.act}.`;
+    const stream = document.getElementById('stream');
+    stream.textContent = '';
+    clearInterval(typer);
+    let at = 0;
+    typer = setInterval(() => { stream.textContent = step.says.slice(0, ++at); if (at >= step.says.length) clearInterval(typer); }, 28);
+    timers.push(typer);
+  };
+  next();
+  timers.push(setInterval(next, 6500), setInterval(() => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    document.getElementById('clock').textContent = `0:${String(seconds).padStart(2, '0')}`;
+  }, 250));
+}
+
+const asked = new URLSearchParams(location.search).get('moment');
+show(MOMENTS[asked] ? asked : 'ask');
+document.getElementById('say').addEventListener('submit', (event) => event.preventDefault());
+</script>
+</body>
+</html>
