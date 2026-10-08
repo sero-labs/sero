@@ -106,7 +106,7 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-thumb img { width: 74px; height: 74px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--bd-line); }
 .bd-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-content: start; }
 .bd-result .bd-label { grid-column: 1 / -1; }
-.bd-picture { display: block; width: 320px; height: auto; max-height: 240px; object-fit: cover; object-position: top; border-radius: 6px; border: 1px solid var(--bd-line); }
+.bd-picture { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; border: 1px solid var(--bd-line); }
 .bd-now-seen { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-items: start; }
 .bd-sees { margin: 0; display: grid; gap: 8px; color: var(--text-muted); font-size: 12px; }
 .bd-sees img { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; border: 1px solid var(--bd-line); }

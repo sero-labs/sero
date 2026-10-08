@@ -219,7 +219,7 @@ Object.assign(DELIVERY_FIXTURES, {
 const ownerAt = (tool: string, seconds: number): WorkFeedback =>
   snapshot('owner:sudoku', 'owner-wake', 'Architect', { appId: 'architect', workspaceId: 'global', projectId: 'sudoku' }, { kind: 'tool', toolName: tool, since: ago(seconds) });
 
-Object.assign(DELIVERY_FEEDBACK, { 'board-start': [ownerAt('read', 3)], 'board-working': [ownerAt('bash', 14)] });
+Object.assign(DELIVERY_FEEDBACK, { 'board-start': [ownerAt('read', 3)], 'board-working': [ownerAt('automation_browser', 14)] });
 
 // The Architect waits on a check it started: nothing needs the user, and the wait says what it is for.
 Object.assign(DELIVERY_FIXTURES, {
@@ -246,7 +246,7 @@ function gamePicture(): string {
     const text = digit === '.' ? '' : `<text x="${c * 40 + 20}" y="${r * 40 + 27}" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="#18181b">${digit}</text>`;
     return `<rect x="${c * 40}" y="${r * 40}" width="40" height="40" fill="${fill}" stroke="#d4d4d8"/>${text}`;
   }));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360">${cells.join('')}<path d="M120 0v360M240 0v360M0 120h360M0 240h360" stroke="#52525b" stroke-width="2"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360">${cells.join('')}<path d="M120 0v360M240 0v360M0 120h360M0 240h360" stroke="#52525b" stroke-width="2"/></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
