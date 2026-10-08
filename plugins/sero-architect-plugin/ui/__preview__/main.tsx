@@ -33,7 +33,7 @@ import type { ArchitectActions, ActionOutcome } from '../lib/actions';
 import type { Disclosures } from '../lib/page-helpers';
 import type { ProjectRecord } from '../../shared/record';
 import { FIXTURES as CHARTER_FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT, listRows } from './fixture';
-import { DELIVERY_FIXTURES, deliveryFeedback } from './delivery-fixture';
+import { DELIVERY_FIXTURES, deliveryFeedback, previewToolDetails } from './delivery-fixture';
 import { WorkPage } from '../WorkPage';
 import { WORK_TABS, type WorkTab } from '../lib/navigation';
 import { toIndexEntry } from '../../shared/record';
@@ -67,7 +67,7 @@ const actions: ArchitectActions = {
 };
 
 // The intake dialog lists models and workspaces through the host bridge; the harness answers with fixed catalogues.
-(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: {}, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
+(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: { invokeTool: async (_appId: string, _workspaceId: string, _tool: string, params: Record<string, unknown>) => ({ text: 'ok', content: [], details: previewToolDetails(params), isError: false }) }, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
   { provider: 'openai-codex', displayName: 'OpenAI Codex', logo: '', models: [
     { provider: 'openai-codex', modelId: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
@@ -156,7 +156,7 @@ function ProjectPreview({ record, runtimeRunning }: {
   record: ProjectRecord;
   runtimeRunning: boolean;
 }) {
-  const [tab, setTab] = useState<WorkTab | null>(() => params.get('view') === 'work' ? WORK_TABS.find((item) => item === params.get('tab')) ?? 'live' : null);
+  const [tab, setTab] = useState<WorkTab | null>(() => params.get('view') === 'work' ? WORK_TABS.find((item) => item === params.get('tab')) ?? 'plan' : null);
   if (tab) return <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={setTab} onOpenEvidence={() => setTab("evidence")} onBack={() => setTab(null)} onProject={() => setTab(null)} onOpenHistory={() => undefined} />;
   return (
     <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} onOpenWork={setTab} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />

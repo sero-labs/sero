@@ -1,5 +1,6 @@
 @import "@sero-ai/ui/styles/plugin.css";
 @import "@sero-ai/ui/styles/ai-elements.css";
+@import "./board.css";
 
 /* REQUIRED: scan plugin-local UI files so external remotes emit the utility
    classes they use instead of accidentally depending on host CSS. */
@@ -702,8 +703,6 @@
 }
 
 /* wait card and limits list */
-.ar-waitcard { margin-bottom: 18px; }
-.ar-wait-word { margin-top: 14px; }
 .ar-facts { margin: 14px 0 0; border-top: 1px solid var(--ar-line); }
 .ar-fact { display: grid; grid-template-columns: 130px minmax(0, 1fr); column-gap: 16px; padding: 8px 0; font-size: 12.5px; }
 .ar-fact + .ar-fact { border-top: 1px solid var(--ar-line); }

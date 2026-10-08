@@ -158,3 +158,112 @@ export const DELIVERY_FEEDBACK: Record<string, WorkFeedback[]> = {
 export function deliveryFeedback(state: string): FeedbackSnapshotReply {
   return { epoch: sessionStartedAt(), snapshots: DELIVERY_FEEDBACK[state] ?? [] };
 }
+
+// ── The board, at the four moments the prototype draws ──────────────────────
+// One bug-fix request that the Architect does itself, so the live row is its own.
+
+/** A finished step's checks saved a capture, so the board has a proof picture to ask for. */
+const proved = (id: string, title: string): Milestone => {
+  const done = checked(id, title);
+  return { ...done, dispatch: null, evidence: done.evidence && { ...done.evidence, preview: { route: '/', smokePassed: true, capturePath: `/evidence/${id}.png` } } };
+};
+
+const step = (id: string, title: string, status: Milestone['status'], extra: Partial<Milestone> = {}): Milestone =>
+  (status === 'done' ? { ...proved(id, title), ...extra } : room(id, title, status, { dispatch: null, ...extra }));
+
+const NOTES = 'Notes clear in the row, column and box';
+const SOLVED = 'A finished puzzle is always recognised';
+const CHOICES = [
+  { text: 'Check both fixes in the real game', why: 'You reported these as a player, so a passing test is not enough.' },
+  { text: 'Fix the notes bug first', why: 'It is small and does not touch the other bug.' },
+];
+
+const sudoku = (overrides: Partial<ProjectRecord>): ProjectRecord => synth({
+  id: 'sudoku', name: 'TestArchitectFinal', folder: '~/workspaces/testarchitectfinal',
+  idea: 'Fix two Sudoku bugs: notes that do not clear down a column or box, and a finished puzzle that is not recognised.',
+  stateLine: '', directives: [], working: { ...base.working!, assumptions: CHOICES }, createdAt: ago(540),
+  ...overrides,
+});
+
+const answered = { ...DECISION, id: 'b1', question: 'For puzzles with more than one answer.', dependsOn: [], raisedAt: ago(120),
+  options: [
+    { id: 'any', label: 'Accept any valid answer', consequence: 'Small change. Fixes every puzzle already saved.' },
+    { id: 'one', label: 'Make every new puzzle have one answer', consequence: 'Bigger change. Old saved games keep the bug.' },
+  ],
+  recommendation: 'any', answer: { optionId: 'any', note: null, answeredAt: ago(60) } };
+
+Object.assign(DELIVERY_FIXTURES, {
+  'board-start': sudoku({
+    milestones: [], working: undefined, createdAt: ago(60), budget: { ...base.budget, spentUsd: 0.12 },
+    overview: { objective: { text: 'I am reading the game code to find the cause of both bugs. I will show you a plan before I change anything.', at: ago(40) } },
+  }),
+  'board-ask': sudoku({
+    overlay: 'decision', budget: { ...base.budget, spentUsd: 1.18 },
+    milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'parked', { parkedBy: 'b1' })],
+    overview: { objective: { text: 'The notes bug is fixed and I checked it in the real game. The finished-puzzle bug has two possible fixes, and they change the game in different ways. I need you to pick one.', at: ago(30) } },
+    decisions: [{ ...answered, question: 'Should a puzzle with more than one answer count as solved?', reason: 'Some Fiendish puzzles have two valid answers. The game accepts only the one it saved.', dependsOn: ['solved'], answer: null }],
+  }),
+  'board-working': sudoku({
+    session: { ...base.session, workingSince: ago(90) },
+    createdAt: ago(600), budget: { ...base.budget, spentUsd: 1.31 }, decisions: [answered],
+    milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'running')],
+    overview: { objective: { text: 'Thanks. I am changing the finished-puzzle check now, then I will play a Fiendish puzzle to its second answer to prove it.', at: ago(20) } },
+  }),
+  'board-done': sudoku({
+    phase: 'maintain', createdAt: ago(780), budget: { ...base.budget, spentUsd: 1.86 }, decisions: [answered],
+    milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'done')],
+    overview: { result: { text: 'Both bugs are fixed and I checked each one by playing the game. It is ready for you to try.', at: ago(10) } },
+  }),
+} satisfies Record<string, ProjectRecord>);
+
+const ownerAt = (tool: string, seconds: number): WorkFeedback =>
+  snapshot('owner:sudoku', 'owner-wake', 'Architect', { appId: 'architect', workspaceId: 'global', projectId: 'sudoku' }, { kind: 'tool', toolName: tool, since: ago(seconds) });
+
+Object.assign(DELIVERY_FEEDBACK, { 'board-start': [ownerAt('read', 3)], 'board-working': [ownerAt('automation_browser', 14)] });
+
+// The Architect waits on a check it started: nothing needs the user, and the wait says what it is for.
+Object.assign(DELIVERY_FIXTURES, {
+  'board-waiting': sudoku({
+    milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'running')],
+    overview: { objective: { text: 'The fix is in. I am waiting for the test Room to finish before I check the result.', at: ago(20) } },
+    waits: [{
+      id: 'w1', owner: { milestoneId: 'solved', executionId: null }, source: { kind: 'child', id: 'room-solved' }, condition: 'completed',
+      deadline: new Date(Date.now() + 40 * 60_000).toISOString(), controlRevision: 0, registeredAt: ago(300), outcome: null, wake: null,
+    }],
+  }),
+} satisfies Record<string, ProjectRecord>);
+
+// ── What the runtime answers in the harness ─────────────────────────────────
+// The board asks the runtime for the live turn and for pictures. The harness has
+// no runtime, so these answer in its place with the same shapes.
+
+const ROWS = ['53..7....', '6..195...', '.98....6.', '8...6...3', '4..8.3..1', '7...2...6', '.6..7.28.', '...419..5', '....8..79'];
+
+/** A drawing of the game, standing in for a saved screenshot. */
+function gamePicture(): string {
+  const cells = ROWS.flatMap((row, r) => [...row].map((digit, c) => {
+    const fill = r === 6 && c === 4 ? '#bbf7d0' : '#fafaf7';
+    const text = digit === '.' ? '' : `<text x="${c * 40 + 20}" y="${r * 40 + 27}" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" fill="#18181b">${digit}</text>`;
+    return `<rect x="${c * 40}" y="${r * 40}" width="40" height="40" fill="${fill}" stroke="#d4d4d8"/>${text}`;
+  }));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360">${cells.join('')}<path d="M120 0v360M240 0v360M0 120h360M0 240h360" stroke="#52525b" stroke-width="2"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/** The answer to a projects-tool call the board makes. Anything else has no details. */
+export function previewToolDetails(params: Record<string, unknown>): Record<string, unknown> {
+  if (params.action === 'picture') return params.newerThan ? {} : { dataUrl: gamePicture(), at: ago(20) };
+  if (params.action === 'watch_owner' && params.projectId === 'sudoku') {
+    return { ownerLive: {
+      projectId: 'sudoku',
+      live: {
+        turnId: 't1', truncated: false, request: null, revision: 4, updatedAt: ago(1),
+        text: 'I am filling the board with the second answer, to see if the game says Solved.',
+        tool: { toolName: 'automation_browser', summary: 'open http://localhost:5273', callId: 'c9', startedAt: ago(14) },
+      },
+      recent: [{ toolName: 'bash', summary: 'npm test' }, { toolName: 'edit', summary: 'src/solved.ts' }, { toolName: 'read', summary: 'src/solved.ts' }],
+      finished: 3,
+    } };
+  }
+  return {};
+}

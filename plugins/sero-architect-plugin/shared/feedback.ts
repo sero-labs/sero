@@ -16,6 +16,10 @@ export const ARCHITECT_OWNER_LIVE_TOPIC = 'architect-owner-live';
 export interface OwnerLiveNotice {
   projectId: string;
   live: PersistentSessionLiveSnapshot | null;
+  /** Up to three tool calls of the current turn that finished, newest first. */
+  recent: { toolName: string; summary: string }[];
+  /** How many tool calls of the current turn have finished. */
+  finished: number;
 }
 
 /**

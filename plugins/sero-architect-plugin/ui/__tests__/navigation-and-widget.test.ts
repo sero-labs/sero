@@ -11,7 +11,7 @@ describe('navigation', () => {
       { mode: 'list' as const },
       { mode: 'list' as const, intake: true },
       { mode: 'project' as const, projectId: 'hollow-depths' },
-      { mode: 'work' as const, projectId: 'hollow-depths', tab: 'live' as const },
+      { mode: 'work' as const, projectId: 'hollow-depths', tab: 'research' as const },
       { mode: 'history' as const, projectId: 'hollow-depths' },
       { mode: 'models' as const, projectId: 'hollow-depths' },
       { mode: 'inspector' as const, projectId: 'hollow-depths' },
@@ -27,8 +27,12 @@ describe('navigation', () => {
     expect(viewId({ mode: 'work', projectId: 'hollow-depths', tab: 'evidence', focusMilestoneId: 'm4' })).toBe('projects/hollow-depths/work/evidence/m4');
     expect(parseViewId('projects/hollow-depths/work/evidence/m4')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'evidence', focusMilestoneId: 'm4' });
     expect(parseViewId('projects/hollow-depths/work/plan')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'plan' });
-    // A tab this build does not know opens Live instead of a blank page.
-    expect(parseViewId('projects/hollow-depths/work/other')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'live' });
+    // A tab this build does not know opens the Plan instead of a blank page.
+    expect(parseViewId('projects/hollow-depths/work/other')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'plan' });
+  });
+
+  it('opens the project page for a link to the retired Live tab', () => {
+    expect(parseViewId('projects/p1/work/live')).toEqual({ mode: 'project', projectId: 'p1' });
   });
 
   it('finds the record beside the index the runtime writes', () => {

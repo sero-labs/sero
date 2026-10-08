@@ -5,11 +5,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
+import { DELIVERY_FIXTURES } from '../__preview__/delivery-fixture';
 import { DECISION, FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT } from '../__preview__/fixture';
-import { StateLine } from '../components/StateLine';
 import { IntakeDialog } from '../components/IntakeDialog';
 import { ControlsMenu } from '../components/TopBar';
 import type { ActionOutcome, ArchitectActions } from '../lib/actions';
+import type { WorkTab } from '../lib/navigation';
 import type { ProjectRecord } from '../../shared/record';
 import { ProjectPage } from '../ProjectPage';
 
@@ -113,29 +114,28 @@ function button(label: string): HTMLButtonElement {
   return found;
 }
 
-function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
+function renderPage(actions: ArchitectActions, onBack = vi.fn(), record: ProjectRecord = FIXTURES.build!) {
   act(() => root.render(
-    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={onBack} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={record} actions={actions} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
 
-it('labels legacy cost as incomplete through the ring hint without changing the shown spend', () => {
+it('labels legacy cost as a lower bound without changing the shown spend', () => {
   const base = FIXTURES.build!;
   const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
-  act(() => root.render(<StateLine runtimeRunning record={record} />));
-  expect(container.textContent).toContain('$12.34');
-  // The spend line stays a spend line: no coverage wording is added to the page.
+  const spend = () => [...container.querySelectorAll('[aria-label="Project state"] .bd-meter')].find((node) => node.textContent?.includes('$12.34'));
+  const show = (shown: ProjectRecord) => act(() => root.render(
+    <ProjectPage runtimeRunning record={shown} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+  ));
+  show(record);
+  // The spend stays a spend: no coverage wording is added to the page.
   expect(container.textContent).not.toContain('cost incomplete');
-  const incomplete = container.querySelector('[role="img"]');
-  expect(incomplete?.getAttribute('aria-label')).toContain('Cost incomplete.');
-  expect(incomplete?.getAttribute('title')).toContain('lower bound');
+  expect(spend()?.getAttribute('title')).toContain('lower bound');
 
-  act(() => root.render(<StateLine runtimeRunning record={{ ...record, budget: { ...record.budget, incomplete: false } }} />));
-  expect(container.textContent).toContain('$12.34');
-  const complete = container.querySelector('[role="img"]');
-  expect(complete?.getAttribute('aria-label')).not.toContain('Cost incomplete.');
-  expect(complete?.getAttribute('title')).toBeNull();
+  show({ ...record, budget: { ...record.budget, incomplete: false } });
+  expect(spend()).toBeDefined();
+  expect(spend()?.getAttribute('title')).toBeNull();
 });
 
 describe('a refused control', () => {
@@ -144,8 +144,8 @@ describe('a refused control', () => {
     act(() => root.render(
       <ProjectPage runtimeRunning record={UNAPPROVED} actions={stubActions({ resume })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
-    // Nothing has started: no way into the work, and no note can be sent yet.
-    expect(container.textContent).not.toContain('Watch work');
+    // Nothing has started: no plan to open, and no note can be sent yet.
+    expect(container.querySelector('[aria-label="Plan"]')).toBeNull();
     expect(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note to Architect"]')?.disabled).toBe(true);
 
     act(() => button('Review access').click());
@@ -170,7 +170,9 @@ describe('a refused control', () => {
     act(() => root.render(
       <ProjectPage permissionPending runtimeRunning record={UNAPPROVED} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
-    expect(container.textContent).toContain('Not started');
+    // The question is open and nothing is refused, so the page asks for the approval.
+    expect(container.textContent).toContain('Approve the start');
+    expect(container.textContent).not.toContain('Access is not approved');
     expect([...container.querySelectorAll('button')].some((el) => el.textContent?.includes('Review access'))).toBe(false);
   });
 
@@ -191,14 +193,11 @@ describe('a refused control', () => {
 describe('project history access', () => {
   it('keeps the directive composer outside the scrolling project content', () => {
     renderPage(stubActions());
-    const scroll = container.querySelector('.ar-scroll');
-    const composer = container.querySelector('.ar-composer');
+    const scroll = container.querySelector('.bd-board');
+    const composer = container.querySelector('textarea[aria-label="Note to Architect"]');
     expect(scroll).not.toBeNull();
     expect(composer).not.toBeNull();
     expect(scroll?.contains(composer)).toBe(false);
-    // History is its own view; older directives no longer take a side column.
-    expect(scroll?.querySelector('[data-testid="history"]')).toBeNull();
-    expect(scroll?.querySelector('[data-testid="older-directives"]')).toBeNull();
   });
 
   it('opens the owner transcript as read-only history instead of a raw file', async () => {
@@ -218,27 +217,48 @@ describe('project history access', () => {
   });
 });
 
+/** A delivered project: the result tile is where the preview is offered. */
+const DELIVERED = DELIVERY_FIXTURES['board-done']!;
+
 it('offers no preview while the project has nothing to preview', async () => {
   previewExists.value = false;
   try {
-    renderPage(stubActions());
+    renderPage(stubActions(), vi.fn(), DELIVERED);
     await flush();
+    expect(container.querySelector('[aria-label="Result"]')).not.toBeNull();
     expect(Array.from(container.querySelectorAll('button')).some((item) => item.textContent?.includes('Open preview'))).toBe(false);
-    // The other way into the work stays.
-    expect(button('Watch work')).toBeTruthy();
   } finally {
     previewExists.value = true;
   }
 });
 
 it('sandboxes the project preview without granting same-origin access', async () => {
-  renderPage(stubActions());
+  renderPage(stubActions(), vi.fn(), DELIVERED);
   await flush();
   act(() => button('Open preview').click());
   await flush();
 
   const preview = container.querySelector('iframe');
   expect(preview?.getAttribute('sandbox')).toBe('allow-forms allow-modals allow-popups allow-scripts');
+});
+
+describe('changing a decision made', () => {
+  it('puts the decision in the message box and focuses it, without sending anything', () => {
+    const directive = vi.fn(async () => OK);
+    const requestChange = vi.fn(async () => OK);
+    const record = DELIVERY_FIXTURES['board-done']!;
+    const decided = record.decisions[0]!.options.find((option) => option.id === record.decisions[0]!.answer?.optionId)!.label;
+    renderPage(stubActions({ directive, requestChange }), vi.fn(), record);
+
+    const row = [...container.querySelectorAll('[aria-label="Decisions made"] li')].find((item) => item.textContent?.includes(decided));
+    act(() => row?.querySelector('button')?.click());
+
+    const box = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note to Architect"]');
+    expect(box?.value).toContain(decided);
+    expect(document.activeElement).toBe(box);
+    expect(directive).not.toHaveBeenCalled();
+    expect(requestChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('deleting a project', () => {
@@ -508,78 +528,62 @@ describe('the top of a project', () => {
     };
   }
 
-  it('heads the page with the request, then the state, and lifts Retry step into the header', async () => {
+  const show = (record: ProjectRecord, actions: ArchitectActions = stubActions(), onOpenWork: (tab: WorkTab) => void = () => undefined) => act(() => root.render(
+    <ProjectPage runtimeRunning record={record} actions={actions} onOpenWork={onOpenWork} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+  ));
+  const stoppedTile = () => container.querySelector('[aria-label="Stopped"]')!;
+  const submitIn = async (form: HTMLFormElement | null) => {
+    act(() => { form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await flush();
+  };
+
+  it('heads the page with the request, then the state, and offers Retry step on the stop', async () => {
     const retry = vi.fn(async () => OK);
     const record = stoppedProject();
+    show(record, stubActions({ retry }));
 
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
-    // With no Architect outcome sentence yet, the heading is the request itself.
-    expect(container.querySelector('h2')?.textContent).toBe(record.idea);
+    // With no Architect sentence yet, the top says the request itself.
     const header = container.querySelector('[aria-label="Project state"]')!;
-    expect(header.textContent).toContain(`${record.milestones[0].title} stopped`);
-    // The recovery control comes first in the header's button row.
-    const headerRetry = header.querySelector('button');
-    expect(headerRetry?.textContent).toBe('Retry step');
+    expect(header.textContent).toContain(record.idea);
+    expect(stoppedTile().textContent).toContain(`${record.milestones[0].title} stopped`);
+    const retryButton = [...stoppedTile().querySelectorAll('button')].find((node) => node.textContent === 'Retry step');
+    expect(retryButton).toBeDefined();
 
-    act(() => (headerRetry as HTMLButtonElement).click());
+    act(() => retryButton!.click());
     await flush();
 
     expect(retry).toHaveBeenCalledWith(record.id, record.milestones[0].id);
   });
 
   it('heads the page with the Architect outcome sentence when it has written one', () => {
-    const record = { ...FIXTURES.build!, overview: { outcome: { text: 'A shareable roguelike.', at: '2026-09-07T09:00:00.000Z' } } };
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-    expect(container.querySelector('h2')?.textContent).toBe('A shareable roguelike.');
+    show({ ...FIXTURES.build!, overview: { outcome: { text: 'A shareable roguelike.', at: '2026-09-07T09:00:00.000Z' } } });
+    expect(container.querySelector('[aria-label="Project state"]')?.textContent).toContain('A shareable roguelike.');
   });
 
-  it('puts the new-cap field beside the sentence when the spend cap stopped the project', () => {
-    // The cap strip used to be the second card down, under a heading that said
-    // nothing needed the user. Raising the cap needs a number, so the header
-    // carries the field rather than a button that reveals one.
+  it('puts the new-cap field on the stop when the spend cap stopped the project', () => {
+    // Raising the cap needs a number, so the stop carries the field rather than a button that reveals one.
     const base = FIXTURES.limited!;
-    const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
+    show({ ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } });
 
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
-    const field = container.querySelector('.ar-stateline #ar-header-cap-in');
-    expect(field).not.toBeNull();
-    const submit = container.querySelector('.ar-stateline button') as HTMLButtonElement | null;
-    expect(submit?.textContent).toBe('Raise and resume');
-    expect(container.querySelector('.ar-limit')).toBeNull();
+    expect(stoppedTile().querySelector('#ar-header-cap-in')).not.toBeNull();
+    expect(stoppedTile().querySelector('form button')?.textContent).toBe('Raise and resume');
   });
 
   it('raises the cap through one action, whichever copy the user reaches', async () => {
     const base = FIXTURES.limited!;
     const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
     const raiseCap = vi.fn(async () => OK);
+    show(record, stubActions({ raiseCap }));
 
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
-    const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
-    expect(form).not.toBeNull();
-    act(() => { form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
-    await flush();
+    await submitIn(stoppedTile().querySelector('form'));
 
     expect(raiseCap).toHaveBeenCalledWith(record.id, expect.any(Number));
-    // Raise cap is still in the project menu; the header copy is the one the
-    // user reaches first.
-    expect(container.querySelector('.ar-stateline #ar-header-cap-in')).not.toBeNull();
+    // Raise cap is still in the project menu; the field on the stop is the one the user reaches first.
+    expect(stoppedTile().querySelector('#ar-header-cap-in')).not.toBeNull();
   });
 
-  it('carries a Workflow cap resume in the header, whole', async () => {
-    // The control used to live on the milestone row. It moves here complete:
-    // its own field, its own wording, and the retry action with the new cap —
-    // so a workflow-cap resume no longer depends on reaching the row.
+  it('carries a Workflow cap resume on the stop, whole', async () => {
+    // Its own field, its own wording, and the retry action with the new cap.
     const base = FIXTURES.build!;
     const first = base.milestones[0];
     const record = {
@@ -590,55 +594,36 @@ describe('the top of a project', () => {
       ],
     };
     const retry = vi.fn(async () => OK);
+    show(record, stubActions({ retry }));
 
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
+    expect(stoppedTile().querySelector('#ar-header-wf-cap-in')).not.toBeNull();
+    expect(stoppedTile().querySelector('form button')?.textContent).toBe('Approve cap and resume');
 
-    expect(container.querySelector('#ar-header-wf-cap-in')).not.toBeNull();
-    const submit = container.querySelector('.ar-stateline form.ar-cap button') as HTMLButtonElement | null;
-    expect(submit?.textContent).toBe('Approve cap and resume');
-
-    const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
-    act(() => { form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
-    await flush();
+    await submitIn(stoppedTile().querySelector('form'));
 
     expect(retry).toHaveBeenCalledWith(record.id, first.id, expect.any(Number));
   });
 
   it('says what stopped, and why, once', () => {
-    const record = stoppedProject();
-
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
-    const header = container.querySelector('[aria-label="Project state"]')!;
-    expect((header.textContent ?? '').split('Interrupted work').length - 1).toBe(1);
+    show(stoppedProject());
+    expect((container.textContent ?? '').split('Interrupted work').length - 1).toBe(1);
   });
 
   it('keeps the Architect report off the overview', () => {
     const record = stoppedProject();
-
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
+    show(record);
     expect(container.textContent).not.toContain(record.stateLine);
   });
 
-  it('leads to the work once it has started, and says which flow a charter project is on', () => {
+  it('leads to the plan and the proof once the work has started, and says which flow a charter project is on', () => {
     const onOpenWork = vi.fn();
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} onOpenWork={onOpenWork} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
+    show(FIXTURES.build!, stubActions(), onOpenWork);
     expect(container.textContent).toContain('This project uses the charter flow. The charter flow is deprecated.');
-    expect(container.textContent).toContain('budget');
 
-    act(() => button('Watch work').click());
-    expect(onOpenWork).toHaveBeenLastCalledWith('live');
-    // The build fixture has checked milestones, so Evidence is offered too.
-    act(() => button('Evidence').click());
+    act(() => button('Full plan').click());
+    expect(onOpenWork).toHaveBeenLastCalledWith('plan');
+    // The build fixture has checked milestones, so their evidence is offered too.
+    act(() => button('See the proof').click());
     expect(onOpenWork).toHaveBeenLastCalledWith('evidence');
   });
 });
@@ -681,32 +666,40 @@ describe('a project stopped on delegated work', () => {
     <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
 
-  it('keeps the autonomy setting out of the header and in the project menu', () => {
+  const stopped = () => container.querySelector('[aria-label="Stopped"]')!;
+
+  it('keeps the autonomy setting out of the top and the stop, and in the project menu', () => {
     render(cancelledRoom());
-    // The header says what stopped and what to do about it, nothing else. The
+    // The page says what stopped and what to do about it, nothing else. The
     // setting itself is a menu entry, checked in the controls-menu tests above.
-    expect(container.querySelector('.ar-stateline')?.textContent).not.toContain('You approve each milestone plan');
-    expect(container.querySelector('.ar-stateline')?.textContent).not.toContain('Autonomy');
+    for (const text of [container.querySelector('[aria-label="Project state"]')?.textContent, stopped().textContent]) {
+      expect(text).not.toContain('You approve each milestone plan');
+      expect(text).not.toContain('Autonomy');
+    }
   });
 
-  it('names the Room and states the reason, instead of printing its id', () => {
+  it('states what happened and why, instead of printing the Room id', () => {
     render(cancelledRoom());
-    const header = container.querySelector('.ar-stateline')?.textContent ?? '';
-    expect(header).toContain('Research was cancelled before it reported');
-    expect(header).toContain('Import Dashboard Discovery');
-    expect(header).toContain('Its members had read-only access and could not run commands.');
-    expect(container.querySelector('.ar-sentence')?.textContent).not.toContain('room_3240');
+    const tile = stopped().textContent ?? '';
+    expect(tile).toContain('Research was cancelled before it reported');
+    expect(tile).toContain('Its members had read-only access and could not run commands.');
+    expect(tile).not.toContain('room_3240');
+  });
+
+  it('names the Room that stopped, so the user knows which one Open Room opens', () => {
+    render(cancelledRoom());
+    expect(stopped().textContent).toContain('Import Dashboard Discovery');
   });
 
   it('offers opening the Room and telling the Architect what to do next', () => {
     render(cancelledRoom());
-    const labels = [...container.querySelectorAll('[aria-label="Project state"] button')].map((node) => node.textContent);
+    const labels = [...stopped().querySelectorAll('button')].map((node) => node.textContent);
     expect(labels.slice(0, 2)).toEqual(['Open Room', 'Tell Architect what to do next']);
   });
 
   it('puts the cursor in the existing directive box rather than opening another', () => {
     render(cancelledRoom());
-    const tell = [...container.querySelectorAll<HTMLButtonElement>('[aria-label="Project state"] button')]
+    const tell = [...stopped().querySelectorAll<HTMLButtonElement>('button')]
       .find((node) => node.textContent === 'Tell Architect what to do next');
     const composers = container.querySelectorAll('textarea[aria-label="Note to Architect"]');
     expect(composers).toHaveLength(1);
@@ -749,19 +742,20 @@ describe('the kinds of nothing', () => {
   it('shows the decision card as soon as a decision is open', () => {
     render({ ...FIXTURES.build!, decisions: [DECISION] });
     expect(container.querySelector('[aria-label="Decision"]')).not.toBeNull();
-    // The question is on its card once. The header only counts the questions.
+    // The question is on its card once. The top only says the project waits for the user.
     expect(container.textContent?.split(DECISION.question).length).toBe(2);
-    expect(container.querySelector('[aria-label="Project state"]')?.textContent).toContain('Needs you · One question');
+    expect(container.querySelector('[aria-label="Project state"]')?.textContent).toContain('Waiting for you');
   });
 
-  it('gives colour only to the fault, with several sections empty', () => {
-    // One project with nothing needing the user, no milestones and a stopped
-    // research Room. Only the stopped Room may be coloured.
+  it('draws nothing for empty sections and tones only the fault', () => {
+    // One project with nothing needing the user, no milestones and a stopped research Room.
     render({
       ...FIXTURES.build!,
       decisions: [],
       milestones: [],
       charter: null,
+      // No written plan either: a plan with no steps would still be a Plan tile.
+      brief: null,
       research: [],
       blockedReason: 'Research Room room_3240 is cancelled.',
       blockedOn: {
@@ -773,12 +767,10 @@ describe('the kinds of nothing', () => {
       },
     });
 
-    // Only the fault is toned. Every other glyph on the page is neutral, and
-    // no section header is warned.
-    const tones = [...container.querySelectorAll('.ar-gchip')].map((node) => node.getAttribute('data-tone'));
-    expect(tones).toContain('danger');
-    expect(tones.filter((tone) => tone !== 'neutral')).toEqual(['danger']);
-    expect(container.querySelector('.ar-warn-text')).toBeNull();
+    for (const label of ['Needs you', 'Plan', 'Live']) expect(container.querySelector(`[aria-label="${label}"]`)).toBeNull();
+    expect(container.querySelector('[aria-label="Stopped"] h2')?.getAttribute('data-tone')).toBe('stopped');
+    // Nothing is asked of the user, so nothing is toned as waiting for them.
+    expect(container.querySelector('[data-tone="waiting"]')).toBeNull();
     expect(container.textContent).not.toContain('You have nothing to review');
   });
 });

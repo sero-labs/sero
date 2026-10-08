@@ -7,7 +7,7 @@
  * holds no text and sends none.
  */
 
-import { getOrchestratorRoomRegistry, type OrchestratorRoomMemberLive, type PersistentSessionsApi } from '@sero-ai/common';
+import { getOrchestratorRoomRegistry, type OrchestratorRoomMemberLive, type PersistentSessionLiveSnapshot, type PersistentSessionsApi } from '@sero-ai/common';
 
 import type { OwnerLiveNotice } from '../shared/feedback';
 import type { ProjectRecord } from '../shared/record';
@@ -15,6 +15,9 @@ import type { ProjectRecord } from '../shared/record';
 /** A view renews well inside this. A view that went away stops being served. */
 export const WATCH_LEASE_MS = 5 * 60_000;
 const PUSH_INTERVAL_MS = 200;
+const RECENT_LIMIT = 3;
+
+type LiveTool = NonNullable<PersistentSessionLiveSnapshot['tool']>;
 
 export interface WorkWatchDeps {
   sessions(): PersistentSessionsApi | null;
@@ -50,14 +53,27 @@ interface OwnerLease {
   handleId: string | null;
   off: (() => void) | null;
   timer: ReturnType<typeof setTimeout> | null;
+  /** The tool and turn the last session event showed, to see when a tool finishes. */
+  lastTool: LiveTool | null;
+  lastTurnId: string | null;
+  /** Finished tool calls of the current turn, newest first. */
+  recent: { toolName: string; summary: string }[];
+  finished: number;
 }
+
+const sameCall = (a: LiveTool, b: LiveTool) => a.callId !== null || b.callId !== null ? a.callId === b.callId : a.startedAt === b.startedAt;
 
 export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
   const owners = new Map<string, OwnerLease>();
 
   const snapshot = (projectId: string): OwnerLiveNotice => {
     const handleId = deps.ownerHandle(projectId);
-    return { projectId, live: handleId ? deps.sessions()?.liveSnapshot(handleId) ?? null : null };
+    return {
+      projectId,
+      live: handleId ? deps.sessions()?.liveSnapshot(handleId) ?? null : null,
+      recent: owners.get(projectId)?.recent ?? [],
+      finished: owners.get(projectId)?.finished ?? 0,
+    };
   };
 
   const release = (projectId: string) => {
@@ -89,13 +105,40 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
     }, PUSH_INTERVAL_MS);
   };
 
+  /** Runs on every session event, before the throttle, so a short tool call is still counted. */
+  const track = (lease: OwnerLease, live: PersistentSessionLiveSnapshot | null) => {
+    const turnId = live?.turnId ?? null;
+    if (turnId !== null && turnId !== lease.lastTurnId) {
+      lease.recent = [];
+      lease.finished = 0;
+      lease.lastTool = null;
+    }
+    const tool = live?.tool ?? null;
+    if (lease.lastTool && !(tool && sameCall(lease.lastTool, tool))) {
+      const { toolName, summary } = lease.lastTool;
+      lease.recent = [{ toolName, summary }, ...lease.recent].slice(0, RECENT_LIMIT);
+      lease.finished += 1;
+    }
+    lease.lastTool = tool;
+    if (turnId !== null) lease.lastTurnId = turnId;
+  };
+
   const bind = (projectId: string, lease: OwnerLease) => {
     const handleId = deps.ownerHandle(projectId) ?? null;
     if (handleId === lease.handleId) return;
     lease.off?.();
     lease.handleId = handleId;
     const api = deps.sessions();
-    lease.off = handleId && api ? api.subscribe(handleId, () => push(projectId)) : null;
+    lease.lastTool = null;
+    lease.lastTurnId = null;
+    lease.recent = [];
+    lease.finished = 0;
+    // The tool in flight when the watch opens is noted, so its end is counted.
+    if (handleId && api) track(lease, api.liveSnapshot(handleId));
+    lease.off = handleId && api ? api.subscribe(handleId, () => {
+      track(lease, api.liveSnapshot(handleId));
+      push(projectId);
+    }) : null;
   };
 
   const room = async (projectId: string, roomId: string) => {
@@ -106,7 +149,7 @@ export function createWorkWatch(deps: WorkWatchDeps): WorkWatch {
 
   return {
     watchOwner(projectId, observerId) {
-      const lease = current(projectId) ?? { observers: new Map<string, number>(), handleId: null, off: null, timer: null };
+      const lease = current(projectId) ?? { observers: new Map<string, number>(), handleId: null, off: null, timer: null, lastTool: null, lastTurnId: null, recent: [], finished: 0 };
       lease.observers.set(observerId, deps.now() + WATCH_LEASE_MS);
       owners.set(projectId, lease);
       bind(projectId, lease);

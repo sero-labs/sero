@@ -6,7 +6,7 @@
 import { hasAgreement } from './agreement';
 import type { ProjectRecord } from './record';
 
-const WORKING_HELP = '- working: [--objective "..."] [--approach "..."] [--assumptionsJson \'["..."]\'] [--criteriaJson \'[{"id":"c1","text":"...","userStated":true}]\'] [--reason "<what changed it>"]; a flag you leave out keeps its value';
+const WORKING_HELP = '- working: [--objective "..."] [--approach "..."] [--assumptionsJson \'[{"text":"...","why":"..."}]\'] [--criteriaJson \'[{"id":"c1","text":"...","userStated":true}]\'] [--reason "<what changed it>"]; a flag you leave out keeps its value; an assumption\'s why is shown to the user next to the choice';
 
 const SUMMARY_HELP = '- summary: --field outcome|objective|result|acknowledgement --text "<one or two short sentences>" [--sourceKind plan|milestone|research|evidence|directive --sourceId <id>]';
 

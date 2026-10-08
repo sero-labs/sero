@@ -6,7 +6,7 @@
  * can carry on from the record alone.
  */
 
-import { hasAgreement } from './agreement';
+import { assumptionOf, hasAgreement } from './agreement';
 import { activeDirectMilestone, worktreeWorkRule } from './direct-execution';
 import { outstandingUsd } from './budget';
 import { provenBy } from './evidence-binding';
@@ -180,7 +180,10 @@ function agreementBlock(record: ProjectRecord): string[] {
     `Working interpretation (yours, revision ${working.revision}; it grants nothing):`,
     `  Objective: ${quote(working.objective)}`,
     ...(working.approach ? [`  Approach: <approach>${quote(working.approach)}</approach>`] : []),
-    ...working.assumptions.map((assumption) => `  Assumption: ${quote(assumption)}`),
+    ...working.assumptions.map((entry) => {
+      const { text, why } = assumptionOf(entry);
+      return `  Assumption: ${quote(text)}${why ? ` because ${quote(why)}` : ''}`;
+    }),
     ...working.criteria.map((criterion) => {
       const proof = provenBy(record, criterion.id);
       const state = proof ? `proved by ${proof.id}` : criterion.gap ? `gap stated: ${quote(criterion.gap)}` : 'not proved yet';

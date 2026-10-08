@@ -19,8 +19,17 @@ const RENEW_MS = 2 * 60_000;
 
 const newObserverId = () => `view-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-/** The owner's current turn, while `active`. Null when no owner session is open. */
-export function useOwnerLive(projectId: string, active: boolean): PersistentSessionLiveSnapshot | null {
+export interface OwnerWatch {
+  /** The owner's current turn. Null when no owner session is open. */
+  live: PersistentSessionLiveSnapshot | null;
+  /** The last few tool calls of this turn that finished, newest first. */
+  recent: OwnerLiveNotice['recent'];
+  /** How many tool calls of this turn have finished. */
+  finished: number;
+}
+
+/** The owner's current turn and its last few finished actions, while `active`. */
+export function useOwnerWatch(projectId: string, active: boolean): OwnerWatch {
   const { run } = useAppTools();
   const [observerId] = useState(newObserverId);
   const [held, setHeld] = useState<OwnerLiveNotice | null>(null);
@@ -52,7 +61,7 @@ export function useOwnerLive(projectId: string, active: boolean): PersistentSess
     };
   }, [active, projectId, observerId, run]);
 
-  return active && held?.projectId === projectId ? held.live : null;
+  return active && held?.projectId === projectId ? { live: held.live, recent: held.recent ?? [], finished: held.finished ?? 0 } : { live: null, recent: [], finished: 0 };
 }
 
 /** One member of a Room this project started, while `active`. */
