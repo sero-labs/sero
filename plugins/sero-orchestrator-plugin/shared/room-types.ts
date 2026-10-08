@@ -30,6 +30,7 @@ import type {
   RoomWorkspacePolicy,
 } from './room-blueprint-types';
 import type { UsageSummary } from './usage-types';
+import type { MemberConfigurationChange } from './room-amendment-types';
 
 export type RoomStatus =
   | 'draft'
@@ -173,6 +174,10 @@ export interface RoomMember {
   waitingOnQuestionId: string | null;
   /** The member that replaced this one, when retired by replacement. */
   replacedByMemberId: string | null;
+  /** On a replacement: the member it took over from. */
+  replacedFromMemberId?: string | null;
+  /** The setup change in flight or just finished, with its state. See `MemberConfigurationChange`. */
+  configurationChange?: MemberConfigurationChange | null;
   createdAt: string;
   retiredAt: string | null;
 }
@@ -355,6 +360,8 @@ export interface RoomDefinition {
   workspacePolicy: RoomWorkspacePolicy;
   /** Host-issued grant backing every member session. Cleared on revocation. */
   grantId: string | null;
+  /** The grant's revision as the Room last saw it. Absent means 0: it has never been amended. */
+  grantRevision?: number;
   /** Grant retained only so disposed session history remains readable. */
   historyGrantId?: string | null;
   createdAt: string;

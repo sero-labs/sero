@@ -24,6 +24,7 @@ import { createRoomRuntimeTelemetry } from './room-telemetry';
 import { createRoomCommandRouter, type RoomCommandRouter } from './room-command-router';
 import { requestDeliveryApproval } from './room-delivery';
 import { applyRevisionToRoom } from './room-revision-mutate';
+import { createRoomAmendments, type RoomAmendments } from './room-amendment';
 import { applyRoomRevision } from './room-revisions';
 import { createRoomWork, type RoomWork } from './room-work';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
@@ -42,6 +43,8 @@ export interface RoomRuntime {
   work: RoomWork;
   /** Advisory path claims. */
   claims: RoomClaims;
+  /** Grant amendments for running Rooms: pending, held, approved, declined. */
+  amendments: RoomAmendments;
   /** Restart recovery. Runs before any scheduling, as the Workflow side does. */
   reconcile(): Promise<void>;
   /** Recovery pass only — the normal wake path is the coordinator's event path. */
@@ -92,6 +95,32 @@ export function createRoomRuntime(
     briefSources: (roomId) => work.briefSources(roomId),
   });
 
+  // A system message, not a peer message: the Room is telling a member what
+  // changed, and nothing about it can be answered or argued with.
+  const notify = async (roomId: string, memberIds: string[], summary: string): Promise<void> => {
+    await store.appendMessages(roomId, [{
+      id: host.newId('msg'),
+      kind: 'system',
+      fromMemberId: null,
+      toMemberIds: memberIds,
+      body: summary,
+      questionId: null,
+      inReplyToQuestionId: null,
+      // The change is already in the member's mandate, which every turn
+      // carries, so waking it now would only cost a turn.
+      wakeRecipients: false,
+      commandId: host.newId('cmd'),
+      createdAt: host.now(),
+    }]);
+  };
+  const amendments = createRoomAmendments({
+    host,
+    store,
+    sessions,
+    notify,
+    resume: (roomId) => coordinator.advance(roomId),
+  });
+
   // AD-020: one command surface for every logical Room operation, routed to the
   // module that already owns it. Nothing new is implemented for the bridge.
   const commands = createRoomCommandRouter({
@@ -107,24 +136,8 @@ export function createRoomRuntime(
           store,
           mutate: applyRevisionToRoom,
           releaseMemberSession: (roomId, memberId) => sessions.release(roomId, memberId),
-          // A system message, not a peer message: the Room is telling a member
-          // what changed, and nothing about it can be answered or argued with.
-          notify: async (roomId, memberIds, summary) => {
-            await store.appendMessages(roomId, [{
-              id: host.newId('msg'),
-              kind: 'system',
-              fromMemberId: null,
-              toMemberIds: memberIds,
-              body: summary,
-              questionId: null,
-              inReplyToQuestionId: null,
-              // The change is already in the member's mandate, which every turn
-              // carries, so waking it now would only cost a turn.
-              wakeRecipients: false,
-              commandId: host.newId('cmd'),
-              createdAt: host.now(),
-            }]);
-          },
+          notify,
+          amendments,
         },
         input,
       ),
@@ -143,11 +156,17 @@ export function createRoomRuntime(
     coordinator,
     observation,
     commands,
-    app: createRoomAppActions({ host, store, coordinator, workspaceId: ctx.workspaceId, observation, sessions: ctx.host.persistentSessions }),
+    app: createRoomAppActions({ host, store, coordinator, amendments, workspaceId: ctx.workspaceId, observation, sessions: ctx.host.persistentSessions }),
     workspaces,
     work,
     claims,
-    reconcile: () => coordinator.reconcileRooms(),
+    amendments,
+    // Members' sessions are reset first, then every revision still pending is
+    // finished. A member with a pending change stays unschedulable throughout.
+    reconcile: async () => {
+      await coordinator.reconcileRooms();
+      await amendments.reconcile();
+    },
     // The checkpoint rides the recovery tick that already runs, so a running
     // Room needs no timer of its own.
     tick: async () => {

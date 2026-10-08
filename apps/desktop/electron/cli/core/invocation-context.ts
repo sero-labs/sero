@@ -13,6 +13,7 @@ export function buildInvocation(
   workspaceId: string,
   sessionId: string,
   signal?: AbortSignal,
+  toolCallId?: string,
 ): CliInvocation {
   const bridge = getCliSessionBridge();
   return {
@@ -20,6 +21,8 @@ export function buildInvocation(
     sessionId,
     turnId: bridge.getActiveTurnId(sessionId),
     source: 'tool',
+    // Pi gives a call another tool made the id `<parent id>/<n>`.
+    ...(toolCallId?.includes('/') ? { scripted: true } : {}),
     signal,
   };
 }

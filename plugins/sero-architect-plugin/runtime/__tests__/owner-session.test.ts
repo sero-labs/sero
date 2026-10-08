@@ -1,7 +1,9 @@
 import { createRunJournal } from '../run-journal';
 import { closeRun, openRun } from '../../shared/runs';
+import { mayWakeForWork } from '../../shared/lifecycle';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
+import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
+import { OWNER_STALL_GRACE_MS, OWNER_STALL_WINDOW_MS } from '../owner-stall';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { createSpanRecorder } from '../spans';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
@@ -35,7 +37,7 @@ describe('owner session', () => {
     expect(host.sessions.prompts[0]?.content).not.toContain('Unanswered directives: none.');
   });
 
-  it.each(['prompt', 'turn-end'] as const)('bounds an owner stalled at %s and preserves completed work', async (point) => {
+  it.each(['prompt', 'turn-end'] as const)('steers then stops an owner silent at %s, keeps completed work and holds on a repeat', async (point) => {
     const host = await fakeHost();
     const store = await storeFor(host);
     const record = buildingProject({ milestones: [milestone('m1', { status: 'done', verification: 'accepted' }), milestone('m2')] });
@@ -47,23 +49,220 @@ describe('owner session', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const pending = sessions.runTurn(record, wake);
     await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce());
-    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
-    // The first turn over the limit is stopped and tried again, with no block.
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS);
+    // Silence is first met with one steer to checkpoint, and nothing is stopped yet.
+    expect(host.sessions.steers).toHaveLength(1);
+    expect(abort).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_GRACE_MS);
+    // Still silent: the turn is stopped and tried again, with no block.
     const first = await pending;
     expect(first).toMatchObject({ status: 'error', retry: true });
     expect(first.record.blockedReason).toBeNull();
     const again = sessions.runTurn(first.record, wake);
     await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2));
-    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS + OWNER_STALL_GRACE_MS);
     const result = await again;
     expect(abort).toHaveBeenCalledTimes(2);
     expect(result.status).toBe('error');
     expect(result.retry).toBeUndefined();
-    expect(result.record.blockedReason).toContain('exceeded 10 minutes');
+    expect(result.record.blockedReason).toContain('showed no activity');
     expect(result.record.session.workingSince).toBeNull();
     expect(result.record.milestones).toEqual(record.milestones);
     expect(result.record.session.silentTurns).toBe(0);
     expect(result.record.session.turns).toBe(record.session.turns + 2);
+  });
+
+  describe('stall recovery', () => {
+    const quiet: { toFake: ('setTimeout' | 'clearTimeout')[] } = { toFake: ['setTimeout', 'clearTimeout'] };
+
+    it('lets a turn that keeps emitting events run far past the stall window', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      host.sessions.prompt = async () => ({ turnId: 'busy' });
+      const abort = vi.spyOn(host.sessions, 'abort');
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      vi.useFakeTimers(quiet);
+      const pending = sessions.runTurn(record, wake);
+      await vi.waitFor(() => expect(host.sessions.requests).toHaveLength(1));
+      await vi.advanceTimersByTimeAsync(0);
+      // Four times the window, with an event every half window.
+      for (let i = 0; i < 8; i++) {
+        await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS / 2);
+        host.sessions.emit('h1', { type: 'text', text: 'working' });
+      }
+      expect(host.sessions.steers).toHaveLength(0);
+      expect(abort).not.toHaveBeenCalled();
+      host.sessions.emit('h1', { type: 'turn_end', turnId: 'busy', status: 'completed', at: T0 });
+      expect((await pending).status).toBe('completed');
+    });
+
+    it('treats an event after the steer as progress and never reports a stopped turn as complete', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      host.sessions.prompt = async () => ({ turnId: 'slow' });
+      const abort = vi.spyOn(host.sessions, 'abort');
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      vi.useFakeTimers(quiet);
+      const pending = sessions.runTurn(record, wake);
+      await vi.waitFor(() => expect(host.sessions.requests).toHaveLength(1));
+      await vi.advanceTimersByTimeAsync(OWNER_STALL_WINDOW_MS);
+      expect(host.sessions.steers).toHaveLength(1);
+      host.sessions.emit('h1', { type: 'text', text: 'checkpointing' });
+      await vi.advanceTimersByTimeAsync(OWNER_STALL_GRACE_MS - 1);
+      expect(abort).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).not.toBe('completed');
+      expect(result.retry).toBe(true);
+    });
+
+    it('still stops at the project cost cap while the turn keeps progressing', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      host.sessions.costUsd = 5;
+      host.sessions.onTurn = async () => host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      const result = await sessions.runTurn(record, wake);
+      expect(result.record.overlay).toBe('limited');
+    });
+
+    it('stops a busy turn the moment its usage takes the project over the cap, and never calls it complete', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      let release: () => void = () => undefined;
+      const stopped = new Promise<void>((resolve) => { release = resolve; });
+      const abort = vi.fn(async () => release());
+      host.sessions.abort = abort;
+      host.sessions.onTurn = async () => {
+        // Still working: the cost lands mid-turn, and the host's own end event arrives only after the abort.
+        host.sessions.costUsd = 5;
+        host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+        await stopped;
+      };
+      const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+      const result = await sessions.runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+      expect(result.record.overlay).toBe('limited');
+    });
+  });
+
+  describe('cost cap during a running turn', () => {
+    const stoppable = (host: Awaited<ReturnType<typeof fakeHost>>, spendMidTurn: () => Promise<void>) => {
+      let release: () => void = () => undefined;
+      const stopped = new Promise<void>((resolve) => { release = resolve; });
+      const abort = vi.fn(async () => release());
+      host.sessions.abort = abort;
+      host.sessions.onTurn = async () => {
+        await spendMidTurn();
+        host.sessions.emit('h1', { type: 'tool_start', toolName: 'bash', summary: 'x', callId: 'c', at: T0 });
+        await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 50))]);
+      };
+      return abort;
+    };
+
+    it('stops the turn when delegated work, not the owner, takes the project over the cap', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => {
+        await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, spentUsd: 4 } }));
+      });
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('stops the turn when the user lowers the cap below what is already spent', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 10, spentUsd: 2 } });
+      await store.write(record);
+      const abort = stoppable(host, async () => {
+        await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, capUsd: 1 } }));
+      });
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('sends nothing for an ordinary wake when the cap was lowered below spend during preparation', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 10, spentUsd: 2 } });
+      await store.write(record);
+      const open = host.sessions.open;
+      const create = host.sessions.create;
+      const lower = async () => { await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, capUsd: 1 } })); };
+      host.sessions.open = async (...args) => { await lower(); return open(...args); };
+      host.sessions.create = async (...args) => { await lower(); return create(...args); };
+      const prompt = vi.spyOn(host.sessions, 'prompt');
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, undefined, mayWakeForWork);
+      expect(prompt).not.toHaveBeenCalled();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('stops an ordinary wake that began already over the cap, which only directive and decision wakes may do', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => undefined);
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
+      expect(abort).toHaveBeenCalledOnce();
+      expect(result.status).toBe('aborted');
+    });
+
+    it('lets a directive turn that began on an already-limited project run', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
+      await store.write(record);
+      host.sessions.costUsd = 0.1;
+      const abort = stoppable(host, async () => undefined);
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, { kind: 'directive', at: T0, items: ['directive d1'] });
+      expect(abort).not.toHaveBeenCalled();
+      expect(result.status).toBe('completed');
+    });
+  });
+
+  describe('a wake that asks to be acknowledged', () => {
+    it('is acknowledged when the turn begins, not when the whole run has ended', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      const onStarted = vi.fn(async () => undefined);
+      let startedDuringRun = false;
+      host.sessions.onTurn = async () => { startedDuringRun = onStarted.mock.calls.length === 1; };
+      await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, onStarted);
+      expect(startedDuringRun).toBe(true);
+      expect(onStarted).toHaveBeenCalledOnce();
+    });
+
+    it('sends no prompt and acknowledges nothing when the project may no longer start work', async () => {
+      const host = await fakeHost();
+      const store = await storeFor(host);
+      const record = buildingProject();
+      await store.write(record);
+      const onStarted = vi.fn(async () => undefined);
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake, onStarted, () => false);
+      expect(host.sessions.prompts).toHaveLength(0);
+      expect(onStarted).not.toHaveBeenCalled();
+      expect(result.status).toBe('aborted');
+    });
   });
 
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {
@@ -251,6 +450,35 @@ describe('owner session', () => {
     const costs = async (id: string) => (await journal.readPage('proj_1', id)).records.reduce((sum, entry) => sum + (typeof entry.costUsd === 'number' ? entry.costUsd : 0), 0);
     expect(await costs('initial')).toBe(1.5);
     expect(await costs('later')).toBe(0.75);
+  });
+
+  it('charges a turn spent on the owner\'s own milestone once, to the run that work started under', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
+    const spans = createSpanRecorder({ journal, now: () => host.now() });
+    const outcomes = createTurnOutcomes();
+    const sessions = new OwnerSessions({ host, store, outcomes, journal, spans });
+    const first = openRun(buildingProject(), { id: 'initial', kind: 'initial' }, T0);
+    if (!first.ok) throw new Error(first.error);
+    // A later objective is the active run, but the work began under the first.
+    const later = openRun(first.record, { id: 'later', kind: 'maintenance', objectiveId: 'issue' }, T0);
+    if (!later.ok) throw new Error(later.error);
+    const direct = {
+      id: 'exec-1', runId: 'initial', owner: { subject: 'owner' as const, sessionId: 'sess-1', sessionPath: '/sessions/owner.jsonl' },
+      placement: { mode: 'workspace' as const, directory: later.record.folder, workspaceId: 'ws-1' }, baseCommit: 'base', baseFingerprint: 'fp0',
+      requirementRevision: null, state: 'running' as const, startedAt: T0, claim: null, continuations: 0, idleContinuations: 0,
+    };
+    const record = { ...later.record, milestones: [milestone('m1', { status: 'running', direct })] };
+    await store.write(record);
+    host.sessions.getSessionUsage = async () => ({ costUsd: 0.2, inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 1 });
+    host.sessions.onTurn = async () => { outcomes.declare('proj_1', 'continue'); };
+    await sessions.runTurn(record, wake);
+    const original = (await journal.readPage('proj_1', 'initial')).records;
+    expect(original.find((entry) => entry.operationKind === 'owner-wake')?.attemptId).toBe('exec-1');
+    expect(original.filter((entry) => entry.kind === 'usage').reduce((sum, entry) => sum + Number(entry.costUsd), 0)).toBeCloseTo(0.2);
+    expect((await journal.readPage('proj_1', 'later')).records.filter((entry) => entry.kind === 'usage')).toHaveLength(0);
+    expect((await store.read('proj_1'))?.budget.sources.owner).toBeCloseTo(0.2);
   });
 
   it('records each owner turn as one wake that owns its charges, with the model and token deltas', async () => {

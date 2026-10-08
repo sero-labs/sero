@@ -4,6 +4,7 @@
  */
 
 import { isSetAside } from '../../shared/activity';
+import type { DirectExecution } from '../../shared/direct-execution';
 import type {
   Decision,
   Directive,
@@ -47,6 +48,11 @@ export function parkedTitles(decision: Decision, record: ProjectRecord): string[
 
 export type RailDot = 'check' | 'ring' | 'verify' | 'parked' | 'hollow';
 
+/** Where a row's link goes: the Orchestrator record, or the Work view for work the Architect does itself. */
+export type RailLink =
+  | { kind: 'workflow' | 'room'; id: string; workspaceId: string }
+  | { kind: 'architect'; tab: 'live' | 'evidence' };
+
 export interface RailRow {
   milestone: Milestone;
   dot: RailDot;
@@ -56,7 +62,7 @@ export interface RailRow {
   sub: string | null;
   /** 0-3 on the reported/verified/accepted/delivered ladder, or null when no claim exists yet. */
   ladder: number | null;
-  link: { kind: 'workflow' | 'room'; id: string; workspaceId: string } | null;
+  link: RailLink | null;
 }
 
 const LADDER: readonly VerificationState[] = ['reported', 'verified', 'accepted', 'delivered'];
@@ -88,7 +94,22 @@ function isSubscription(milestone: Milestone): boolean {
   return milestone.id === 'maintenance' && milestone.status === 'running' && !milestone.dispatch?.failure;
 }
 
+/** The owner's current execution of a milestone it does itself. Delegated and superseded work has none. */
+function directOf(milestone: Milestone): DirectExecution | null {
+  return !milestone.dispatch && milestone.direct && milestone.direct.state !== 'superseded' ? milestone.direct : null;
+}
+
+function railLink(milestone: Milestone): RailLink | null {
+  if (milestone.dispatch) return { kind: milestone.dispatch.kind, id: milestone.dispatch.id, workspaceId: milestone.dispatch.workspaceId };
+  if (!directOf(milestone)) return null;
+  if (milestone.status === 'running') return { kind: 'architect', tab: 'live' };
+  return milestone.status === 'verifying' || milestone.status === 'done' ? { kind: 'architect', tab: 'evidence' } : null;
+}
+
 function subLine(milestone: Milestone, record: ProjectRecord): string | null {
+  const direct = directOf(milestone);
+  if (direct?.state === 'interrupted') return 'Architect stopped part-way. The work is kept.';
+  if (direct?.state === 'running' && milestone.status === 'running') return 'Architect is doing this';
   if (milestone.dispatch?.failure) return milestone.dispatch.failure;
   if (milestone.status === 'parked' && milestone.parkedBy) {
     const decision = record.decisions.find((d) => d.id === milestone.parkedBy);
@@ -119,9 +140,7 @@ export function railRows(record: ProjectRecord): RailRow[] {
     tone: milestone.dispatch?.failure ? 'warn' : TONE[milestone.status],
     sub: subLine(milestone, record),
     ladder: ladderLevel(milestone.verification),
-    link: milestone.dispatch
-      ? { kind: milestone.dispatch.kind, id: milestone.dispatch.id, workspaceId: milestone.dispatch.workspaceId }
-      : null,
+    link: railLink(milestone),
   }));
 }
 

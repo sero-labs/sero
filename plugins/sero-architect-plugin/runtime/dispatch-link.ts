@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { allocateStart } from '../shared/budget';
+import { isActiveDirect } from '../shared/direct-execution';
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import type { OrchestratorProjectContext } from '@sero-ai/common';
@@ -72,6 +73,13 @@ export async function performDispatch(
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     // A set-aside milestone keeps the link to its cancelled Room until it runs again.
     if (!current || (current.dispatch && current.status !== 'parked') || current.pendingDispatch) return null;
+    // The owner may have started this milestone itself, or a decision may have
+    // parked it, while the project context resolved above. This write is the
+    // last word on who holds the milestone.
+    if (isActiveDirect(current.direct) || current.status === 'running' || current.status === 'verifying' || current.status === 'done' || (current.status === 'parked' && current.parkedBy)) {
+      refusal = `Milestone ${milestone.id} is ${isActiveDirect(current.direct) ? 'being worked on by the Architect itself' : current.status === 'parked' ? 'parked by a decision' : current.status}, so no dispatch was started for it.`;
+      return null;
+    }
     if (usesProjectFiles(fresh, request) && (fresh.pendingEvidence?.length || projectWriter(fresh, milestone.id))) return null;
     // Sized in the write that reserves the dispatch, so a second start that
     // lands beside this one is measured against what this one left free.

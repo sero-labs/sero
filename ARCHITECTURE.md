@@ -129,6 +129,32 @@ separate domain records. A Room member uses a standard persistent Pi session;
 Orchestrator does not own a second transcript store or model runtime. The
 Conductor can coordinate only inside the approved operating envelope.
 
+The host amends a grant in place. An amendment keeps the grant id, the session
+directory and every subject binding, and the host applies it under the same
+serialization as every other grant write. A change inside the stored approval
+applies with no dialog. A change that adds authority returns `needs-approval`
+and is held until the user approves that addition. A caller picks the amendment
+id, and a repeat returns the stored result. Rooms reconcile their pending
+revisions at startup and ask again with the same id. A Room reaches a member's
+safe point (the end of its turn) before it asks, and never aborts a turn.
+
+A managed session (an Architect owner, a Room member) and a Workflow worker
+register every tool their approval allows and load a small set. Pi's
+`tool_search` loads another approved tool in the same session. A tool outside
+the approval is never registered, so discovery cannot widen authority.
+`sero-cli` has no discovery commands. Code Mode follows the same approval. An
+approved `codemode` starts loaded, because `tool_search` cannot find it, and a
+script can call only the tools the session registered. A new Architect owner
+asks for it at its start approval, an existing owner keeps its old approval,
+and a Room member has it only when the Room names it.
+
+An Architect owner or a Goal can wait on linked child work. The wait is saved
+with a stable source id. Its wake is reserved before it is requested and
+consumed by the existing driver when its turn starts: the Architect owner
+scheduler, or the Goal loop. The watcher only observes state and signals. The
+scheduler never polls: a state change, a startup and one deadline timer each
+trigger a read. A stop moves a control revision past every earlier wait.
+
 Session telemetry crosses one closed contract. `PersistentSessionEvent` names a
 turn, a request and a tool call with explicit identities and host timestamps, and
 carries no first-token timing because the SDK exposes no such event. A producer

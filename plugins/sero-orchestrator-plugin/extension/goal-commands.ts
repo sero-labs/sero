@@ -9,7 +9,7 @@
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import type { Goal, GoalLimits, GoalOutcome } from '../shared/goal-types';
+import type { Goal, GoalLimitOrigin, GoalLimits, GoalOutcome } from '../shared/goal-types';
 import { assertGoalContract, type GoalTurnStarter } from './goal-loop';
 import { hiddenTerminalTools, type TerminalToolSwitch } from './goal-terminal-switch';
 import { resolveGoalCaller, toolFailure, toolResult, type ToolResult } from './goal-session';
@@ -92,6 +92,8 @@ export async function executeGoalTool(
   params: GoalToolParamsShape,
   ctx: ExtensionContext | undefined,
   activeTools: () => string[],
+  /** The model calling the tool is an agent; the `/goal` command is the user. */
+  by: GoalLimitOrigin = 'agent',
 ): Promise<ToolResult> {
   // The tool surface is checked before anything else: it is the session's own,
   // and a goal that cannot be stopped must be refused for that reason and not
@@ -117,6 +119,7 @@ export async function executeGoalTool(
           objective: params.objective ?? '',
           criteria: parseCriteria(params.criteria),
           limits: parseLimits(params),
+          limitsBy: by,
         }),
       );
     case 'status': {
@@ -155,7 +158,7 @@ export async function executeGoalTool(
             ? await runtime.resume(own.id)
             : params.action === 'stop'
               ? await runtime.stop(own.id)
-              : await runtime.setLimits(own.id, parseLimits(params));
+              : await runtime.setLimits(own.id, parseLimits(params), by);
       return toolResult(outcome);
     }
   }
@@ -217,7 +220,7 @@ export function registerGoalCommands(
         ctx?.ui?.notify(parsed.error, 'error');
         return;
       }
-      const result = await executeGoalTool(parsed, ctx, () => terminalTools.reachableTools());
+      const result = await executeGoalTool(parsed, ctx, () => terminalTools.reachableTools(), 'user');
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
       // A stop or pause outside a turn must take the terminal tools away too.

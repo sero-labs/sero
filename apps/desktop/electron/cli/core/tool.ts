@@ -40,13 +40,13 @@ export function createSeroCliTool(
     description:
       'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands (one per line).',
     parameters: SeroCliToolParams,
-    async execute(_toolCallId, params, signal, onUpdate, toolCtx) {
+    async execute(toolCallId, params, signal, onUpdate, toolCtx) {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) {
-        return { content: [{ type: 'text', text: `ERROR: Workspace not found: ${workspaceId}` }], details: { exitCode: 1 } };
+        return { content: [{ type: 'text', text: `ERROR: Workspace not found: ${workspaceId}` }], details: { exitCode: 1 }, isError: true };
       }
 
-      const invocation = buildInvocation(workspaceId, sessionId, signal);
+      const invocation = buildInvocation(workspaceId, sessionId, signal, toolCallId);
       const context: CliCommandContext = {
         workspaceId,
         cwd: toolCtx?.cwd ?? wsPath,
@@ -70,6 +70,10 @@ export function createSeroCliTool(
       const richOutputFallback = !isSingleCommand && batch.richOutputFallback === true;
 
       return {
+        // A failed command is a failed call. A Code Mode script stops only on
+        // a call that says so itself: Pi does not run a script's calls through
+        // the host hook that marks a direct call.
+        ...(batch.exitCode !== 0 ? { isError: true } : {}),
         content: isSingleCommand
           ? getSingleResultContent(batch)
           : getMultiCommandFallbackContent(batch, richOutputFallback),

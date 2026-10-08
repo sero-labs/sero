@@ -11,7 +11,13 @@
  * that ordering irrelevant.
  */
 
-import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionsApi } from '@sero-ai/common';
+import {
+  modelKey,
+  type PersistentSessionExpansion,
+  type PersistentSessionGrantProposal,
+  type PersistentSessionSubjectPolicy,
+  type PersistentSessionsApi,
+} from '@sero-ai/common';
 import { existsSync, realpathSync } from 'fs';
 import type { CreateAgentSessionOptions, LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
 
@@ -19,6 +25,14 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { dropToolsNotForSessionKind } from '@electron/features/plugins/bridge-policy';
+import {
+  createSeroToolSearchExtension,
+  deferExtensionTools,
+  deferToolsOutside,
+  TOOL_SEARCH_TOOL_NAME,
+  unavailableToolsNote,
+} from '@electron/features/tool-loadout';
+import { CODEMODE_TOOL_NAME, createSeroCodemodeExtension } from '@electron/features/codemode';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import {
   restrictSearchToolOrigins,
@@ -32,26 +46,16 @@ import { getToolCatalogFor, getToolPackagePath, warmSubagentToolCatalog } from '
 import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
-import { clampProposal, describeGrantAuthority } from './clamp';
+import { clampProposal, clampSubjectPolicies, describeGrantAuthority, type ClampInputs } from './clamp';
 import { fitsDelegationPolicy, type DelegationLink } from './delegation-policy';
-import { applyPermissionProfile } from './permission-tools';
+import { classifyUnavailableTools, resolveMemberToolSurface } from './tool-surface';
 import { createMemberRuntimeTools } from './member-runtime-tools';
 import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
 import type { AppRuntimeTarget } from '../../types';
 
-/**
- * Clamps a proposal to what the user actually holds, then asks for approval.
- *
- * Clamping first is the point: the user is asked to approve the CLAMPED set, so
- * the thing they see and the thing the host stores are the same object. A
- * proposal is an input to this decision, never a source of authority.
- */
-export async function clampAndApprove(
-  workspaceId: string,
-  proposal: PersistentSessionGrantProposal,
-  link?: DelegationLink,
-): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
+/** What the host can verify a proposal against, for one workspace. Null when the workspace is unknown. */
+async function loadClampInputs(workspaceId: string): Promise<ClampInputs | null> {
   const { modelRuntime } = await ensureAiInfra();
   const [models, workspaces, toolCatalog, skills] = await Promise.all([
     modelRuntime.getAvailable(),
@@ -72,7 +76,7 @@ export async function clampAndApprove(
 
   // Every field is verified against something real. A proposal field the host
   // cannot resolve is dropped, never trusted — see clamp.ts.
-  const { proposal: clamped, notes } = clampProposal(proposal, {
+  return {
     // Only the root of the proposal's OWN workspace. Every other registered
     // root would let the grant bind a cwd in a workspace the dialog never
     // named, so the approval and the stored grant would describe different
@@ -87,7 +91,24 @@ export async function clampAndApprove(
     // The ceiling this build permits a managed session. Nothing here can grant
     // authority the user does not already hold in the workspace.
     permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },
-  });
+  };
+}
+
+/**
+ * Clamps a proposal to what the user actually holds, then asks for approval.
+ *
+ * Clamping first is the point: the user is asked to approve the CLAMPED set, so
+ * the thing they see and the thing the host stores are the same object. A
+ * proposal is an input to this decision, never a source of authority.
+ */
+export async function clampAndApprove(
+  workspaceId: string,
+  proposal: PersistentSessionGrantProposal,
+  link?: DelegationLink,
+): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
+  const loaded = await loadClampInputs(workspaceId);
+  if (!loaded) return null;
+  const { proposal: clamped, notes } = clampProposal(proposal, loaded);
 
   // A linked proposal inside a stored policy is access the user already
   // approved, so it is recorded without another dialog. The check runs on the
@@ -151,6 +172,30 @@ export async function clampAndApprove(
   return { approvalId: `approval_${Date.now().toString(36)}`, approved };
 }
 
+/** Clamps an amendment's subject policies against the grant's own workspace. Null when it is unknown. */
+export async function clampAmendmentSubjects(
+  workspaceId: string,
+  subjects: Record<string, PersistentSessionSubjectPolicy>,
+): Promise<Record<string, PersistentSessionSubjectPolicy> | null> {
+  const loaded = await loadClampInputs(workspaceId);
+  return loaded ? clampSubjectPolicies(subjects, loaded) : null;
+}
+
+/** Shows the user exactly the authority an amendment adds. Silence or "Not now" is a no. */
+export async function approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean> {
+  const choice = await requestChoice({
+    title: 'Allow more access for these agents?',
+    body: [reason, '', 'This adds:', ...expansion.map((item) => `• ${item.subject}: ${item.field} ${item.value}`)].join('\n'),
+    choices: [
+      { id: 'allow', label: 'Allow' },
+      { id: 'deny', label: 'Not now' },
+    ],
+    fallbackLabel: 'nothing changes',
+    timeoutMs: 120_000,
+  });
+  return !choice.timedOut && choice.choiceId === 'allow';
+}
+
 /** The plugin packages, beyond `basePackages`, that register an approved tool. */
 function approvedToolPackages(allowedTools: string[], basePackages: string[]): string[] {
   // A plugin removed since the catalogue was built is reported as not provided.
@@ -202,6 +247,8 @@ export async function installPersistentSessions(
     // runtime (the Architect) runs under the synthetic `global` workspace and
     // proposes sessions for a real project workspace.
     approveGrant: (proposal, link) => clampAndApprove(proposal.workspaceId, proposal, link),
+    clampSubjects: clampAmendmentSubjects,
+    approveExpansion,
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())
@@ -213,11 +260,15 @@ export async function installPersistentSessions(
     },
     buildSessionInputs: async (input) => {
       const infra = await ensureAiInfra();
-      // Second filter, after the allowlist: a profile that restricts nothing is
-      // decorative, and the approval dialog described the profile.
-      const { allowed, removed } = applyPermissionProfile(input.tools, input.policy.permissionProfile);
-      if (removed.length > 0) {
-        console.warn(`[persistent-sessions] permission profile removed: ${removed.join(', ')}`);
+      // The session registers everything the approval allows, after the profile
+      // (the second filter: a profile that restricts nothing is decorative, and
+      // the approval dialog described the profile). The request's tools only
+      // choose what starts loaded; the rest are deferred for `tool_search`.
+      const surface = resolveMemberToolSurface(input.policy, input.tools);
+      const allowed = surface.authorized;
+      const loadout = new Set(surface.loadout);
+      if (surface.denied.length > 0) {
+        console.warn(`[persistent-sessions] permission profile removed: ${surface.denied.join(', ')}`);
       }
       // The CLI scope of this session. Pi names its own session only after the
       // session exists, and the CLI registry needs the name BEFORE that — so the
@@ -240,14 +291,101 @@ export async function installPersistentSessions(
       const toolCwd = memberRuntime.backend === 'host' || !hostWorkspacePath
         ? input.cwd
         : toRuntimeCwd(hostWorkspacePath, input.cwd);
-      const runtimeTools = await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId);
+      const runtimeTools = deferToolsOutside(
+        await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId, surface.loadout),
+        loadout,
+      );
+      // Pi's `tool_search` is only worth its prompt text when a deferred tool
+      // exists to find. It joins the tool list below, once the loaded plugins
+      // show that one does.
+      const canDefer = allowed.some((name) => !loadout.has(name));
+      const codemodeApproved = allowed.includes(CODEMODE_TOOL_NAME);
+      let hasDeferredTool = runtimeTools.some((tool) => !loadout.has(tool.name));
+      let unavailableNote: string | null = null;
       // The grant-owning app and the search plugin always load. Any other plugin
       // loads only because an approved tool comes from it, and only that tool
       // is kept from it.
       const basePackages = [target.manifest.packagePath, ...searchPluginPackages()];
       const approvedPackages = approvedToolPackages(allowed, basePackages);
+      const resourceLoader = await createMemberResourceLoader({
+        cwd: input.cwd,
+        // The POLICY's skills, intersected with what the request asked for —
+        // the request alone would be the caller's word for it.
+        allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
+        appendSystemPrompt: input.systemPromptAdditions,
+        settingsManager: infra.settingsManager,
+        // The app that holds the grant, plus the built-in search plugin. The
+        // search tools are read-only and the permission profile still gates
+        // them, so a member approved for `filesystem: 'read'` can find a file
+        // instead of guessing its path; a member approved for none cannot.
+        packages: [...basePackages, ...approvedPackages],
+        lateAppendSystemPrompt: () => {
+          if (!unavailableNote) return [];
+          // The addition cap is the user's bound on prompt text a caller can add.
+          // The host's own line counts against it, and never fails the open.
+          const used = input.systemPromptAdditions.reduce((total, line) => total + Buffer.byteLength(line, 'utf8'), 0);
+          if (used + Buffer.byteLength(unavailableNote, 'utf8') > input.policy.maxSystemPromptAdditionBytes) {
+            console.warn(`[persistent-sessions] ${input.subject} unavailable-tools note skipped: ${unavailableNote}`);
+            return [];
+          }
+          return [unavailableNote];
+        },
+        extensionFactories: [
+          ...(canDefer ? [createSeroToolSearchExtension()] : []),
+          // Approved by name like any other tool. Without the approval the extension is not loaded at all.
+          ...(codemodeApproved ? [createSeroCodemodeExtension()] : []),
+          createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
+            // No agent-management tools: a Room member must not be able to
+            // spawn agents outside the roster the user approved.
+            enableAgentManagementTools: false,
+            cliRegistry,
+          }),
+        ],
+        bridgeExtensions: (base) => {
+          // Apply this to every member. The grant-owning app is loaded beside
+          // FFF and could otherwise replace an approved search name with a
+          // different implementation, regardless of its permission profile.
+          const restricted = restrictSearchToolOrigins(base);
+          const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
+          const provided = new Set([
+            'sero-cli',
+            ...(codemodeApproved ? [CODEMODE_TOOL_NAME] : []),
+            ...runtimeTools.map((tool) => tool.name),
+            ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
+          ]);
+          const missing = allowed.filter((name) => !provided.has(name));
+          if (missing.length > 0) {
+            console.warn(`[persistent-sessions] ${input.subject} approved tools not provided: ${missing.join(', ')}`);
+          }
+          const bridged = bridgeExtensionTools(forMember, { sessionId: cliScopeId, registry: cliRegistry });
+          // Registered but not declared: `tool_search` finds these. Bridged tools
+          // are already gone from the list; they stay reachable as commands.
+          if (deferExtensionTools(bridged, loadout).length > 0) hasDeferredTool = true;
+          unavailableNote = unavailableToolsNote(classifyUnavailableTools(surface, provided));
+          // The one line that says whether the member can talk at all. A Room
+          // whose members hold no `room` command looks like a Room that has
+          // nothing to say, so the commands and any extension that failed to
+          // load are both worth a line of log.
+          const commands = cliRegistry.list({ sessionId: cliScopeId }).map((command) => command.name);
+          console.log(
+            `[persistent-sessions] ${input.subject} commands: ${commands.join(', ') || 'none'}`
+            + ` (from ${bridged.extensions.map((extension) => extension.resolvedPath).join(', ') || 'no extensions'})`,
+          );
+          for (const failure of bridged.errors) {
+            console.log(`[persistent-sessions] ${input.subject} extension failed: ${failure.path}: ${failure.error}`);
+          }
+          return bridged;
+        },
+      });
       return {
-        tools: allowed,
+        // The names that load into the session, deferred ones included. Pi
+        // registers exactly these, so naming `tool_search` here is what switches it on.
+        tools: hasDeferredTool ? [...allowed, TOOL_SEARCH_TOOL_NAME] : allowed,
+        // Pi declares every named tool at open, so the loadout is set by hand.
+        // Pi registers `codemode` switched off, so an approved one is switched on by name here too.
+        ...(hasDeferredTool || codemodeApproved
+          ? { initialTools: [...surface.loadout, ...(hasDeferredTool ? [TOOL_SEARCH_TOOL_NAME] : [])] }
+          : {}),
         modelRuntime: infra.modelRuntime,
         settingsManager: infra.settingsManager,
         // Without this the session has no `sero-cli` tool object at all, so the
@@ -257,57 +395,7 @@ export async function installPersistentSessions(
           createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry),
           ...runtimeTools,
         ],
-        resourceLoader: await createMemberResourceLoader({
-          cwd: input.cwd,
-          // The POLICY's skills, intersected with what the request asked for —
-          // the request alone would be the caller's word for it.
-          allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
-          appendSystemPrompt: input.systemPromptAdditions,
-          settingsManager: infra.settingsManager,
-          // The app that holds the grant, plus the built-in search plugin. The
-          // search tools are read-only and the permission profile still gates
-          // them, so a member approved for `filesystem: 'read'` can find a file
-          // instead of guessing its path; a member approved for none cannot.
-          packages: [...basePackages, ...approvedPackages],
-          extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
-              // No agent-management tools: a Room member must not be able to
-              // spawn agents outside the roster the user approved.
-              enableAgentManagementTools: false,
-              cliRegistry,
-            }),
-          ],
-          bridgeExtensions: (base) => {
-            // Apply this to every member. The grant-owning app is loaded beside
-            // FFF and could otherwise replace an approved search name with a
-            // different implementation, regardless of its permission profile.
-            const restricted = restrictSearchToolOrigins(base);
-            const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
-            const provided = new Set([
-              'sero-cli',
-              ...runtimeTools.map((tool) => tool.name),
-              ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
-            ]);
-            const missing = allowed.filter((name) => !provided.has(name));
-            if (missing.length > 0) {
-              console.warn(`[persistent-sessions] ${input.subject} approved tools not provided: ${missing.join(', ')}`);
-            }
-            const bridged = bridgeExtensionTools(forMember, { sessionId: cliScopeId, registry: cliRegistry });
-            // The one line that says whether the member can talk at all. A Room
-            // whose members hold no `room` command looks like a Room that has
-            // nothing to say, so the commands and any extension that failed to
-            // load are both worth a line of log.
-            const commands = cliRegistry.list({ sessionId: cliScopeId }).map((command) => command.name);
-            console.log(
-              `[persistent-sessions] ${input.subject} commands: ${commands.join(', ') || 'none'}`
-              + ` (from ${bridged.extensions.map((extension) => extension.resolvedPath).join(', ') || 'no extensions'})`,
-            );
-            for (const failure of bridged.errors) {
-              console.log(`[persistent-sessions] ${input.subject} extension failed: ${failure.path}: ${failure.error}`);
-            }
-            return bridged;
-          },
-        }),
+        resourceLoader,
       };
     },
     log: (message) => console.warn(`[persistent-sessions] ${message}`),

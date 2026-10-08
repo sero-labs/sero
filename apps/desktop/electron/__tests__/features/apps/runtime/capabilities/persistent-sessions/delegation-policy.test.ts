@@ -188,6 +188,8 @@ describe('PersistentSessionHost — delegation', () => {
       grantStore: store,
       resolveSessionDir: () => SESSION_DIR,
       approveGrant,
+      clampSubjects: async (_workspaceId, subjects) => subjects,
+      approveExpansion: async () => false,
       listAvailableModelIds: async () => new Set<string>(),
       defaultThinking: () => 'low',
       buildSessionInputs: async () => ({}),

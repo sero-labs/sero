@@ -134,6 +134,11 @@ export type {
   PersistentSessionHistoryEntry,
   PersistentSessionsApi,
 } from './app-runtime-persistent-sessions';
+export type {
+  PersistentSessionExpansion,
+  PersistentSessionGrantAmendment,
+  PersistentSessionGrantAmendmentResult,
+} from './app-runtime-persistent-session-amendments';
 
 export type {
   AppRuntimeNotificationType,

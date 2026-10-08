@@ -20,6 +20,9 @@ import {
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { ExtensionRuntimeContent } from '@sero-ai/common';
 import type {
+  PersistentSessionExpansion,
+  PersistentSessionGrantAmendment,
+  PersistentSessionGrantAmendmentResult,
   PersistentSessionSubjectPolicy,
   PersistentSessionContextUsage,
   PersistentSessionEvent,
@@ -34,9 +37,11 @@ import type {
 } from '@sero-ai/common';
 
 import type { DelegationLink } from './delegation-policy';
+import { runAmendmentOnce, type AmendmentsInFlight } from './amendment-runner';
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
+import { loadoutWithLoaded } from '@electron/features/tool-loadout';
 import { readSessionHistoryPage } from './history';
 import { validatePersistentSessionRequest } from './validate';
 
@@ -44,7 +49,14 @@ import { validatePersistentSessionRequest } from './validate';
 export type SessionInputs = Pick<
   CreateAgentSessionOptions,
   'resourceLoader' | 'customTools' | 'modelRuntime' | 'settingsManager' | 'model' | 'thinkingLevel' | 'tools'
->;
+> & {
+  /**
+   * The tools declared to the model when the session opens. Pi declares every
+   * tool named in `tools`, deferred ones included, so a session that defers
+   * tools must narrow the declared set itself. Omitted when nothing is deferred.
+   */
+  initialTools?: string[];
+};
 
 /** Everything the host needs injected, so the whole surface is testable. */
 export interface PersistentSessionHostDeps {
@@ -69,6 +81,13 @@ export interface PersistentSessionHostDeps {
     /** The stored policy the proposal names, when it names one that exists. */
     link?: DelegationLink,
   ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null>;
+  /** Clamps an amendment's policies against the grant's workspace catalogue. Null when it cannot be resolved. */
+  clampSubjects(
+    workspaceId: string,
+    subjects: Record<string, PersistentSessionSubjectPolicy>,
+  ): Promise<Record<string, PersistentSessionSubjectPolicy> | null>;
+  /** Shows the user exactly the added authority. True only on an explicit yes. */
+  approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean>;
   /** Model ids currently resolvable through the one host ModelRuntime (AD-026). */
   listAvailableModelIds(): Promise<Set<string>>;
   /** The thinking level Pi applies when a request omits one. */
@@ -171,6 +190,12 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     };
   }
 
+  private readonly amending: AmendmentsInFlight = new Map();
+
+  amendGrant(input: PersistentSessionGrantAmendment): Promise<PersistentSessionGrantAmendmentResult> {
+    return runAmendmentOnce(this.amending, this.deps, input);
+  }
+
   async revokeGrant(grantId: string): Promise<void> {
     // Write-first: the revoked status is durable BEFORE anything is torn down,
     // so a crash mid-revocation leaves the grant revoked — the safe direction.
@@ -209,7 +234,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   async create(request: PersistentSessionRequest): Promise<PersistentSessionHandle> {
     const validation = await this.validate({ ...request, operation: 'create' });
 
-    const reservation = await this.deps.grantStore.reserve(request.grantId, request.subject);
+    const reservation = await this.deps.grantStore.reserve(request.grantId, request.subject, validation.policy);
     if (!reservation.ok) throw new Error(`Cannot create session: ${reservation.reason}.`);
 
     const grant = this.deps.grantStore.get(request.grantId);
@@ -235,7 +260,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         // Revocation won the race. The session exists but is unauthorised, so
         // it must not survive — the store cannot dispose it, only we can.
         await shutdownAndDispose(session, 'persistent session (revoked during create)');
-        throw new Error('Cannot create session: grant-revoked.');
+        throw new Error(`Cannot create session: ${commit.reason}.`);
       }
 
       const sessionId = sessionManager.getSessionId();
@@ -268,7 +293,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     if (!grant) throw new Error('Cannot open session: grant-not-found.');
 
     const handleId = this.deps.newId('psh');
-    const reservation = await this.deps.grantStore.reserveLive(request.grantId, request.subject, handleId);
+    const reservation = await this.deps.grantStore.reserveLive(request.grantId, request.subject, handleId, validation.policy);
     if (!reservation.ok) throw new Error(`Cannot open session: ${reservation.reason}.`);
 
     try {
@@ -280,7 +305,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         // not dispose a session that was not registered yet, so disposing it is
         // ours to do — same rule as `create`.
         await shutdownAndDispose(session, 'persistent session (revoked during open)');
-        throw new Error('Cannot open session: grant-revoked.');
+        throw new Error(`Cannot open session: ${commit.reason}.`);
       }
       const sessionId = sessionManager.getSessionId();
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
@@ -401,7 +426,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
   ) {
     const grant = this.deps.grantStore.get(request.grantId);
     if (!grant) throw new Error(`Persistent session denied: grant ${request.grantId} is unknown.`);
-    const inputs = await this.deps.buildSessionInputs({
+    const { initialTools, ...inputs } = await this.deps.buildSessionInputs({
       grantId: request.grantId,
       subject: request.subject,
       workspaceId: grant.workspaceId,
@@ -431,6 +456,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       tools: inputs.tools,
       sessionStartEvent: sessionStartEventFor(sessionManager),
     });
+    if (initialTools) session.setActiveToolsByName(loadoutWithLoaded(initialTools, sessionManager.buildSessionContext().messages));
     preserveBashFailureStatus(session.agent);
     await startSessionExtensions(session);
     return session;

@@ -13,6 +13,10 @@
  * runtime, which executes in Electron main with full Node authority.
  */
 
+import type {
+  PersistentSessionGrantAmendment,
+  PersistentSessionGrantAmendmentResult,
+} from './app-runtime-persistent-session-amendments';
 import type { ExtensionRuntimeContent } from './session-runtime';
 
 /**
@@ -124,6 +128,10 @@ export interface PersistentSessionGrantHandle {
   maxLiveSessions: number;
   maxTotalSessions: number;
   issuedAt: string;
+  /** Counts applied amendments. Absent on a grant that was never amended means 0. */
+  revision?: number;
+  /** Subjects that start no more sessions. */
+  retired?: string[];
   /** Present when the approved proposal carried a delegation. */
   delegation?: PersistentSessionDelegationPolicy;
   /** Present when the grant was issued under a stored policy, without a dialog. */
@@ -256,6 +264,8 @@ export interface PersistentSessionsApi {
    */
   requestGrant(proposal: PersistentSessionGrantProposal): Promise<PersistentSessionGrantHandle>;
   /** Aborts in-flight turns, disposes live sessions, and fails every later request. Idempotent. */
+  /** Changes an existing grant in place. See `PersistentSessionGrantAmendment`. */
+  amendGrant(amendment: PersistentSessionGrantAmendment): Promise<PersistentSessionGrantAmendmentResult>;
   revokeGrant(grantId: string): Promise<void>;
   /** Revokes the grant, then removes its transcripts and durable metadata. Idempotent. */
   deleteGrant(grantId: string): Promise<void>;

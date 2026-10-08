@@ -34,6 +34,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 let sessionFile = '';
 const sessionManager = {
   getSessionFile: () => sessionFile,
+  buildSessionContext: () => ({ messages: [] }),
   getSessionId: () => 'session-1',
   appendSessionInfo: () => undefined,
   getEntries: () => [],
@@ -87,12 +88,12 @@ function policy(cwd: string): PersistentSessionSubjectPolicy {
 /** The list the builder returns — already filtered by the approved profile. */
 const BUILT_TOOLS = ['read', 'sero-cli'];
 
-async function hostWithGrant() {
+async function hostWithGrant(builtInputs: { tools: string[]; initialTools?: string[] } = { tools: BUILT_TOOLS }) {
   const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'sero-member-session-')));
   const cwd = path.join(tmp, 'repo');
   await mkdir(cwd, { recursive: true });
 
-  const buildSessionInputs = vi.fn(async () => ({ tools: BUILT_TOOLS }));
+  const buildSessionInputs = vi.fn(async () => builtInputs);
   let counter = 0;
   const host = new PersistentSessionHost({
     appId: 'sero-orchestrator-plugin',
@@ -106,6 +107,8 @@ async function hostWithGrant() {
       approvalId: 'approval-1',
       approved: proposal,
     }),
+    clampSubjects: async (_workspaceId, subjects) => subjects,
+    approveExpansion: async () => false,
     listAvailableModelIds: async () => new Set([MODEL]),
     defaultThinking: () => 'low',
     buildSessionInputs,
@@ -171,6 +174,17 @@ describe('member session assembly', () => {
     expect(options.tools).toEqual(BUILT_TOOLS);
     // Without this the built-in tools stay on and the allowlist means nothing.
     expect(options.noTools).toBe('builtin');
+  });
+
+  it('narrows the declared tools to the loadout when the builder defers some', async () => {
+    const setActiveToolsByName = vi.fn();
+    createAgentSession.mockImplementation(async () => ({ session: { ...fakeSession(), setActiveToolsByName } }));
+
+    await hostWithGrant({ tools: ['read', 'sero-cli', 'tool_search'], initialTools: ['read', 'tool_search'] });
+
+    // The registered list reaches Pi whole, and the loadout is what is declared.
+    expect(createAgentSession.mock.calls.at(-1)?.[0].tools).toEqual(['read', 'sero-cli', 'tool_search']);
+    expect(setActiveToolsByName).toHaveBeenCalledWith(['read', 'tool_search']);
   });
 
   it('tells the builder which member it is building for', async () => {

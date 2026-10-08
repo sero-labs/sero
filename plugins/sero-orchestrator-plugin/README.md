@@ -54,6 +54,36 @@ the approved grant. Orchestrator cannot widen that grant. Room mode is enabled
 by default when the host provides the capability. Set `SERO_ROOMS=0` or
 `SERO_ROOMS=false` before startup to disable it without deleting Room data.
 
+### Change a running Room
+
+A running Room changes through a grant amendment, never a second grant. The
+host side is `grant-amendments.ts` and `amendment-runner.ts` in the persistent
+sessions capability. The Room side is `runtime/rooms/room-amend-plan.ts`
+(what a revision means), `room-amendment.ts` (the driver) and
+`shared/room-amendment-types.ts` (the saved intent).
+
+- A change to a member's model, thinking level, tools or skills, a join and a
+  replacement are amendments. Permissions and `needsWorktree` cannot change
+  while the Room runs, and a joining member cannot need its own checkout.
+- The driver saves intent, waits for each affected member's turn to end
+  (`sessions.settled`; a turn is never aborted), asks the host with the
+  revision's command id, saves the Room configuration with the new grant
+  revision, reopens the same bound session and confirms.
+- The host asks with `hold`. A change inside the approval applies. A change
+  that adds authority returns `needs-approval`, the revision is `held`, and the
+  user's approval asks the same amendment again with a dialog.
+- A replaced member is retired with its history kept. The replacement starts
+  from the handover.
+- `reconcile()` runs at startup before anything affected is scheduled. It asks
+  the host again with the same id, so a repeat never duplicates a change.
+
+Members and Workflow workers share one tool rule. A session registers every
+tool its approval allows, loads a small set, and uses Pi's `tool_search` to
+load another. A tool outside the approval is never registered. A Workflow
+worker whose step lists tools treats that list as its starting set
+(`toolsAreLoadout`). A member has Code Mode only when its tool list names `codemode`. It starts
+loaded, and a script can call only the tools the member was approved for.
+
 ### Diagnose and recover a Room
 
 1. Record the Room ID and affected member ID.
@@ -152,10 +182,21 @@ Phase 1 records the agent's completion claim and reports it as **reported
 complete**. The verification gate, deterministic criteria and background-drain
 awareness are phase 2.
 
-Nothing wakes a waiting goal in phase 1. Both a backstop timer and a condition
-registered on the event queue need that waiting infrastructure, so `goal_wait`
-records the reason and says plainly that the user restarts the goal, rather
-than promising a wake it cannot give.
+A `goal_wait` with a reason only stays manual: it promises no wake and the user
+restarts the goal. A `goal_wait` with `source: child` and a Workflow id in
+`target`, and an optional `deadlineMinutes`, registers a wait
+(`shared/goal-waits.ts`). `runtime/goals/goal-wait-watcher.ts` reads the
+Workflow's saved state on a change, at startup and on one deadline timer. It
+does not poll. On `satisfied`, `failed` or `expired` it reserves one wake and
+signals the Goal loop through `goal-wake.ts`. The loop is the only thing that
+starts a Goal turn. The wake goes through the same limit check and
+one-driver claim as a user resume, and a stop moves the Goal's control revision
+past every earlier wait. `process` and `ci` are refused. A failed or expired wait
+is never completion.
+
+An agent cannot raise or remove a Goal limit the user set. `changeGoalLimits`
+in `runtime/goals/goal-limits.ts` refuses it and allows a lower value or a limit
+the user left unset.
 
 The chat banner and the Orchestrator Goals view are gated on the approved
 prototypes (`goal-mode-chat.html`, `goal-mode-orchestrator.html`). The runtime

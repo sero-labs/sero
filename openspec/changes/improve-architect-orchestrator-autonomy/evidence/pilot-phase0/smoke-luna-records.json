@@ -1,0 +1,266 @@
+[
+  {
+    "candidate": "persistent-single-agent",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "chat-session",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "LOW tier, pinned on the session"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.007710000000000001,
+      "aggregateOnlyUsd": 0,
+      "coverage": "call",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 36199,
+      "activeMs": 29291,
+      "workerMs": 29291,
+      "waitMs": 6908
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 1,
+      "requests": 8,
+      "toolCalls": 7,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 2,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T20:34:38.703Z",
+    "run": {
+      "runId": "smoke-1:small-fix:r1:persistent-single-agent",
+      "strategy": "persistent-single-agent",
+      "revision": "e139767fc",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "openai-codex/gpt-5.6-luna",
+      "thinking": "medium",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 2,
+      "budgetMinutes": 15,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      8965,
+      9013,
+      9049,
+      9399,
+      9569,
+      9603,
+      9686,
+      9959
+    ]
+  },
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:quiet:wake_rx78oiu8",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:workflow:m1:plan",
+        "source": "workflow"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:decision:wake_kr8jyf8s",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:dispatch-complete:wake_8q0abh4m",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:dispatch-complete:wake_wkkb4jyy",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:workflow:m2:plan",
+        "source": "workflow"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:decision:wake_kez1doz0",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:quiet:wake_6nbj4h7l",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:dispatch-complete:wake_t5b3bq1h",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:evidence:m2",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:dispatch-complete:wake_5zaobxm0",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_6lc3trs8:owner-wake:dispatch-complete:wake_shbn59zy",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "medium",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.16021508000000004,
+      "aggregateOnlyUsd": 0.1353162,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 277829,
+      "activeMs": 256534,
+      "workerMs": 94856,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 3,
+      "turns": 10,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 2,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T20:41:52.159Z",
+    "run": {
+      "runId": "smoke-2:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "e139767fc+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "openai-codex/gpt-5.6-luna",
+      "thinking": "medium",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 2,
+      "budgetMinutes": 15,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      3768,
+      5698,
+      6022,
+      6349,
+      6620,
+      6782,
+      6981,
+      7084,
+      7125,
+      8671,
+      8710,
+      10258,
+      10808,
+      10979,
+      11072,
+      11116,
+      12908,
+      13081,
+      14006,
+      14249,
+      14456,
+      14817,
+      15001,
+      15107,
+      15159,
+      17086,
+      17124,
+      19094,
+      19138,
+      21027,
+      21119,
+      21161,
+      23468,
+      23760,
+      23888,
+      23942,
+      26136,
+      26323,
+      26407,
+      26468,
+      28099,
+      28138
+    ]
+  }
+]

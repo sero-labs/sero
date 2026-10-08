@@ -23,6 +23,11 @@ export interface GoalStore {
   /** The goal a session drives, if any. A session drives at most one goal. */
   forSession(sessionPath: string): Promise<Goal | null>;
   put(goal: Goal): Promise<void>;
+  /**
+   * One serialized read-modify-write. `change` sees the freshest record and
+   * returns it unchanged to write nothing. Returns the record left in the store.
+   */
+  update(goalId: string, change: (goal: Goal) => Goal): Promise<Goal | null>;
   remove(goalId: string): Promise<boolean>;
 }
 
@@ -119,6 +124,20 @@ export function createGoalStore(io: GoalStoreIo, stateDir: string, paths: GoalPa
         goals.set(goal.id, goal);
         await io.write(paths.goal(goal.id), goal);
         await writeIndex(goals);
+      });
+    },
+
+    async update(goalId, change) {
+      const goals = await ensureLoaded();
+      return serialize(async () => {
+        const current = goals.get(goalId);
+        if (!current) return null;
+        const next = change(current);
+        if (next === current) return current;
+        goals.set(goalId, next);
+        await io.write(paths.goal(goalId), next);
+        await writeIndex(goals);
+        return next;
       });
     },
 

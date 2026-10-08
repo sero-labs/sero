@@ -158,7 +158,7 @@ describe('owner actions', () => {
   it('refuses evidence before linked work reports completion', async () => {
     const { actions, services } = await setup();
     const outcome = await actions.execute(owner, { action: 'evidence', projectId: 'proj_1', milestoneId: 'm1', commands: ['pnpm test'] });
-    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('linked dispatch') });
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('linked work') });
     expect(services.evidence).not.toHaveBeenCalled();
   });
 

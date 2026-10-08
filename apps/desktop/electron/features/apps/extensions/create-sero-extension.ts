@@ -35,6 +35,7 @@ import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { registerSubagentTool, registerCreateAgentTool } from '@electron/features/subagent/extensions/tool';
+import { codemodePromptBlock } from '@electron/features/codemode';
 import { buildSubagentPromptBlock } from '@electron/features/subagent/extensions/prompt';
 import type { SubagentManager } from '@electron/features/subagent';
 
@@ -118,6 +119,8 @@ export function createSeroExtensionFactory(
         // section names a folder its file tools cannot read.
         systemPrompt = withHostPiDocsPointer(systemPrompt);
       }
+
+      systemPrompt += codemodePromptBlock(pi.getActiveTools());
 
       // Inject subagent guidance for main sessions
       if (options?.enableAgentManagementTools) {

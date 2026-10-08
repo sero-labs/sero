@@ -10,6 +10,7 @@
 
 import type { DeliveryDestinationId } from './delivery-types';
 import type { MemberPermissionLevel } from './room-blueprint-types';
+import type { RoomRevisionAmendment } from './room-amendment-types';
 import type { RoomRevisionProposal } from './room-revision-types';
 
 export type RoomMessageKind =
@@ -156,6 +157,12 @@ export type RoomRevisionKind =
  */
 export type RevisionOutcome =
   | 'applied'
+  /** A running Room's grant is being amended; nothing is effective yet. */
+  | 'pending'
+  /** The amendment needs a person or a retry. The old configuration still holds. */
+  | 'held'
+  /** Declined, by the user or by the host. The old configuration stays. */
+  | 'declined'
   | 'awaiting-approval'
   | 'rejected'
   | 'refused'
@@ -183,6 +190,8 @@ export interface RoomRevision {
    * before this was recorded, and on one whose proposal is no longer needed.
    */
   proposal: RoomRevisionProposal | null;
+  /** The grant amendment behind a revision on a running Room. Absent on any other revision. */
+  amendment?: RoomRevisionAmendment;
   outcome: RevisionOutcome;
   /** Set when the revision needed the user because it widened authority. */
   requiresApproval: boolean;

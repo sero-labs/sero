@@ -11,6 +11,7 @@
  * state change, because session entries alone die with forks and clears.
  */
 
+import type { GoalWaitRegistration } from './goal-waits';
 import type { LoopLimits } from './types';
 
 /**
@@ -45,6 +46,14 @@ export type GoalPauseReason = 'user' | 'abort' | 'no-progress' | 'restore' | 'to
  */
 export type GoalLimitKey = 'maxAttemptsTotal' | 'maxWallClockMs' | 'maxTotalTokens' | 'maxCostUsd';
 export type GoalLimits = Pick<LoopLimits, GoalLimitKey>;
+
+/**
+ * Who set a limit. An agent may tighten a user's limit or set one the user left
+ * unset, but may not raise or remove a user's limit. A limit with no recorded
+ * origin (a goal saved before this was tracked) counts as the user's.
+ */
+export type GoalLimitOrigin = 'user' | 'agent';
+export type GoalLimitOrigins = Partial<Record<GoalLimitKey, GoalLimitOrigin>>;
 
 /**
  * What the goal has spent. Only turns the goal itself started are charged —
@@ -121,12 +130,18 @@ export interface Goal {
   criteria: string[];
   status: GoalStatus;
   limits: GoalLimits;
+  /** Who set each limit. Absent on goals saved before origins were recorded. */
+  limitOrigins?: GoalLimitOrigins;
   usage: GoalUsage;
   progress: GoalProgressLedger;
   /** Start of the current `active` span, folded into `usage.activeMs` when it ends. */
   activeSince?: string;
   pauseReason?: GoalPauseReason;
   wait?: GoalWait;
+  /** Observable waits the agent registered. The reason-only `wait` above stays manual. Absent on older goals. */
+  waits?: GoalWaitRegistration[];
+  /** Bumped by a stop, so a wait registered before it is stale. Absent counts as 0. */
+  controlRevision?: number;
   block?: GoalBlock;
   limitReached?: GoalLimitKey;
   reportedComplete?: GoalCompletionReport;

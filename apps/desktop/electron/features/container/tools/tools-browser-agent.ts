@@ -6,7 +6,7 @@ import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime
 import {
   agentBrowserCommand,
   defaultRecordingPath,
-  defaultScreenshotPath,
+  screenshotPath,
   ensureAgentBrowserAvailable,
   ensureFfmpegAvailable,
   resolveBrowserAutomationRuntime,
@@ -22,29 +22,10 @@ import {
 } from './tools-browser-agent-helpers';
 import { BrowserParams } from './tool-schemas';
 import { clickByText, textSelectorValue } from './tools-browser-agent-text';
+import { browserSessionAnswers, COMMAND_TIMED_OUT, resetHungBrowserSession, sessionCommand } from './tools-browser-agent-session';
 import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
-
-function browserSessionName(workspaceId: string, backend: RuntimeBackend['backend']): string {
-  return `sero-${workspaceId}-${backend}`;
-}
-
-function sessionCommand(
-  adapter: BrowserRuntimeAdapter,
-  workspaceId: string,
-  backend: RuntimeBackend['backend'],
-  executablePath: string | null,
-  args: string[],
-  env?: Record<string, string | number | boolean | undefined>,
-): string {
-  return agentBrowserCommand(
-    adapter,
-    ['--session', browserSessionName(workspaceId, backend), ...(executablePath ? ['--executable-path', executablePath] : []), ...args],
-    env,
-    backend === 'host' ? process.platform : undefined,
-  );
-}
 
 function parseJsonOutput(raw: string): AgentBrowserJson {
   const trimmed = raw.trim();
@@ -130,6 +111,14 @@ async function runAgent(
     command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, [...args, '--json'], env),
     timeoutMs: options.execTimeoutMs ?? 60_000,
   });
+  if (COMMAND_TIMED_OUT.test(result.stderr) && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+    await resetHungBrowserSession(runtime, workspaceId);
+    throw new Error(
+      `The automation browser gave no answer in ${Math.round((options.execTimeoutMs ?? 60_000) / 1000)}s. `
+      + 'The page is probably busy in its own code, for example an endless loop, and a page in that state answers nothing. '
+      + 'The browser was reset. Launch it again, and expect the same action to hang the page again until the page is fixed.',
+    );
+  }
   const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';
@@ -194,6 +183,16 @@ async function openBrowserUrl(runtime: RuntimeBackend, adapter: BrowserRuntimeAd
   }
 }
 
+/**
+ * The wait after a page is opened. `open` returns once the page has loaded, and
+ * the browser's own `--load load` then waits for an event that has already
+ * passed: measured at 25s on every call. The page's ready state is asked for
+ * instead. `networkidle` has no such fault.
+ */
+function loadWaitArgs(waitUntil: string): string[] {
+  return waitUntil === 'load' ? ['wait', '--fn', 'document.readyState === "complete"'] : ['wait', '--load', waitUntil];
+}
+
 async function launchBrowser(
   runtime: RuntimeBackend,
   adapter: BrowserRuntimeAdapter,
@@ -214,7 +213,7 @@ async function launchBrowser(
   }
   const waitUntil = params.wait_until ?? 'domcontentloaded';
   if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded' && response.success !== false) {
-    await runAgent(runtime, adapter, workspaceId, executablePath, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+    await runAgent(runtime, adapter, workspaceId, executablePath, loadWaitArgs(waitUntil), { execTimeoutMs: 30_000 });
   }
   return response;
 }
@@ -319,7 +318,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
           const response = await openBrowserUrl(runtime, adapter, workspaceId, executablePath, params.url);
           const waitUntil = params.wait_until ?? 'domcontentloaded';
           if (waitUntil !== 'domcontentloaded' && response.success !== false) {
-            await runAgent(runtime, adapter, workspaceId, executablePath, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+            await runAgent(runtime, adapter, workspaceId, executablePath, loadWaitArgs(waitUntil), { execTimeoutMs: 30_000 });
           }
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, `Opened ${params.url}`) }], details: undefined };
@@ -423,7 +422,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
         }
 
         if (action === 'screenshot') {
-          const shotPath = defaultScreenshotPath(adapter);
+          const shotPath = screenshotPath(runtime, adapter);
           const shotDir = runtimeDirname(shotPath);
           if (shotDir) await runtime.createDirectory({ path: shotDir, recursive: true });
           await runtime.delete({ path: shotPath }).catch(() => undefined);

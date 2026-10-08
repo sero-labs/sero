@@ -25,7 +25,7 @@ async function setup() {
   const gate = createWakeGate();
   gate.release();
   const scheduler: WakeScheduler = createWakeScheduler({ gate, log: host.log, deliver: async (projectId, wake) => { delivered.push({ projectId, wake }); } });
-  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
+  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), readSources: vi.fn(async () => null), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   const services = {
     research: vi.fn(async () => ({ id: 'res_1' })),
     resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
@@ -785,7 +785,7 @@ describe('project management', () => {
         await sessions.runTurn(record, wake);
       },
     });
-    const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
+    const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), readSources: vi.fn(async () => null), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
       research: vi.fn(async () => ({ id: 'res_1' })),
       resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),

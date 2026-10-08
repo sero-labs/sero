@@ -15,6 +15,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
+import { codemodePromptBlock } from '@electron/features/codemode';
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock, getCliRegistry } from '@electron/cli';
 import { announceSessionCliSurface } from '@electron/cli/session-surface';
@@ -67,6 +68,8 @@ export function createSubagentExtensionFactory(
         // A host subagent may run on a custom prompt with no Pi section at all.
         systemPrompt = withHostPiDocsPointer(systemPrompt);
       }
+
+      systemPrompt += codemodePromptBlock(pi.getActiveTools());
 
       if (systemPrompt !== event.systemPrompt) {
         return { systemPrompt };

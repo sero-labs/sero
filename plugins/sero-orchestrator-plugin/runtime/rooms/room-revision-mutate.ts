@@ -18,7 +18,7 @@ import type { BlueprintMember } from '../../shared/room-blueprint-types';
 import type { RoomRevisionProposal } from '../../shared/room-revision-types';
 import type { Room, RoomMember } from '../../shared/room-types';
 import { toMemberRecord } from './member-grant';
-import { widenEnvelopeForMember } from './room-revision-plan';
+import { toBlueprintMember, widenEnvelopeForMember } from './room-revision-plan';
 
 /** Handover text a replacement starts on. Long enough to matter, bounded on purpose. */
 const MAX_HANDOVER_CHARS = 2000;
@@ -95,18 +95,20 @@ export function applyRevisionToRoom(room: Room, proposal: RoomRevisionProposal, 
       };
 
     case 'change-configuration':
-      // The plan permits removals only, so this narrows a member's capability
-      // list and never widens it. The grant still holds the wider set; the next
-      // session request simply asks for less.
-      return mapMember(room, proposal.memberId, (member) => ({
+      // Without a grant the plan permits removals only. On a running Room the
+      // host has already amended the grant by the time this runs, and a change
+      // that goes beyond the Room's envelope widens the envelope with it.
+      return withEnvelopeFor(mapMember(room, proposal.memberId, (member) => ({
         ...member,
         configuration: {
           ...member.configuration,
+          model: proposal.configuration.model ?? member.configuration.model,
+          thinking: proposal.configuration.thinking ?? member.configuration.thinking,
           tools: proposal.configuration.tools ?? member.configuration.tools,
           skills: proposal.configuration.skills ?? member.configuration.skills,
           revision: member.configuration.revision + 1,
         },
-      }));
+      })), proposal.memberId, now);
 
     case 'suspend-member':
       return mapMember(room, proposal.memberId, (member) => ({
@@ -137,6 +139,7 @@ export function applyRevisionToRoom(room: Room, proposal: RoomRevisionProposal, 
             ...replacement,
             status: 'idle',
             statusDetail: 'Taking over.',
+            replacedFromMemberId: proposal.memberId,
             // The handover is the replacement's first task, so the work the
             // retired member left is carried by a record rather than by whatever
             // the Conductor remembers to say later (§13.3).
@@ -189,6 +192,16 @@ function withMemberAdmitted(room: Room, member: BlueprintMember, now: string): R
     envelope: widenEnvelopeForMember(room.definition.envelope, member),
     updatedAt: now,
   };
+}
+
+/** The envelope after a member's own setup is admitted. A setup it already fits changes nothing. */
+function withEnvelopeFor(room: Room, memberId: string, now: string): Room {
+  const member = room.members.find((candidate) => candidate.id === memberId);
+  if (!member) return room;
+  const envelope = widenEnvelopeForMember(room.definition.envelope, toBlueprintMember(member));
+  return JSON.stringify(envelope) === JSON.stringify(room.definition.envelope)
+    ? room
+    : { ...room, definition: { ...room.definition, envelope, updatedAt: now } };
 }
 
 function retire(

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@earendil-works/pi-coding-agent', () => ({
   Theme: class {},
   createAgentSession: mocks.createAgentSession,
+  createToolSearchExtension: () => vi.fn(),
   SessionManager: {
     inMemory: vi.fn((cwd: string) => ({ cwd })),
   },
@@ -24,6 +25,9 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
     }
     async reload() {
       await mocks.reloadResources();
+    }
+    getExtensions() {
+      return { extensions: [], errors: [], runtime: {} };
     }
   },
 }));
@@ -116,6 +120,7 @@ function createSession() {
     subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
     prompt: vi.fn(async () => {}),
     getAllTools: vi.fn(() => []),
+    setActiveToolsByName: vi.fn(),
     messages: [],
     getSessionStats: vi.fn(() => ({
       tokens: {
@@ -705,6 +710,47 @@ describe('runSubagent context overrides', () => {
     expect(mocks.activateCodemode).toHaveBeenCalledOnce();
     // Pi loads the extension only when the allowlist names its tool.
     expect(options.tools).toContain('codemode');
+  });
+
+  it('registers the policy surface and declares only the loadout when the allowlist is a planner loadout', async () => {
+    mocks.createRuntimeTools.mockResolvedValueOnce([
+      { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'read', description: '', parameters: {}, execute: vi.fn() },
+    ] as never);
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['read'];
+    config.toolsAreLoadout = true;
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools: string[]; customTools: { name: string; exposure?: string }[] };
+    expect(options.tools).toEqual(expect.arrayContaining(['read', 'bash', 'codemode', 'tool_search']));
+    expect(options.customTools.find((tool) => tool.name === 'bash')?.exposure).toBe('deferred');
+    expect(session.setActiveToolsByName).toHaveBeenCalledWith(['read', 'tool_search']);
+    expect(mocks.activateCodemode).not.toHaveBeenCalled();
+  });
+
+  it('does not let a planner loadout bring back a disabled tool', async () => {
+    mocks.createRuntimeTools.mockResolvedValueOnce([
+      { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
+      { name: 'read', description: '', parameters: {}, execute: vi.fn() },
+    ] as never);
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+    const config = createConfig(new AbortController().signal);
+    config.platformTools = 'all';
+    config.tools = ['read', 'bash'];
+    config.toolsAreLoadout = true;
+    config.disabledTools = ['bash'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { tools: string[] };
+    expect(options.tools).not.toContain('bash');
+    expect(session.setActiveToolsByName.mock.calls.flat(2)).not.toContain('bash');
   });
 
   it('keeps codemode for a read-only policy', async () => {

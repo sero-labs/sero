@@ -26,12 +26,12 @@ import {
   settleOrGiveUp,
   type ToolStallWatch,
 } from './abort-grace';
-import { filterPlatformTools, resolveSubagentPaths, sessionToolOptions, codemodeToolOptions } from './session-policy';
+import { filterPlatformTools, planWorkerTools, resolveSubagentPaths } from './session-policy';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { containerPromptState, type ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
-import { activateCodemode, CODEMODE_TOOL_NAME } from '@electron/features/codemode';
+import { activateCodemode } from '@electron/features/codemode';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { clearBridgedExtensionSessionStateForSession } from '@electron/cli';
 import { createSubagentResourceLoader, shouldBridgePluginTools } from './resource-loader';
@@ -212,12 +212,6 @@ export async function runSubagent(
       }
       // User context override: drop disabled tools from the surface entirely.
       const disabledTools = new Set(config.disabledTools ?? []);
-      // Pi's `codemode` is a session tool, not a custom tool. An allowlist wins,
-      // otherwise only a disabled tool takes it away.
-      const codemodeAllowlist = config.tools && config.tools.length > 0 ? config.tools : undefined;
-      const codemodeAllowed = codemodeAllowlist
-        ? codemodeAllowlist.includes(CODEMODE_TOOL_NAME)
-        : !disabledTools.has(CODEMODE_TOOL_NAME);
       const customTools = [...platformTools, ...(config.customTools ?? [])].filter(
         (tool) => !disabledTools.has(tool.name),
       );
@@ -243,17 +237,25 @@ export async function runSubagent(
         disabledSkills: config.disabledSkills,
         restrictSearchTools: policy === 'readOnly',
         bridgePluginTools: shouldBridgePluginTools(policy, config.tools, disabledTools),
+        toolSearch: config.toolsAreLoadout === true,
       });
       await loader.reload();
       if (stopped()) return { ok: false, stopped: true };
 
+      const plan = planWorkerTools({
+        policy,
+        customTools,
+        allowlist: config.tools,
+        allowlistIsLoadout: config.toolsAreLoadout === true,
+        disabledTools,
+        extensions: () => loader.getExtensions(),
+      });
       const sessionOptions: CreateAgentSessionOptions = {
         cwd: sessionPath,
         agentDir: SERO_AGENT_DIR,
         modelRuntime: infra.modelRuntime,
-        ...sessionToolOptions(policy, customTools, config.tools),
-        ...codemodeToolOptions(policy, customTools, config.tools, codemodeAllowed),
-        customTools,
+        ...plan.options,
+        customTools: plan.customTools,
         resourceLoader: loader,
         sessionManager: SessionManager.inMemory(sessionPath),
         settingsManager: infra.settingsManager,
@@ -264,8 +266,10 @@ export async function runSubagent(
       // A stop that arrived while the session was being created must not pay
       // for a model switch or an extension start on a session the run will drop.
       if (stopped()) return { ok: false, stopped: true };
+      // Pi declares every tool the allowlist names. A loadout run declares only its loadout.
+      if (plan.initialTools) session.setActiveToolsByName(plan.initialTools);
       // Pi registers `codemode` inactive. Switch it on, so it is a normal session tool.
-      if (codemodeAllowed) activateCodemode(session);
+      if (plan.activateCodemode) activateCodemode(session);
       preserveBashFailureStatus(session.agent);
 
       let effectiveThinking = resolved.thinking;

@@ -33,11 +33,11 @@ const DO_NOT_SET = 'Do not set. Evidence is produced by the runtime; a call carr
 const RESERVED_IN_SCHEMA = ['exitCode', 'capturePath', 'diffSummary'] as const satisfies readonly (typeof EVIDENCE_RESERVED_KEYS)[number][];
 
 export const OwnerToolParams = Type.Object({
-  action: StringEnum(OWNER_ACTIONS, { description: 'Action to run: brief, working, summary, charter, milestone, decide, research, dispatch, control, evidence, status, reply, blocked or sleep' }),
+  action: StringEnum(OWNER_ACTIONS, { description: 'Action to run: brief, working, summary, charter, milestone, decide, research, dispatch, work, control, evidence, status, reply, blocked or sleep' }),
   projectId: Type.String({ description: 'The project this session owns. Every call carries it' }),
   runId: Type.Optional(Type.String({ description: 'milestone/sleep: the maintenance run id from the contract' })),
   noWorkNeeded: Type.Optional(Type.Boolean({ description: 'sleep: close runId as no work needed after triage; requires text explaining why' })),
-  text: Type.Optional(Type.String({ description: 'brief/summary/status/reply/blocked/sleep: the text, on one line' })),
+  text: Type.Optional(Type.String({ description: 'brief/summary/status/reply/blocked/sleep: the text, on one line. work report: what you completed' })),
   textJson: Type.Optional(Type.String({ description: 'brief/reply: the text as one JSON string, in place of text, when it has more than one line. Write a newline as \\n and a double quote as \\u0022' })),
   planJson: Type.Optional(Type.String({ description: 'milestone: the plan as one JSON string, in place of plan, when it has more than one line' })),
   approachJson: Type.Optional(Type.String({ description: 'working: the approach as one JSON string, in place of approach, when it has more than one line' })),
@@ -45,7 +45,7 @@ export const OwnerToolParams = Type.Object({
   sourceKind: Type.Optional(StringEnum(SUMMARY_SOURCE_KINDS, { description: 'summary: the kind of work the sentence is about; required for result and acknowledgement' })),
   sourceId: Type.Optional(Type.String({ description: 'summary: the id of that milestone, research, evidence milestone or directive; any value for plan' })),
   title: Type.Optional(Type.String({ description: 'milestone: the title (required for a new milestone)' })),
-  milestoneId: Type.Optional(Type.String({ description: 'milestone/dispatch/evidence: the milestone id' })),
+  milestoneId: Type.Optional(Type.String({ description: 'milestone/dispatch/work/evidence: the milestone id' })),
   plan: Type.Optional(Type.String({ description: 'milestone: the plan, including the acceptance criteria an evaluator can check against the result' })),
   previewRoute: Type.Optional(Type.String({ description: 'milestone: the route a preview milestone must render, e.g. /' })),
   done: Type.Optional(Type.Boolean({ description: 'milestone: set true to accept it after evidence passes' })),
@@ -64,14 +64,17 @@ export const OwnerToolParams = Type.Object({
   parks: Type.Optional(Type.String({ description: 'decide: milestone ids to park, comma-separated' })),
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
   changeName: Type.Optional(Type.String({ description: 'openspec/research: the OpenSpec change linked to a milestone; research requires a read-only Room' })),
-  operation: Type.Optional(StringEnum(['status', 'instructions', 'validate', 'pause', 'resume', 'retry', 'cancel'] as const, { description: 'openspec: status, instructions or validate. control: pause, resume, retry or cancel' })),
-  target: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow you control' })),
+  operation: Type.Optional(StringEnum(['status', 'instructions', 'validate', 'pause', 'resume', 'retry', 'cancel', 'begin', 'continue', 'report', 'wait'] as const, { description: 'openspec: status, instructions or validate. control: pause, resume, retry or cancel. work: begin, continue, report or wait' })),
+  executionId: Type.Optional(Type.String({ description: 'work continue/report: the execution id that begin returned' })),
+  target: Type.Optional(Type.String({ description: 'control/work wait: the milestone id or research id whose Room or Workflow you control or wait for' })),
+  source: Type.Optional(Type.String({ description: 'work wait: child (the target\'s Room or Workflow). process and ci cannot be monitored yet and are refused' })),
+  deadlineMinutes: Type.Optional(Type.Number({ description: 'work wait: end the wait as expired after this many minutes' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time. The user decides' })),
   artifact: Type.Optional(StringEnum(['proposal', 'specs', 'design', 'tasks', 'apply'] as const, { description: 'openspec instructions: artifact to prepare' })),
   needsCommands: Type.Optional(Type.Boolean({ description: 'research, kind room only: true when the question can only be answered by running commands such as tests or builds. The Room then gets edit-workspace access, each member in its own worktree' })),
   kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch/research: room for investigation, solution planning or adversarial review by specialists; workflow for a structured execution flow toward an accepted objective; omitted research uses one researcher' })),
   prompt: Type.Optional(Type.String({ description: 'dispatch: the objective, the approved constraints and the acceptance criteria. The Workflow or Room plans its own execution; do not supply a step-by-step plan' })),
-  destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: delivery target. pr and workspace-files run directly. Any other target requires a user decision' })),
+  destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: delivery target. pr and workspace-files run directly. Any other target requires a user decision. work report: workspace-files when your own work is the delivery' })),
   maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: maximum USD this run may spend. If it exceeds the remaining budget, ask the user first. control retry: a larger total cap for a Workflow that stopped at its cap; the user decides' })),
   commandsJson: Type.Optional(Type.String({ description: 'evidence: JSON array of commands for the runtime to run, e.g. ["pnpm test"]' })),
   route: Type.Optional(Type.String({ description: 'evidence: the route to open for a preview milestone' })),
@@ -114,8 +117,11 @@ export interface OwnerToolParamsShape {
   parks?: string;
   stoppingCondition?: string;
   changeName?: string;
-  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel';
+  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel' | 'begin' | 'continue' | 'report' | 'wait';
+  executionId?: string;
   target?: string;
+  source?: string;
+  deadlineMinutes?: number;
   maxMinutes?: number;
   artifact?: 'proposal' | 'specs' | 'design' | 'tasks' | 'apply';
   needsCommands?: boolean;
@@ -211,7 +217,10 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     stoppingCondition: params.stoppingCondition,
     changeName: params.changeName,
     operation: params.operation,
+    executionId: params.executionId,
     target: params.target,
+    source: params.source,
+    deadlineMinutes: params.deadlineMinutes,
     maxMinutes: params.maxMinutes,
     artifact: params.artifact,
     needsCommands: params.needsCommands,
@@ -245,7 +254,7 @@ export function registerOwnerTool(pi: ExtensionAPI): void {
   const tool: ToolDefinition<typeof OwnerToolParams> = {
     name: 'architect',
     label: 'Architect',
-    description: 'Act on the Architect project you own: brief, working, summary, charter, milestone, decide, research, dispatch, control, evidence, status, reply, blocked, sleep. Every call carries projectId.',
+    description: 'Act on the Architect project you own: brief, working, summary, charter, milestone, decide, research, dispatch, work, control, evidence, status, reply, blocked, sleep. Every call carries projectId.',
     parameters: OwnerToolParams,
     execute: (_id, params, _signal, _onUpdate, ctx) => executeOwnerTool(params, ctx),
     renderCall(args, theme) {

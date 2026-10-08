@@ -58,12 +58,51 @@ tool that needs more authority is removed from the approved grant. An unknown
 plugin tool is denied until Sero has an explicit permission mapping for it.
 
 The Conductor can change tasks, priorities, and instructions. It can retire,
-suspend, or resume members, but it cannot add or replace members after the Room
-starts. It also cannot increase a member's access. The host grant fixes the
-member set and each member's tools for the running Room.
+suspend, or resume members. It can also change a member's setup, add a member
+or replace one while the Room runs. See
+[Change a running Room](#change-a-running-room). A change never gives a member
+more than you approved unless you approve that addition.
 
-The Room can ask the user to approve a higher time or cost limit. Requests for
-new members or increased access are rejected while the Room runs.
+The Room can ask the user to approve a higher time or cost limit.
+
+A member, like an Architect owner, registers every tool its approval allows and
+starts with a small loaded set. It finds and loads another approved tool in the
+same session with Pi's `tool_search`, with no new approval. A tool outside the
+approval is not registered, so the member cannot find or call it. One line in
+the member's prompt lists the approved tools it does not have, and why: its
+plugin is not installed, you turned it off, it is not available to a Room
+member, or it is outside the approval. After the session reopens, a member can search
+for the tool again. Discovery is not a `sero-cli` command.
+
+A member has Code Mode when the Room gives it that tool, at the start approval
+or in a later change you approve. No member has it by default. It starts
+loaded, and a script can call only the tools that member was approved for. A
+read-only member's script cannot reach a write tool.
+
+## Change a running Room
+
+A running Room can change through its existing approval. Sero keeps the same
+grant and every member's history. It does not start a second grant.
+
+| Change | Rule |
+| --- | --- |
+| A member's model, thinking level, tools or skills | allowed |
+| Add a member | allowed. The new member cannot need its own checkout |
+| Replace a member | allowed. The old member is retired with its history kept. The new member starts from the handover |
+| A member's permission level, or whether it needs its own checkout | not allowed while the Room runs |
+
+A change that stays inside what you approved applies with no dialog. It takes
+effect at the member's next safe point: the end of its current turn. Sero never
+aborts a turn to apply a change. A change that adds access, such as a tool,
+skill, model, thinking level or member you did not approve, is held. The Room
+shows what it would add. It applies only after you approve that addition. If
+you decline, the Room keeps its old setup.
+
+A member can have one open setup change at a time. A member whose setup is
+changing does not start work until the change is applied or settled.
+
+If Sero restarts during a change, the change is finished or held. It is never
+applied twice.
 
 ## Workspace modes
 
@@ -211,5 +250,9 @@ results. Remove private data before you share them.
 
 - [Rooms guide](/guide/rooms)
 - [Orchestrator reference](/reference/orchestrator)
+- [Manage a Room](/guide/rooms-advanced)
+- [Architect reference](/reference/architect)
+- [Goals](/guide/goals)
+- [Sero CLI reference](/reference/sero-cli)
 - [State and Folders](/reference/state-and-folders)
 - [Security and Privacy](/reference/security-privacy)

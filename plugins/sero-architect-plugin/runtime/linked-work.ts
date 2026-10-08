@@ -58,7 +58,7 @@ export interface LinkedWorkDeps {
   retryWorkflow(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<{ ok: boolean; text: string }>;
 }
 
-interface Linked {
+export interface Linked {
   kind: 'room' | 'workflow';
   id: string;
   workspaceId: string;
@@ -72,7 +72,7 @@ const refuse = (text: string, status?: string): ControlOutcome => ({ ok: false, 
 const minutes = (ms: number): number => Math.round(ms / 60_000);
 
 /** Finds the linked run for one of the project's own ids. A string is the refusal. */
-function resolveLinked(record: ProjectRecord, target: string): Linked | { completed: string } | string {
+export function resolveLinked(record: ProjectRecord, target: string): Linked | { completed: string } | string {
   const milestone = record.milestones.find((item) => item.id === target);
   if (milestone) {
     const dispatch = milestone.dispatch;

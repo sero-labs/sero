@@ -114,6 +114,9 @@ not. A Goal turn still counts if you cancel it or send a message while it runs,
 because the turn has already used tokens and time. Change the turn budget with
 `/goal turns 40`.
 
+The agent can lower a budget you set, or set one you left unset. It cannot
+raise or remove a budget that you set. Only you can do that.
+
 Reaching a budget stops the Goal. **A limit is not completion.** Sero names the
 budget that was reached. Raise the limit, then resume the Goal if you want it to
 continue.
@@ -134,9 +137,19 @@ The agent ends a Goal with an explicit report, never by going quiet:
   yourself.
 - **Blocked.** The agent cannot continue without you. Sero notifies you and the
   Goal waits for your answer.
-- **Waiting.** The agent must wait for something outside the session, such as a
-  check finishing. Nothing restarts a waiting Goal for you yet, so resume it
-  when the condition is met.
+- **Waiting.** The agent must wait for something outside the session. There
+  are two kinds of wait:
+  - **Automatic.** The agent names a Workflow that it can see end, with an
+    optional deadline. Sero continues the Goal once when that Workflow
+    completes, fails or reaches the deadline. A failure or an expired deadline
+    is not completion: the agent sees the fact and decides what to do.
+  - **Manual.** The agent gives a reason only. Nothing restarts the Goal, so
+    resume it when the condition is met. A wait on a managed process or on CI
+    checks is manual for now, because Sero cannot watch either.
+
+  **Pause**, **stop** and the budgets still apply to a waiting Goal. A wait
+  never starts a turn that you paused or stopped, or one that would pass a
+  budget.
 
 A Goal survives a restart. Sero re-checks every budget before anything resumes,
 so a Goal that used its budget while Sero was closed comes back stopped.
@@ -150,6 +163,13 @@ Before you accept a completed Goal:
 3. Run the checks from your criteria yourself.
 4. If the result is incomplete, start a new Goal or continue in chat with
    corrected instructions.
+
+## Related pages
+
+- [Architect](/guide/architect): the Architect waits for linked work in the
+  same way.
+- [Rooms reference](/reference/rooms) and
+  [Manage a Room](/guide/rooms-advanced): Rooms keep their own limits.
 
 ## Turn Goal mode off
 

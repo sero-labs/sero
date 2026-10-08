@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { LoadExtensionsResult, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { filterPlatformTools, sessionToolOptions } from '@electron/features/subagent/runtime/session-policy';
+import { filterPlatformTools, planWorkerTools, sessionToolOptions } from '@electron/features/subagent/runtime/session-policy';
 
 function tool(name: string): ToolDefinition {
   return {
@@ -63,5 +63,113 @@ describe('sessionToolOptions', () => {
   it('leaves an explicit per-step allowlist untouched', () => {
     expect(sessionToolOptions('readOnly', [tool('read')], ['read']))
       .toEqual({ noTools: 'builtin', tools: ['read'] });
+  });
+});
+
+describe('planWorkerTools', () => {
+  /** The plugin tools the loaded extensions provide, as Pi hands them over. */
+  function extensions(...names: string[]): LoadExtensionsResult {
+    const tools = new Map(names.map((name) => [name, { definition: tool(name), sourceInfo: {} }]));
+    return { extensions: [{ resolvedPath: '/plugin/extension.ts', tools, commands: new Map() }], errors: [], runtime: {} } as never;
+  }
+  const loaded = extensions('web_search', 'codemode');
+  const base = {
+    policy: 'all' as const,
+    customTools: PLATFORM,
+    disabledTools: new Set<string>(),
+    extensions: () => loaded,
+  };
+
+  it('lets a worker with a planner loadout reach another tool the policy allows', () => {
+    const plan = planWorkerTools({ ...base, allowlist: ['read', 'sero-cli'], allowlistIsLoadout: true });
+
+    expect(plan.options.tools).toEqual(expect.arrayContaining(['read', 'bash', 'web_search', 'codemode', 'tool_search']));
+    // Registered, but only the planner's picks are declared when the session opens.
+    expect(plan.initialTools).toEqual(['read', 'sero-cli', 'tool_search']);
+    const exposure = Object.fromEntries(plan.customTools.map((entry) => [entry.name, entry.exposure]));
+    expect(exposure).toMatchObject({ read: undefined, bash: 'deferred' });
+    expect(loaded.extensions[0].tools.get('web_search')?.definition.exposure).toBe('deferred');
+    expect(plan.activateCodemode).toBe(false);
+  });
+
+  it('keeps an explicit user allowlist as a hard bound', () => {
+    const plan = planWorkerTools({ ...base, allowlist: ['read'], allowlistIsLoadout: false });
+
+    expect(plan.options.tools).toEqual(['read']);
+    expect(plan.options.tools).not.toContain('tool_search');
+    expect(plan.initialTools).toBeUndefined();
+    expect(plan.customTools).toBe(PLATFORM);
+  });
+
+  it('never registers a tool the user disabled, nor Code Mode when it is disabled', () => {
+    const plan = planWorkerTools({
+      ...base,
+      allowlist: ['read'],
+      allowlistIsLoadout: true,
+      disabledTools: new Set(['web_search', 'codemode']),
+    });
+
+    expect(plan.options.tools).not.toContain('web_search');
+    expect(plan.options.tools).not.toContain('codemode');
+    expect(plan.options.tools).toContain('bash');
+  });
+
+  it('does not restore a disabled tool the planner picked, nor load it first', () => {
+    const plan = planWorkerTools({
+      ...base,
+      allowlist: ['read', 'bash'],
+      allowlistIsLoadout: true,
+      disabledTools: new Set(['bash']),
+    });
+
+    expect(plan.options.tools).not.toContain('bash');
+    expect(plan.initialTools).toEqual(['read', 'tool_search']);
+  });
+
+  it('keeps the picked list as a hard bound when the user disabled tool_search', () => {
+    const plan = planWorkerTools({
+      ...base,
+      allowlist: ['read', 'bash', 'web_search'],
+      allowlistIsLoadout: true,
+      disabledTools: new Set(['tool_search', 'bash']),
+    });
+
+    expect(plan.options).toEqual({ noTools: 'builtin', tools: ['read', 'web_search'] });
+    expect(plan.initialTools).toBeUndefined();
+  });
+
+  it('keeps a read-only worker read-only even with a loadout', () => {
+    const plan = planWorkerTools({
+      ...base,
+      policy: 'readOnly',
+      customTools: [tool('read')],
+      allowlist: ['read'],
+      allowlistIsLoadout: true,
+    });
+
+    expect(plan.options.tools).not.toContain('web_search');
+    expect(plan.options.tools).not.toContain('bash');
+    expect(plan.options.tools).toEqual(expect.arrayContaining(['read', 'find', 'grep']));
+  });
+
+  it('switches Code Mode on when the loadout names it', () => {
+    const plan = planWorkerTools({ ...base, allowlist: ['read', 'codemode'], allowlistIsLoadout: true });
+
+    expect(plan.activateCodemode).toBe(true);
+    expect(plan.initialTools).toContain('codemode');
+  });
+
+  it('adds no tool_search when nothing is left to find', () => {
+    const plan = planWorkerTools({
+      ...base,
+      customTools: [tool('read')],
+      extensions: () => extensions(),
+      disabledTools: new Set(['codemode']),
+      allowlist: ['read'],
+      allowlistIsLoadout: true,
+    });
+
+    expect(plan.options.tools).not.toContain('tool_search');
+    expect(plan.initialTools).toBeUndefined();
   });
 });

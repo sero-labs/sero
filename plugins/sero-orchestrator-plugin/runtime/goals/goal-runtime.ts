@@ -12,16 +12,22 @@
 
 import type {
   Goal,
+  GoalLimitKey,
+  GoalLimitOrigin,
+  GoalLimitOrigins,
   GoalLimits,
   GoalOutcome,
   GoalPauseReason,
   GoalTurnReport,
   GoalVerdict,
 } from '../../shared/goal-types';
+import type { OrchestratorState } from '../../shared/types';
 import { DEFAULT_GOAL_LIMITS } from '../../shared/goal-defaults';
 import type { OrchestratorHost } from '../host';
 import { describeDriverConflict, type SessionDrivers } from '../session-drivers';
-import { checkGoalLimits } from './goal-limits';
+import { registerWait, stopWaits, supersedeWaits, type GoalWaitRequest } from '../../shared/goal-waits';
+import { changeGoalLimits, checkGoalLimits } from './goal-limits';
+import { GoalWaitWatcher } from './goal-wait-watcher';
 import type { GoalStore } from './goal-store';
 import {
   activate,
@@ -39,6 +45,16 @@ export interface GoalStartRequest {
   objective: string;
   criteria: string[];
   limits?: GoalLimits;
+  /** Who typed `limits`. Anything not typed is a default the agent may change. Absent means the user. */
+  limitsBy?: GoalLimitOrigin;
+}
+
+/** Typed limits take the asker's origin; the built-in defaults belong to no user. */
+function startingOrigins(request: GoalStartRequest): GoalLimitOrigins {
+  const origins: GoalLimitOrigins = {};
+  for (const key of Object.keys(DEFAULT_GOAL_LIMITS) as GoalLimitKey[]) origins[key] = 'agent';
+  for (const key of Object.keys(request.limits ?? {}) as GoalLimitKey[]) origins[key] = request.limitsBy ?? 'user';
+  return origins;
 }
 
 function failure(text: string): GoalOutcome {
@@ -54,11 +70,16 @@ function budgetSummary(goal: Goal): string {
 }
 
 export class GoalRuntime {
+  /** Observes registered waits and wakes the goal through its own loop. */
+  readonly waits: GoalWaitWatcher;
+
   constructor(
     private readonly host: OrchestratorHost,
     private readonly store: GoalStore,
     private readonly drivers: SessionDrivers,
-  ) {}
+  ) {
+    this.waits = new GoalWaitWatcher({ host, store, claim: (goalId, sessionPath) => this.claimSession(goalId, sessionPath), release: (goalId, sessionId) => this.drivers.release(sessionId, goalId) });
+  }
 
   private ctx(): { now: string } {
     return { now: this.host.now() };
@@ -83,6 +104,8 @@ export class GoalRuntime {
       await this.store.put(next);
       if (!check.ok) this.host.log(`goal ${goal.id} is limited on restart: ${check.reason}`);
     }
+    // A wait that ended while Sero was closed, or a wake reserved but never started.
+    await this.waits.reconcile();
   }
 
   async list(): Promise<Goal[]> {
@@ -144,6 +167,7 @@ export class GoalRuntime {
       criteria: request.criteria.map((criterion) => criterion.trim()).filter(Boolean),
       status: 'active',
       limits: { ...DEFAULT_GOAL_LIMITS, ...request.limits },
+      limitOrigins: startingOrigins(request),
       usage: { automaticTurns: 0, totalTokens: 0, costUsd: 0, activeMs: 0 },
       progress: { repeats: 0 },
       activeSince: now,
@@ -274,16 +298,14 @@ export class GoalRuntime {
   }
 
   /**
-   * Parks the goal until the user resumes it.
-   *
-   * Nothing wakes a waiting goal on its own in phase 1: both a timer and a
-   * condition registered on the event queue need the waiting infrastructure of
-   * phase 2 (D04). The reason is therefore recorded, and the goal says plainly
-   * that it waits for the user, rather than promising a wake it cannot give.
+   * Parks the goal. With no registration this is the manual wait: the reason
+   * is recorded, nothing wakes the goal, and the user resumes it. With one, the
+   * goal waits on a source the runtime can read and continues by itself.
    */
-  async reportWait(goalId: string, sessionPath: string, reason: string): Promise<GoalOutcome> {
+  async reportWait(goalId: string, sessionPath: string, reason: string, request?: Omit<GoalWaitRequest, 'id' | 'now'>): Promise<GoalOutcome> {
     const found = await this.owned(goalId, sessionPath);
     if ('error' in found) return failure(found.error);
+    if (request) return this.registerWait(found, reason.trim(), request);
     const next = wait(this.leaveActive(found), { reason: reason.trim() }, this.ctx());
     await this.store.put(next);
     return {
@@ -293,14 +315,57 @@ export class GoalRuntime {
     };
   }
 
+  /**
+   * Parks the goal on a source the runtime can read. The intent is saved first,
+   * then the source is read once, so a completion that landed just before this
+   * call wakes the goal instead of being missed. A refusal parks nothing.
+   */
+  private async registerWait(goal: Goal, reason: string, request: Omit<GoalWaitRequest, 'id' | 'now'>): Promise<GoalOutcome> {
+    const registered = registerWait(goal, { ...request, id: this.host.newId('wait'), now: this.host.now() });
+    if (!registered.ok) return failure(registered.reason);
+    if (request.source.kind === 'child' && !(await this.host.readState())?.loops.some((loop) => loop.id === request.source.id)) {
+      return failure(`No Workflow "${request.source.id}" in this workspace to wait for.`);
+    }
+    const label = `${request.source.kind} ${request.source.id}`;
+    const parked = wait(this.leaveActive(registered.goal), { reason: reason || `waiting for ${label}` }, this.ctx());
+    await this.store.put(parked);
+    await this.waits.reconcile(goal.id);
+    const latest = (await this.store.get(goal.id)) ?? parked;
+    return {
+      ok: true,
+      text: latest.status === 'active'
+        ? `Goal ${goal.id}: ${label} had already ended. The goal continues after this turn.`
+        : `Goal ${goal.id} is waiting for ${label}${registered.wait.deadline ? ` until ${registered.wait.deadline} at most` : ''}. It continues by itself when that ends, fails or its deadline passes; a failure is not completion.`,
+      goal: latest,
+    };
+  }
+
+  /** Marks the wait wakes on a goal as started. The Goal loop calls this as it starts the turn. */
+  async consumeWakes(goalId: string): Promise<Goal | null> {
+    return this.waits.consume(goalId);
+  }
+
+  /** The loop state was written: every open wait's source is read again. */
+  async observeState(state: OrchestratorState): Promise<void> {
+    await this.waits.reconcile(undefined, state);
+  }
+
+  dispose(): void {
+    this.waits.dispose();
+  }
+
   async pause(goalId: string, pauseReason: GoalPauseReason, reason: string): Promise<GoalOutcome> {
-    const goal = await this.store.get(goalId);
+    // Read-modify-write on the freshest record, so a wake that lands first is paused, not overwritten.
+    let changed = false;
+    const goal = await this.store.update(goalId, (current) => {
+      if (current.status === 'complete' || current.closedAt || current.status === 'paused') return current;
+      changed = true;
+      return pause(this.leaveActive(current), pauseReason, reason, this.ctx());
+    });
     if (!goal) return failure(`No goal ${goalId}.`);
     if (goal.status === 'complete' || goal.closedAt) return failure(`Goal ${goalId} is finished.`);
-    if (goal.status === 'paused') return { ok: true, text: `Goal ${goalId} is already paused.`, goal };
-    const next = pause(this.leaveActive(goal), pauseReason, reason, this.ctx());
-    await this.store.put(next);
-    return { ok: true, text: `Goal ${goalId} is paused: ${reason}`, goal: next };
+    if (!changed) return { ok: true, text: `Goal ${goalId} is already paused.`, goal };
+    return { ok: true, text: `Goal ${goalId} is paused: ${reason}`, goal };
   }
 
   /**
@@ -321,19 +386,22 @@ export class GoalRuntime {
     }
     const claimed = await this.claimSession(goal.id, goal.sessionPath);
     if ('conflict' in claimed) return failure(`Cannot resume the goal: ${claimed.conflict}.`);
-    const next = activate({ ...goal, sessionId: claimed.sessionId }, 'the user resumed the goal', this.ctx());
+    const next = activate({ ...supersedeWaits(goal, this.host.now()), sessionId: claimed.sessionId }, 'the user resumed the goal', this.ctx());
     await this.store.put(next);
     return { ok: true, text: `Goal ${goalId} is active again — ${budgetSummary(next)}.`, goal: next };
   }
 
   /** Ends the goal without claiming it was met. The record and its history stay. */
   async stop(goalId: string): Promise<GoalOutcome> {
-    const goal = await this.store.get(goalId);
+    let changed = false;
+    const goal = await this.store.update(goalId, (current) => {
+      if (current.status === 'complete' || current.closedAt) return current;
+      changed = true;
+      return { ...pause(this.leaveActive(stopWaits(current, this.host.now())), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
+    });
     if (!goal) return failure(`No goal ${goalId}.`);
-    if (goal.status === 'complete' || goal.closedAt) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
-    const stopped = { ...pause(this.leaveActive(goal), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
-    await this.store.put(stopped);
-    return { ok: true, text: `Goal ${goalId} is stopped.`, goal: stopped };
+    if (!changed) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
+    return { ok: true, text: `Goal ${goalId} is stopped.`, goal };
   }
 
   /** Permanently removes a finished Goal record and its watched-index entry. */
@@ -348,10 +416,13 @@ export class GoalRuntime {
   }
 
   /** Raises or lowers a budget on a goal the user wants to keep going. */
-  async setLimits(goalId: string, limits: GoalLimits): Promise<GoalOutcome> {
+  /** `by` says who is asking: an agent cannot raise or remove a limit the user set. */
+  async setLimits(goalId: string, limits: GoalLimits, by: GoalLimitOrigin): Promise<GoalOutcome> {
     const goal = await this.store.get(goalId);
     if (!goal) return failure(`No goal ${goalId}.`);
-    const next = { ...goal, limits: { ...goal.limits, ...limits }, updatedAt: this.host.now() };
+    const change = changeGoalLimits(goal, limits, by);
+    if (!change.ok) return failure(change.reason);
+    const next = { ...goal, limits: change.limits, limitOrigins: change.origins, updatedAt: this.host.now() };
     await this.store.put(next);
     return { ok: true, text: `Goal ${goalId} budgets updated — ${budgetSummary(next)}.`, goal: next };
   }

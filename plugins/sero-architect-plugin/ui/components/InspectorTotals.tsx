@@ -12,11 +12,11 @@ function Tile({ label, value, note, unknown }: TileView) {
 }
 
 /** The run's six figures and its counters. */
-export function InspectorTotals({ page }: { page: TracePage }) {
+export function InspectorTotals({ page, idleContinuations = 0 }: { page: TracePage; idleContinuations?: number }) {
   return (
     <>
       <div className="ar-tiles">{totalTiles(page).map((tile) => <Tile key={tile.label} {...tile} />)}</div>
-      <div className="ar-counters">{counterWords(page).map((entry) => <span key={entry}>{entry}</span>)}</div>
+      <div className="ar-counters">{counterWords(page, idleContinuations).map((entry) => <span key={entry}>{entry}</span>)}</div>
     </>
   );
 }

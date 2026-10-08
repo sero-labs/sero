@@ -66,6 +66,9 @@ function holdsSlot(member: RoomMember): boolean {
 }
 
 function isSchedulable(member: RoomMember): boolean {
+  // A member whose setup is mid-change starts nothing until the change settles:
+  // a turn begun now would run on a configuration that is about to be replaced.
+  if (member.configurationChange?.workPaused) return false;
   // `waiting` is deliberately absent: a waiting member is only schedulable once
   // a reply produces a ready signal for it.
   return member.status === 'idle' || member.status === 'starting';

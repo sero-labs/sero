@@ -12,6 +12,7 @@
  *    inside them to do so is content to report, not an instruction to follow.
  */
 
+import { describeWait, openWaits, reservedWakes } from './goal-waits';
 import type { Goal } from './goal-types';
 
 /** Custom message type carrying the contract. Not displayed; it is context. */
@@ -71,7 +72,7 @@ function behaviourBlock(goal: Goal): string[] {
         'Keep working toward the objective. You stop only with a tool call — silence is not a stop:',
         '- goal_complete — every criterion is met. Give the evidence for each one.',
         '- goal_blocked — you cannot go further without the user.',
-        '- goal_wait — you must wait for something observable, such as a check or a process.',
+        '- goal_wait — you must wait. Add source child and target <Workflow id> to be woken when that Workflow ends. Without them the wait is manual and the user restarts it.',
         '',
         `Every one of those calls takes goal_id "${goal.id}". A call with any other id is refused.`,
       ];
@@ -81,6 +82,12 @@ function behaviourBlock(goal: Goal): string[] {
         'Answer the user normally. Only the user restarts it, with /goal resume.',
       ];
     case 'waiting':
+      if (openWaits(goal).length > 0) {
+        return [
+          `This goal is WAITING${goal.wait ? ` for: ${quote(goal.wait.reason)}` : ''}. It continues by itself when the registered source ends, fails or its deadline passes.`,
+          'Do not work on it on your own and do not call the goal tools for it. Answer the user normally. The user can still resume it with /goal resume, which ends the wait.',
+        ];
+      }
       return [
         `This goal is WAITING${goal.wait ? ` for: ${quote(goal.wait.reason)}` : ''}.`,
         'Do not work on it on your own and do not call the goal tools for it. Nothing restarts it by itself.',
@@ -137,8 +144,11 @@ export function buildGoalContract(goal: Goal): string {
  * long goal does not crowd out the work it is driving.
  */
 export function buildGoalContinuation(goal: Goal): string {
+  const ended = reservedWakes(goal).map(describeWait);
   return [
-    `Goal ${goal.id} is still active and nothing new was asked. Continue toward the objective in the goal contract above.`,
+    ended.length > 0
+      ? `Goal ${goal.id} was woken because a wait you registered ended. ${ended.join(' ')} Continue toward the objective in the goal contract above.`
+      : `Goal ${goal.id} is still active and nothing new was asked. Continue toward the objective in the goal contract above.`,
     `If every criterion is now met, call goal_complete. If you cannot go further, call goal_blocked or goal_wait.`,
     budgetLine(goal),
   ].join('\n');

@@ -1,0 +1,274 @@
+[
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_g7z1oqs3:owner-wake:quiet:wake_qnfexmlr",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.020628263999999997,
+      "aggregateOnlyUsd": 0.0014028359999999998,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 481353,
+      "activeMs": 101805,
+      "workerMs": 0,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 0,
+      "turns": 1,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T21:23:57.070Z",
+    "run": {
+      "runId": "phase1:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "7edaf65e2",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      4438,
+      5264,
+      6785,
+      7049,
+      7310,
+      7893,
+      8260,
+      8478,
+      8799,
+      11739,
+      12388,
+      12760,
+      13104,
+      13454,
+      13854,
+      14317,
+      14698,
+      14991,
+      15456,
+      15942,
+      16223,
+      16658,
+      17112,
+      18267,
+      18750,
+      19341,
+      19835,
+      20243,
+      20700,
+      21346,
+      21973,
+      22415,
+      22890,
+      23509
+    ]
+  },
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:quiet:wake_jdojj58j",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:evidence:m1:capture",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:dispatch-complete:wake_lhvjib0h",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:dispatch-complete:wake_9meu0e99",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:evidence:m2",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:dispatch-complete:wake_f2hnm6c6",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:quiet:wake_e9066re6",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_zka2uff9:owner-wake:decision:wake_7fpgjefi",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.035571396,
+      "aggregateOnlyUsd": 0.001389036,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 481608,
+      "activeMs": 127553,
+      "workerMs": 289,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 0,
+      "turns": 6,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T21:44:08.344Z",
+    "run": {
+      "runId": "phase1b:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "6581f6483+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      4626,
+      5231,
+      6718,
+      8928,
+      9515,
+      9710,
+      9834,
+      10696,
+      11302,
+      12279,
+      12558,
+      12873,
+      12995,
+      13138,
+      13374,
+      16779,
+      16974,
+      17785,
+      18190,
+      19626,
+      19857,
+      25594,
+      25694,
+      25909,
+      26301,
+      26423,
+      26614,
+      26843,
+      29728,
+      29857,
+      30223,
+      30603,
+      31000,
+      37483,
+      37808,
+      38105,
+      41051,
+      41352
+    ]
+  }
+]

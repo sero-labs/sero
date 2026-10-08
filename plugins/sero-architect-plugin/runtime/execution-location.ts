@@ -1,4 +1,5 @@
 import type { OrchestratorBoardCreateOptions, OrchestratorRoomCreateLimits } from '@sero-ai/common';
+import { isActiveDirect } from '../shared/direct-execution';
 import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import type { ExecutionMode, MilestoneDispatch, ProjectRecord } from '../shared/record';
 
@@ -24,5 +25,7 @@ export function usesProjectFiles(record: ProjectRecord, dispatch: Pick<Milestone
 
 export function projectWriter(record: ProjectRecord, exceptMilestoneId?: string) {
   return record.milestones.find((item) => item.id !== exceptMilestoneId && item.id !== MAINTENANCE_MILESTONE_ID
-    && (item.pendingDispatch || (item.status === 'running' && item.dispatch && usesProjectFiles(record, item.dispatch))));
+    // The owner's own work edits the project folder only in Workspace mode: a
+    // worktree execution has a checkout of its own.
+    && (item.pendingDispatch || (isActiveDirect(item.direct) && item.direct.placement.mode === 'workspace') || (item.status === 'running' && item.dispatch && usesProjectFiles(record, item.dispatch))));
 }

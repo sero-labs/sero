@@ -1,9 +1,9 @@
 /**
  * A multi-line document through the real CLI bridge.
  *
- * The bridge runs one command per line, so a newline inside a flag value ends
- * the command. A plugin tool that takes a document therefore takes it as one
- * JSON string. This test sends newline-rich Markdown through the bridge to the
+ * The bridge runs one command per line, and a newline inside a quoted flag
+ * value stays in the value. A document with quotes of its own is still safest
+ * as one JSON string, which is what the Architect owner tool takes. This test sends newline-rich Markdown through the bridge to the
  * Architect owner tool's own schema and decoder, and checks the text arrives
  * as written. The plugin's own tests cover the second half, to the record.
  */
@@ -98,10 +98,10 @@ describe('a multi-line document through the CLI bridge', () => {
     expect(input).toMatchObject({ action: 'brief', projectId: 'proj_1', text: MARKDOWN });
   });
 
-  it('cannot deliver the same text as a plain flag', async () => {
+  it('delivers the same text as a quoted flag, line breaks included', async () => {
     const batch = await executeCliBatch(getCliRegistry(), `architect --action brief --projectId proj_1 --text "${MARKDOWN.replace(/"/g, '')}"`, context);
-    // Each line is run as its own command, so the document never arrives whole.
-    expect(received.some((params) => params.text === MARKDOWN.replace(/"/g, ''))).toBe(false);
-    expect(batch.exitCode).not.toBe(0);
+    // A line break inside the quotes is part of the value, not a new command.
+    expect(received.some((params) => params.text === MARKDOWN.replace(/"/g, ''))).toBe(true);
+    expect(batch.exitCode).toBe(0);
   });
 });
