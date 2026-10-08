@@ -64,7 +64,6 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
   const activeTabId = useActiveBrowserTabId(workspaceId);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const ensureViewsOpen = useBrowserStore((s) => s.ensureViewsOpen);
-  const applyEvent = useBrowserStore((s) => s.applyEvent);
   const createTab = useBrowserStore((s) => s.createTab);
   const navigate = useBrowserStore((s) => s.navigate);
   const goBack = useBrowserStore((s) => s.goBack);
@@ -110,14 +109,6 @@ export function BrowserPanel({ workspaceId }: BrowserPanelProps) {
       void window.sero.browser.hideAll();
     };
   }, [workspaceId, ensureViewsOpen]);
-
-  // Subscribe once to main-process events.
-  useEffect(() => {
-    const off = window.sero.browser.onEvent((event) => {
-      applyEvent(event);
-    });
-    return off;
-  }, [applyEvent]);
 
   // Keep native WebContentsView activation aligned with renderer state,
   // including tabs created by the host/CLI while this panel is mounted.

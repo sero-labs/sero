@@ -113,7 +113,6 @@ async function handleBrowser(
     case 'open': {
       const url = positionals[0];
       if (!url) return fail('Usage: sero browser open <url>');
-      await appControlHostService.showBrowserPanel().catch(() => false);
       const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
       if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
       return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
@@ -122,7 +121,6 @@ async function handleBrowser(
     case 'goto': {
       const url = positionals[0];
       if (!url) return fail('Usage: sero browser goto <url>');
-      await appControlHostService.showBrowserPanel().catch(() => false);
       const active = browserViewManager.resolveActiveTabForWorkspace(ctx.workspaceId);
       if (!active) {
         const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
@@ -241,6 +239,8 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '                               or across all workspaces (--all)\n' +
       '  open <url>                   Open a new tab in the current workspace\n' +
       '  goto <url>                   Navigate the active tab, or open one if needed\n' +
+      '                               Neither moves the user: the page loads without\n' +
+      '                               changing what is on screen. Use show to show it.\n' +
       '  close <tab-id>               Close a tab\n' +
       '  navigate <tab-id> <url>      Point an existing tab at a new URL\n' +
       '  get-text [--tab <id>]        Extract the page as title + plain text. Defaults\n' +

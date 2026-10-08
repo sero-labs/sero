@@ -103,9 +103,8 @@ export class BrowserViewManager {
     this.views.set(tabId, view);
     this.viewWorkspaces.set(tabId, workspaceId);
 
-    // Park off-screen until explicitly shown. addChildView places it on top,
-    // but zero-size bounds keep it invisible.
-    view.setBounds({ ...HIDDEN_BOUNDS });
+    // Parked until explicitly shown. addChildView places it on top.
+    this.place(view, HIDDEN_BOUNDS);
     this.window.contentView.addChildView(view);
 
     void view.webContents.loadURL(safeUrl).catch(() => {
@@ -148,11 +147,7 @@ export class BrowserViewManager {
       this.lastActivePerWorkspace.delete(workspaceId);
     }
     for (const [id, view] of this.views) {
-      if (id === tabId) {
-        view.setBounds(this.currentBounds);
-      } else {
-        view.setBounds({ ...HIDDEN_BOUNDS });
-      }
+      this.place(view, id === tabId ? this.currentBounds : HIDDEN_BOUNDS);
     }
   }
 
@@ -161,15 +156,27 @@ export class BrowserViewManager {
     this.currentBounds = bounds;
     if (!this.activeTabId) return;
     const view = this.views.get(this.activeTabId);
-    if (view) view.setBounds(bounds);
+    if (view) this.place(view, bounds);
   }
 
   /** Park every view off-screen (panel hidden / switched away). */
   hideAll(): void {
     this.currentBounds = { ...HIDDEN_BOUNDS };
     for (const view of this.views.values()) {
-      view.setBounds({ ...HIDDEN_BOUNDS });
+      this.place(view, HIDDEN_BOUNDS);
     }
+  }
+
+  /**
+   * Zero-size bounds alone do not park a view. A capture that is still in
+   * flight when the view is parked makes Chromium draw the page again at its
+   * last size, in the window's top-left corner, over the whole app. A view
+   * that is not visible cannot be drawn, so a parked view is both.
+   */
+  private place(view: WebContentsView, bounds: BrowserViewBounds): void {
+    const shown = bounds.width > 0 && bounds.height > 0;
+    view.setVisible(shown);
+    view.setBounds(shown ? bounds : { ...HIDDEN_BOUNDS });
   }
 
   navigate(tabId: string, url: string, workspaceId: string): void {

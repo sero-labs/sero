@@ -44,7 +44,7 @@ describe('browser CLI', () => {
 
     const result = await registry.get('browser')?.execute(['goto', 'https://example.com'], context());
 
-    expect(appControlMocks.showBrowserPanel).toHaveBeenCalled();
+    expect(appControlMocks.showBrowserPanel).not.toHaveBeenCalled();
     expect(browserMocks.navigate).toHaveBeenCalledWith('tab-1', 'https://example.com', 'ws-1');
     expect(browserMocks.openTabForHost).not.toHaveBeenCalled();
     expect(result).toEqual({ output: 'Navigating active tab tab-1 → https://example.com', exitCode: 0 });
