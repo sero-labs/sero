@@ -8,16 +8,13 @@ import type { ArchitectActions } from './lib/actions';
 import { shortTime } from './lib/format';
 import { WORK_TABS, type WorkTab } from './lib/navigation';
 import { openDispatch } from './lib/page-helpers';
-import { useProjectWork } from './lib/use-project-feedback';
 import { Evidence } from './components/Evidence';
 import { FolderLink } from './components/FolderLink';
 import { MilestoneRail } from './components/MilestoneRail';
 import { ProjectResearch } from './components/ProjectResearch';
 import { TopBar } from './components/TopBar';
-import { WaitCard } from './components/WaitCard';
-import { WorkLive } from './components/WorkLive';
 
-const TAB_LABEL: Record<WorkTab, string> = { live: 'Live', plan: 'Plan', research: 'Research', evidence: 'Evidence' };
+const TAB_LABEL: Record<WorkTab, string> = { plan: 'Plan', research: 'Research', evidence: 'Evidence' };
 
 export interface WorkPageProps {
   record: ProjectRecord;
@@ -32,16 +29,6 @@ export interface WorkPageProps {
   onBack(): void;
   onProject(): void;
   onOpenHistory(): void;
-}
-
-function LiveTab({ record, actions, runtimeRunning }: Pick<WorkPageProps, 'record' | 'actions' | 'runtimeRunning'>) {
-  const { epoch, work } = useProjectWork(record, actions);
-  return (
-    <>
-      <WaitCard record={record} actions={actions} />
-      <WorkLive record={record} work={work} epoch={epoch} runtimeRunning={runtimeRunning} />
-    </>
-  );
 }
 
 /** The full plan: the request as written, what the Architect makes of it, and each step. */
@@ -136,8 +123,7 @@ function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' 
 }
 
 /**
- * The work behind the overview: what runs now, the full plan, the research and
- * the checks. The overview stays short because everything long lives here.
+ * The work behind the board: the full plan, the research and the checks. The overview stays short because everything long lives here.
  */
 export function WorkPage({ record, actions, runtimeRunning, tab, focusMilestoneId, onTab, onOpenEvidence, onBack, onProject, onOpenHistory }: WorkPageProps) {
   const researched = record.research.length > 0 || (record.pendingResearch ?? []).length > 0;
@@ -152,7 +138,6 @@ export function WorkPage({ record, actions, runtimeRunning, tab, focusMilestoneI
             ))}
           </div>
           <div role="tabpanel" id="wk-panel" aria-labelledby={`wk-tab-${tab}`}>
-            {tab === 'live' && <LiveTab record={record} actions={actions} runtimeRunning={runtimeRunning} />}
             {tab === 'plan' && <PlanTab record={record} onOpenHistory={onOpenHistory} onOpenWork={(next, milestoneId) => (next === 'evidence' ? onOpenEvidence(milestoneId) : onTab(next))} />}
             {tab === 'research' && (researched ? <ProjectResearch record={record} /> : <p className="wk-line">No research is recorded.</p>)}
             {tab === 'evidence' && <EvidenceTab record={record} focusMilestoneId={focusMilestoneId} />}

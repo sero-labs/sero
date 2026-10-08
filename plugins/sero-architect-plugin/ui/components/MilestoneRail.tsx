@@ -96,7 +96,7 @@ export function MilestoneRail({ record, onOpenDispatch, onOpenWork, focusMilesto
                   data-testid={`open-${milestone.id}`}
                 >
                   {link.kind === 'architect'
-                    ? <>{link.tab === 'live' ? 'Watch work' : 'Evidence'} <ChevronRight className="ar-i" /></>
+                    ? <>Evidence <ChevronRight className="ar-i" /></>
                     : <>Open in Orchestrator <ExternalLink className="ar-i" /></>}
                 </button>
               ) : <span />}

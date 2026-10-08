@@ -54,11 +54,11 @@ afterEach(() => {
 describe('watching the owner', () => {
   it('returns the open session live turn, and null when no session is open', () => {
     const { sessions, watch, handles } = setup();
-    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: null });
+    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: null, recent: [] });
 
     handles.set(PROJECT, 'h1');
     sessions.partials.set('h1', live('Planning the grid.'));
-    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: live('Planning the grid.') });
+    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: live('Planning the grid.'), recent: [] });
     watch.dispose();
   });
 
@@ -76,7 +76,7 @@ describe('watching the owner', () => {
     expect(emitted).toEqual([]);
     await vi.advanceTimersByTimeAsync(250);
     // Two events inside one interval make one push, carrying the latest text.
-    expect(emitted).toEqual([{ projectId: PROJECT, live: live('two', 2) }]);
+    expect(emitted).toEqual([{ projectId: PROJECT, live: live('two', 2), recent: [] }]);
 
     watch.unwatchOwner(PROJECT, 'view-1');
     expect(subscriptions()).toBe(1);
@@ -108,7 +108,7 @@ describe('watching the owner', () => {
     handles.set(PROJECT, 'h2');
     sessions.partials.set('h2', live('fresh session'));
     watch.ownerChanged(PROJECT);
-    expect(emitted).toEqual([{ projectId: PROJECT, live: live('fresh session') }]);
+    expect(emitted).toEqual([{ projectId: PROJECT, live: live('fresh session'), recent: [] }]);
     expect(subscriptions()).toBe(1);
 
     // The old handle no longer reaches the view; the new one does.
@@ -118,6 +118,48 @@ describe('watching the owner', () => {
     sessions.emit('h2', { type: 'turn_start', turnId: 'turn-2', at: T0 });
     await vi.advanceTimersByTimeAsync(300);
     expect(emitted).toHaveLength(2);
+    watch.dispose();
+  });
+});
+
+describe('the actions the owner just finished', () => {
+  const running = (turnId: string, n: number): PersistentSessionLiveSnapshot => ({
+    ...live('working'),
+    turnId,
+    tool: { toolName: 'bash', summary: `step ${n}`, callId: `c${n}`, startedAt: T0 },
+  });
+
+  function watching() {
+    const ctx = setup();
+    ctx.handles.set(PROJECT, 'h1');
+    ctx.sessions.partials.set('h1', live('start'));
+    ctx.watch.watchOwner(PROJECT, 'view-1');
+    const show = (snapshot: PersistentSessionLiveSnapshot) => {
+      ctx.sessions.partials.set('h1', snapshot);
+      ctx.sessions.emit('h1', { type: 'turn_start', turnId: snapshot.turnId ?? 'turn-1', at: T0 });
+    };
+    return { ...ctx, show };
+  }
+
+  it('keeps the last three finished actions, newest first, and not the one still running', () => {
+    const { watch, show } = watching();
+    for (const n of [1, 2, 3, 4]) show(running('turn-1', n));
+    // Steps 1 to 3 finished; the fourth is still running.
+    expect(watch.watchOwner(PROJECT, 'view-1').recent.map((entry) => entry.summary)).toEqual(['step 3', 'step 2', 'step 1']);
+
+    show(running('turn-1', 5));
+    expect(watch.watchOwner(PROJECT, 'view-1').recent.map((entry) => entry.summary)).toEqual(['step 4', 'step 3', 'step 2']);
+    watch.dispose();
+  });
+
+  it('counts a tool that ended with no other tool after it, and starts a new turn empty', () => {
+    const { watch, show } = watching();
+    show(running('turn-1', 1));
+    show(live('thinking'));
+    expect(watch.watchOwner(PROJECT, 'view-1').recent.map((entry) => entry.summary)).toEqual(['step 1']);
+
+    show({ ...live('next', 3), turnId: 'turn-2' });
+    expect(watch.watchOwner(PROJECT, 'view-1').recent).toEqual([]);
     watch.dispose();
   });
 });

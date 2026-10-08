@@ -55,7 +55,7 @@ export const OwnerToolParams = Type.Object({
   capUsd: Type.Optional(Type.Number({ description: 'charter: the cost cap in USD (required)' })),
   objective: Type.Optional(Type.String({ description: 'working: what the work must achieve, in one or two sentences' })),
   approach: Type.Optional(Type.String({ description: 'working: how you intend to do it now. Revise it when findings change it' })),
-  assumptionsJson: Type.Optional(Type.String({ description: 'working: JSON ["..."], the assumptions the approach depends on' })),
+  assumptionsJson: Type.Optional(Type.String({ description: 'working: JSON [{"text":"...","why":"..."}], the choices you made without asking; why is optional and shown to the user next to the choice' })),
   criteriaJson: Type.Optional(Type.String({ description: 'working: JSON [{"id":"c1","text":"...","userStated":true}]. Set userStated true for a requirement the user stated; it cannot be removed without a user decision' })),
   question: Type.Optional(Type.String({ description: 'decide/research: the question' })),
   optionsJson: Type.Optional(Type.String({ description: 'decide: JSON [{"id":"a","label":"...","consequence":"..."}]' })),

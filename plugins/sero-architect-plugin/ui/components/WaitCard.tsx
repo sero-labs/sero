@@ -28,7 +28,7 @@ export function WaitCard({ record, actions }: { record: ProjectRecord; actions: 
     setRefusal(result.ok ? null : result.text);
   };
   return (
-    <section className="ar-stateline ar-waitcard" aria-label="Project state" data-wait={card.kind}>
+    <section className="ar-stateline ar-waitcard" aria-label="Wait" data-wait={card.kind}>
       <div className="ar-stateline-main">
         <h2 className="ar-sentence">{record.name}</h2>
         <div className="ar-activity-state ar-wait-word">

@@ -23,17 +23,17 @@ The record already holds almost everything the board shows:
 
 **Non-Goals:**
 
-- No new owner tool and no record field. "Architect decided" reads `working.assumptions`.
-- No streaming picture of the automation browser. Proof pictures are the ones evidence already captured.
+- No new owner tool. "Architect decided" reads `working.assumptions`.
+- No pictures. Evidence saves a capture path, and no screen can read that file today.
 - No redesign of Plan, Research, Evidence, History or the inspector.
 
 ## Decisions
 
-**A board view-model in `shared/board.ts`.** `boardOf(record, context)` returns `{ hero, main, plan, made }`. `main` is a tagged union: `ask | live | stopped | result | idle`. The order is fixed: an open decision or approval first, then a stop that needs the user, then running work, then a delivered result, then idle. `plan` and `made` are null when empty. Components only draw what it returns. Alternative considered: decide in each component, as today. That is what spread the state over `StateLine`, `NeedsYou` and `ProjectPage` and made the page hard to reason about.
+**A board view-model in `ui/lib/board.ts`.** It sits beside `view-model.ts`, whose `needsYouItems` and `evidenceLines` it reuses. `boardOf(record, activity, { live, action })` returns the sentence, the state line, the progress, the list of large tiles, the plan steps and the decisions made. The large tiles stack in a fixed order: a question, a stop, live work. A result shows only when none of those do. A question and live work can both be present, because a decision parks only the steps that depend on it. An idle project has no large tile: the top tile already says nothing is running. Empty steps and decisions give no tile. Components only draw what it returns. Alternative considered: decide in each component, as today. That is what spread the state over `StateLine`, `NeedsYou` and `ProjectPage` and made the page hard to reason about.
 
 **The hero sentence comes from saved text, newest first.** The newest of `overview.result`, `overview.acknowledgement` and `overview.objective` by its `at` time, else `overview.outcome`, else the user's idea. Live text is not used here: it belongs to the Live tile and changes every second.
 
-**The state line is one of four words.** It maps from `projectActivity().state` and drops the "Architect idle" suffix. Working is used only when `projectActivity` says working, which already requires an observed report.
+**The state line reuses `projectActivity`.** Working and Waiting for you are fixed words. A stop reads Stopped, because its tile states the cause. Every other state shows the existing headline and owner line (Paused by you, Delivered, Last known), without the "Architect idle" suffix. Working is used only when this session observes work.
 
 **Stopped is a main tile, not a fifth layout.** The cap field, Retry step, Resume, Open Room and Review access controls that `ProjectPage` puts in the header today move into this tile unchanged. The prototype has no stopped moment, so the tile reuses the Needs you tile's shape: a heading that states the stop, the saved reason, and the existing control.
 
@@ -41,11 +41,11 @@ The record already holds almost everything the board shows:
 
 **Actions are said in plain words.** A small table maps a tool name to a phrase: `read` to "Reading", `edit`/`write` to "Editing", `bash` to "Running a command", `automation_browser` to "Using the browser", `codemode` to "Running a script". The tool's own summary is shown under it in small text. An unknown tool shows its name. This is a fixed label table, not interpretation of model output.
 
-**The last few actions are kept by the runtime.** The owner live notice gains `recent`: up to three finished tool calls of the current turn, each a tool name and summary. It is built where the notice is built, from the same tool-end events, and cleared with the turn. Alternative considered: remember them in the React hook. Rejected: the list would be empty every time the page opens.
+**The last few actions are kept by the plugin runtime.** The owner live notice gains `recent`: up to three finished tool calls of the current turn. `work-watch.ts` derives it from changes of the snapshot's tool, in the session subscription, so the host and `@sero-ai/common` do not change. It exists only while a view holds the watch lease, so a board opened in the middle of a turn starts the list from that moment. Alternative considered: add it to the host snapshot. Rejected for now: it is a host and published-package change for a three-line list.
 
-**Decisions made is derived.** Rows, newest first: answered decisions (the chosen option's label, by the user), `working.assumptions` (by the Architect), then the start cap (by the user). Change on any row puts a short prefilled sentence in the message box and focuses it. It sends nothing itself.
+**Decisions made is derived.** Rows, newest first: answered decisions (the chosen option's label, by the user), `working.assumptions` (by the Architect), then the start cap (by the user). An assumption becomes `{ text, why? }` so the row can show its reason. The `working` action accepts both forms, and a saved plain string reads as an assumption with no reason. Change on any row puts a short prefilled sentence in the message box and focuses it. It sends nothing itself.
 
-**Glass surfaces.** The page root takes the `.glass` scope and `glass-canvas`, and tiles use `glass-tile` from `@sero-ai/ui/styles/glass-board.css`. New rules are prefixed `bd-` in a new `ui/board.css`, because `styles.css` is already large.
+**Glass surfaces.** New rules are prefixed `bd-` in a new `ui/board.css`. Tiles read the `--glass-*` tokens from `@sero-ai/ui`, with the dark values as fallbacks, so the board matches the Dashboard in both themes.
 
 **The Work view keeps three tabs.** Live is removed from `WORK_TABS`. A stored `live` tab opens `plan`.
 
@@ -53,4 +53,5 @@ The record already holds almost everything the board shows:
 
 - [The header controls move, and a recovery control is lost in the move] -> the existing ProjectPage tests for cap, retry, resume and Open Room are kept and pointed at the board.
 - [A project with no `overview` or `working` (charter flow) shows a thin board] -> the view-model falls back to the idea, `stateLine` and milestones, and the charter-flow notice stays.
-- [The existing spec forbade live output on the overview] -> the requirement is modified here on the user's instruction.
+- [The existing spec forbade live output on the overview] -> the requirement is replaced here on the user's instruction. The live text is the bounded end of the current turn, not a transcript.
+- [One press answers a question, with no second step] -> the choices state their consequence on the button, and an answer can be reopened from Decisions made.
