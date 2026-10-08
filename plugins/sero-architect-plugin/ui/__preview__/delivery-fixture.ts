@@ -213,3 +213,15 @@ const ownerAt = (tool: string, seconds: number): WorkFeedback =>
   snapshot('owner:sudoku', 'owner-wake', 'Architect', { appId: 'architect', workspaceId: 'global', projectId: 'sudoku' }, { kind: 'tool', toolName: tool, since: ago(seconds) });
 
 Object.assign(DELIVERY_FEEDBACK, { 'board-start': [ownerAt('read', 3)], 'board-working': [ownerAt('bash', 14)] });
+
+// The Architect waits on a check it started: nothing needs the user, and the wait says what it is for.
+Object.assign(DELIVERY_FIXTURES, {
+  'board-waiting': sudoku({
+    milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'running')],
+    overview: { objective: { text: 'The fix is in. I am waiting for the test Room to finish before I check the result.', at: ago(20) } },
+    waits: [{
+      id: 'w1', owner: { milestoneId: 'solved', executionId: null }, source: { kind: 'child', id: 'room-solved' }, condition: 'completed',
+      deadline: new Date(Date.now() + 40 * 60_000).toISOString(), controlRevision: 0, registeredAt: ago(300), outcome: null, wake: null,
+    }],
+  }),
+} satisfies Record<string, ProjectRecord>);

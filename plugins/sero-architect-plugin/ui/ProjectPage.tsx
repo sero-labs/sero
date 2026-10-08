@@ -21,6 +21,7 @@ import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { TopBar, type ProjectControls } from './components/TopBar';
 import { WaitCard } from './components/WaitCard';
+import { waitCard } from './lib/wait-status';
 
 /** A control a stop offers. At most one is the action the state is really asking for. */
 interface HeaderAction {
@@ -317,7 +318,12 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
 
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
   const rows = liveRows(record, work, epoch, runtimeRunning);
-  const board = boardOf(record, activity, { live: rows.length > 0, action: rows[0] ? rowAction(rows[0].entry) : undefined });
+  const wait = waitCard(record, Date.parse(record.updatedAt));
+  const board = boardOf(record, activity, {
+    live: rows.length > 0,
+    action: rows[0] ? rowAction(rows[0].entry) : undefined,
+    waitingFor: wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined,
+  });
 
   return (
     <div className="bd-canvas">
