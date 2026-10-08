@@ -55,6 +55,8 @@
     }
   },
   "dependencies": {
+    "@dicebear/bottts-neutral": "9.4.2",
+    "@dicebear/core": "9.4.3",
     "@fission-ai/openspec": "1.13.2",
     "@sero-ai/extension-runtime": "workspace:*",
     "typebox": "catalog:"

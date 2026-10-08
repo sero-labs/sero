@@ -97,10 +97,10 @@ export function BoardAsk({ record, actions, onOpenWork }: { record: ProjectRecor
 }
 
 /** What stopped, why, and the control that fixes it. */
-export function BoardStopped({ label, headline, what, reason, detail, children }: { label: string; headline: string; what: string | null; reason: string | null; detail?: string; children: ReactNode }) {
+export function BoardStopped({ label, tone = 'stopped', headline, what, reason, detail, children }: { label: string; tone?: 'stopped' | 'waiting'; headline: string; what: string | null; reason: string | null; detail?: string; children: ReactNode }) {
   return (
     <section className="bd-tile bd-main" aria-label={label}>
-      <h2 className="bd-label" data-tone="stopped">{label}</h2>
+      <h2 className="bd-label" data-tone={tone}>{label}</h2>
       <h3>{headline}</h3>
       {what && <p className="bd-why">{what}</p>}
       {reason && <p className="bd-why">{reason}</p>}
@@ -176,9 +176,12 @@ export function BoardMade({ rows, onChange }: { rows: readonly MadeRow[]; onChan
       <ul className="bd-made">
         {rows.map((row) => (
           <li key={row.key}>
-            <b>{row.text}</b>
+            {/* One or two lines until it is opened. The text has the full width: nothing sits beside it. */}
+            <details>
+              <summary>{row.text}</summary>
+              {row.why && <p>{row.why}</p>}
+            </details>
             <span className="bd-who" data-you={row.by === 'you' ? '' : undefined}>{row.by === 'you' ? 'You' : 'Architect'} · <button type="button" className="bd-link" onClick={() => onChange(row)}>Change</button></span>
-            {row.why && <small>{row.why}</small>}
           </li>
         ))}
       </ul>

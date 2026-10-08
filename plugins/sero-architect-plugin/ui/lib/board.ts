@@ -92,6 +92,18 @@ export function rowAction(entry: WorkFeedback): string {
   return entry.wait?.kind === 'tool' ? toolPhrase(entry.wait.toolName) : toolPhrase(null);
 }
 
+/**
+ * Who is at work, said once. It names the kind of work and how many agents do
+ * it, and never the action in hand: an action changes several times a second.
+ */
+export function liveSummary(rows: readonly LiveRow[]): string | undefined {
+  const linked = rows.find((row) => row.group.link);
+  if (!linked?.group.link) return rows.length > 0 ? 'Architect is at work' : undefined;
+  const count = rows.filter((row) => row.group.key === linked.group.key).length;
+  if (linked.group.link.kind === 'room') return count === 1 ? 'One agent of a Room is at work' : `A Room of ${count} agents is at work`;
+  return count === 1 ? 'A Workflow step is running' : `${count} Workflow steps are running`;
+}
+
 /** The end of a long text, started at a word, so the newest words are the ones shown. */
 export function textTail(text: string, limit = 420): string {
   const trimmed = text.trim();
@@ -162,7 +174,7 @@ const stop = (text: string): string => (/[.!?…]$/.test(text.trim()) ? text.tri
  * names an open wait the Architect registered. `beneath` is the state without
  * the open questions, so a stop is not lost behind one.
  */
-export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string; waitingFor?: string; beneath?: ProjectActivity }): Board {
+export function boardOf(record: ProjectRecord, activity: ProjectActivity, context: { live: boolean; action?: string; waitingFor?: string; beneath?: ProjectActivity; asking?: boolean }): Board {
   const asks = needsYouItems(record).length > 0;
   const started = activity.action !== 'Review access';
   // A stop holds the control that fixes it. A question is answered on its own tile,
@@ -184,6 +196,8 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
     // The stop tile states the cause and holds its fix, so the cause is not said twice.
     word = !started ? 'Not started.' : activity.state === 'waiting-for-you' ? 'Waiting for you.' : 'Stopped.';
     detail = context.live ? 'Other work continues.' : 'Nothing is running.';
+    // The start prompt is open: the project waits on the user, and nothing was refused.
+    if (!started && context.asking) [word, detail] = ['Waiting for you.', 'Approve the start.'];
   } else if (activity.state !== 'paused' && (context.live || activity.state === 'working')) {
     // A paused project keeps its own line: it says the turns in flight are finishing.
     word = 'Working.';
@@ -197,7 +211,7 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
   const counts = milestoneCounts(record);
   return {
     sentence: sentenceOf(record),
-    tone: asks ? 'waiting' : context.live && activity.state !== 'paused' ? 'working' : TONES[activity.state] ?? 'quiet',
+    tone: asks || (!started && context.asking) ? 'waiting' : context.live && activity.state !== 'paused' ? 'working' : TONES[activity.state] ?? 'quiet',
     word,
     detail,
     progress: counts.total > 0 ? { done: counts.accepted, total: counts.total } : null,
