@@ -29,6 +29,8 @@ import { waitForShell } from './helpers/workflow';
 const ENABLED = process.env.SERO_E2E_ARCHITECT_STORY === '1';
 /** Pictures the board of the project the last run left, and starts no work. */
 const LOOK = process.env.SERO_STORY_LOOK === '1';
+/** Without this the run leaves a dangerous-command prompt unanswered, and ends when nothing changes. */
+const ALLOW_DANGEROUS = process.env.SERO_STORY_ALLOW_DANGEROUS === '1';
 /** Not under `.sero-e2e`: the Playwright global setup deletes that tree before every run. */
 const HOME = process.env.SERO_STORY_HOME ?? path.resolve(__dirname, '..', '.sero-ux-home');
 const CAP_USD = Number(process.env.SERO_STORY_CAP ?? '3');
@@ -66,6 +68,7 @@ let app: ElectronApplication;
 let page: Page;
 let startedAt = 0;
 let shots = 0;
+let dangerSeen = false;
 const timeline: { at: number; shot: string | null; event: string; board: string }[] = [];
 
 const seconds = (): number => Math.round((Date.now() - startedAt) / 1000);
@@ -113,6 +116,13 @@ async function approvePrompts(): Promise<number> {
     for (let index = 0; index < count; index += 1) {
       const button = buttons.nth(index);
       if (!(await button.isVisible().catch(() => false))) continue;
+      // A command the host calls dangerous is the user's to judge. It is pictured once and left open.
+      if (!ALLOW_DANGEROUS && await page.getByText('dangerous command').first().isVisible().catch(() => false)) {
+        if (!dangerSeen) await stage('the host asks about a dangerous command; it is left for the user', 'dangerous-prompt');
+        dangerSeen = true;
+        return answered;
+      }
+      dangerSeen = false;
       if (answered === 0) await stage('the host asks for permission', 'host-prompt');
       await button.click({ timeout: 10_000 }).catch(() => undefined);
       answered += 1;
