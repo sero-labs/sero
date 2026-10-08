@@ -262,6 +262,7 @@ export function previewToolDetails(params: Record<string, unknown>): Record<stri
         tool: { toolName: 'automation_browser', summary: 'open http://localhost:5273', callId: 'c9', startedAt: ago(14) },
       },
       recent: [{ toolName: 'bash', summary: 'npm test' }, { toolName: 'edit', summary: 'src/solved.ts' }, { toolName: 'read', summary: 'src/solved.ts' }],
+      finished: 3,
     } };
   }
   return {};

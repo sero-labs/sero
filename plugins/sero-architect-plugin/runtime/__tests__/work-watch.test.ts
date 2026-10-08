@@ -54,11 +54,11 @@ afterEach(() => {
 describe('watching the owner', () => {
   it('returns the open session live turn, and null when no session is open', () => {
     const { sessions, watch, handles } = setup();
-    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: null, recent: [] });
+    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: null, recent: [], finished: 0 });
 
     handles.set(PROJECT, 'h1');
     sessions.partials.set('h1', live('Planning the grid.'));
-    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: live('Planning the grid.'), recent: [] });
+    expect(watch.watchOwner(PROJECT, 'view-1')).toEqual({ projectId: PROJECT, live: live('Planning the grid.'), recent: [], finished: 0 });
     watch.dispose();
   });
 
@@ -76,7 +76,7 @@ describe('watching the owner', () => {
     expect(emitted).toEqual([]);
     await vi.advanceTimersByTimeAsync(250);
     // Two events inside one interval make one push, carrying the latest text.
-    expect(emitted).toEqual([{ projectId: PROJECT, live: live('two', 2), recent: [] }]);
+    expect(emitted).toEqual([{ projectId: PROJECT, live: live('two', 2), recent: [], finished: 0 }]);
 
     watch.unwatchOwner(PROJECT, 'view-1');
     expect(subscriptions()).toBe(1);
@@ -108,7 +108,7 @@ describe('watching the owner', () => {
     handles.set(PROJECT, 'h2');
     sessions.partials.set('h2', live('fresh session'));
     watch.ownerChanged(PROJECT);
-    expect(emitted).toEqual([{ projectId: PROJECT, live: live('fresh session'), recent: [] }]);
+    expect(emitted).toEqual([{ projectId: PROJECT, live: live('fresh session'), recent: [], finished: 0 }]);
     expect(subscriptions()).toBe(1);
 
     // The old handle no longer reaches the view; the new one does.
@@ -149,6 +149,8 @@ describe('the actions the owner just finished', () => {
 
     show(running('turn-1', 5));
     expect(watch.watchOwner(PROJECT, 'view-1').recent.map((entry) => entry.summary)).toEqual(['step 4', 'step 3', 'step 2']);
+    // The list stays at three, so the count is what tells the view another call ended.
+    expect(watch.watchOwner(PROJECT, 'view-1').finished).toBe(4);
     watch.dispose();
   });
 
