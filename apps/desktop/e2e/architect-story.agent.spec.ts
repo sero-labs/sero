@@ -28,7 +28,9 @@ import { waitForShell } from './helpers/workflow';
 
 const ENABLED = process.env.SERO_E2E_ARCHITECT_STORY === '1';
 /** Pictures the board of the project the last run left, and starts no work. */
-const LOOK = process.env.SERO_STORY_LOOK === '1';
+const LOOK = process.env.SERO_STORY_LOOK === '1' || process.env.SERO_STORY_PROMPT === '1';
+/** Pictures the start prompt of a new project, answers Not now, and starts no work. */
+const PROMPT = process.env.SERO_STORY_PROMPT === '1';
 /** Without this the run leaves a dangerous-command prompt unanswered, and ends when nothing changes. */
 const ALLOW_DANGEROUS = process.env.SERO_STORY_ALLOW_DANGEROUS === '1';
 /** Not under `.sero-e2e`: the Playwright global setup deletes that tree before every run. */
@@ -207,7 +209,7 @@ test.afterAll(async () => {
 });
 
 test('the board of the project the last run left', async () => {
-  test.skip(!LOOK, 'Set SERO_STORY_LOOK=1 to picture the last project without starting work.');
+  test.skip(!LOOK || PROMPT, 'Set SERO_STORY_LOOK=1 to picture the last project without starting work.');
   const record = records().sort((a, b) => b.name.localeCompare(a.name))[0];
   expect(record, 'there is no project in this profile').toBeTruthy();
   fs.mkdirSync(path.join(SHOTS, 'look'), { recursive: true });
@@ -217,6 +219,29 @@ test('the board of the project the last run left', async () => {
   await page.screenshot({ path: path.join(SHOTS, 'look', 'board.png') });
   await page.locator('.bd-made summary').first().click({ timeout: 5_000 }).catch(() => undefined);
   await page.screenshot({ path: path.join(SHOTS, 'look', 'board-decision-open.png') });
+});
+
+test('the start prompt of a new project, left unapproved', async () => {
+  test.skip(!PROMPT, 'Set SERO_STORY_PROMPT=1 to picture the start prompt without starting work.');
+  fs.mkdirSync(path.join(SHOTS, 'look'), { recursive: true });
+  await openArchitect();
+  await page.locator('.ar-app').waitFor({ timeout: 30_000 });
+  await page.locator('.ar-crumb').getByRole('button', { name: 'Back to projects' }).click({ timeout: 3_000 }).catch(() => undefined);
+  await page.getByRole('button', { name: 'New project' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('What do you want?').fill(GOAL);
+  await dialog.locator('#ar-name').fill(`prompt-check-${Date.now()}`);
+  await dialog.locator('#ar-location').click();
+  await dialog.locator('#ar-cap').fill(String(CAP_USD));
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Allow' }).first().waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(1_000);
+  await page.screenshot({ path: path.join(SHOTS, 'look', 'prompt.png') });
+  await page.getByText('Details', { exact: true }).first().click({ timeout: 5_000 }).catch(() => undefined);
+  await page.screenshot({ path: path.join(SHOTS, 'look', 'prompt-details.png') });
+  await page.getByRole('button', { name: 'Not now' }).first().click({ timeout: 10_000 });
+  await page.waitForTimeout(2_000);
+  await page.screenshot({ path: path.join(SHOTS, 'look', 'prompt-declined.png') });
 });
 
 test('one request, from the first screen to the result, pictured at each stage', async () => {

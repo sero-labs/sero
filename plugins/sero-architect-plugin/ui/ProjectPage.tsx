@@ -234,18 +234,20 @@ const UNLINKED = 'dispatch state could not be confirmed after restart:';
 
 /** The stop tile: the saved cause in the user's words, and the controls that recover it. */
 function StoppedTile({ record, activity, form, headerActions, asking }: { record: ProjectRecord; activity: ReturnType<typeof projectActivity>; form: ReactNode; headerActions: HeaderAction[]; asking: boolean }) {
-  // The start prompt is open. Nothing is refused yet, so the tile says what to do and not that access is missing.
-  if (asking) return <BoardStopped label="Needs you" tone="waiting" headline="Approve the start" what="Sero asks you to approve the access. Paid work starts when you approve." reason={null}>{null}</BoardStopped>;
+  // The start prompt is open and the top tile says so. A tile that repeats it would be said twice.
+  if (asking) return null;
   const unlinked = record.blockedReason?.startsWith(UNLINKED);
+  const notStarted = activity.action === 'Review access';
   const reason = unlinked
     ? 'Architect lost the link to a workflow when Sero restarted. The work may have started, so Architect will not start another copy. The existing workflow must be reconnected before this project can continue.'
     : activity.reason ?? null;
   return (
     <BoardStopped
-      label={activity.action === 'Review access' ? 'Not started' : activity.state === 'waiting-for-you' ? 'Needs you' : 'Stopped'}
-      headline={unlinked ? 'The link to a workflow is lost' : activity.headline}
+      label={notStarted ? 'Not started' : activity.state === 'waiting-for-you' ? 'Needs you' : 'Stopped'}
+      // A project that was never approved says why once: the label already says it is not started.
+      headline={unlinked ? 'The link to a workflow is lost' : notStarted ? activity.owner : activity.headline}
       // The owner line names the Room or Workflow, so Open Room says which one it opens.
-      what={unlinked ? null : activity.owner}
+      what={unlinked || notStarted ? null : activity.owner}
       reason={reason}
       detail={unlinked ? record.blockedReason ?? undefined : undefined}
     >

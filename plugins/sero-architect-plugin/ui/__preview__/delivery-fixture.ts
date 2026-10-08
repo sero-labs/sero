@@ -140,8 +140,9 @@ const snapshot = (key: string, kind: WorkFeedback['kind'], owner: string, scope:
 
 const ROOM = 'room-sound';
 const members: WorkFeedback[] = [
-  snapshot(`member:${ROOM}:impl`, 'room-member', 'Implementer', { workId: ROOM, memberId: 'impl' }, { kind: 'tool', toolName: 'edit src/keys.js', since: ago(4) }),
-  snapshot(`member:${ROOM}:test`, 'room-member', 'Tester', { workId: ROOM, memberId: 'test' }, { kind: 'tool', toolName: 'bash npx playwright test keys.spec.js', since: ago(21) }),
+  snapshot(`member:${ROOM}:impl`, 'room-member', 'Vera — Design Lead', { workId: ROOM, memberId: 'impl' }, { kind: 'tool', toolName: 'edit src/keys.js', since: ago(4) }),
+  snapshot(`member:${ROOM}:test`, 'room-member', 'Noam — Puzzle Engine Designer', { workId: ROOM, memberId: 'test' }, { kind: 'tool', toolName: 'bash npx playwright test keys.spec.js', since: ago(21) }),
+  snapshot(`member:${ROOM}:ui`, 'room-member', 'Iris — UI & Verification Designer', { workId: ROOM, memberId: 'ui' }, { kind: 'request', since: ago(9) }),
 ];
 const ownerQuiet = snapshot('owner:pocket-synth', 'owner-wake', 'Architect', { appId: 'architect', workspaceId: 'global' }, { kind: 'request', since: ago(72) });
 

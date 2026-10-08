@@ -31,7 +31,10 @@ export interface AppRuntimeNotificationChoiceResult {
 
 export interface AppRuntimeNotificationChoiceOptions {
   title: string;
+  /** What is asked, in a sentence or two. */
   body: string;
+  /** Everything the answer covers, for a user who wants to read it. Closed until opened. */
+  detail?: string;
   choices: AppRuntimeNotificationChoice[];
   timeoutMs: number;
   context?: UserFeedbackQuestionContext;

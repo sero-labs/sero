@@ -18,11 +18,11 @@ export function BoardHero({ record, board }: { record: ProjectRecord; board: Boa
   const incomplete = record.budget.incomplete !== false;
   return (
     <section className="bd-tile bd-hero" aria-label="Project state">
-      <span className="bd-face"><Compass /></span>
+      <span className="bd-face" data-tone={board.tone}><Compass /><span className="bd-dot" /></span>
       <div>
         <p className="bd-says">{board.sentence}</p>
         {!hasAgreement(record) && <p className="bd-note">This project uses the charter flow. The charter flow is deprecated.</p>}
-        <p className="bd-doing" data-tone={board.tone}><span className="bd-dot" /><span><b>{board.word}</b> {board.detail}</span></p>
+        <p className="bd-doing"><b>{board.word}</b><span>{board.detail}</span></p>
       </div>
       <div className="bd-nums">
         {board.progress && (

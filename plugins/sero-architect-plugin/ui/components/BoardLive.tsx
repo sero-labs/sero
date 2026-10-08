@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Compass, Workflow } from 'lucide-react';
 import { useChildRuns } from '@sero-ai/app-runtime';
 import type { WorkFeedback } from '@sero-ai/common';
-import { SubagentLiveBlock } from '@sero-ai/ui';
+import { useSubagentLive } from '@sero-ai/ui';
 
 import type { ProjectRecord } from '../../shared/record';
 import { rowAction, textTail, toolPhrase, type LiveRow } from '../lib/board';
@@ -14,6 +14,12 @@ import { useLinkedMemberLive, useOwnerWatch } from '../lib/use-work-watch';
 /** A Workflow step is known by its title; the agent that runs it has a generic name. */
 const whoOf = (entry: WorkFeedback): string => (entry.kind === 'workflow-attempt' && entry.subject ? entry.subject : entry.owner);
 
+/** A Room names a member "Vera — Design Lead". The name leads and the role follows, quieter. */
+function Who({ name }: { name: string }) {
+  const [first, ...rest] = name.split(' — ');
+  return <span className="bd-who-row"><b>{first}</b>{rest.length > 0 && <small>{rest.join(' — ')}</small>}</span>;
+}
+
 /** Who a row is: a Room member has the face the Room gives it, other work has a mark for its kind. */
 function Face({ entry }: { entry?: WorkFeedback }) {
   const member = entry?.kind === 'room-member' ? entry.scope.memberId : undefined;
@@ -21,37 +27,28 @@ function Face({ entry }: { entry?: WorkFeedback }) {
   return <span className="bd-face-sm" data-mark="">{entry?.kind === 'owner-wake' ? <Compass /> : <Workflow />}</span>;
 }
 
-/** A key for each line: the line itself, numbered when the same action ran twice. */
-function keyed(lines: readonly string[]): [string, string][] {
-  const seen = new Map<string, number>();
-  return lines.map((line) => {
-    const nth = seen.get(line) ?? 0;
-    seen.set(line, nth + 1);
-    return [`${line}#${nth}`, line];
-  });
-}
+type Step = { toolName: string; summary: string };
 
 interface NowView {
-  /** The action in plain words, when the watch knows it better than the row does. */
-  action: string | null;
-  detail: string;
+  /** The tool running now. */
+  tool: Step | null;
+  /** The tool that finished last, shown while no tool runs. */
+  last: Step | null;
   text: string;
-  recent: { toolName: string; summary: string }[];
 }
 
-/** The one action in hand: its name, the tool's own detail, the arriving words, what came before. */
+/**
+ * One line for the action in hand, or the last one, and a box for the arriving
+ * words. Both have a fixed height: they change many times a second, and nothing
+ * around them may move.
+ */
 function Now({ entry, view }: { entry: WorkFeedback; view: NowView }) {
+  const step = view.tool ?? view.last;
+  const line = step ? `${toolPhrase(step.toolName)}${step.summary ? ` · ${step.summary}` : ''}` : entry.wait?.kind === 'tool' ? rowAction(entry) : '';
   return (
     <>
-      <p className="bd-act">{view.action ?? rowAction(entry)}</p>
-      <p className="bd-detail">{view.detail}</p>
-      {/* A fixed box: the words change many times a second, and the tiles below must not move. */}
-      <div className="bd-stream" aria-live="off"><p>{textTail(view.text)}</p></div>
-      {view.recent.length > 0 && (
-        <ul className="bd-before" aria-label="Just before">
-          {keyed(view.recent.map((item) => `${toolPhrase(item.toolName)}${item.summary ? ` · ${item.summary}` : ''}`)).map(([key, line]) => <li key={key}>{line}</li>)}
-        </ul>
-      )}
+      <p className="bd-step-now" data-past={!view.tool && view.last ? '' : undefined}>{line}</p>
+      <div className="bd-stream" aria-live="off">{view.text.trim() && <p><span>{textTail(view.text)}</span></p>}</div>
     </>
   );
 }
@@ -62,12 +59,7 @@ function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: W
   const seen = useProjectPicture(projectId, undefined, `${live?.turnId ?? ''}:${live?.tool?.callId ?? live?.tool?.startedAt ?? ''}:${finished}`);
   // A screenshot from before this turn shows a page the Architect is no longer on.
   const browser = seen && turnSince && seen.at >= turnSince ? seen : null;
-  const view: NowView = {
-    action: live?.tool ? toolPhrase(live.tool.toolName) : live?.request ? toolPhrase(null) : null,
-    detail: live?.tool?.summary ?? '',
-    text: live?.text ?? '',
-    recent,
-  };
+  const view: NowView = { tool: live?.tool ?? null, last: recent[0] ?? null, text: live?.text ?? '' };
   return (
     <div className={browser ? 'bd-now bd-now-seen' : 'bd-now'}>
       <div><Now entry={entry} view={view} /></div>
@@ -83,12 +75,7 @@ function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: W
 
 function MemberNow({ record, roomId, memberId, entry }: { record: ProjectRecord; roomId: string; memberId: string; entry: WorkFeedback }) {
   const live = useLinkedMemberLive(record.id, record.workspaceId, roomId, memberId, true);
-  const view: NowView = {
-    action: live?.toolInFlight ? toolPhrase(live.toolInFlight.toolName) : null,
-    detail: live?.toolInFlight?.summary ?? '',
-    text: live?.text ?? '',
-    recent: [],
-  };
+  const view: NowView = { tool: live?.toolInFlight ?? null, last: null, text: live?.text ?? '' };
   return <Now entry={entry} view={view} />;
 }
 
@@ -97,12 +84,13 @@ function SelectedNow({ record, entry }: { record: ProjectRecord; entry: WorkFeed
   if (entry.kind === 'room-member' && entry.scope.workId && entry.scope.memberId) {
     return <MemberNow record={record} roomId={entry.scope.workId} memberId={entry.scope.memberId} entry={entry} />;
   }
-  return (
-    <>
-      <Now entry={entry} view={{ action: null, detail: '', text: '', recent: [] }} />
-      {entry.watchRunId && <SubagentLiveBlock className="wk-live" runId={entry.watchRunId} />}
-    </>
-  );
+  return <RunNow entry={entry} />;
+}
+
+/** A Workflow step's agent, in the same form as every other row. */
+function RunNow({ entry }: { entry: WorkFeedback }) {
+  const live = useSubagentLive(entry.watchRunId ?? null);
+  return <Now entry={entry} view={{ tool: live.tool ? { toolName: live.tool.toolName, summary: live.tool.argsSummary } : null, last: null, text: live.text }} />;
 }
 
 /**
@@ -125,14 +113,14 @@ export function BoardLive({ record, rows, onOpenSession }: { record: ProjectReco
         <div className="bd-rows">
           {rows.map(({ entry }) => (
             <button key={entry.key} type="button" className="bd-row" aria-pressed={entry.key === picked.entry.key} onClick={() => setPickedKey(entry.key)}>
-              <Face entry={entry} /><b>{whoOf(entry)}</b><span>{rowAction(entry)}</span>
+              <Face entry={entry} /><Who name={whoOf(entry)} /><span className="bd-row-act">{rowAction(entry)}</span>
             </button>
           ))}
           {children.map((child) => {
             const tool = child.toolActivity.filter((item) => item.running).at(-1);
             return (
               <div key={child.id} className="bd-row">
-                <Face /><b>{child.agentName}</b><span>{tool ? toolPhrase(tool.toolName) : ''}</span>
+                <Face /><Who name={child.agentName} /><span className="bd-row-act">{tool ? toolPhrase(tool.toolName) : ''}</span>
               </div>
             );
           })}
