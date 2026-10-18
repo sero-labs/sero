@@ -253,14 +253,17 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
 /**
  * True once the run reached its end. `verifying` is not the end: a milestone
  * enters it when evidence collection starts, long before the objective is
- * finished. A milestone planned but not dispatched does not hold the run open. A
- * run the Architect closed or delivered without dispatching also ends it, so a
- * run that works some other way is not waited on forever.
+ * finished. Every worked milestone must be done and the project out of
+ * `build`: a milestone planned but not yet dispatched keeps the project in
+ * `build`, so a follow-up such as an independent review is not scored mid-way.
+ * A run the Architect closed or delivered without dispatching also ends it, so
+ * a run that works some other way is not waited on forever.
  */
 function architectFinished(record: BaselineProjectRecord): boolean {
   // Work is a milestone that was dispatched or that the owner did itself.
   const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null || milestone.direct !== undefined);
-  const settled = dispatched.length > 0
+  const settled = record.phase !== 'build'
+    && dispatched.length > 0
     && dispatched.every((milestone) => milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
     && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
   return settled || (record.runs ?? []).some((run) => run.outcome === 'delivered' || run.endedAt !== null);
