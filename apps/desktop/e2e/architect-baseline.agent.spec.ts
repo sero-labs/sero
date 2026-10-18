@@ -485,8 +485,10 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
 
   const recoveries: BaselineRecovery[] = [];
   let restarted = false;
-  // Work is in flight once something is dispatched and the run has not ended.
-  const midRun = (record: BaselineProjectRecord): boolean => record.milestones.some((milestone) => milestone.dispatch !== null);
+  // Work is in flight once something is dispatched, or the owner is doing a
+  // milestone itself, and the run has not ended.
+  const midRun = (record: BaselineProjectRecord): boolean =>
+    record.milestones.some((milestone) => milestone.dispatch !== null || milestone.direct?.state === 'running');
   let end = await drive(projectId, scenario.id, deadline, scenario.id === 'interruption' ? midRun : undefined);
   if (end === 'interrupt') {
     restarted = true;
