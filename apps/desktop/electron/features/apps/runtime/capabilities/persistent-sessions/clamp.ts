@@ -126,8 +126,9 @@ function clampSubject(
 
   // Apply the same profile filter before approval that session construction
   // applies at runtime. Approval and execution must describe one tool set.
+  // A tool the profile rules out is the profile working, not something missing,
+  // so it is no note: callers ask for every tool and let the profile narrow it.
   const tools = applyPermissionProfile(knownTools.kept, permissionProfile);
-  if (tools.removed.length > 0) notes.push({ subject, field: 'allowedTools', dropped: tools.removed });
 
   const skills = keepKnown(policy.allowedSkills, inputs.availableSkills);
   if (skills.dropped.length > 0) notes.push({ subject, field: 'allowedSkills', dropped: skills.dropped });
