@@ -66,20 +66,30 @@ time still holds the owner, and a dispatch on its own milestone is refused.
 
 The owner ends a wake with `work --operation wait`, handled in
 `runtime/owner-wait.ts`. `shared/waits.ts` holds the saved wait: a source kind
-and id, a condition, an optional deadline, the outcome, and one wake. The only
-observable source is `child` (`OBSERVABLE_SOURCES`), a Workflow or Room named by
-the project's own milestone or research id. `process` and `ci` are refused with
-a manual-resume message. Nothing the owner types is evaluated.
+and id, a condition, an optional deadline, the outcome, and one wake. Three
+sources are observable (`OBSERVABLE_SOURCES`): `child`, a Workflow or Room named
+by the project's own milestone or research id; `process`, a dev server the host
+manages in the project's workspace; and `ci`, the checks of a branch or commit
+read through `host.git.getRefChecks`. Any other kind gets a manual-resume
+message. Nothing the owner types is evaluated. How a dev server or a set of
+checks ends is decided in `@sero-ai/common` (`wait-source-outcomes.ts`), which
+Goals share.
 
 - The intent is saved first, then the source is read once, so a completion that
   landed before the call is not missed.
-- `runtime/wait-reconciler.ts` re-reads source state on a change, on startup and
-  on one timer armed for the nearest deadline. It does not poll.
+- A `process` or `ci` wait is checked before it is saved (`admit`): the server
+  must be running, and the checks must be readable.
+- `runtime/wait-reconciler.ts` re-reads source state on a change (an index push
+  or any dev server change), on startup and on one timer armed for the nearest
+  deadline. The CI source alone reads again every two minutes while a `ci` wait
+  is open (`CI_WAIT_READ_INTERVAL_MS`). A `ci` wait with no deadline gets six
+  hours.
 - The wake is reserved before it is requested (`reserveWake`) and consumed when
   its turn starts (`consumeWake`). The one owner scheduler delivers it as a
   `wait` wake in `shared/wake.ts`. The reconciler never starts a turn.
 - `expired` and `failed` outcomes wake the owner and are never completion.
-  `uncertain` holds the project (`holdUncertain`).
+  `uncertain` holds the project. A dev server the host no longer lists, as after
+  a restart, is `uncertain`, and nothing starts it again.
 - A stop moves `controlRevision` past every earlier wait, so nothing reserved
   before it can wake the owner. A pause, a block, the cap or a missing approval
   leave the outcome on the record with no wake (`waitMayWake`).
@@ -102,11 +112,14 @@ not set. User limits such as the cost cap stay hard stops.
 `runtime/owner-skills.ts` adds the workspace's enabled skills to a NEW owner's
 start approval. An owner with a grant asks again for exactly what was approved,
 so a renewed grant neither widens nor drops it. Widening an existing owner is a
-host grant amendment that the user approves. The owner session registers every
-approved tool, loads a small set, and finds the rest with `tool_search`. It
-never gets Code Mode, and the architect plugin needs no discovery code of its
-own: the host builds the tool surface (`tool-surface.ts` in the persistent
-sessions capability).
+host grant amendment that the user approves. A NEW owner also asks for Code Mode
+(`codemode`) and the workspace browser (`automation_browser`) when the
+workspace offers them (`OPTIONAL_OWNER_TOOLS`); an existing owner keeps what was
+approved. The owner session registers every approved tool, loads a small set,
+and finds the rest with `tool_search`. An approved `codemode` is loaded at
+start, because `tool_search` cannot find it. The architect plugin needs no
+discovery code of its own: the host builds the tool surface (`tool-surface.ts`
+in the persistent sessions capability).
 
 ## Where things live
 

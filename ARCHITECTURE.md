@@ -148,12 +148,34 @@ script can call only the tools the session registered. A new Architect owner
 asks for it at its start approval, an existing owner keeps its old approval,
 and a Room member has it only when the Room names it.
 
-An Architect owner or a Goal can wait on linked child work. The wait is saved
-with a stable source id. Its wake is reserved before it is requested and
-consumed by the existing driver when its turn starts: the Architect owner
-scheduler, or the Goal loop. The watcher only observes state and signals. The
-scheduler never polls: a state change, a startup and one deadline timer each
-trigger a read. A stop moves a control revision past every earlier wait.
+An Architect owner can do a milestone itself instead of delegating it. The
+owner scheduler stays its only driver: no Goal loop or second session is
+attached. The execution and its placement are saved before any tool acts, so a
+restart finds the same execution, marks it interrupted and never begins it
+again. In Workspace mode the owner and a delegated Workflow or Room are the
+same kind of writer, and only one may hold the project folder. In Worktree mode
+the owner works in its own checkout and its result is that checkout's branch.
+The owner's report is a claim: the milestone closes only on runtime evidence,
+as delegated work does.
+
+An Architect owner or a Goal can wait on linked child work, on a dev server the
+host manages, or on the CI checks of a branch or commit. The wait is saved
+with a stable source id and never holds a command or predicate. Its wake is
+reserved before it is requested and consumed by the existing driver when its
+turn starts: the Architect owner scheduler, or the Goal loop. The watcher only
+observes state and signals. The scheduler never polls: a state change, a dev
+server change, a startup and one deadline timer each trigger a read. The one
+bounded repeated read is the CI source, which reads GitHub every two minutes
+while a CI wait is open; the read never starts a turn by itself. A dev server
+the host no longer lists, as after a restart, is an unknown outcome: it holds
+the project or blocks the Goal and is never started again. A stop moves a
+control revision past every earlier wait.
+
+A limit is either user approved (a cost cap, a Room's time and spend) or an
+internal watchdog. A watchdog never stops progressing work: an owner turn is
+stopped only after it has been silent for the stall window and ignored one
+request to checkpoint. A user-approved limit stays binding, and an agent cannot
+raise it.
 
 Session telemetry crosses one closed contract. `PersistentSessionEvent` names a
 turn, a request and a tool call with explicit identities and host timestamps, and
