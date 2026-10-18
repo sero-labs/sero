@@ -11,6 +11,7 @@ import type { RuntimeBackend } from '@electron/features/workspace/runtime/types'
 import { createBash, createRead, createWrite, createEdit } from './tools-coding';
 import { createBrowser } from './tools-browser';
 import { createWorkspaceCliTool } from '@electron/cli';
+import { browserPackStatus, ensureBrowserPackForAgent } from '@electron/features/workspace/runtime/install-actions';
 
 /**
  * Build all container tools for a workspace.
@@ -36,10 +37,17 @@ export async function createRuntimeTools(
   return tools;
 }
 
+/**
+ * Whether a session gets the browser tool. A host without the pack still gets
+ * it when the pack can be installed: the download starts now, so the pack is
+ * usually ready by the first call, and that call waits for it if not.
+ */
 export async function isBrowserAutomationAvailable(runtime: RuntimeBackend): Promise<boolean> {
   if (!runtime.capabilities.browserAutomation) return false;
   if (runtime.backend !== 'host') return true;
-  const health = await runtime.health();
-  const browserCheck = health.checks?.find((check) => check.id === 'runtime.host.browser');
-  return browserCheck?.status === 'pass' || browserCheck?.details?.installState === 'ready';
+  const status = await browserPackStatus();
+  if (status.state === 'ready') return true;
+  if (status.state === 'missing' || status.error?.installable === false) return false;
+  void ensureBrowserPackForAgent(runtime.workspaceId).catch(() => undefined);
+  return true;
 }

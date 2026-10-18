@@ -180,6 +180,11 @@ test.beforeAll(async () => {
   if (!LOOK) fs.rmSync(SHOTS, { recursive: true, force: true });
   fs.mkdirSync(SHOTS, { recursive: true });
   fs.mkdirSync(PROJECTS_ROOT, { recursive: true });
+  // Toolchains are per machine. The run uses the machine's copy, so it has the
+  // browser pack the real app has and never downloads a second one.
+  const machineTools = path.join(os.homedir(), '.sero-ui', 'toolchains');
+  const runTools = path.join(HOME, 'toolchains');
+  if (fs.existsSync(machineTools) && !fs.existsSync(runTools)) fs.symlinkSync(machineTools, runTools);
   ({ app, page } = await launchSeroApp({
     seroHome: HOME,
     runtime: 'host',

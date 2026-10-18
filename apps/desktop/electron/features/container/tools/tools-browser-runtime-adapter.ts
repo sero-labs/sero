@@ -2,7 +2,7 @@ import path from 'path';
 
 import generatedArtifacts from '@electron/features/workspace/runtime/browser-pack/generated-artifacts.json';
 import { createBrowserRuntimeAdapter, firstExistingCandidate } from '@electron/features/workspace/runtime/browser-pack/adapter';
-import { createBrowserPackInstaller } from '@electron/features/workspace/runtime/browser-pack/installer';
+import { browserPackStatus, ensureBrowserPackForAgent } from '@electron/features/workspace/runtime/install-actions';
 import type { BrowserPackError, BrowserPackStatus, BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
 import type { RuntimeBackend, RuntimeBackendId } from '@electron/features/workspace/runtime/types';
 import { shellEscape } from './tool-schemas';
@@ -96,8 +96,9 @@ export function defaultScreenshotPath(adapter: BrowserRuntimeAdapter): string {
 }
 
 async function resolveHostBrowserAutomationRuntime(workspaceId: string): Promise<BrowserAutomationRuntime> {
-  const installer = createBrowserPackInstaller();
-  const status = await installer.status();
+  // The first call installs the pack, or waits for the download a session start began.
+  let status = await browserPackStatus();
+  if (status.state !== 'ready') status = await ensureBrowserPackForAgent(workspaceId).catch(() => browserPackStatus());
   if (status.state !== 'ready') throw new BrowserPackRequiredError(status);
 
   const adapter = createBrowserRuntimeAdapter();

@@ -27,6 +27,16 @@ vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
   runtimeManager: { getRuntime: vi.fn() },
 }));
 
+const pack = vi.hoisted(() => ({
+  status: vi.fn(async (): Promise<{ state: string; error?: { installable: boolean } }> => ({ state: 'ready' })),
+  ensure: vi.fn(async () => ({ state: 'ready' })),
+}));
+
+vi.mock('@electron/features/workspace/runtime/install-actions', () => ({
+  browserPackStatus: pack.status,
+  ensureBrowserPackForAgent: pack.ensure,
+}));
+
 describe('persistent member runtime tools', () => {
   it('runs approved bash through the workspace runtime with the member cwd and CLI scope', async () => {
     const runtime = fakeRuntime('host', { backend: 'host', status: 'ready', message: 'ready', checks: [] });
@@ -73,7 +83,8 @@ describe('persistent member runtime tools', () => {
     expect(runtimeManager.getRuntime).not.toHaveBeenCalled();
   });
 
-  it('reports an unavailable approved browser before starting a member without it', async () => {
+  it('reports an approved browser this machine cannot install before starting a member without it', async () => {
+    pack.status.mockResolvedValueOnce({ state: 'missing' });
     vi.mocked(runtimeManager.getRuntime).mockResolvedValue(fakeRuntime('host', {
       backend: 'host', status: 'ready', message: 'ready', checks: [],
     }));
@@ -83,42 +94,28 @@ describe('persistent member runtime tools', () => {
 });
 
 describe('createRuntimeTools browser automation gating', () => {
-  it('omits automation_browser for host runtimes until browser pack is ready', async () => {
-    const runtime = fakeRuntime('host', {
-      backend: 'host',
-      status: 'ready',
-      message: 'ready',
-      checks: [{
-        id: 'runtime.host.browser',
-        category: 'runtime',
-        status: 'warn',
-        message: 'installable',
-        durationMs: 1,
-        details: { installState: 'installable' },
-      }],
-    });
+  it('offers automation_browser on a host without the pack, and starts the download', async () => {
+    pack.status.mockResolvedValueOnce({ state: 'installable' });
+    pack.ensure.mockClear();
 
-    const tools = await createRuntimeTools(runtime, 'session-1');
+    const tools = await createRuntimeTools(fakeRuntime('host', { backend: 'host', status: 'ready', message: 'ready', checks: [] }), 'session-1');
+
+    expect(toolNames(tools)).toContain('automation_browser');
+    expect(pack.ensure).toHaveBeenCalledWith('ws-1');
+  });
+
+  it('omits automation_browser when this machine cannot install the pack', async () => {
+    pack.status.mockResolvedValueOnce({ state: 'missing' });
+
+    const tools = await createRuntimeTools(fakeRuntime('host', { backend: 'host', status: 'ready', message: 'ready', checks: [] }), 'session-1');
 
     expect(toolNames(tools)).not.toContain('automation_browser');
   });
 
-  it('includes automation_browser for host runtimes after browser pack readiness is confirmed', async () => {
-    const runtime = fakeRuntime('host', {
-      backend: 'host',
-      status: 'ready',
-      message: 'ready',
-      checks: [{
-        id: 'runtime.host.browser',
-        category: 'runtime',
-        status: 'pass',
-        message: 'ready',
-        durationMs: 1,
-        details: { installState: 'ready' },
-      }],
-    });
+  it('includes automation_browser for host runtimes once the pack is ready', async () => {
+    pack.status.mockResolvedValueOnce({ state: 'ready' });
 
-    const tools = await createRuntimeTools(runtime, 'session-1');
+    const tools = await createRuntimeTools(fakeRuntime('host', { backend: 'host', status: 'ready', message: 'ready', checks: [] }), 'session-1');
 
     expect(toolNames(tools)).toContain('automation_browser');
   });
