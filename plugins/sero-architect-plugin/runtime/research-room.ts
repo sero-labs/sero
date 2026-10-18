@@ -152,7 +152,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
         completed = true;
         return closeDeliveredObjectives(settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
-          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now(), ...(pending.openSpecChange ? { openSpecChange: pending.openSpecChange } : {}) }],
+          research: [...next.research, { id: pending.id, roomId: room.id, ...(room.title ? { title: room.title } : {}), models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now(), ...(pending.openSpecChange ? { openSpecChange: pending.openSpecChange } : {}) }],
         }, deps.host.now()), deps.host.now());
       }
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models,

@@ -169,6 +169,8 @@ export function BoardPlan({ projectId, steps, note, onOpenPlan, onOpenResearch, 
 }
 
 /** The choices that shape the work. Change opens a message; it sends nothing. */
+const MADE_BY: Record<MadeRow['by'], string> = { you: 'You', architect: 'Architect', room: 'Room' };
+
 export function BoardMade({ rows, onChange }: { rows: readonly MadeRow[]; onChange(row: MadeRow): void }) {
   return (
     <section className="bd-tile" aria-label="Decisions made">
@@ -178,7 +180,7 @@ export function BoardMade({ rows, onChange }: { rows: readonly MadeRow[]; onChan
           <li key={row.key}>
             {/* Who decided it and the way to change it share one line. The decision has the full width under it. */}
             <p className="bd-who" data-you={row.by === 'you' ? '' : undefined}>
-              <span>{row.by === 'you' ? 'You' : 'Architect'}</span>
+              <span>{MADE_BY[row.by]}</span>
               <button type="button" className="bd-change" onClick={() => onChange(row)}>Change</button>
             </p>
             <details>

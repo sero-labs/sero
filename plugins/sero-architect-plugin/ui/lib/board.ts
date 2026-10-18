@@ -33,7 +33,7 @@ export interface MadeRow {
   key: string;
   text: string;
   why: string | null;
-  by: 'you' | 'architect';
+  by: 'you' | 'architect' | 'room';
 }
 
 export interface Board {
@@ -160,6 +160,11 @@ function madeRows(record: ProjectRecord): MadeRow[] {
       why: decision.question,
       by: 'you',
     }));
+  // What a Room agreed is settled by it, so it is listed with the decisions. Its findings fold under it.
+  const agreed = record.research
+    .filter((entry) => entry.roomId)
+    .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
+    .map((entry): MadeRow => ({ key: `research:${entry.id}`, text: entry.title ?? entry.question, why: entry.result, by: 'room' }));
   const assumed = (record.working?.assumptions ?? []).map(assumptionOf).map((assumption, index): MadeRow => ({
     key: `assumption:${index}`,
     text: assumption.text,
@@ -168,7 +173,7 @@ function madeRows(record: ProjectRecord): MadeRow[] {
   }));
   const cap = record.budget.capUsd ?? record.agreement?.capUsd ?? null;
   const limit: MadeRow[] = cap === null ? [] : [{ key: 'cap', text: `Spend up to ${usd(cap)}`, why: 'Work stops and asks you at the cap.', by: 'you' }];
-  return [...answered, ...assumed, ...limit];
+  return [...answered, ...agreed, ...assumed, ...limit];
 }
 
 /** A sentence ends with a full stop. One that already ends is left as it is. */

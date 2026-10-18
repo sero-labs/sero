@@ -207,6 +207,11 @@ Object.assign(DELIVERY_FIXTURES, {
   'board-working': sudoku({
     session: { ...base.session, workingSince: ago(90) },
     createdAt: ago(600), budget: { ...base.budget, spentUsd: 1.31 }, decisions: [answered],
+    research: [{
+      id: 'res_bugs', roomId: 'room-bugs', title: 'Sudoku Bug Causes Room', question: 'Find the cause of the notes bug and the finished-puzzle bug.', stoppingCondition: 'Stop when both causes are agreed.',
+      result: 'Both members agree. Notes stay because placing a digit never clears the notes in its row, column and box. A finished puzzle is missed because the check compares the board with one stored answer instead of checking the rules.',
+      costUsd: 0.42, completedAt: ago(400),
+    }],
     milestones: [step('notes', NOTES, 'done'), step('solved', SOLVED, 'running')],
     overview: { objective: { text: 'Thanks. I am changing the finished-puzzle check now, then I will play a Fiendish puzzle to its second answer to prove it.', at: ago(20) } },
   }),
