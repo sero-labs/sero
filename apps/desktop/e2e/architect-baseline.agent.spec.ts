@@ -34,6 +34,9 @@
  * Architect project's execution location. In worktree mode the owner works in a
  * checkout under the folder's .sero/worktrees, so the acceptance checks run against
  * the checkout of the milestone the owner did itself, not the untouched folder.
+ * SERO_BASELINE_PROBE appends one sentence to every request, to probe one
+ * behaviour such as finding a deferred tool. The request is a controlled input,
+ * so a probe run never matches an unprobed run in a comparison.
  * Results go to e2e/screenshots/architect-baseline/pilot/. The earlier baseline.json
  * and its images beside it are historical evidence and are never touched.
  */
@@ -69,6 +72,8 @@ const TOTAL_CAP_USD = Number(process.env.SERO_BASELINE_TOTAL_CAP ?? 'NaN');
 const REPEATS = Number(process.env.SERO_BASELINE_REPEATS ?? '2');
 const BATCH_ID = process.env.SERO_BASELINE_BATCH ?? new Date().toISOString().replace(/[:.]/g, '-');
 const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-baseline');
+const PROBE = process.env.SERO_BASELINE_PROBE?.trim();
+const RUN_SCENARIOS = PROBE ? SCENARIOS.map((scenario) => ({ ...scenario, request: `${scenario.request} ${PROBE}` })) : SCENARIOS;
 const PILOT = path.join(SHOTS, 'pilot');
 const RECORDS = path.join(PILOT, 'records.json');
 const COMPARISONS = path.join(PILOT, 'comparisons.json');
@@ -732,7 +737,7 @@ interface PairComparison {
   unobserved: Record<string, string[]>;
 }
 
-for (const scenario of SCENARIOS) {
+for (const scenario of RUN_SCENARIOS) {
   if (ONLY && !ONLY.includes(scenario.id)) continue;
   for (let replicate = 1; replicate <= REPEATS; replicate += 1) {
     // Alternate which strategy goes first, so a slow hour does not always land on one of them.
@@ -855,7 +860,7 @@ test.beforeAll(async () => {
   expect(live && `${live.provider}/${live.modelId}`, `The running app resolves the ${tier.tier} tier differently from settings.json.`).toBe(tier.model);
 
   const settings = { model: tier.model, thinking: tier.thinking, budgetUsd: CAP_USD, budgetMinutes: MINUTES, batchId: BATCH_ID };
-  for (const scenario of SCENARIOS) {
+  for (const scenario of RUN_SCENARIOS) {
     for (let replicate = 1; replicate <= REPEATS; replicate += 1) plans.set(planKey(scenario.id, replicate), buildManifest(scenario, replicate, settings));
   }
   writeJson(MANIFEST, { batchId: BATCH_ID, tier: tier.tier, settings, plans: [...plans.values()] });
