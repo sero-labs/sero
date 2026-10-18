@@ -59,6 +59,10 @@ export interface ToolStallWatch {
   end(callId: string): void;
   /** Stops every timer. Called when a turn ends and when the run ends. */
   clear(): void;
+  /** Stops one call's timer while it waits on the user. A wait on a person is not a stall. */
+  hold(callId: string): void;
+  /** Starts a held call's timer again, from the full period. */
+  release(callId: string): void;
 }
 
 interface WatchedCall {
@@ -110,6 +114,16 @@ export function createToolStallWatch(stallMs: number, onStall: (toolName: string
     clear() {
       for (const call of calls.values()) clearTimeout(call.timer);
       calls.clear();
+    },
+    hold(callId) {
+      const call = calls.get(callId);
+      if (call) clearTimeout(call.timer);
+    },
+    release(callId) {
+      const call = calls.get(callId);
+      if (!call) return;
+      clearTimeout(call.timer);
+      call.timer = arm(callId, call.toolName);
     },
   };
 }

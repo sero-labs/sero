@@ -26,6 +26,7 @@ import {
   settleOrGiveUp,
   type ToolStallWatch,
 } from './abort-grace';
+import { holdWhileAsking } from './hold-while-asking';
 import { filterPlatformTools, planWorkerTools, resolveSubagentPaths } from './session-policy';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
@@ -118,6 +119,7 @@ export async function runSubagent(
 
   // Hoisted above try so finally can stop the timers and the listeners.
   let stalls: ToolStallWatch | null = null;
+  let stopHolding: (() => void) | null = null;
   let stopReason: string | undefined;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const grace = createAbortGrace();
@@ -353,6 +355,8 @@ export async function runSubagent(
       onStatusUpdate?.(`⚠️ ${stallMsg}`);
       stopRun();
     });
+    // A call waiting on the user's permission answer is not stalled.
+    stopHolding = holdWhileAsking(stalls);
     // Calls in one reply run at the same time, so each is timed under its own id.
     const callIdOf = (event: Record<string, unknown>): string => String(event.toolCallId ?? event.toolName ?? 'unknown');
     const parentCallIdOf = (event: Record<string, unknown>): string | undefined =>
@@ -478,6 +482,7 @@ export async function runSubagent(
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
     stalls?.clear();
+    stopHolding?.();
     grace.clear();
     signal.removeEventListener('abort', stopRun);
     await disposeRunSession();
