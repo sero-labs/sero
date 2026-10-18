@@ -24,7 +24,7 @@
 - [x] 6.1 Add the `picture` request: a step's saved capture, or the last browser screenshot, with the path check and the newer-than rule. Verify with tests against real files.
 - [x] 6.2 Show the proof picture on a checked step and on the result, and the last browser screenshot in Live for the current turn. Verify in the preview harness with a stubbed picture.
 - [x] 6.3 Check the Live tile and the proof picture in the running app, with a real project that has a capture and a working Architect. Seen in the real Sudoku run of 2026-10-08 (`evidence/real-run/`).
-- [ ] 6.4 See the Architect's last browser screenshot in Live in the running app. The real run's Architect never used its browser, so this is still only proven in the preview harness.
+- [ ] 6.4 See the Architect's last browser screenshot in Live in the running app. Not done: skipped on 2026-10-19 when the change was archived. No real run had the browser pack (the story harness hid the machine's copy), so it is proven only in the preview harness. Architect now holds the browser (4c09baacb) and the pack installs on first use (5e4f81792).
 - [x] 6.5 Changes from the real run: Room faces on the Live rows, no resetting clocks, a fixed box for arriving text, a steady state line, decisions listed under the plan, the host type scale, and "Approve the start" while the start prompt is open.
 
 ## 4. Work view and preview fixtures
