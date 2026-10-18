@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
+import { openSeroApp, useAppState } from '@sero-ai/app-runtime';
 
 import type { CreateProjectInput } from '../shared/create-project';
 import type { ArchitectIndex } from '../shared/types';
@@ -101,6 +101,12 @@ export function ArchitectApp() {
   const confirm = useCallback((message: string) => window.confirm(message), []);
 
   const { create, permissionProjectId, refusal } = useCreateProject(actions, navigate);
+
+  // The shell's workspace follows the project on screen, so the title bar, sidebar and chat name the same project.
+  const projectWorkspace = projectId ? index.projects.find((entry) => entry.id === projectId)?.workspaceId ?? null : null;
+  useEffect(() => {
+    if (projectWorkspace) void openSeroApp('architect', undefined, projectWorkspace);
+  }, [projectWorkspace]);
 
   // A deleted project's page falls back to the list once the index no longer lists it.
   const listed = index.projects.some((entry) => entry.id === projectId);
