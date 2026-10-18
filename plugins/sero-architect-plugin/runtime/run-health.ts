@@ -1,4 +1,5 @@
 import { block, unblock } from '../shared/lifecycle';
+import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import type { RecordStore } from './record-store';
 
 export interface RunHealth {
@@ -47,6 +48,10 @@ export async function applyRunHealth(store: RecordStore, projectId: string, loop
   await store.update(projectId, (record) => {
     const milestone = record.milestones.find((item) => item.dispatch?.id === loopId);
     if (!milestone?.dispatch || milestone.status === 'done') return null;
+    // Quitting Sero mid-triage is not a fault in a delivered project. The next
+    // issue, CI failure or weekly run starts maintenance again.
+    const restarted = !latest.block?.reason && (latest.interruptedStepIds?.length ?? 0) > 0;
+    if (milestone.id === MAINTENANCE_MILESTONE_ID && restarted) return null;
     const dispatch = milestone.dispatch;
     const retryStepId = latest.steps?.find((step) => ['orphaned', 'failed', 'cancelled', 'blocked'].includes(step.status) || ['failed', 'blocked'].includes(step.outcomeStatus ?? ''))?.stepId;
     // A worker can finish normally while its structured outcome blocks the run.
