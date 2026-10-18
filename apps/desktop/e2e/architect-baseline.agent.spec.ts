@@ -56,6 +56,7 @@ import { SCENARIOS, type ScenarioDefinition } from './architect-baseline/scenari
 import { observeSession } from './architect-baseline/session-file';
 import { resolveTier, tierFromEnv, type ResolvedTier } from './architect-baseline/tier';
 import { workflowRepairs } from './architect-baseline/workflow-repairs';
+import { ORCHESTRATOR_INDEX_FILE } from '@sero-ai/common';
 
 const ENABLED = process.env.SERO_E2E_ARCHITECT_BASELINE === '1';
 const list = (value: string | undefined): string[] | null => (value && value !== 'all' ? value.split(',').map((item) => item.trim()) : null);
@@ -149,6 +150,11 @@ const recordedSpendUsd = (): number => readRecords().reduce((total, entry) => to
 // ── App ──────────────────────────────────────────────────────────────
 
 async function launch(): Promise<void> {
+  // Toolchains are per machine. The run uses the machine's copy, as the real app
+  // does, so a capability is not reported unavailable only because this home lacks it.
+  const machineTools = path.join(os.homedir(), '.sero-ui', 'toolchains');
+  const runTools = path.join(BASELINE_HOME, 'toolchains');
+  if (fs.existsSync(machineTools) && !fs.existsSync(runTools)) fs.symlinkSync(machineTools, runTools);
   ({ app, page } = await launchSeroApp({
     seroHome: BASELINE_HOME,
     runtime: 'host',
@@ -339,6 +345,25 @@ async function drive(projectId: string, label: string, deadline: number, interru
 }
 
 /** Every journal line for one run, in order. A torn tail is dropped, not guessed at. */
+/**
+ * Copies what a run leaves behind into pilot/raw/<run folder>/ before the run is
+ * cleaned up: deleting a project deletes its grant and session with it.
+ * Missing sources are skipped; the folder then holds what existed.
+ */
+function keepRaw(folder: string, items: { name: string; from?: string | null; json?: unknown }[]): void {
+  const dir = path.join(PILOT, 'raw', path.basename(folder));
+  fs.mkdirSync(dir, { recursive: true });
+  for (const item of items) {
+    const to = path.join(dir, item.name);
+    try {
+      if (item.json !== undefined) fs.writeFileSync(to, `${JSON.stringify(item.json, null, 2)}\n`);
+      else if (item.from && fs.existsSync(item.from)) fs.cpSync(item.from, to, { recursive: true });
+    } catch (error) {
+      console.warn(`[baseline] could not keep ${item.name}: ${String(error)}`);
+    }
+  }
+}
+
 function journalOf(projectId: string, runId: string): JournalRecord[] {
   const file = path.join(architectHome(), 'runs', projectId, `${runId}.journal.ndjson`);
   if (!fs.existsSync(file)) return [];
@@ -467,6 +492,14 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   // The last charge is written after the final response, so let it land.
   if (finished) await sleep(30_000);
   const observed = await observeArchitect(projectId, finished, Date.now() - startedAt, restarted, recoveries);
+  const kept = await projects<{ session?: { sessionPath?: string | null; grantId?: string | null } } | null>('show', projectId);
+  const grants = readJson<Record<string, unknown>>(path.join(profileRoot, 'apps', 'persistent-sessions', 'grants.json'));
+  keepRaw(folder, [
+    { name: 'record.json', json: kept },
+    { name: 'owner-session.jsonl', from: kept?.session?.sessionPath },
+    { name: 'grant.json', json: kept?.session?.grantId ? grants?.[kept.session.grantId] ?? null : null },
+    { name: 'orchestrator', from: path.join(folder, path.dirname(ORCHESTRATOR_INDEX_FILE)) },
+  ]);
   await projects<unknown>('delete', projectId).catch((error: unknown) => console.error(`[baseline] could not delete ${projectId}: ${String(error)}`));
   await page.evaluate((id) => window.sero.workspace.remove(id), workspaceId).catch(() => undefined);
   return observed;
@@ -605,6 +638,7 @@ async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folde
   const elapsedMs = Date.now() - startedAt;
   const activeMs = turns.reduce((total, turn) => total + turn.activeMs, 0);
   const seen = observeSession(session.path);
+  keepRaw(folder, [{ name: 'session.jsonl', from: session.path }]);
   await page.evaluate((id) => window.sero.agent.close(id), session.id).catch(() => undefined);
   await page.evaluate((id) => window.sero.workspace.remove(id), workspace.id).catch(() => undefined);
 
