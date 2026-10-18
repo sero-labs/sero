@@ -87,6 +87,15 @@ export function toolPhrase(toolName: string | null | undefined): string {
   return TOOL_PHRASES[toolName] ?? TOOL_PHRASES[toolName.split(' ')[0] ?? ''] ?? toolName;
 }
 
+/** Tools whose arguments are code. A shell line or a script says nothing to the user, so only the phrase is shown. */
+const CODE_TOOLS = new Set(['bash', 'codemode']);
+
+/** One action in plain words: the phrase, then what it acts on when that reads as words. */
+export function stepLine(toolName: string, summary: string): string {
+  const tool = toolName.split(' ')[0] ?? toolName;
+  return summary && !CODE_TOOLS.has(tool) ? `${toolPhrase(toolName)} · ${summary}` : toolPhrase(toolName);
+}
+
 /** What a row is doing, from what its producer reported. */
 export function rowAction(entry: WorkFeedback): string {
   return entry.wait?.kind === 'tool' ? toolPhrase(entry.wait.toolName) : toolPhrase(null);

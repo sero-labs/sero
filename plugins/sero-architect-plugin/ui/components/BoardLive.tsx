@@ -5,7 +5,7 @@ import type { WorkFeedback } from '@sero-ai/common';
 import { useSubagentLive } from '@sero-ai/ui';
 
 import type { ProjectRecord } from '../../shared/record';
-import { rowAction, textTail, toolPhrase, type LiveRow } from '../lib/board';
+import { rowAction, stepLine, textTail, toolPhrase, type LiveRow } from '../lib/board';
 import { memberAvatar } from '../lib/member-avatar';
 import { openDispatch } from '../lib/page-helpers';
 import { useProjectPicture } from '../lib/use-project-picture';
@@ -35,6 +35,8 @@ interface NowView {
   /** The tool that finished last, shown while no tool runs. */
   last: Step | null;
   text: string;
+  /** Words from earlier in the work, shown quieter while nothing new is written. */
+  earlier?: string;
 }
 
 /**
@@ -46,22 +48,23 @@ function Now({ entry, view }: { entry: WorkFeedback; view: NowView }) {
   const step = view.tool ?? view.last;
   // With no action and no words yet, the tile still says the agent is at work. It is never empty.
   const quiet = !step && !view.text.trim();
-  const line = step ? `${toolPhrase(step.toolName)}${step.summary ? ` · ${step.summary}` : ''}` : quiet ? rowAction(entry) : '';
+  const line = step ? stepLine(step.toolName, step.summary) : quiet ? rowAction(entry) : '';
+  const words = view.text.trim() || view.earlier?.trim() || '';
   return (
     <>
       <p className="bd-step-now" data-past={(!view.tool && view.last) || quiet ? '' : undefined}>{line}</p>
-      <div className="bd-stream" aria-live="off">{view.text.trim() && <p><span>{textTail(view.text)}</span></p>}</div>
+      <div className="bd-stream" aria-live="off" data-earlier={view.text.trim() ? undefined : ''}>{words && <p><span>{textTail(words)}</span></p>}</div>
     </>
   );
 }
 
 function OwnerNow({ projectId, entry, turnSince }: { projectId: string; entry: WorkFeedback; turnSince: string | null }) {
-  const { live, recent, finished } = useOwnerWatch(projectId, true);
+  const { live, recent, finished, said } = useOwnerWatch(projectId, true);
   // A screenshot is saved when a browser call ends, so each change of action is a reason to look.
   const seen = useProjectPicture(projectId, undefined, `${live?.turnId ?? ''}:${live?.tool?.callId ?? live?.tool?.startedAt ?? ''}:${finished}`);
   // A screenshot from before this turn shows a page the Architect is no longer on.
   const browser = seen && turnSince && seen.at >= turnSince ? seen : null;
-  const view: NowView = { tool: live?.tool ?? null, last: recent[0] ?? null, text: live?.text ?? '' };
+  const view: NowView = { tool: live?.tool ?? null, last: recent[0] ?? null, text: live?.text ?? '', earlier: said };
   return (
     <div className={browser ? 'bd-now bd-now-seen' : 'bd-now'}>
       <div><Now entry={entry} view={view} /></div>

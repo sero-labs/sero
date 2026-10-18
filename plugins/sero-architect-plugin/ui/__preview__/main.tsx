@@ -67,7 +67,18 @@ const actions: ArchitectActions = {
 };
 
 // The intake dialog lists models and workspaces through the host bridge; the harness answers with fixed catalogues.
-(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: { invokeTool: async (_appId: string, _workspaceId: string, _tool: string, params: Record<string, unknown>) => ({ text: 'ok', content: [], details: previewToolDetails(params), isError: false }) }, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
+// Runtime-to-UI events. A capture plays one with window.__previewEmit(topic, payload).
+const runtimeListeners = new Set<(event: { appId: string; workspaceId: string; topic: string; payload: unknown }) => void>();
+(window as Window & { __previewEmit?: (topic: string, payload: unknown) => void }).__previewEmit = (topic, payload) => {
+  for (const listener of runtimeListeners) listener({ appId: 'architect', workspaceId: 'global', topic, payload });
+};
+const appRuntime = {
+  onEvent: (listener: (event: { appId: string; workspaceId: string; topic: string; payload: unknown }) => void) => { runtimeListeners.add(listener); return () => { runtimeListeners.delete(listener); }; },
+  subscribe: async () => undefined,
+  unsubscribe: async () => undefined,
+};
+
+(window as Window & { sero?: unknown }).sero = { appState: {}, appRuntime, appAgent: { invokeTool: async (_appId: string, _workspaceId: string, _tool: string, params: Record<string, unknown>) => ({ text: 'ok', content: [], details: previewToolDetails(params), isError: false }) }, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
   { provider: 'openai-codex', displayName: 'OpenAI Codex', logo: '', models: [
     { provider: 'openai-codex', modelId: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },

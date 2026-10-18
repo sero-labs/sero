@@ -26,6 +26,8 @@ export interface OwnerWatch {
   recent: OwnerLiveNotice['recent'];
   /** How many tool calls of this turn have finished. */
   finished: number;
+  /** The last words the owner wrote, kept when a new turn starts with none yet. */
+  said: string;
 }
 
 /** The owner's current turn and its last few finished actions, while `active`. */
@@ -33,7 +35,12 @@ export function useOwnerWatch(projectId: string, active: boolean): OwnerWatch {
   const { run } = useAppTools();
   const [observerId] = useState(newObserverId);
   const [held, setHeld] = useState<OwnerLiveNotice | null>(null);
-  const keep = (notice: OwnerLiveNotice) => setHeld((current) => {
+  const [said, setSaid] = useState('');
+  const keep = (notice: OwnerLiveNotice) => {
+    if (notice.live?.text?.trim()) setSaid(notice.live.text);
+    hold(notice);
+  };
+  const hold = (notice: OwnerLiveNotice) => setHeld((current) => {
     if (!current || current.projectId !== notice.projectId || !current.live || !notice.live) return notice;
     // A new turn starts its count again, so a different turn always wins.
     return current.live.turnId === notice.live.turnId && current.live.revision > notice.live.revision ? current : notice;
@@ -61,7 +68,7 @@ export function useOwnerWatch(projectId: string, active: boolean): OwnerWatch {
     };
   }, [active, projectId, observerId, run]);
 
-  return active && held?.projectId === projectId ? { live: held.live, recent: held.recent ?? [], finished: held.finished ?? 0 } : { live: null, recent: [], finished: 0 };
+  return active && held?.projectId === projectId ? { live: held.live, recent: held.recent ?? [], finished: held.finished ?? 0, said } : { live: null, recent: [], finished: 0, said: '' };
 }
 
 /** One member of a Room this project started, while `active`. */

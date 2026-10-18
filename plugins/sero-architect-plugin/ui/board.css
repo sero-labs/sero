@@ -98,6 +98,8 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-canvas .bd-stream p { margin: 0; max-height: 100%; overflow: hidden; display: flex; flex-direction: column-reverse; color: var(--text-secondary); font-size: var(--text-sm, .9rem); line-height: 1.2rem; }
 .bd-stream p span { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bd-stream p:empty { display: none; }
+.bd-canvas .bd-stream[data-earlier] p { color: var(--text-muted); }
+.bd-stream[data-earlier] p span::after { display: none; }
 .bd-stream p span::after { content: ""; display: inline-block; width: 2px; height: 16px; background: var(--brand-primary); vertical-align: -2px; margin-left: 2px; animation: bd-pulse 1s steps(2) infinite; }
 .bd-canvas .bd-foot { margin: 16px 0 0; display: flex; gap: 16px; }
 .bd-live .wk-live { margin-top: 16px; }
