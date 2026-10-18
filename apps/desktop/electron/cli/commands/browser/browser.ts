@@ -25,7 +25,7 @@
 
 import { browserViewManager } from '@electron/features/browser/view-manager';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
-import type { CliRegistry } from '@electron/cli/core/registry';
+import { isNotAChat, type CliRegistry } from '@electron/cli/core/registry';
 import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
@@ -104,6 +104,12 @@ async function handleBrowser(
     }
 
     case 'show': {
+      // Showing the panel takes the user away from their work. A background
+      // agent never does that: only a tab on screen can be captured, so it reads
+      // the page instead or uses the headless browser.
+      if (ctx.invocation?.sessionId && isNotAChat(ctx.invocation.sessionId)) {
+        return fail('An agent working in the background cannot show the Browser panel: it would take the user away from their work. Read the page with `sero browser get-text`, or take screenshots with automation_browser.');
+      }
       const shown = await appControlHostService.showBrowserPanel();
       return shown
         ? ok('Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.')
@@ -240,7 +246,8 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '  open <url>                   Open a new tab in the current workspace\n' +
       '  goto <url>                   Navigate the active tab, or open one if needed\n' +
       '                               Neither moves the user: the page loads without\n' +
-      '                               changing what is on screen. Use show to show it.\n' +
+      '                               changing what is on screen. Only a chat can\n' +
+      '                               use show to show it.\n' +
       '  close <tab-id>               Close a tab\n' +
       '  navigate <tab-id> <url>      Point an existing tab at a new URL\n' +
       '  get-text [--tab <id>]        Extract the page as title + plain text. Defaults\n' +
@@ -248,7 +255,8 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '  scroll [--direction up|down] [--amount <px>] [--tab <id>]\n' +
       '                               Scroll the active tab without switching apps.\n' +
       '  screenshot [--tab <id>]      Return a PNG of the tab as an image block. Defaults\n' +
-      '                               to the active tab of the current workspace.\n\n' +
+      '                               to the active tab of the current workspace. Only a\n' +
+      '                               tab on screen gives a picture.\n\n' +
       'For browser-page screenshots use `sero browser screenshot`, not\n' +
       '`sero app screenshot --app web`. The `web` app is a separate plugin and\n' +
       'opening it will switch away from the Browser panel. For recordings, show\n' +

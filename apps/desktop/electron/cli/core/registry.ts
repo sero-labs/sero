@@ -55,7 +55,7 @@ function resolveScopedSessionId(scope?: CliRegistryScope): string | null | undef
 }
 
 /** A session id the chat pool does not know belongs to something that is not a chat. */
-function isNotAChat(sessionId: string): boolean {
+export function isNotAChat(sessionId: string): boolean {
   try {
     return getCliSessionBridge().getSessionEntry(sessionId) === undefined;
   } catch {

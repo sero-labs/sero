@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CliRegistry } from '@electron/cli/core/registry';
 import { registerBrowserCliCommands } from '@electron/cli/commands/browser';
 import type { CliCommandContext } from '@electron/cli/core/types';
+import { installCliSessionBridge, type CliSessionBridge } from '@electron/cli/bridges/session-bridge';
 
 const { browserMocks, appControlMocks } = vi.hoisted(() => ({
   browserMocks: {
@@ -61,6 +62,21 @@ describe('browser CLI', () => {
       output: 'Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.',
       exitCode: 0,
     });
+  });
+
+  it('leaves the screen alone when a background agent asks to show the panel', async () => {
+    // The chat pool knows no background agent's session.
+    installCliSessionBridge({ getSessionEntry: () => undefined } as unknown as CliSessionBridge);
+    const registry = new CliRegistry();
+    registerBrowserCliCommands(registry);
+
+    const result = await registry.get('browser')?.execute(['show'], {
+      workspaceId: 'ws-1',
+      invocation: { workspaceId: 'ws-1', sessionId: 'subagent-orchestrator:step-1', turnId: null, source: 'tool' },
+    } as CliCommandContext);
+
+    expect(appControlMocks.showBrowserPanel).not.toHaveBeenCalled();
+    expect(result?.exitCode).not.toBe(0);
   });
 
   it('opens a tab from goto when no browser tab is active', async () => {
