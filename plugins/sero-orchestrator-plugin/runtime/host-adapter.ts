@@ -154,6 +154,11 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
     listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),
     runCommand: (command, timeoutMs) => ctx.host.workspace.runCommand(ctx.workspaceId, ctx.workspacePath, command, timeoutMs),
+    listDevServers: () => ctx.host.devServers.list(ctx.workspaceId),
+    onDevServerChange: (listener) => ctx.host.devServers.onChange((change) => {
+      if (change.workspaceId === ctx.workspaceId) listener(change);
+    }),
+    refChecks: (ref) => ctx.host.git.getRefChecks(ctx.workspacePath, ref),
 
     notify: (message, type, options) =>
       ctx.host.notifications.notify({

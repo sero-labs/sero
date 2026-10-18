@@ -12,7 +12,10 @@
 import type {
   AppRuntimeCommandResult,
   AppRuntimeNotificationChoiceOptions,
+  AppRuntimeDevServer,
+  AppRuntimeDevServerChange,
   AppRuntimePullRequestSummary,
+  AppRuntimeRefChecks,
   AppRuntimeSubagentRepair,
   AppRuntimeWorktreeRemoveOptions,
   AppRuntimeWorktreeCreateOptions,
@@ -304,6 +307,14 @@ export interface OrchestratorHost {
    * work; the same carve-out as the dirty preflight and `listPullRequests`.
    */
   runCommand(command: string, timeoutMs?: number): Promise<AppRuntimeCommandResult>;
+  /**
+   * What a Goal wait observes: this workspace's managed dev servers, their
+   * changes, and one read of the CI checks of a branch or commit in its repo.
+   * Optional: without them a Goal cannot wait on a process or CI.
+   */
+  listDevServers?(): AppRuntimeDevServer[];
+  onDevServerChange?(listener: (change: AppRuntimeDevServerChange) => void): () => void;
+  refChecks?(ref: string): Promise<AppRuntimeRefChecks>;
 
   // ── Notifications ─────────────────────────────────────────
   /**

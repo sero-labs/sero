@@ -18,8 +18,11 @@ export type WaitSourceKind = (typeof WAIT_SOURCE_KINDS)[number];
 export const WAIT_CONDITIONS = { child: 'completed', process: 'exited', ci: 'checks-concluded' } as const;
 export type WaitCondition = (typeof WAIT_CONDITIONS)[WaitSourceKind];
 
-/** The kinds the Goal runtime can observe today. A kind outside this list is refused. */
-export const OBSERVABLE_SOURCES: readonly WaitSourceKind[] = ['child'];
+/**
+ * The kinds the Goal runtime can observe: a Workflow in this workspace, a dev
+ * server Sero manages here, and the CI checks of a branch or commit.
+ */
+export const OBSERVABLE_SOURCES: readonly WaitSourceKind[] = WAIT_SOURCE_KINDS;
 export const MAX_DEADLINE_MINUTES = 7 * 24 * 60;
 
 export type WaitOutcomeKind = 'satisfied' | 'failed' | 'expired' | 'cancelled' | 'uncertain';

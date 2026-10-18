@@ -36,7 +36,7 @@ export interface OwnerDirectDeps {
   outcomes: TurnOutcomes;
   newId(prefix: string): string;
   /** Observes the waits the owner registers. Absent in a runtime that cannot. */
-  waits?: Pick<WaitReconciler, 'reconcile'>;
+  waits?: Pick<WaitReconciler, 'reconcile' | 'admit'>;
   /** HEAD and a hash of the content in a directory: the project folder, or a worktree. */
   workspaceState?: (record: ProjectRecord, directory?: string) => Promise<{ commit: string; fingerprint: string }>;
   /** The checkouts of Worktree projects. Absent in a runtime that cannot make them. */

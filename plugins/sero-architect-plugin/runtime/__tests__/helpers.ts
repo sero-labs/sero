@@ -8,6 +8,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { createFeedbackProjection } from '@sero-ai/common';
 import type {
+  AppRuntimeDevServer,
+  AppRuntimeDevServerChange,
+  AppRuntimeRefChecks,
   OrchestratorRoomHandle,
   PersistentSessionEvent,
   PersistentSessionLiveSnapshot,
@@ -140,6 +143,12 @@ export interface FakeHost extends ArchitectHost {
   /** Paths that already exist, for the intake folder refusal. */
   existingPaths: Set<string>;
   emitState(filePath: string, state: unknown): void;
+  /** The workspace's dev servers as the host lists them, and the change listeners. */
+  devServers: AppRuntimeDevServer[];
+  devServerListeners: Set<(change: AppRuntimeDevServerChange) => void>;
+  /** CI checks per ref; an unknown ref has none yet. */
+  checks: Record<string, AppRuntimeRefChecks>;
+  checkReads: string[];
   sessions: FakeSessionsApi;
   workspaces: { id: string; name: string; path: string; open: boolean }[];
   clock: string[];
@@ -207,6 +216,15 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     detectDevServerCommand: async () => null,
     startDevServer: async () => ({ reason: 'no dev server in tests' }),
     stopDevServer: async () => true,
+    listDevServers: (workspaceId) => host.devServers.filter((server) => server.workspaceId === workspaceId),
+    onDevServerChange: (listener) => {
+      host.devServerListeners.add(listener);
+      return () => host.devServerListeners.delete(listener);
+    },
+    refChecks: async (_repoPath, ref) => {
+      host.checkReads.push(ref);
+      return host.checks[ref] ?? { state: 'none', checks: [] };
+    },
     onStateChange: (filePath, listener) => {
       const set = host.stateListeners.get(filePath) ?? new Set();
       set.add(listener);
@@ -235,6 +253,10 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     gitFailures: {},
     jsonFiles: {},
     existingPaths: new Set(),
+    devServers: [],
+    devServerListeners: new Set(),
+    checks: {},
+    checkReads: [],
     emitState: (filePath, state) => {
       for (const cb of host.stateListeners.get(filePath) ?? []) cb(state);
     },

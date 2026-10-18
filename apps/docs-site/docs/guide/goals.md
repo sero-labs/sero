@@ -139,13 +139,16 @@ The agent ends a Goal with an explicit report, never by going quiet:
   Goal waits for your answer.
 - **Waiting.** The agent must wait for something outside the session. There
   are two kinds of wait:
-  - **Automatic.** The agent names a Workflow that it can see end, with an
-    optional deadline. Sero continues the Goal once when that Workflow
-    completes, fails or reaches the deadline. A failure or an expired deadline
-    is not completion: the agent sees the fact and decides what to do.
+  - **Automatic.** The agent names something Sero can see end: a Workflow, a
+    dev server that Sero manages in this workspace, or the CI checks of a
+    branch or commit. It can add a deadline. Sero continues the Goal once when
+    that thing ends, fails or reaches the deadline. A failure or an expired
+    deadline is not completion: the agent sees the fact and decides what to
+    do. A CI wait without a deadline ends after six hours. If Sero can no
+    longer find the dev server, for example after a restart, it blocks the
+    Goal and says so.
   - **Manual.** The agent gives a reason only. Nothing restarts the Goal, so
-    resume it when the condition is met. A wait on a managed process or on CI
-    checks is manual for now, because Sero cannot watch either.
+    resume it when the condition is met.
 
   **Pause**, **stop** and the budgets still apply to a waiting Goal. A wait
   never starts a turn that you paused or stopped, or one that would pass a

@@ -9,7 +9,10 @@ import { promises as fs } from 'node:fs';
 
 import type {
   AppRuntimeContext,
+  AppRuntimeDevServer,
+  AppRuntimeDevServerChange,
   AppRuntimeGitApi,
+  AppRuntimeRefChecks,
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeSubagentResult,
@@ -58,6 +61,12 @@ export interface ArchitectHost {
   detectDevServerCommand(workspacePath: string): Promise<string | null>;
   startDevServer(options: AppRuntimeStartManagedDevServerOptions): Promise<AppRuntimeStartManagedDevServerResult>;
   stopDevServer(serverId: string): Promise<boolean>;
+  /** The dev servers of a workspace with their real status and, once ended, how they exited. */
+  listDevServers(workspaceId: string): AppRuntimeDevServer[];
+  /** Called after any dev server changes. Returns the unsubscribe. */
+  onDevServerChange(listener: (change: AppRuntimeDevServerChange) => void): () => void;
+  /** The CI checks of a branch or commit in the repo at this path. One read; never throws. */
+  refChecks(repoPath: string, ref: string): Promise<AppRuntimeRefChecks>;
   /** Watches a state file of ANY app and delivers each change. Returns the unsubscribe. */
   onStateChange(filePath: string, listener: (state: unknown) => void): () => void;
   readJson(filePath: string): Promise<unknown | null>;
@@ -151,6 +160,9 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     detectDevServerCommand: (workspacePath) => host.verification.detectDevServerCommand(workspacePath),
     startDevServer: (options) => host.devServers.startManaged(options),
     stopDevServer: (serverId) => host.devServers.stop(serverId),
+    listDevServers: (workspaceId) => host.devServers.list(workspaceId),
+    onDevServerChange: (listener) => host.devServers.onChange(listener),
+    refChecks: (repoPath, ref) => host.git.getRefChecks(repoPath, ref),
     onStateChange: (filePath, listener) => {
       const subscribe = host.appState.onChange;
       if (!subscribe) throw new Error('This host does not deliver watched state changes to runtimes (appState.onChange is absent).');

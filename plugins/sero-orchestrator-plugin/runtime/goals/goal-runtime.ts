@@ -321,11 +321,15 @@ export class GoalRuntime {
    * call wakes the goal instead of being missed. A refusal parks nothing.
    */
   private async registerWait(goal: Goal, reason: string, request: Omit<GoalWaitRequest, 'id' | 'now'>): Promise<GoalOutcome> {
-    const registered = registerWait(goal, { ...request, id: this.host.newId('wait'), now: this.host.now() });
+    // A CI wait reads GitHub until its checks conclude, so it always ends: by default after six hours.
+    const deadlineMinutes = request.deadlineMinutes ?? (request.source.kind === 'ci' ? 360 : undefined);
+    const registered = registerWait(goal, { ...request, deadlineMinutes, id: this.host.newId('wait'), now: this.host.now() });
     if (!registered.ok) return failure(registered.reason);
     if (request.source.kind === 'child' && !(await this.host.readState())?.loops.some((loop) => loop.id === request.source.id)) {
       return failure(`No Workflow "${request.source.id}" in this workspace to wait for.`);
     }
+    const refused = await this.waits.admit(registered.wait.source.kind, registered.wait.source.id);
+    if (refused) return failure(refused);
     const label = `${request.source.kind} ${request.source.id}`;
     const parked = wait(this.leaveActive(registered.goal), { reason: reason || `waiting for ${label}` }, this.ctx());
     await this.store.put(parked);

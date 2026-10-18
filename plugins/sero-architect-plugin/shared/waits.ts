@@ -25,8 +25,12 @@ export type WaitSourceKind = (typeof WAIT_SOURCE_KINDS)[number];
 export const WAIT_CONDITIONS = { child: 'completed', process: 'exited', ci: 'checks-concluded' } as const;
 export type WaitCondition = (typeof WAIT_CONDITIONS)[WaitSourceKind];
 
-/** The kinds the runtime can observe today. A kind outside this list is refused. */
-export const OBSERVABLE_SOURCES: readonly WaitSourceKind[] = ['child'];
+/**
+ * The kinds the runtime can observe. `child` is a Room or Workflow this project
+ * started, `process` a dev server Sero manages in the project's workspace, and
+ * `ci` the checks of a branch or commit in the project's repository.
+ */
+export const OBSERVABLE_SOURCES: readonly WaitSourceKind[] = WAIT_SOURCE_KINDS;
 
 /** The longest deadline, kept under what one timer can hold. */
 export const MAX_DEADLINE_MINUTES = 7 * 24 * 60;

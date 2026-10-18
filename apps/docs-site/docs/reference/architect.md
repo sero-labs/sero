@@ -88,7 +88,7 @@ project id and is refused for any session that is not that project's owner.
 | `decide` | raises a decision and parks the milestones it names |
 | `research` | asks the runtime to run a structured research subagent |
 | `dispatch` | asks the runtime to create a Workflow or a Room for a milestone |
-| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, `--operation report --executionId <id> --text "..." [--destination workspace-files]`, or `--operation wait --source child --target <id> [--deadlineMinutes <n>]`; see Direct work and Waits |
+| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, `--operation report --executionId <id> --text "..." [--destination workspace-files]`, or `--operation wait --source child|process|ci --target <id> [--deadlineMinutes <n>]`; see Direct work and Waits |
 | `evidence` | asks the runtime to run the checks; the owner cannot attach results itself |
 | `status` | reads the record |
 | `reply` | answers the open directive |
@@ -164,18 +164,19 @@ reads **Watch work** while the work runs and **Evidence** after the report.
 
 ## Waits
 
-The owner can end a wake by waiting for work it started. It runs
-`work --operation wait --source child --target <id>`, where `<id>` is the
-milestone or research id of a Workflow or Room that the project is linked to.
-Sero saves the wait, and wakes the owner once when the work completes, fails or
-is gone.
+The owner can end a wake by waiting for something to end. It runs
+`work --operation wait --source <kind> --target <id>`. Sero saves the wait, and
+wakes the owner once when the source ends, fails or is gone.
 
 | Part | Rule |
 | --- | --- |
-| Source | `child` only: a linked Workflow or Room. Name it by its milestone or research id |
-| Deadline | `--deadlineMinutes`, from 1 minute to 7 days. Without it the wait has no deadline |
+| `child` source | a linked Workflow or Room. Name it by its milestone or research id |
+| `process` source | a dev server Sero manages in the project's workspace, by the id `sero devserver list` shows. It must be running. Exit code 0 or a stop satisfies the wait; any other exit fails it |
+| `ci` source | the CI checks of a branch or commit in the project's repository, read through `gh`. Sero refuses the wait when `gh` cannot read them. All checks passing satisfies it; one failing fails it |
+| Milestone | a `process` or `ci` wait belongs to the milestone the owner does itself, or to `--milestoneId` |
+| Deadline | `--deadlineMinutes`, from 1 minute to 7 days. Without it a `child` or `process` wait has no deadline and a `ci` wait ends after 6 hours |
 | Wake | one per wait. The wake is saved before it is sent and marked used when its turn starts, so a restart does not send it twice |
-| Not available yet | `process` and `ci`. Sero refuses them. The owner ends the wake with `sleep` or `blocked` and says what you must check. You resume the project |
+| Anything else | Sero refuses it. The owner ends the wake with `sleep` or `blocked` and says what you must check. You resume the project |
 | Already finished | the call is refused and returns the result |
 
 An expired wait and a failed wait wake the owner with that fact. Neither is
@@ -185,8 +186,13 @@ cost cap or an approval that is not given prevents the wake. The ended wait
 stays on the record. **Stop** ends every open wait, and none of them wakes the
 owner afterwards, even if you resume the project.
 
-A wait does not poll. Sero reads the work's saved state when it changes, when
-the runtime starts and when a deadline passes.
+Sero reads a `child` source's saved state when it changes, and a `process`
+source when any dev server changes. It reads both when the runtime starts and
+when a deadline passes. A dev server that Sero no longer lists, for example
+after a restart, holds the project: Sero cannot tell how it ended and does not
+start it again. A `ci` source is read every two minutes while the wait is open.
+A read that fails changes nothing and is tried again. No read starts a turn by
+itself; only an ended wait does.
 
 ## Stall recovery and limits
 

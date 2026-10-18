@@ -64,13 +64,14 @@ describe('wait registration', () => {
   });
 
   it('refuses a source the runtime cannot monitor and says manual resume is required', () => {
-    for (const kind of ['process', 'ci', 'whenever the build looks green']) {
+    for (const kind of ['whenever the build looks green', 'the deploy']) {
       const result = registerWait(project(), request({ source: { kind, id: 'x' } }));
       expect(result).toMatchObject({ ok: false });
       expect(!result.ok && result.reason).toMatch(/cannot monitor.*Manual resume is required/);
     }
-    // The record side holds a process wait once a runtime can observe one.
-    expect(registerWait(project(), request({ source: { kind: 'process', id: 'pid-7' } }), ['child', 'process']).ok).toBe(true);
+    // A runtime that cannot observe a kind passes a narrower list, and the kind is refused.
+    expect(registerWait(project(), request({ source: { kind: 'ci', id: 'main' } }), ['child']).ok).toBe(false);
+    expect(registerWait(project(), request({ source: { kind: 'process', id: 'pid-7' } })).ok).toBe(true);
   });
 });
 

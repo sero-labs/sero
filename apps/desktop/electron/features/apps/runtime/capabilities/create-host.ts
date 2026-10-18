@@ -48,6 +48,7 @@ import {
   getPullRequestMergeError,
   getPullRequestMergeState,
 } from '@electron/features/git/github/merge-state';
+import { getRefChecks } from '@electron/features/git/github/ref-checks';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 
@@ -216,6 +217,7 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
       mergePr: (cwd, prNumber, options) => mergePullRequest(ghForPath(cwd), prNumber, options),
       getPrMergeState: (cwd, prNumber) => getPullRequestMergeState(ghForPath(cwd), prNumber),
       getPrMergeError: (cwd, prNumber) => getPullRequestMergeError(ghForPath(cwd), prNumber),
+      getRefChecks: (cwd, ref) => getRefChecks(ghForPath(cwd), ref),
     },
     devServers: {
       startManaged: startManagedDevServer,
@@ -227,10 +229,15 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
         url: server.url,
         command: server.command,
         cwd: server.cwd,
-        scope: 'workspace' as const,
-        status: 'running' as const,
-        registeredAt: new Date(0).toISOString(),
+        scope: server.scope === 'card-preview' ? 'card-preview' as const : 'workspace' as const,
+        ...(server.cardId ? { cardId: server.cardId } : {}),
+        status: server.status ?? 'running',
+        registeredAt: server.registeredAt ?? new Date(0).toISOString(),
+        ...(server.exit ? { exit: server.exit } : {}),
       })),
+      onChange: (listener) => runtimeManager.onDevServerChange((event) => {
+        if (event.serverId) listener({ workspaceId: event.workspaceId, serverId: event.serverId });
+      }),
       stop: async (serverId) => {
         const runtime = await runtimeFromServerId(serverId);
         await runtime.stopDevServer({ serverId });

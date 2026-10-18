@@ -84,6 +84,8 @@ export type {
   AppRuntimePullRequestMergeMethod,
   AppRuntimeMergePullRequestResult,
   AppRuntimePullRequestMergeState,
+  AppRuntimeCheckState,
+  AppRuntimeRefChecks,
   AppRuntimePullRequestSummary,
   AppRuntimeIssueSummary,
   AppRuntimeWorkspaceStatusResult,
@@ -92,6 +94,7 @@ export type {
   AppRuntimeDevServerScope,
   AppRuntimeDevServerStatus,
   AppRuntimeDevServer,
+  AppRuntimeDevServerChange,
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeDevServersApi,
@@ -495,3 +498,12 @@ export {
 export type { ShikiThemeName, ShikiThemePair } from './editor-themes';
 
 export { spendRatio, spendTone, type SpendTone } from './spend';
+
+export {
+  CI_WAIT_READ_INTERVAL_MS,
+  ciWaitOutcome,
+  ciWaitRefusal,
+  processWaitOutcome,
+  processWaitRefusal,
+  type WaitSourceOutcome,
+} from './wait-source-outcomes';

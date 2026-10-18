@@ -62,6 +62,7 @@ export class ArchitectRuntime implements AppRuntime {
   private workWatch: WorkWatch | null = null;
   private services: OwnerServices | null = null;
   private waits: WaitReconciler | null = null;
+  private stopDevServerFollow: (() => void) | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
   owner: OwnerActions | null = null;
@@ -122,8 +123,17 @@ export class ArchitectRuntime implements AppRuntime {
     this.scheduler = scheduler;
     const wake = (projectId: string, event: WakeEvent) => scheduler.request(projectId, event);
     // The reconciler reads sources through the watch, and the watch hands it every index push.
-    const waits = createWaitReconciler({ store, now: () => this.host.now(), wake, log: this.host.log, readSources: async (projectId) => (await this.watch?.readSources(projectId)) ?? null });
+    const waits = createWaitReconciler({
+      store,
+      now: () => this.host.now(),
+      wake,
+      log: this.host.log,
+      readSources: async (projectId) => (await this.watch?.readSources(projectId)) ?? null,
+      listDevServers: (workspaceId) => this.host.listDevServers(workspaceId),
+      refChecks: (repoPath, ref) => this.host.refChecks(repoPath, ref),
+    });
     this.waits = waits;
+    this.stopDevServerFollow = this.host.onDevServerChange((change) => waits.devServerChanged(change.serverId));
     const watch = createDispatchWatch({
       waits,
       host: this.host,
@@ -305,6 +315,7 @@ export class ArchitectRuntime implements AppRuntime {
     await this.markRuntime(false);
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
+    this.stopDevServerFollow?.();
     this.waits?.dispose();
     this.workWatch?.dispose();
     await this.sessions?.disposeAll();

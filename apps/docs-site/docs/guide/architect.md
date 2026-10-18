@@ -202,22 +202,24 @@ It links to **Watch work** while it runs and to **Evidence** after it reports.
 
 ## Waiting for work
 
-When the Architect has started a Workflow or a Room and has nothing else to do,
-it can wait for that work. Sero wakes it once when the work completes, fails or
-passes a deadline that the Architect set. You do not need to resume it.
+When the Architect has nothing else to do until something ends, it can wait.
+It can wait for a Workflow or Room it started, for a dev server that Sero
+manages, or for the CI checks of a branch or commit. Sero wakes it once when
+that thing ends, fails or passes a deadline that the Architect set. You do not
+need to resume it.
 
 - A wait that ends in a failure or a deadline is not completion. The Architect
   sees the fact and decides what to do next. A milestone still closes only on
   evidence.
-- Sero can wait for a linked Workflow or Room. It cannot yet wait for a managed
-  process or for CI checks, and it refuses such a wait. In that case the
-  Architect ends its turn and says what you should check. You resume the
-  project.
+- Sero refuses a wait on anything else. In that case the Architect ends its
+  turn and says what you should check. You resume the project.
 - If Sero cannot confirm how the work ended, it holds the project and says why.
+  A dev server that is gone after a restart is held this way. Sero does not
+  start it again.
 - **Pause**, **Stop** and the cost cap still apply. A paused or stopped project
   is not woken, and **Stop** cancels every open wait.
 
-[Goals](/guide/goals#how-a-goal-ends) wait for a Workflow in the same way.
+[Goals](/guide/goals#how-a-goal-ends) wait in the same way.
 
 ## When a turn goes quiet
 

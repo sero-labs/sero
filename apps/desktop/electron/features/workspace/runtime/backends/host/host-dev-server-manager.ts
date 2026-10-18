@@ -362,6 +362,7 @@ export class HostDevServerManager {
     const server = this.servers.get(serverId);
     if (!server || server.status === 'stopped' || server.status === 'failed') return;
     server.status = 'failed';
+    server.exit = { exitCode: exit.exitCode, ...(exit.signal ? { signal: exit.signal } : {}) };
     this.emitDevServerChange({
       type: 'status_changed',
       workspaceId: this.workspaceId,
@@ -401,6 +402,7 @@ function toRuntimeServer(record: HostDevServerRecord): RuntimeDevServer {
     status: record.status,
     pid: record.pid,
     diagnosticCode: record.diagnosticCode,
+    ...(record.exit ? { exit: record.exit } : {}),
   };
 }
 

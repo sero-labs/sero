@@ -43,7 +43,7 @@ describe('goal wait registration', () => {
 
   it('keeps the source identity, and refuses what the runtime cannot monitor', () => {
     expect(registered().waits?.[0]).toMatchObject({ owner: { goalId: 'goal-1' }, source: { kind: 'child', id: 'loop-1' }, condition: 'completed', outcome: null, wake: null });
-    for (const kind of ['process', 'ci', 'until it feels done']) {
+    for (const kind of ['until it feels done', 'the deploy']) {
       const result = registerWait(goal(), request({ source: { kind, id: 'x' } }));
       expect(!result.ok && result.reason).toMatch(/cannot monitor.*Manual resume is required/);
     }
