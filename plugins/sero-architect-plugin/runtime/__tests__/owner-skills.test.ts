@@ -32,14 +32,16 @@ describe('owner skills', () => {
     expect(approvedOwnerSkills(handle)).toEqual(['review']);
   });
 
-  it('asks a new owner for Code Mode only when the catalogue offers it, and loads only the owner tools', async () => {
+  it('asks a new owner for Code Mode and the browser only when the catalogue offers them, and loads only the owner tools', async () => {
     const host = await fakeHost();
     const record = { ...buildingProject(), session: { ...buildingProject().session, grantId: null } };
     host.listWorkerCapabilities = async () => ({ tools: ['read', 'codemode'], skills: [] });
     expect(await ownerGrantTools(host, record, OWNER_TOOLS)).toEqual([...OWNER_TOOLS, 'codemode']);
     host.listWorkerCapabilities = async () => ({ tools: ['read'], skills: [] });
     expect(await ownerGrantTools(host, record, OWNER_TOOLS)).toEqual([...OWNER_TOOLS]);
-    const granted = { ...record, session: { ...record.session, grantId: 'g', model: 'm', thinking: 'medium', grantedTools: [...OWNER_TOOLS, 'codemode'] } };
+    host.listWorkerCapabilities = async () => ({ tools: ['read', 'automation_browser'], skills: [] });
+    expect(await ownerGrantTools(host, record, OWNER_TOOLS)).toEqual([...OWNER_TOOLS, 'automation_browser']);
+    const granted = { ...record, session: { ...record.session, grantId: 'g', model: 'm', thinking: 'medium', grantedTools: [...OWNER_TOOLS, 'codemode', 'automation_browser'] } };
     expect(ownerSessionRequest(granted, 'create').tools).toEqual([...OWNER_TOOLS]);
   });
 

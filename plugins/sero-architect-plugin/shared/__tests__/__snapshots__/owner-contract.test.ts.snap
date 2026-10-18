@@ -33,6 +33,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -70,6 +71,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -107,6 +109,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -152,6 +155,7 @@ If evidence fails, inspect the failed checks and current workspace files first. 
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -189,6 +193,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -226,6 +231,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -263,6 +269,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -300,6 +307,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -335,6 +343,7 @@ The charter is proposed and waits for the user's approval. Do not start work. Ca
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -372,6 +381,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -405,6 +415,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -438,6 +449,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -472,6 +484,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -507,6 +520,7 @@ After you write the brief, propose the charter with the charter action. Include 
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -540,6 +554,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -572,6 +587,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -604,6 +620,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -637,6 +654,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -667,6 +685,7 @@ The workspace is still being set up. Call sleep.
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -699,6 +718,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -736,6 +756,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -773,6 +794,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -810,6 +832,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -845,6 +868,7 @@ Keep working. Respond to the events that woke you, dispatch fixes as milestones,
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -882,6 +906,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -919,6 +944,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -956,6 +982,7 @@ Milestones the decision does not name continue: you may plan, dispatch and verif
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -993,6 +1020,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -1028,6 +1056,7 @@ Keep working. Prepare the release: evidence for the release artifact, then the r
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;
@@ -1065,6 +1094,7 @@ If a directive is unanswered, reply to it with the reply action, then call sleep
 
 You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.
 If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.
+If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
 `;

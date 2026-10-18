@@ -43,6 +43,12 @@ export function approvedOwnerSkills(handle: PersistentSessionGrantHandle): strin
 /** Pi's Code Mode. A script can call only the tools the session was approved for. */
 export const CODEMODE_TOOL = 'codemode';
 
+/** The workspace browser. The owner looks at a page it is about to accept, and Live shows what it saw. */
+export const BROWSER_TOOL = 'automation_browser';
+
+/** Asked for only when the workspace offers them, and never loaded at start. */
+const OPTIONAL_OWNER_TOOLS = [CODEMODE_TOOL, BROWSER_TOOL];
+
 /**
  * The tools an owner asks to be approved for. An owner that already has a grant
  * asks again for exactly what it had, so a renewed grant neither adds Code Mode
@@ -54,7 +60,7 @@ export async function ownerGrantTools(host: Pick<ArchitectHost, 'listWorkerCapab
   if (record.session.grantId) return [...(record.session.grantedTools ?? base)];
   if (!record.workspaceId) return [...base];
   const offered = (await host.listWorkerCapabilities(record.workspaceId)).tools;
-  return offered.includes(CODEMODE_TOOL) ? [...base, CODEMODE_TOOL] : [...base];
+  return [...base, ...OPTIONAL_OWNER_TOOLS.filter((tool) => offered.includes(tool))];
 }
 
 /** The same proposal with the owner's approved tool list replaced. */
