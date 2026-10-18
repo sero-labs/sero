@@ -23,9 +23,10 @@ export async function createRuntimeTools(
   runtime: RuntimeBackend,
   sessionId: string,
   runtimeCwd?: string,
+  bashMaxSeconds?: number,
 ): Promise<ToolDefinition[]> {
   const tools = [
-    createBash(runtime, runtimeCwd, sessionId),
+    createBash(runtime, runtimeCwd, sessionId, bashMaxSeconds),
     createRead(runtime, runtimeCwd),
     createWrite(runtime, runtimeCwd),
     createEdit(runtime, runtimeCwd),

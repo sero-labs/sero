@@ -207,7 +207,7 @@ export async function runSubagent(
         if (stopped()) return { ok: false, stopped: true };
         containerState = containerPromptState(runtime);
         platformTools = filterPlatformTools(
-          await createRuntimeTools(runtime, subagentSessionId, containerCwd),
+          await createRuntimeTools(runtime, subagentSessionId, containerCwd, Math.max(1, Math.floor((resolved.toolStallTimeoutMs ?? 120_000) / 1000) - 10)),
           policy,
         );
         if (stopped()) return { ok: false, stopped: true };
