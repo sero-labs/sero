@@ -55,6 +55,7 @@ import { buildManifest, STRATEGIES, type RunPlan } from './architect-baseline/ma
 import { SCENARIOS, type ScenarioDefinition } from './architect-baseline/scenarios';
 import { observeSession } from './architect-baseline/session-file';
 import { resolveTier, tierFromEnv, type ResolvedTier } from './architect-baseline/tier';
+import { workflowRepairs } from './architect-baseline/workflow-repairs';
 
 const ENABLED = process.env.SERO_E2E_ARCHITECT_BASELINE === '1';
 const list = (value: string | undefined): string[] | null => (value && value !== 'all' ? value.split(',').map((item) => item.trim()) : null);
@@ -109,6 +110,8 @@ interface Observed {
   time: BaselineRecord['time'];
   counters: BaselineRecord['counters'];
   ownerTokensPerTurn?: number[];
+  /** Workflow step repair passes. Absent when the run had no Workflow to fail one. */
+  protocolFailures?: number;
   interventions: BaselineIntervention[];
   recoveries: BaselineRecovery[];
   /** Where the delivered files are when they are not in the project folder: the owner's worktree. */
@@ -401,6 +404,7 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
   }
   const owner = observeSession(record.session.sessionPath);
   const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
+  const repairs = workflowRepairs(record.folder);
 
   return {
     finished,
@@ -422,6 +426,7 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
       compactions: trace.compactions,
     },
     ...(owner && owner.tokensPerTurn.length > 0 ? { ownerTokensPerTurn: owner.tokensPerTurn } : {}),
+    ...(repairs ? { protocolFailures: repairs.repairs } : {}),
     interventions: [],
     recoveries,
     ...(resultDirectory ? { resultDirectory } : {}),
@@ -661,14 +666,20 @@ function toRecord(scenario: ScenarioDefinition, plan: RunPlan, strategy: Baselin
     interventions: observed.interventions,
     recoveries: observed.recoveries,
     ...(observed.ownerTokensPerTurn ? { ownerTokensPerTurn: observed.ownerTokensPerTurn } : {}),
+    ...(observed.protocolFailures !== undefined ? { protocolFailures: observed.protocolFailures } : {}),
   };
 }
 
 /** What a record leaves out because the harness could not observe it for that strategy. */
 function unobserved(record: BaselineRecord): string[] {
-  const gaps = ['protocolFailures'];
-  if (record.candidate === 'architect') gaps.push('repeatedWork (delegated sessions are not readable)');
-  else gaps.push('repeatedWork (no signal for a repeated investigation)');
+  const gaps: string[] = [];
+  if (record.candidate === 'architect') {
+    if (record.protocolFailures === undefined) gaps.push('protocolFailures (the run started no Workflow)');
+    gaps.push('repeatedWork (delegated sessions are not readable)');
+  } else {
+    gaps.push('protocolFailures (a chat agent has no result contract to break)');
+    gaps.push('repeatedWork (no signal for a repeated investigation)');
+  }
   if (!record.ownerTokensPerTurn) gaps.push('ownerTokensPerTurn');
   if (record.objective === 'interruption' && (record.recoveries?.length ?? 0) === 0) gaps.push('recoveries (the run finished before the restart point)');
   return gaps;

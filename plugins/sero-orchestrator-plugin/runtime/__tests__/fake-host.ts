@@ -228,6 +228,12 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
           if (params.repair.validate(result.response) == null) break;
           const next = this.modelResponses.shift();
           if (!next) break;
+          // The real runner reports each repair pass as its own request (session-observation.ts).
+          params.onObservation?.({
+            kind: 'request-start',
+            identities: { operationId: `subagent-session-${this.modelCalls.length}`, attemptId: `run-${this.modelCalls.length}:repair-${i + 1}` },
+            startedAt: this.now(),
+          });
           result = next;
         }
       }

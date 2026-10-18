@@ -436,6 +436,8 @@ export interface StepAttempt {
   agentFallback?: { requestedAgent: string };
   outputPath?: string;
   observations: Observation[];
+  /** Re-prompts in the same session because the reply broke its result contract. Absent: none was observed. */
+  repairs?: number;
   usage?: UsageSummary;
   startedAt: string;
   endedAt?: string;
