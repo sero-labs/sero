@@ -10,7 +10,9 @@
  *   1  a generated roster fits the problem, and the work is delivered;
  *   2  an adversarial brief produces opposing roles, not one agreeable team;
  *   3  parallel work gets a checkout each, and overlapping paths are claimed;
- *   4  a Room asked for in a chat returns its result to that chat (FR-029).
+ *   4  a Room asked for in a chat returns its result to that chat (FR-029);
+ *   5  a running Room changes its team, Sero restarts mid-change, and the grant
+ *      and every member's history survive (amendment replay, task 4.8).
  *
  * Each scenario costs real money and takes minutes, so they are opt-in:
  *
@@ -63,6 +65,13 @@ const BRIEFS = {
     'no expiry. Argue both sides of that decision properly and tell me which one wins and why.',
     'Write the decision and the case against it to DECISION.md.',
   ].join(' '),
+  amend: [
+    'The greeting in src/greet.ts is wrong for an empty name: it says "Hello, !" instead of',
+    'greeting the world. Start this Room with exactly one member besides the Conductor: a reviewer',
+    'who finds the cause and writes it to REVIEW.md, and nothing else. When REVIEW.md exists, the',
+    'Conductor must propose a revision that adds one more member, a tester, who fixes src/greet.ts',
+    'and leaves a test that fails on the old code. Work in the workspace files; do not open a pull request.',
+  ].join(' '),
   parallel: [
     'Two independent jobs, and they must not wait for each other: add input validation to',
     'src/greet.ts, and separately add a currency formatter to src/money.ts. One person per file.',
@@ -78,6 +87,24 @@ let page: Page;
 let wsDir: string;
 let wsId: string;
 let stateDir: string;
+let seroHomePath: string;
+
+/** Starts the app on the run's home and keeps what it says beside the screenshots. */
+async function launchApp(): Promise<void> {
+  ({ app, page } = await launchSeroApp({
+    seroHome: seroHomePath,
+    runtime: 'host',
+    // Rooms are enabled by default. This launch only supplies the model test environment.
+    env: { ...(REAL_HOME ? {} : getLlmLaunchEnv()) },
+  }));
+  // What the app itself said, kept beside the screenshots. A Room that refuses
+  // to start says why in the main process, and a gate run that cannot be
+  // explained is not evidence.
+  const appLog = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'a' });
+  app.process().stdout?.pipe(appLog);
+  app.process().stderr?.pipe(appLog);
+  await waitForShell(page);
+}
 
 interface RoomIndexFile {
   rooms: { id: string; title: string; status: string; costUsd: number; memberCount: number }[];
@@ -140,6 +167,42 @@ function roomCopiesOf(roomId: string, relativePath: string): { root: string; con
     .map((root) => ({ root, file: path.join(root, relativePath) }))
     .filter((entry) => fs.existsSync(entry.file))
     .map((entry) => ({ root: entry.root, content: fs.readFileSync(entry.file, 'utf8') }));
+}
+
+interface RevisionAmendment {
+  id: string;
+  state: string;
+  adds: unknown[];
+  reason: string | null;
+  grantRevision: number | null;
+}
+
+/** Every grant amendment the Room has asked for, from its revision history. */
+function amendments(roomId: string): RevisionAmendment[] {
+  const revisions = readJson<{ id: string; amendment?: Omit<RevisionAmendment, 'id'> }[]>(path.join(stateDir, 'rooms', roomId, 'revisions.json')) ?? [];
+  return revisions.filter((revision) => revision.amendment).map((revision) => ({ id: revision.id, ...revision.amendment! }));
+}
+
+const roomGrant = (roomId: string): string | null =>
+  readJson<{ definition: { grantId: string | null } }>(path.join(stateDir, 'rooms', roomId, 'room.json'))?.definition.grantId ?? null;
+
+/** Each member's session file and how many lines it holds. */
+function sessionHistories(roomId: string): Record<string, { sessionPath: string | null; lines: number }> {
+  const dir = path.join(stateDir, 'rooms', roomId, 'members');
+  const out: Record<string, { sessionPath: string | null; lines: number }> = {};
+  for (const file of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+    const member = readJson<{ id: string; sessionPath: string | null }>(path.join(dir, file));
+    if (!member) continue;
+    const lines = member.sessionPath && fs.existsSync(member.sessionPath) ? fs.readFileSync(member.sessionPath, 'utf8').split('\n').filter(Boolean).length : 0;
+    out[member.id] = { sessionPath: member.sessionPath, lines };
+  }
+  return out;
+}
+
+/** Approves a held change through the same `rooms` tool action the Team view's Approve button sends. */
+async function approveHeld(roomId: string, revisionId: string): Promise<unknown> {
+  return page.evaluate(({ workspaceId, params }) => window.sero.appAgent.invokeTool('orchestrator', workspaceId, 'rooms', params),
+    { workspaceId: wsId, params: { action: 'approve_revision', roomId, revisionId } });
 }
 
 /** What the gate is decided on. Appended per scenario so a partial run still reports. */
@@ -284,22 +347,8 @@ test.beforeAll(async () => {
   git('-c', 'user.email=e2e@sero.test', '-c', 'user.name=Sero E2E', 'commit', '-m', 'initial');
 
   stateDir = path.join(wsDir, '.sero', 'apps', 'orchestrator');
-
-  ({ app, page } = await launchSeroApp({
-    seroHome,
-    runtime: 'host',
-    // Rooms are enabled by default. This launch only supplies the model test environment.
-    env: { ...(REAL_HOME ? {} : getLlmLaunchEnv()) },
-  }));
-
-  // What the app itself said, kept beside the screenshots. A Room that refuses
-  // to start says why in the main process, and a gate run that cannot be
-  // explained is not evidence.
-  const appLog = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'a' });
-  app.process().stdout?.pipe(appLog);
-  app.process().stderr?.pipe(appLog);
-
-  await waitForShell(page);
+  seroHomePath = seroHome;
+  await launchApp();
 
   const created = await page.evaluate(async ({ folderPath }) => {
     const workspace = await window.sero.workspace.addFolder(folderPath, 'Agent Rooms e2e');
@@ -435,5 +484,70 @@ test.describe('the Room evaluation gate', () => {
     record('4-chat-origin', room, members(roomId), { sessionId: session.id });
     expect(room.runtime.status).toBe('completed');
     expect(room.delivery.deliveryRef).toBe(`session:${session.id}`);
+  });
+  test('5 — a Room changes its team across a restart and keeps every history', async () => {
+    test.skip(ONLY !== 'all' && ONLY !== '5', 'not the selected scenario');
+    test.setTimeout(SCENARIO_TIMEOUT_MS + 300_000);
+
+    const roomId = await startRoom(BRIEFS.amend, 'amend');
+    const grantBefore = roomGrant(roomId);
+    // Wait for the Room to ask for a team or setup change, or to end without one.
+    await expect
+      .poll(() => (amendments(roomId).length > 0 ? 'amending' : /completed|failed|cancelled/.test(roomFile(roomId)?.runtime.status ?? '') ? 'ended' : ''), { timeout: SCENARIO_TIMEOUT_MS, intervals: [3_000] })
+      .toMatch(/amending|ended/);
+    const asked = amendments(roomId);
+    const histories = sessionHistories(roomId);
+    await shot('amend-02c-change-asked.png');
+
+    let restarted = false;
+    if (asked.length > 0) {
+      // Sero stops while the change is in flight, the way a user quits.
+      await closeSeroApp(app, 15_000);
+      await launchApp();
+      restarted = true;
+      await openRooms();
+      // A replacement member opens a session after the restart; answer the host if it asks.
+      await allowAgentSessions('amend-after-restart', 60_000).catch(() => undefined);
+      await expect
+        .poll(() => amendments(roomId).every((change) => change.state !== 'pending') ? 'settled' : 'pending', { timeout: 600_000, intervals: [5_000] })
+        .toBe('settled');
+    }
+    const after = amendments(roomId);
+    const held = after.filter((change) => change.state === 'held');
+    await shot('amend-02d-after-restart.png');
+
+    // A held change waits for the user; this run approves it, as a user would.
+    for (const change of held) {
+      const outcome = await approveHeld(roomId, change.id);
+      console.log(`[rooms] approving held change ${change.id}: ${JSON.stringify(outcome)}`);
+    }
+
+    const room = await settle(roomId, 'amend');
+    const finalHistories = sessionHistories(roomId);
+    const kept = Object.entries(histories).map(([memberId, before]) => ({
+      memberId,
+      samePath: finalHistories[memberId]?.sessionPath === before.sessionPath,
+      linesBefore: before.lines,
+      linesAfter: finalHistories[memberId]?.lines ?? 0,
+    }));
+    record('5-amend-restart', room, members(roomId), {
+      restarted,
+      grantBefore,
+      grantAfter: roomGrant(roomId),
+      amendmentsAsked: asked.map(({ id, state, adds }) => ({ id, state, adds })),
+      amendmentsAfterRestart: after.map(({ id, state, adds, reason, grantRevision }) => ({ id, state, adds, reason, grantRevision })),
+      historiesKept: kept,
+    });
+    if (asked.length === 0) {
+      console.log('[rooms] the Room never asked for a team or setup change, so no amendment was replayed');
+      return;
+    }
+    // The amendment kept the one grant, and no member lost its session or its history.
+    expect(roomGrant(roomId)).toBe(grantBefore);
+    for (const entry of kept) {
+      expect(entry.samePath, `member ${entry.memberId} kept its session file`).toBe(true);
+      expect(entry.linesAfter, `member ${entry.memberId} kept its history`).toBeGreaterThanOrEqual(entry.linesBefore);
+    }
+    expect(after.every((change) => change.state !== 'pending')).toBe(true);
   });
 });
