@@ -1,8 +1,8 @@
 /**
  * The skills a NEW owner asks to be approved for. The host clamps the request
  * to what the user has enabled and the user approves it in the start dialog.
- * It widens only what is approved. The session still starts with no skill
- * loaded; the owner finds the rest with `tool_search`.
+ * It widens only what is approved. The approved skills are listed in the
+ * owner's prompt and read on demand; `tool_search` finds tools, not skills.
  *
  * Code Mode (`codemode`) is asked for the same way, by a NEW owner only, and
  * only when the tool catalogue offers it. It joins the approved tools, not the

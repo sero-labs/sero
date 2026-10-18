@@ -201,9 +201,11 @@ test output, and review notes.
 ![The Artifacts tab, listing six published reports](../assets/images/orchestrator-rooms-artifacts.jpg)
 
 **Changes** shows changes that the Conductor made to the team or its assigned
-work. The Conductor cannot increase a member's access or add or replace members
-while the Room runs. It can request higher time or cost limits for you to
-approve.
+work. The Conductor can add or replace a member, or change a member's model,
+thinking level, tools or skills. A change that adds access waits for your
+approval. It cannot change a member's permission level. It can request higher
+time or cost limits for you to approve. See
+[Manage a Room](/guide/rooms-advanced#change-a-running-team).
 
 ![The Changes tab, with the roster-change budget and the assignments made](../assets/images/orchestrator-rooms-changes.jpg)
 

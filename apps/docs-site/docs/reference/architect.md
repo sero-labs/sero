@@ -42,7 +42,7 @@ every write from the record's flags and is never set by hand.
 
 | Status | Meaning |
 | --- | --- |
-| `planned` | on the charter, no plan approved yet |
+| `planned` | added to the plan, no plan approved yet |
 | `approved` | the plan is approved; the owner may dispatch it |
 | `running` | a Workflow, a Room or the owner is running it |
 | `verifying` | the work reported completion; the runtime is checking the evidence |
@@ -127,10 +127,15 @@ The owner can do a milestone itself instead of dispatching it. The `work`
 action refuses the request unless all of these hold:
 
 - the project was made under an agreement, not the deprecated charter flow;
-- the project runs in **Workspace** execution mode;
 - the milestone is not linked to an OpenSpec change;
 - the project is in `build`, `release` or `maintain` and has no overlay;
-- no Workflow or Room is writing the project folder.
+- no other direct execution is active;
+- in **Workspace** execution mode, no Workflow or Room is writing the project
+  folder.
+
+In **Worktree** execution mode, `begin` opens a checkout and branch for the
+milestone at `.sero/worktrees/`, and the owner works only there. `report`
+commits the work to that branch.
 
 | Operation | Effect |
 | --- | --- |
@@ -154,13 +159,14 @@ with `continue`.
 A report is a claim and leaves the milestone at `reported`. Evidence,
 acceptance and delivery follow the same rules as for dispatched work. The
 owner's own test runs are a self-check, not an independent review. With
-`--destination workspace-files`, the project folder is the delivery receipt and
-the milestone is `delivered` once it is accepted. Any other destination is
-refused: dispatch the delivery. With no destination, the milestone can be
-accepted and not delivered.
+`--destination workspace-files`, the delivery receipt is the project folder in
+Workspace mode and the milestone's branch in Worktree mode, and the milestone
+is `delivered` once it is accepted. Any other destination is refused: dispatch
+the delivery. With no destination, the milestone can be accepted and not
+delivered.
 
-On the project page, the milestone list shows `architect` as the kind. The link
-reads **Watch work** while the work runs and **Evidence** after the report.
+On the Work view's Plan tab, the milestone list shows `architect` as the kind.
+After the report, the row links to **Evidence**.
 
 ## Waits
 
@@ -230,11 +236,11 @@ adds no access. A project that already exists keeps its old approval and does
 not gain Code Mode.
 
 A new project asks, in its start approval, for the skills that are enabled in
-its workspace. The session starts with no skill loaded and finds them with
-`tool_search`. A project that already exists keeps exactly the access it had.
-To give it more, the host amends the grant and you approve the addition. See
-[Rooms reference](/reference/rooms#change-a-running-room) for how a grant
-amendment works.
+its workspace. They are listed to the session by name and description, and it
+reads one when the work needs it. `tool_search` finds tools, not skills. A
+project that already exists keeps exactly the access it had. The host can amend
+a grant, as it does for a [running Room](/reference/rooms#change-a-running-room),
+but no Architect action or control asks it to widen an existing owner yet.
 
 ## Forced escalations
 

@@ -25,10 +25,10 @@ third mode, **[Goals](/guide/goals)**, starts in the chat session itself with
   must be true at the end, and the session keeps going until it is.
 
 - Use **[Architect](/guide/architect)** when you want Sero to build and
-  maintain a product from an idea. Architect proposes a charter and cost cap,
-  builds one milestone at a time through Workflows and Rooms, checks the
-  result, then releases and maintains it. You approve the charter and any
-  decisions that need your input.
+  maintain a product from an idea. You give it a request and a start cap. It
+  plans the work as it learns, does small milestones itself and dispatches the
+  rest to Workflows and Rooms, checks the result, then releases and maintains
+  it. You answer the decisions that need your input.
 
 Choose a Workflow for planned steps, a Room for a team, a Goal for ongoing work
 in the current chat, or Architect for a product that Sero will build and
@@ -36,8 +36,8 @@ maintain.
 
 | | Workflow | Room | Goal | Architect |
 | --- | --- | --- | --- | --- |
-| Sero creates | A plan of steps | A team of agents | Nothing to review first | A charter with milestones and a cap |
-| Work happens | Step by step | Members work and share findings | In your chat session | Milestone by milestone, in Workflows and Rooms |
+| Sero creates | A plan of steps | A team of agents | Nothing to review first | A plan of milestones inside your start cap |
+| Work happens | Step by step | Members work and share findings | In your chat session | Milestone by milestone, by the Architect or in Workflows and Rooms |
 | Use it for | A task with clear stages | A task that needs different roles or points of view | One result with an unknown route | A product that Sero builds, releases and maintains from an idea |
 
 You do not need a Workflow before you start a Room or a Goal. They are
