@@ -14,6 +14,7 @@ import type { RoomBlueprint } from '../../shared/room-blueprint-types';
 import { computeProposalSummary } from '../../shared/room-proposal';
 import { requestRoomGrant } from '../rooms/member-grant';
 import { createRoomAppActions, limitsForOrigin, type RoomAppActions } from '../rooms/room-app-actions';
+import { buildRevision } from '../rooms/room-revision-record';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
 import type { RoomStore } from '../rooms/room-store';
 import type { FakeHost } from './fake-host';
@@ -279,6 +280,34 @@ describe('the user Room surface', () => {
     expect((await app.intervene(roomId, 'Use Postgres.', ['impl'])).ok).toBe(true);
     await waitFor(async () => (await store.readRoom(roomId))?.runtime.status !== 'paused', 'the Room to carry on');
     expect((await memberIn(store, roomId, 'impl')).status).not.toBe('blocked');
+  });
+
+  it.each(['approve', 'decline'] as const)('a held change the user chose to %s answers the Room that paused for them', async (verdict) => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberIn(store, roomId, 'lead')).usage.turns === 1, 'the first turn');
+    // The lead asked for a change that adds access, Sero held it, and the lead asked the user.
+    await store.updateMember(roomId, 'lead', (member) => ({ ...member, status: 'blocked', statusDetail: 'Needs the user: approve the tester?' }));
+    await store.updateRoom(roomId, (record) => ({
+      ...record,
+      revisions: [buildRevision(
+        { roomId, id: 'rev-1', proposal: { kind: 'lower-soft-limit', field: 'maxMembers', value: 3 }, actorMemberId: 'lead', reason: 'r', summary: 'Add a tester.', commandId: 'c', now: 't0' },
+        { outcome: 'held', requiresApproval: true, approvalId: null },
+      )],
+      runtime: { ...record.runtime, status: 'paused', stopReason: { kind: 'awaiting-user', detail: 'Lead needs you.', at: 't1' } },
+    }));
+    const answered = createRoomAppActions({
+      host, store, coordinator, workspaceId: 'ws-1',
+      amendments: { approve: async () => ({ ok: true }), decline: async () => ({ ok: true }) },
+    });
+
+    const outcome = verdict === 'approve' ? await answered.approveRevision(roomId, 'rev-1') : await answered.declineRevision(roomId, 'rev-1');
+
+    expect(outcome.ok).toBe(true);
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status !== 'paused', 'the Room to carry on');
+    expect((await memberIn(store, roomId, 'lead')).status).not.toBe('blocked');
+    const told = (await store.readMessages(roomId, 0, 50)).find((message) => message.body.includes('Add a tester.'));
+    expect(told?.toMemberIds).toEqual(['lead']);
   });
 
   it('leaves a Room the user paused paused, whatever else they say to it', async () => {

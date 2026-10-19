@@ -49,6 +49,9 @@ export interface AppRuntimeStartManagedDevServerResult {
   reason?: string;
 }
 
+/** A page captured in a hidden window: the PNG as base64, or why there is none. */
+export type AppRuntimePageCapture = { ok: true; base64: string } | { ok: false; error: string };
+
 export interface AppRuntimeDevServersApi {
   startManaged(
     options: AppRuntimeStartManagedDevServerOptions,
@@ -57,6 +60,11 @@ export interface AppRuntimeDevServersApi {
   stop(serverId: string): Promise<boolean>;
   restart(serverId: string): Promise<boolean>;
   unregister(serverId: string): boolean;
+  /**
+   * Loads an http(s) URL in a hidden window and returns a screenshot. The
+   * user's view does not change, and nothing is written to disk.
+   */
+  capture(url: string): Promise<AppRuntimePageCapture>;
   /** Calls the listener after every change to any workspace's servers. Returns the unsubscribe. */
   onChange(listener: (change: AppRuntimeDevServerChange) => void): () => void;
 }

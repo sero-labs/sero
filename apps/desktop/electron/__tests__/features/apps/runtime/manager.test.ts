@@ -104,6 +104,7 @@ function createHostStub(
       stop: vi.fn(async () => false),
       restart: vi.fn(async () => false),
       unregister: vi.fn(() => false),
+      capture: vi.fn(async () => ({ ok: false as const, error: 'not-used' })),
       onChange: vi.fn(() => () => undefined),
     },
     notifications: {
