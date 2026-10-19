@@ -118,7 +118,7 @@ async function backToOverview(name: string): Promise<void> {
   if (!(await crumb.isVisible().catch(() => false))) return;
   try {
     await crumb.click({ timeout: 10_000 });
-    await page.locator('.ar-stateline').waitFor({ timeout: 10_000 });
+    await page.locator('.bd-hero').waitFor({ timeout: 10_000 });
   } catch (error) {
     const onTop = await crumb.evaluate((node) => {
       const box = node.getBoundingClientRect();
@@ -272,7 +272,8 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   const read = (): DeliveryRecord => records().find((record) => record.id === projectId)!;
   expect(read().folder).toBe(path.join(PROJECTS_ROOT, name));
   expect(read().budget.capUsd).toBe(CAP_USD);
-  await expect(page.getByText(`start cap`)).toBeVisible({ timeout: 30_000 });
+  // The board shows the spend against the start cap, for example "$0.01 of $5".
+  await expect(page.getByText(new RegExp(`of \\$${CAP_USD}\\b`)).first()).toBeVisible({ timeout: 30_000 });
   await shot('02-started');
 
   // ── Follow the run. The user's part is prompts and recommended answers only. ──
@@ -316,31 +317,24 @@ test('a short goal with a start cap is delivered, and the work is visible while 
       seen.decisionsAnswered += 1;
     }
 
-    const state = await page.locator('.ar-stateline .ar-activity').first().innerText({ timeout: 3_000 }).catch(() => '');
+    const state = await page.locator('.bd-hero .bd-doing').first().innerText({ timeout: 3_000 }).catch(() => '');
     const line = state.replace(/\s+/g, ' ').trim();
     if (line && !seen.states.has(line.replace(/\d+[smh]? ago|just now|\d+:\d+/g, ''))) {
       seen.states.add(line.replace(/\d+[smh]? ago|just now|\d+:\d+/g, ''));
       console.log(`[delivery] ${Math.round((Date.now() - startedAt) / 1000)}s $${record.budget.spentUsd.toFixed(3)} ${line}`);
     }
 
-    // Every few passes, open Watch work and look at what is running now.
+    // Every few passes, look at the board's Live tile: what is running now.
     if (tick % 6 === 3) {
-      const watch = page.getByRole('button', { name: 'Watch work' });
-      if (await watch.isVisible().catch(() => false)) {
-        await watch.click({ timeout: 10_000 }).catch(() => undefined);
-        await page.waitForTimeout(1_500);
-        const eyes = page.getByRole('button', { name: /^Watch / });
-        const rows = await eyes.count().catch(() => 0);
-        if (rows > 0) {
-          seen.liveRows += 1;
-          await eyes.first().click({ timeout: 10_000 }).catch(() => undefined);
-          await page.waitForTimeout(4_000);
-          const text = await page.locator('[data-slot="live-block"]').first().innerText().catch(() => '');
-          if (text.replace(/\s+/g, '').length > 20) seen.liveText += 1;
-          if (seen.liveRows <= 12) await shot(`live-${String(seen.liveRows).padStart(2, '0')}`);
-        }
+      const live = page.getByRole('region', { name: 'Live', exact: true });
+      if (await live.isVisible().catch(() => false)) {
+        seen.liveRows += 1;
+        await page.waitForTimeout(4_000);
+        const text = await live.innerText().catch(() => '');
+        if (text.replace(/\s+/g, '').length > 20) seen.liveText += 1;
+        if (seen.liveRows <= 12) await shot(`live-${String(seen.liveRows).padStart(2, '0')}`);
         // One press on the link to the running Workflow or Room opens the Orchestrator.
-        const openLink = page.getByRole('button', { name: /^Open (Workflow|Room)/ }).first();
+        const openLink = live.getByRole('button', { name: /^Open the (Workflow|Room)$/ }).first();
         if (seen.orchestratorOpenMs === null && await openLink.isVisible().catch(() => false)) {
           const pressed = Date.now();
           await openLink.click({ timeout: 10_000 });
@@ -369,11 +363,13 @@ test('a short goal with a start cap is delivered, and the work is visible while 
       await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
     }
     await backToOverview(name);
-    return page.locator('.ar-stateline').isVisible().catch(() => false);
+    return page.locator('.bd-hero').isVisible().catch(() => false);
   }, { timeout: 120_000, intervals: [5_000], message: 'the overview did not show after the run ended' }).toBe(true);
-  const finalOverview = (await page.locator('.ar-stateline').innerText()).replace(/\s+/g, ' ').trim();
+  // The record can say delivered while Architect is still in its closing turn. Read the board once that turn ends.
+  const heroText = async () => (await page.locator('.bd-hero').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+  await expect.poll(heroText, { timeout: 180_000, intervals: [5_000], message: 'Architect still said it was working after the run ended' }).not.toMatch(/\bWorking\./);
+  const finalOverview = await heroText();
   await shot('90-final-overview');
-  for (const tab of ['Watch work'] as const) await page.getByRole('button', { name: tab }).click({ timeout: 10_000 }).catch(() => undefined);
   for (const tab of ['Plan', 'Research', 'Evidence'] as const) {
     await page.getByRole('tab', { name: tab }).click({ timeout: 10_000 }).catch(() => undefined);
     await page.waitForTimeout(800);
@@ -409,7 +405,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   console.log(`[delivery] ${JSON.stringify(result, null, 2)}`);
 
   expect(record.budget.spentUsd, 'spend is over the start cap').toBeLessThanOrEqual(CAP_USD);
-  expect(seen.liveRows, 'Watch work never showed a running row before the result').toBeGreaterThan(0);
+  expect(seen.liveRows, 'the board never showed live work before the result').toBeGreaterThan(0);
   expect(result.delivered, `the run did not deliver: ${record.blockedReason ?? record.stateLine}`).toBe(true);
   // A delivered request with no other work open says so first, and says nothing is still running.
   if (record.milestones.every((milestone) => milestone.status === 'done')) expect(finalOverview).toContain('Delivered');
