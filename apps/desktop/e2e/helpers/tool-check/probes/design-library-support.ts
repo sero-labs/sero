@@ -71,7 +71,7 @@ export async function poll<T>(ctx: StepContext, what: string, read: () => Promis
 /** Each job's kind and status, so a wait that timed out shows what the plugin was doing. */
 async function jobSummary(ctx: StepContext): Promise<string> {
   const dir = path.join(await libraryHome(ctx), 'jobs');
-  const names = fs.existsSync(dir) ? fs.readdirSync(dir).filter((name) => name.endsWith('.json')) : [];
+  const names = fs.existsSync(dir) ? fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'index.json') : [];
   return names.map((name) => {
     const job = readJsonFile(path.join(dir, name)) as { kind?: string; status?: string; error?: string } | null;
     return `${job?.kind}:${job?.status}${job?.error ? `(${job.error.slice(0, 80)})` : ''}`;

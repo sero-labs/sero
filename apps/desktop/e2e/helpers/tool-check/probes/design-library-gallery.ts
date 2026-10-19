@@ -163,8 +163,9 @@ export const designLibraryGalleryProbe: ToolProbe = {
       async expect(result, ctx) {
         expectText(result, 'Permanently deleted that version.');
         await poll(ctx, 'the version to be gone', async () => (await version(ctx, second(ctx))) === undefined);
+        // The record changes first and the folder goes a moment later.
         const folder = path.join(await libraryHome(ctx), 'gallery', familyId(ctx), 'versions', second(ctx));
-        if (fs.existsSync(folder)) throw new Error('the purged version folder is still on disk');
+        await poll(ctx, 'the purged version folder to leave the disk', async () => !fs.existsSync(folder));
       },
     },
     {

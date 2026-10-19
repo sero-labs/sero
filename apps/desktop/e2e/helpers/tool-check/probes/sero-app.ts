@@ -45,6 +45,7 @@ export const seroAppProbe: ToolProbe = {
     },
     { action: 'active', params: { argv: ['active'] }, expect: (result) => expectText(result, 'Active app: explorer') },
     { action: 'screenshot', params: { argv: ['screenshot'] }, expect: (result) => expectImage(result) },
+    // Possibly brittle: in one full run the folder was not in the tree. It passes on its own; the cause is not known.
     { action: 'click', params: { argv: ['click', item('tc-app')] }, expect: (result) => expectText(result, 'Clicked: ') },
     // The click opened the folder.
     { action: 'visible', params: { argv: ['visible', '--text', 'file-0.txt'] }, expect: (result) => expectText(result, 'Visible: file-0.txt') },
