@@ -163,12 +163,14 @@ One run of the `interruption` scenario, Architect only, with the runner's `SERO_
 
 ### A stop across a restart
 
-The same scenario with `SERO_BASELINE_STOP_BEFORE_RESTART=1`: the runner presses Stop as soon as work is in flight, Sero restarts, the runner watches for a minute, then presses Resume. Product source as at 631c9423c; only the runner switch was uncommitted. The record, session and log are in `stop-2026-10-19/`.
+The same scenario with `SERO_BASELINE_STOP_BEFORE_RESTART=1`: the runner presses Stop as soon as work is in flight, Sero restarts, the runner watches for a minute, then presses Resume. Revision d9ff2c3b2. The record, session and log are in `stop-2026-10-19b/`.
 
-- **Outcome** accepted, hidden check passed. 114 s, $0.010 plus $0.003 known only as a project total, 18 owner turns, context 5,635 to 16,522 tokens. No intervention beyond the Stop and Resume the run itself made.
-- **The stop held.** The owner began m1 at 05:33:25 as execution `exec_xrgvkyj0`, and the project was stopped at 05:33:26 with "stopped by the user". After the restart it read stopped at the start and the end of the watched minute.
-- **Nothing ran while stopped.** The owner's session has no entry between the `begin` result and Resume at 05:34:29. No turn started, and `src/csv.js` still read "not implemented" when the owner looked after Resume.
-- **Resume continued the same execution.** The owner called `work --operation continue` on m1, finished it, and m1 was accepted on evidence and delivered. There is one `begin` and no second execution.
+- **Outcome** accepted, hidden check passed. 145 s, $0.056 plus $0.049 known only as a project total, 22 owner turns, context 5,614 to 19,744 tokens. No intervention beyond the Stop and Resume the run itself made.
+- **The stop held.** The owner began m1 at 05:44:38 as execution `exec_el9rekfp`, and the project was stopped at 05:44:42 with "stopped by the user". After the restart it read stopped at the start and the end of the watched minute.
+- **Nothing ran while stopped.** The owner's session has no entry between the `begin` result and Resume at 05:45:45. No turn started, and `src/csv.js` still read "not implemented" when the owner looked after Resume.
+- **Resume continued the same execution.** The owner wrote the code, ran the tests and reported m1 on `exec_el9rekfp` at 05:46:00. m1 was accepted on evidence at 05:46:07 and release sent its one Workflow. There is one `begin`, no second execution and one dispatch.
+
+A first stop run, in `stop-2026-10-19a/`, showed the same hold. Its runner counted the stopped run as the end of the project and stopped waiting at Resume; the owner happened to finish inside the runner's 30-second settle wait. Review round 6 found this, d9ff2c3b2 fixed the runner, and the run above replaces it.
 
 The multi-hour trial is below.
 
@@ -304,4 +306,4 @@ Bounds: $1 and 8 minutes per run, $6 in total for the pilot and $2 for each repl
 
 ## Review
 
-Routed rounds on gpt-6-astra at high effort are on the pull requests. On #624, rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80. Round 5 checked those fixes and raised four follow-on points, all fixed in cec47f6ea, including a check that a checkout is still on its saved branch. On #627, rounds 1 to 3 cover the project board, its fixes, and the board changes after the real run.
+Routed rounds on gpt-6-astra at high effort are on the pull requests. On #624, rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80. Round 5 checked those fixes and raised four follow-on points, all fixed in cec47f6ea, including a check that a checkout is still on its saved branch. On #627, rounds 1 to 3 cover the project board, its fixes, and the board changes after the real run. Round 4 covers the owner protocol fixes and the tool-catalogue fix: three findings, all fixed. Round 5 covers the defects the live runs found: seven findings, four fixed in 526926566 and acd4ed332, three skipped as rare. Round 6 checks those fixes and the runner switches: four findings, three fixed in 884318eb7 and d9ff2c3b2, and one skipped as rare.
