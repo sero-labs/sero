@@ -1,6 +1,7 @@
 import type { ToolProbe } from '../types';
 import { expectText } from '../expect';
 import { quoteArg } from '../command-line';
+import { expectSessionInfo } from './sero-session';
 
 /** One argument with line breaks, both kinds of quote and non-ASCII text. */
 const AWKWARD = 'tc-quoted line one\nline two with "double" and \'single\' quotes\nnon-ASCII: ü 日本 🙂';
@@ -12,8 +13,8 @@ export const seroCliProbe: ToolProbe = {
       action: null,
       // Two lines run as two commands, in order.
       params: { command: 'session info\nworkspace info' },
-      expect(result) {
-        expectText(result, 'Session ID:');
+      expect(result, ctx) {
+        expectSessionInfo(result, ctx);
         expectText(result, 'Workspace: Tool Check');
       },
     },

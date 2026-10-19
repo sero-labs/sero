@@ -5,6 +5,7 @@ import { mcpProbes } from './probes/group-mcp';
 import { webFeedbackProbes } from './probes/group-web-feedback';
 import type { ToolProbe } from './types';
 import { codemodeProbe, createAgentProbe, subagentProbe } from './probes/agents';
+import { toolSearchProbe } from './probes/tool-search';
 import { automationBrowserProbe } from './probes/automation-browser';
 import { bashProbe } from './probes/bash';
 import { editProbe } from './probes/edit';
@@ -48,6 +49,7 @@ export const TOOL_PROBES: ToolProbe[] = [
   codemodeProbe,
   createAgentProbe,
   subagentProbe,
+  toolSearchProbe,
   ...cronMemoryProbes,
   ...webFeedbackProbes,
   ...gitGraphifyProbes,

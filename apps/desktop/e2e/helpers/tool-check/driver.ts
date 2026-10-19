@@ -8,9 +8,16 @@
  * ledger, so the ledger comparison names them as not run.
  */
 import type { StubReply, StubRequest } from '../stub-model';
+import { callScript, unwrapScriptResult } from './codemode-call';
 import { cliCommandFor, isCoreCommand } from './command-line';
 import type { LedgerWriter } from './ledger';
 import type { ScenarioStep, StepContext, ToolCallResult } from './types';
+
+/** How a step reaches its tool: called directly, through `sero-cli`, or from a `codemode` script. */
+export type StepRoute = 'direct' | 'cli' | 'codemode' | 'codemode-cli';
+
+/** A step, and for a run that mixes tools (a site pass), the tool and route it uses. */
+export type RunStep = ScenarioStep & { tool?: string; via?: StepRoute };
 
 export interface ScenarioRun {
   /** The first user message of the session. The driver tells sessions apart by it. */
@@ -20,17 +27,19 @@ export interface ScenarioRun {
   /** The last reply, once the steps are done or stopped. A site that reads the session's answer sets it. */
   finalText?: (outcome: RunOutcome) => string;
   tool: string;
-  steps: ScenarioStep[];
+  steps: RunStep[];
   /** `cli` runs each step through `sero-cli`. A core command always does. */
-  via: 'direct' | 'cli';
+  via: StepRoute;
   ctx: StepContext;
+  /** Goes on to the next step after a failure, as a site pass does, so one fault hides nothing. */
+  continueOnFailure?: boolean;
   /** The full result of a call, where the site reports one. */
   readResult?: (callId: string) => Promise<ToolCallResult | undefined>;
 }
 
 export interface RunOutcome {
   passed: number;
-  /** The first failure, which stopped the run. */
+  /** The first failure, which stopped the run unless it continues on failure. */
   failure?: string;
 }
 
@@ -43,6 +52,7 @@ interface RunState {
   startedAt: number;
   settle: (outcome: RunOutcome) => void;
   passed: number;
+  firstFailure?: string;
   /** Set once the run has settled. */
   outcome: RunOutcome | null;
 }
@@ -105,8 +115,14 @@ export class ScenarioDriver {
     const step = run.steps[state.index]!;
     const ms = Date.now() - state.startedAt;
     const callId = state.callId;
-    const result = (await run.readResult?.(callId)) ?? resultFromRequest(request, callId);
-    if (!result) return this.stop(state, step, ms, 'no result came back for the call');
+    const raw = (await run.readResult?.(callId)) ?? resultFromRequest(request, callId);
+    if (!raw) return this.stop(state, step, ms, 'no result came back for the call');
+    let result: ToolCallResult;
+    try {
+      result = routeOf(run, step).startsWith('codemode') ? unwrapScriptResult(raw) : raw;
+    } catch (error) {
+      return this.stop(state, step, ms, errorText(error));
+    }
     if (step.timeoutMs !== undefined && ms > step.timeoutMs) {
       return this.stop(state, step, ms, `took ${ms} ms, over the ${step.timeoutMs} ms limit`);
     }
@@ -117,9 +133,13 @@ export class ScenarioDriver {
     }
     this.record(state, step, ms, 'pass');
     state.passed += 1;
+    return this.next(state);
+  }
+
+  private next(state: RunState): Promise<StubReply> | StubReply {
     state.index += 1;
-    if (state.index < run.steps.length) return this.emit(state);
-    return this.finish(state, { passed: state.passed });
+    if (state.index < state.run.steps.length) return this.emit(state);
+    return this.finish(state, { passed: state.passed, ...(state.firstFailure ? { failure: state.firstFailure } : {}) });
   }
 
   /** Settles the run, if it has not yet, and sends its last reply. */
@@ -144,18 +164,36 @@ export class ScenarioDriver {
     const callId = `tc-${state.number}-${state.index}`;
     state.callId = callId;
     state.startedAt = Date.now();
-    const call = run.via === 'cli' || isCoreCommand(run.tool)
-      ? { id: callId, name: 'sero-cli', arguments: { command: cliCommandFor(run.tool, params) } }
-      : { id: callId, name: run.tool, arguments: params };
-    return { toolCalls: [call] };
+    return { toolCalls: [callFor(callId, step.tool ?? run.tool, routeOf(run, step), params)] };
   }
 
-  private stop(state: RunState, step: ScenarioStep, ms: number, error: string): StubReply {
+  private stop(state: RunState, step: RunStep, ms: number, error: string): Promise<StubReply> | StubReply {
     this.record(state, step, ms, 'fail', error);
-    return this.finish(state, { passed: state.passed, failure: `${step.action ?? state.run.tool}: ${error}` });
+    const failure = `${step.tool ? `${step.tool} ` : ''}${step.action ?? state.run.tool}: ${error}`;
+    if (state.run.continueOnFailure) {
+      state.firstFailure ??= failure;
+      return this.next(state);
+    }
+    return this.finish(state, { passed: state.passed, failure });
   }
 
-  private record(state: RunState, step: ScenarioStep, ms: number, result: 'pass' | 'fail', error?: string): void {
-    this.ledger.record({ site: state.run.ctx.site, tool: state.run.tool, action: step.action, result, ms, error });
+  private record(state: RunState, step: RunStep, ms: number, result: 'pass' | 'fail', error?: string): void {
+    this.ledger.record({ site: state.run.ctx.site, tool: step.tool ?? state.run.tool, action: step.action, result, ms, error });
+  }
+}
+
+/** A core command always goes through `sero-cli`, directly or from a script. */
+function routeOf(run: ScenarioRun, step: RunStep): StepRoute {
+  const route = step.via ?? run.via;
+  if (!isCoreCommand(step.tool ?? run.tool)) return route;
+  return route.startsWith('codemode') ? 'codemode-cli' : 'cli';
+}
+
+function callFor(id: string, tool: string, route: StepRoute, params: Record<string, unknown>): { id: string; name: string; arguments: Record<string, unknown> } {
+  switch (route) {
+    case 'direct': return { id, name: tool, arguments: params };
+    case 'cli': return { id, name: 'sero-cli', arguments: { command: cliCommandFor(tool, params) } };
+    case 'codemode': return { id, name: 'codemode', arguments: { code: callScript(tool, params) } };
+    case 'codemode-cli': return { id, name: 'codemode', arguments: { code: callScript('sero-cli', { command: cliCommandFor(tool, params) }) } };
   }
 }

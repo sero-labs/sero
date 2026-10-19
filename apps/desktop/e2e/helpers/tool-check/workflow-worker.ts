@@ -28,8 +28,8 @@ export interface WorkerOutcome extends RunOutcome {
 }
 
 /** One background-agent step. A tool outside the default loadout is added to the step's tools. */
-function planningReply(goal: string, tool: string): string {
-  const extra = STEP_TOOLS.includes(tool) || tool.startsWith('sero ') ? [] : [tool];
+function planningReply(goal: string, tool: string, defaultTools: boolean): string {
+  const extra = defaultTools || STEP_TOOLS.includes(tool) || tool.startsWith('sero ') ? [] : [tool];
   return JSON.stringify({
     schemaVersion: 1,
     title: goal,
@@ -56,7 +56,7 @@ function stepOutcome(outcome: RunOutcome): string {
 }
 
 export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Promise<WorkerOutcome> {
-  const goal = `tool-check ${run.tool} ${run.via} workflow-worker`;
+  const goal = `tool-check ${run.tool} ${run.via} workflow-worker${run.label ? ` ${run.label}` : ''}`;
   const launch = `launch ${goal}`;
   const launchCallId = `tc-launch-${goal.replace(/[^a-zA-Z0-9]/g, '-')}`;
   const isStep = (request: StubRequest) => request.system.includes(STEP) && firstUserText(request).includes(goal);
@@ -70,7 +70,7 @@ export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Pr
       return { toolCalls: [{ id: launchCallId, name: 'sero-cli', arguments: { command } }] };
     }
     if (!first.includes(goal)) return undefined;
-    if (request.system.includes(PLANNER)) return { text: planningReply(goal, run.tool) };
+    if (request.system.includes(PLANNER)) return { text: planningReply(goal, run.tool, run.defaultTools === true) };
     if (request.system.includes(TRIGGER)) return { text: JSON.stringify({ recurring: false, schedule: null, events: [] }) };
     return undefined;
   });
@@ -83,6 +83,7 @@ export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Pr
       tool: run.tool,
       steps: run.steps,
       via: run.via,
+      continueOnFailure: run.continueOnFailure,
       ctx: stepContext(check, 'workflow-worker', run.fixtures),
     });
     const sessionId = await openChat(check);

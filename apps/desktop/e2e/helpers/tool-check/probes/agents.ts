@@ -12,6 +12,19 @@ import type { StepContext, ToolProbe } from '../types';
 
 const AGENT = 'tc-probe-agent';
 const AGENT_PROMPT = 'You are the tool check probe agent.';
+let agentsCreated = 0;
+
+/**
+ * The first agent created is the one the subagent steps use. The site pass
+ * runs create_agent again, and a name can be taken once, so later calls get
+ * their own. Kept in the step state so `expect` checks the same name.
+ */
+function nextAgentName(ctx: StepContext): string {
+  agentsCreated += 1;
+  ctx.state.agentName = agentsCreated === 1 ? AGENT : `${AGENT}-${agentsCreated}`;
+  return String(ctx.state.agentName);
+}
+
 /** Every subagent task starts with this, so the responder claims only these sessions. */
 const TASK = 'tc-sub:';
 
@@ -73,13 +86,15 @@ export const createAgentProbe: ToolProbe = {
   steps: [
     {
       action: null,
-      params: { name: AGENT, description: 'Answers tool check tasks.', systemPrompt: AGENT_PROMPT, timeoutMs: 60_000 },
+      // The site pass runs this again at other sites; an agent name can be taken once.
+      params: (ctx) => ({ name: nextAgentName(ctx), description: 'Answers tool check tasks.', systemPrompt: AGENT_PROMPT, timeoutMs: 60_000 }),
       expect(result, ctx) {
-        expectText(result, `Agent '${AGENT}' created at `);
+        const name = String(ctx.state.agentName);
+        expectText(result, `Agent '${name}' created at `);
         const file = /created at (.+\.md)$/m.exec(result.text)?.[1];
         if (!file || !fs.existsSync(file)) throw new Error(`no agent file: ${result.text}`);
         const content = fs.readFileSync(file, 'utf8');
-        if (!content.includes(`"name": "${AGENT}"`) || !content.includes(AGENT_PROMPT)) throw new Error(`the agent file holds ${content}`);
+        if (!content.includes(`"name": "${name}"`) || !content.includes(AGENT_PROMPT)) throw new Error(`the agent file holds ${content}`);
         ctx.state.agentFile = file;
       },
     },

@@ -4,8 +4,8 @@
 import { promptAndCollectEvents } from '../agent';
 import { STUB_MODEL_ID, STUB_PROVIDER_ID } from '../stub-model';
 import { chatResultReader, type ToolCheckApp } from './app';
-import type { RunOutcome } from './driver';
-import type { ScenarioStep, StepContext, ToolCheckFixtures, ToolCheckSite } from './types';
+import type { RunOutcome, RunStep, StepRoute } from './driver';
+import type { StepContext, ToolCheckFixtures, ToolCheckSite } from './types';
 
 export function stepContext(check: ToolCheckApp, site: ToolCheckSite, fixtures: ToolCheckFixtures): StepContext {
   return { workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page, respondWith: check.respondWith };
@@ -28,22 +28,29 @@ export async function openChat(check: ToolCheckApp): Promise<string> {
 
 export interface ChatRun {
   tool: string;
-  steps: ScenarioStep[];
-  via: 'direct' | 'cli';
+  steps: RunStep[];
+  via: StepRoute;
   fixtures: ToolCheckFixtures;
   /** Turn limit for the whole run. */
   timeoutMs?: number;
+  /** Keeps running steps after one fails, as a site pass does. */
+  continueOnFailure?: boolean;
+  /** Tells this run's sessions apart from another run of the same tool. */
+  label?: string;
+  /** A Workflow step gets only its default tools, as the site pass reads them, not the probe's tool added. */
+  defaultTools?: boolean;
 }
 
 /** Runs the steps in a new chat, one turn per step, and returns how far they got. */
-export async function runInChat(check: ToolCheckApp, run: ChatRun): Promise<RunOutcome> {
-  const prompt = `tool-check ${run.tool} ${run.via}`;
+export async function runInChat(check: ToolCheckApp, run: ChatRun, site: ToolCheckSite = 'chat'): Promise<RunOutcome> {
+  const prompt = `tool-check ${run.tool} ${run.via}${site === 'chat' ? '' : ` ${site}`}${run.label ? ` ${run.label}` : ''}`;
   const outcome = check.driver.add({
     prompt,
     tool: run.tool,
     steps: run.steps,
     via: run.via,
-    ctx: stepContext(check, 'chat', run.fixtures),
+    continueOnFailure: run.continueOnFailure,
+    ctx: stepContext(check, site, run.fixtures),
     readResult: chatResultReader(check.page),
   });
   const sessionId = await openChat(check);
