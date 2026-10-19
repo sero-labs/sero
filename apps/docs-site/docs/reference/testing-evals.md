@@ -93,6 +93,24 @@ lists every failure. A host run takes about four minutes.
 | `SERO_E2E_RUNTIME` | Workspace runtime: unset for host, `docker` on Linux, `apple-container` on a Mac. |
 | `SERO_TOOL_CHECK_ONLY` | A comma list of tools, such as `bash,sero git`, to check one fix. The ledger comparison then fails, because the other tools did not run. |
 | `SERO_TOOL_CHECK_KEEP_HOME` | `1` keeps the profile, the workspace and `test-results/tool-check/main-process.log` after the run. |
+| `SERO_TOOL_CHECK_REAL_MODEL` | `1` adds the real-model pass below. It needs `DEEPSEEK_API_KEY`, and is skipped without it. |
+
+### Real-model pass
+
+With `SERO_TOOL_CHECK_REAL_MODEL=1`, the run ends with one short task on
+`deepseek/deepseek-flash` at high thinking, at chat, Code Mode chat, subagent,
+Code Mode subagent and a Workflow step. The model writes a file, reads it back
+and runs `git status --short`. Each site passes on the file it wrote and on the
+app's own record of the session's model and tool calls, not on what the model
+says. The stub still drives every launch and planner, so a run costs under one
+cent. Each site prints its model, its tool calls and its cost.
+
+Room members and the Architect owner are not covered yet (#665). Their model is
+fixed when the app starts.
+
+To run only the real-model pass, name no tool:
+`SERO_TOOL_CHECK_ONLY=none SERO_TOOL_CHECK_REAL_MODEL=1`. The ledger comparison
+then fails, as with any narrowed run.
 
 ### In CI
 
@@ -104,8 +122,9 @@ gh workflow run tool-check.yml --ref <branch> -f target=linux-host
 ```
 
 The `target` is `all`, `linux-host`, `linux-docker`, `macos-host` or
-`windows-host`. Each target uploads its ledger and Playwright report as an
-artifact.
+`windows-host`. Add `-f real_model=true` for the real-model pass, which reads
+the `DEEPSEEK_API_KEY` repository secret. Each target uploads its ledger and
+Playwright report as an artifact.
 
 ## Evals command reference
 

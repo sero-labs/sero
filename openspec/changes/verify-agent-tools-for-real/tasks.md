@@ -47,7 +47,8 @@
 ## 8. Real-model pass
 
 - [x] 8.1 Add `deepseek/deepseek-flash` as a provider and model option in `e2e/helpers/llm.ts`, with thinking set to high for the tool check; verify a dry run resolves the model and credential key name without spending
-- [ ] 8.2 Add the one-task-per-site real-model pass behind the `real_model` switch; verify one live run on host passes every site, and record its cost in the PR description
+- [x] 8.2 Add the one-task-per-site real-model pass behind the `real_model` switch; verify one live run on host passes every site, and record its cost in the PR description
+  - Done 2026-10-19 for chat, Code Mode chat, subagent, Code Mode subagent and Workflow step: full host run with the pass, 82 passed, $0.0086 for the pass. Room member and Architect owner moved to #665 with Dan's agreement.
 
 ## 9. CI workflow and docs
 
