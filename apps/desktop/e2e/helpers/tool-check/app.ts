@@ -21,11 +21,23 @@ const DESKTOP_ROOT = path.resolve(__dirname, '../../..');
 export const LEDGER_DIR = path.join(DESKTOP_ROOT, 'test-results', 'tool-check');
 
 /**
- * One host-artifacts folder for every app a run starts, so the host browser
- * pack installs once. CI caches it by pack version.
+ * One toolchains folder for every app a run starts, so the browser pack and
+ * other managed tools install once. CI caches it by pack version.
  */
-export function toolCheckArtifactsDir(): string {
-  return process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE ?? path.join(os.tmpdir(), 'sero-tool-check-artifacts');
+export function toolCheckToolchainsDir(): string {
+  return process.env.SERO_TOOL_CHECK_TOOLCHAINS ?? path.join(os.tmpdir(), 'sero-tool-check-toolchains');
+}
+
+/**
+ * Under a test runner the fixed root also holds the host artifacts, so the
+ * temp home's toolchains folder links to the shared one. Removing the home
+ * removes the link, not the tools.
+ */
+function linkSharedToolchains(home: string): void {
+  const shared = toolCheckToolchainsDir();
+  fs.mkdirSync(shared, { recursive: true });
+  fs.mkdirSync(path.join(home, '.sero-ui'), { recursive: true });
+  fs.symlinkSync(shared, path.join(home, '.sero-ui', 'toolchains'), 'dir');
 }
 
 export interface ToolCheckApp {
@@ -81,6 +93,9 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
   const stub = await startProbeStub({}, answer, driver);
   let home: TempSeroHome | undefined;
   let workspaceDir = '';
+  // A short HOME, as a user has: agent-browser keeps its socket in
+  // ~/.agent-browser, and the path must fit in 103 bytes.
+  const shortHome = path.join(fs.mkdtempSync('/tmp/sero-tc-'), 'home');
   let app: ElectronApplication | undefined;
   let log = '';
 
@@ -92,6 +107,7 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
         await stub.server.close();
       } finally {
         home?.cleanup();
+        fs.rmSync(path.dirname(shortHome), { recursive: true, force: true });
         if (workspaceDir) fs.rmSync(workspaceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       }
     }
@@ -99,6 +115,8 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
 
   try {
     home = createTempSeroHome();
+    linkSharedToolchains(home.path);
+    fs.symlinkSync(home.path, shortHome, 'dir');
     // Outside the repository, so the repository's AGENTS.md and skills stay out of every prompt.
     workspaceDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sero-tool-check-')));
     initWorkspace(workspaceDir);
@@ -109,10 +127,9 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
       seroHome: profile.path,
       runtime,
       env: {
-        HOME: home.path,
-        USERPROFILE: home.path,
+        HOME: shortHome,
+        USERPROFILE: shortHome,
         SERO_FIXED_ROOT_OVERRIDE: path.join(home.path, '.sero-ui'),
-        SERO_HOST_ARTIFACTS_ROOT_OVERRIDE: toolCheckArtifactsDir(),
         // The temp HOME has no git identity.
         GIT_AUTHOR_NAME: 'Probe',
         GIT_AUTHOR_EMAIL: 'probe@example.com',

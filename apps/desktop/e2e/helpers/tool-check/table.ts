@@ -4,6 +4,7 @@ import { gitGraphifyProbes } from './probes/group-git-graphify';
 import { mcpProbes } from './probes/group-mcp';
 import { webFeedbackProbes } from './probes/group-web-feedback';
 import type { ToolProbe } from './types';
+import { automationBrowserProbe } from './probes/automation-browser';
 import { bashProbe } from './probes/bash';
 import { editProbe } from './probes/edit';
 import { readProbe } from './probes/read';
@@ -42,6 +43,7 @@ export const TOOL_PROBES: ToolProbe[] = [
   seroVcsProbe,
   seroBrowserProbe,
   seroAppProbe,
+  automationBrowserProbe,
   ...cronMemoryProbes,
   ...webFeedbackProbes,
   ...gitGraphifyProbes,

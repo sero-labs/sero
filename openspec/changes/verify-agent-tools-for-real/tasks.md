@@ -28,7 +28,7 @@
 
 - [ ] 5.1 Run every action from the Chat panel through its direct tool or `sero-cli`, on host; verify the ledger has every chat-reachable non-exempt action with a pass, and fix each fault found in its owning tool or plugin as its own commit
 - [ ] 5.2 Run the remaining actions at the first site in the design order that is given the tool (subagent, Workflow worker, Architect owner, Room member), answering approval cards and interactive tools through the UI, on host; verify the ledger comparison passes for host
-- [ ] 5.3 Move the hang-recovery, 10 second load, host screenshot and host recording checks from `tools-browser-agent-real-browser.test.ts` into the `automation_browser` scenario, then delete that file; verify the scenario passes on host
+- [x] 5.3 Move the hang-recovery, 10 second load, host screenshot and host recording checks from `tools-browser-agent-real-browser.test.ts` into the `automation_browser` scenario, then delete that file; verify the scenario passes on host
 
 ## 6. Site pass, failures and cancellation
 
