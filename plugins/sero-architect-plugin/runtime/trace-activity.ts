@@ -124,6 +124,9 @@ const WAIT_LABEL: Record<string, string> = {
   queue: 'Waiting in the dispatch queue',
   pause: 'Paused',
   backoff: 'Waiting to retry',
+  child: 'Waiting on a Room or Workflow',
+  process: 'Waiting on a dev server',
+  ci: 'Waiting on CI checks',
 };
 
 /** What the record knows about names and ownership, gathered once per read. */

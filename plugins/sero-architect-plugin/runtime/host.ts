@@ -6,6 +6,7 @@
 
 import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 import type {
   AppRuntimeContext,
@@ -63,6 +64,8 @@ export interface ArchitectHost {
   stopDevServer(serverId: string): Promise<boolean>;
   /** The dev servers of a workspace with their real status and, once ended, how they exited. */
   listDevServers(workspaceId: string): AppRuntimeDevServer[];
+  /** Screenshots the URL in a hidden window and saves the PNG at `savePath`. */
+  capturePreview(url: string, savePath: string): Promise<{ ok: true } | { ok: false; error: string }>;
   /** Called after any dev server changes. Returns the unsubscribe. */
   onDevServerChange(listener: (change: AppRuntimeDevServerChange) => void): () => void;
   /** The CI checks of a branch or commit in the repo at this path. One read; never throws. */
@@ -161,6 +164,13 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     startDevServer: (options) => host.devServers.startManaged(options),
     stopDevServer: (serverId) => host.devServers.stop(serverId),
     listDevServers: (workspaceId) => host.devServers.list(workspaceId),
+    capturePreview: async (url, savePath) => {
+      const capture = await host.devServers.capture(url);
+      if (!capture.ok) return capture;
+      await fs.mkdir(path.dirname(savePath), { recursive: true });
+      await fs.writeFile(savePath, Buffer.from(capture.base64, 'base64'));
+      return { ok: true };
+    },
     onDevServerChange: (listener) => host.devServers.onChange(listener),
     refChecks: (repoPath, ref) => host.git.getRefChecks(repoPath, ref),
     onStateChange: (filePath, listener) => {
