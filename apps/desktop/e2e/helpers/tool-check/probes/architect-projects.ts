@@ -4,7 +4,7 @@
  * (architect-story.ts), run in a chat by the pair runner (../architect-pair.ts).
  */
 import type { ToolProbe } from '../types';
-import { succeeded } from './architect-support';
+import { must, succeeded } from './architect-support';
 import { stepsOf } from './architect-story';
 
 export const architectProjectsProbe: ToolProbe = {
@@ -15,6 +15,9 @@ export const architectProjectsProbe: ToolProbe = {
   siteStep: {
     action: 'list',
     params: { action: 'list' },
-    expect: (result) => succeeded(result),
+    // An owner is given the tool, which refuses it: the owner acts through `architect`.
+    expect: (result, ctx) => ctx.site === 'architect-owner'
+      ? must(result.text.includes('The architect_projects tool is for the user.'), `the owner was not refused: ${result.text}`)
+      : succeeded(result),
   },
 };

@@ -9,6 +9,8 @@
 import { promptAndCollectEvents } from '../agent';
 import { chatResultReader, type ToolCheckApp } from './app';
 import { firstUserText, type RunOutcome, type RunStep, type StepRoute } from './driver';
+import { stopAndResumeOwner } from './hosted-cancel';
+import { hostedSitePass } from './hosted-site';
 import { requiredActions } from './ledger';
 import { architectProbe } from './probes/architect';
 import { allowCards } from './probes/architect-support';
@@ -68,6 +70,8 @@ export async function runArchitectPair(
         via: 'cli',
         continueOnFailure: true,
         ctx: ownerContext,
+        // The owner site pass runs once, in the first project's owner, before its story steps.
+        ...(project === 'charter' ? { stepsFor: hostedSitePass(check, 'architect-owner', architectProbe.tool, 'before', stopAndResumeOwner(check)) } : {}),
       });
     });
 

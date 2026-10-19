@@ -1,6 +1,6 @@
 /**
- * Runs the `rooms` probe in a chat and the `room` probe in one of the Room's
- * members. `room` refuses a session that is not a Room member, so it can only
+ * Runs the `rooms` probe in a chat, and the `room` probe and the Room member
+ * site pass in one of the Room's members. `room` refuses a session that is not a Room member, so it can only
  * run inside a Room, and the `rooms` probe builds one. The reviewer's turns
  * are the driver's; the planner and the other members are the stub's
  * (probes/rooms-stub.ts). The generic action pass must skip both tools and
@@ -9,6 +9,8 @@
 import type { ToolCheckApp } from './app';
 import { settleWithin } from './architect-pair';
 import type { RunOutcome } from './driver';
+import { interruptReviewer } from './hosted-cancel';
+import { hostedSitePass } from './hosted-site';
 import { requiredActions } from './ledger';
 import { roomProbe } from './probes/room';
 import { roomsProbe } from './probes/rooms';
@@ -37,6 +39,8 @@ export async function runRoomsWithMember(check: ToolCheckApp, fixtures: ToolChec
     via: 'cli',
     continueOnFailure: true,
     ctx: stepContext(check, 'room-member', fixtures),
+    // The member's site pass follows its own `room` steps.
+    stepsFor: hostedSitePass(check, 'room-member', roomProbe.tool, 'after', interruptReviewer(check)),
   });
 
   const failures: string[] = [];

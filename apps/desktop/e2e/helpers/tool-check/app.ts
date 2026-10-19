@@ -108,7 +108,9 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
       } finally {
         // SERO_TOOL_CHECK_KEEP_HOME=1 keeps the profile and workspace to look at after a run.
         if (process.env.SERO_TOOL_CHECK_KEEP_HOME === '1') {
-          console.log(`kept the profile at ${home?.path} and the workspace at ${workspaceDir}`);
+          const logFile = path.join(LEDGER_DIR, 'main-process.log');
+          fs.writeFileSync(logFile, log);
+          console.log(`kept the profile at ${home?.path}, the workspace at ${workspaceDir} and the main process log at ${logFile}`);
         } else {
           home?.cleanup();
           fs.rmSync(path.dirname(shortHome), { recursive: true, force: true });

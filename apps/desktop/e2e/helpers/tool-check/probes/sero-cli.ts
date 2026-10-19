@@ -1,6 +1,7 @@
 import type { ToolProbe } from '../types';
 import { expectText } from '../expect';
 import { quoteArg } from '../command-line';
+import { HEADING } from './sero-help';
 import { expectSessionInfo } from './sero-session';
 
 /** One argument with line breaks, both kinds of quote and non-ASCII text. */
@@ -25,4 +26,6 @@ export const seroCliProbe: ToolProbe = {
       expect: (result) => expectText(result, AWKWARD),
     },
   ],
+  // Every session that has sero-cli has `help`, whatever else it was given.
+  siteStep: { action: null, params: { command: 'help' }, expect: (result) => expectText(result, HEADING) },
 };

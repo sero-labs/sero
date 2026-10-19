@@ -35,7 +35,8 @@ interface MemberSpec {
 const MEMBERS: MemberSpec[] = [
   { key: LEAD, displayName: 'Tc Lead', role: 'Conductor', isConductor: true, tools: ['read', 'write', 'edit', 'bash'], permissions: 'edit-workspace' },
   { key: WORKER, displayName: 'Tc Worker', role: 'Worker', isConductor: false, tools: ['read'], permissions: 'read-only' },
-  { key: REVIEWER, displayName: 'Tc Reviewer', role: 'Reviewer', isConductor: false, tools: ['read'], permissions: 'read-only' },
+  // The member site pass runs in the reviewer, so it gets the file and shell tools in a worktree of its own.
+  { key: REVIEWER, displayName: 'Tc Reviewer', role: 'Reviewer', isConductor: false, tools: ['read', 'write', 'edit', 'bash'], permissions: 'edit-workspace' },
 ];
 
 function plan(thinking: string): string {
@@ -65,7 +66,7 @@ function plan(thinking: string): string {
       tools: member.tools,
       skills: [],
       permissions: member.permissions,
-      needsWorktree: member.isConductor,
+      needsWorktree: member.permissions === 'edit-workspace',
     })),
   });
 }

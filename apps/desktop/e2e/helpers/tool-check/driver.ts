@@ -38,6 +38,11 @@ export interface ScenarioRun {
   continueOnFailure?: boolean;
   /** The full result of a call, where the site reports one. */
   readResult?: (callId: string) => Promise<ToolCallResult | undefined>;
+  /**
+   * The steps to run, chosen from the session's first request, for a site
+   * whose tools show only once it starts. Given the planned steps.
+   */
+  stepsFor?: (request: StubRequest, planned: RunStep[]) => RunStep[] | Promise<RunStep[]>;
 }
 
 export interface RunOutcome {
@@ -58,6 +63,8 @@ interface RunState {
   firstFailure?: string;
   /** Set once the run has settled. */
   outcome: RunOutcome | null;
+  /** Set once `stepsFor` has chosen the steps. */
+  chosen: boolean;
 }
 
 export function firstUserText(request: StubRequest): string {
@@ -88,7 +95,7 @@ export class ScenarioDriver {
     if (this.runs.has(run.prompt)) throw new Error(`A run already uses the prompt ${run.prompt}`);
     return new Promise((settle) => {
       this.runs.set(run.prompt, {
-        run, number: ++this.added, index: 0, callId: null, startedAt: 0, passed: 0, outcome: null,
+        run, number: ++this.added, index: 0, callId: null, startedAt: 0, passed: 0, outcome: null, chosen: false,
         settle: (outcome) => {
           this.runs.get(run.prompt)!.outcome = outcome;
           settle(outcome);
@@ -112,6 +119,17 @@ export class ScenarioDriver {
     const state = this.find(request);
     if (!state) throw new Error('respond() called for a request no run claims');
     if (state.outcome) return this.finish(state, state.outcome);
+    if (!state.chosen) {
+      state.chosen = true;
+      const { stepsFor } = state.run;
+      if (stepsFor) {
+        try {
+          state.run = { ...state.run, steps: await stepsFor(request, state.run.steps) };
+        } catch (error) {
+          return this.finish(state, { passed: 0, failure: `choosing the steps failed: ${errorText(error)}` });
+        }
+      }
+    }
     if (state.callId === null) return this.emit(state);
 
     const { run } = state;

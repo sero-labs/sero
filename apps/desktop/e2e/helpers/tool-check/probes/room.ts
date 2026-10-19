@@ -13,7 +13,7 @@ import { ADJUSTED_TITLE } from './rooms-stub';
 const STATUS = 'tc-reviewer-status';
 
 /** The Room the `rooms` probe made: the only one in the workspace while it runs. */
-async function onlyRoomId(ctx: StepContext): Promise<string> {
+export async function onlyRoomId(ctx: StepContext): Promise<string> {
   const ids: string[] = [];
   for (const id of await fs.readdir(roomsDir(ctx)).catch(() => [])) {
     if ((await readRoom(ctx, id))?.definition.title === ADJUSTED_TITLE) ids.push(id);

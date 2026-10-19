@@ -29,11 +29,11 @@ function lastUserText(request: StubRequest): string {
   return [...request.messages].reverse().find((message) => message.role === 'user')?.text ?? '';
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function until(what: string, ready: () => boolean, timeoutMs: number): Promise<void> {
+export async function until(what: string, ready: () => boolean, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!ready()) {
     if (Date.now() > deadline) throw new Error(`timed out after ${timeoutMs} ms waiting for ${what}`);
@@ -41,57 +41,80 @@ async function until(what: string, ready: () => boolean, timeoutMs: number): Pro
   }
 }
 
-function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+export function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(`${what} within ${ms} ms`)), ms); });
   return Promise.race([promise, late]).finally(() => clearTimeout(timer));
 }
 
+/** A shell loop that touches a file five times a second, and the checks that it started and stopped. */
+export class Heartbeat {
+  readonly file: string;
+
+  constructor(n: number, private readonly folder: string) {
+    this.file = `.tc-cancel-${n}.beat`;
+  }
+
+  /** The loop stops by itself after five minutes, so a cancel that fails cannot leave it running for good. */
+  get command(): string {
+    return `for i in $(seq 1 1500); do touch ${this.file}; sleep 0.2; done`;
+  }
+
+  private get path(): string {
+    return path.join(this.folder, this.file);
+  }
+
+  started(): Promise<void> {
+    return until(`the long command to start (${this.file})`, () => fs.existsSync(this.path), 60_000);
+  }
+
+  /** Two seconds without a touch means the loop stopped. */
+  async stopped(): Promise<void> {
+    await sleep(1_000);
+    const before = fs.statSync(this.path).mtimeMs;
+    await sleep(2_000);
+    const after = fs.statSync(this.path).mtimeMs;
+    fs.rmSync(this.path, { force: true });
+    if (after !== before) throw new Error('the long command was still running after the cancel');
+  }
+}
+
+/** The number that keeps each cancellation's names apart. */
+export function nextCancel(): number {
+  return ++cancels;
+}
+
 /** One cancellation: names, the long call, and the heartbeat it writes. */
 class Case {
-  readonly n = ++cancels;
+  readonly n = nextCancel();
   readonly script: boolean;
   readonly goal: string;
   readonly next: string;
   readonly ready: string;
-  readonly beatFile: string;
+  readonly beat: Heartbeat;
 
   constructor(readonly check: ToolCheckApp, readonly site: ToolCheckSite) {
     this.script = SCRIPT_SITES.has(site);
     this.goal = `tc-cancel ${site} ${this.n}`;
     this.next = `tc-cancel next ${site} ${this.n}`;
     this.ready = `tc-cancel ready ${this.n}`;
-    this.beatFile = `.tc-cancel-${this.n}.beat`;
-  }
-
-  /** The loop stops by itself after five minutes, so a cancel that fails cannot leave it running for good. */
-  private get command(): string {
-    return `for i in $(seq 1 1500); do touch ${this.beatFile}; sleep 0.2; done`;
+    this.beat = new Heartbeat(this.n, check.workspaceDir);
   }
 
   longCall(): { id: string; name: string; arguments: Record<string, unknown> } {
     const id = `tc-cancel-call-${this.n}`;
-    if (!this.script) return { id, name: 'bash', arguments: { command: this.command } };
-    const code = `await tools.bash({ command: ${JSON.stringify(this.command)} });\ntext('tc-cancel: the script went on');`;
+    const command = this.beat.command;
+    if (!this.script) return { id, name: 'bash', arguments: { command } };
+    const code = `await tools.bash({ command: ${JSON.stringify(command)} });\ntext('tc-cancel: the script went on');`;
     return { id, name: 'codemode', arguments: { code } };
   }
 
-  private get beatPath(): string {
-    return path.join(this.check.workspaceDir, this.beatFile);
-  }
-
   waitForBeat(): Promise<void> {
-    return until(`the long command to start (${this.beatFile})`, () => fs.existsSync(this.beatPath), 60_000);
+    return this.beat.started();
   }
 
-  /** The loop touches the file five times a second, so two seconds without a touch means it stopped. */
-  async expectStopped(): Promise<void> {
-    await sleep(1_000);
-    const before = fs.statSync(this.beatPath).mtimeMs;
-    await sleep(2_000);
-    const after = fs.statSync(this.beatPath).mtimeMs;
-    fs.rmSync(this.beatPath, { force: true });
-    if (after !== before) throw new Error('the long command was still running after the cancel');
+  expectStopped(): Promise<void> {
+    return this.beat.stopped();
   }
 
   /** The session's next prompt, answered by the stub, must complete. */

@@ -15,7 +15,7 @@
 - [x] 3.2 Add the probe table format under `e2e/helpers/tool-check/` (scenario steps with `expect`, or exemptions with a reason limited to "paid outside service" or "real outside account"); verify it type-checks with one sample module
 - [x] 3.3 Add the coverage check vitest that fails on a missing entry, a stale entry or an empty reason; verify each failure with a fixture table, and verify it runs in `pnpm --filter @sero/desktop test` with no model, browser or container
 - [ ] 3.5 Add a `test.yml` step that runs the coverage check file on every PR outside turbo; verify on the branch that a PR touching only a plugin extension file runs the step
-- [ ] 3.4 Write a scenario or exemption for every inventory entry, one module per tool, building local fixtures where a step needs one (bare git remote, `e2e/fixtures/test-mcp-server`, local HTTP page server, small graphify workspace); verify the coverage check passes
+- [x] 3.4 Write a scenario or exemption for every inventory entry, one module per tool, building local fixtures where a step needs one (bare git remote, `e2e/fixtures/test-mcp-server`, local HTTP page server, small graphify workspace); verify the coverage check passes
 
 ## 4. Scenario driver and ledger
 
