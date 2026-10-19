@@ -103,7 +103,8 @@ const BROWSER_SUBCOMMANDS: CliSubcommands = {
     if (ctx.invocation?.sessionId && isNotAChat(ctx.invocation.sessionId)) {
       return fail('An agent working in the background cannot show the Browser panel: it would take the user away from their work. Read the page with `sero browser get-text`, or take screenshots with automation_browser.');
     }
-    const shown = await appControlHostService.showBrowserPanel();
+    // Switches the view to the agent's workspace, where its tabs are.
+    const shown = await appControlHostService.showBrowserPanel(ctx.workspaceId);
     return shown
       ? ok('Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.')
       : fail('Failed to show Browser panel.');

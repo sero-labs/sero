@@ -42,7 +42,8 @@ interface AppControlBridge {
   openApp(appId: string, workspaceId?: string): boolean;
   getInfo(appId: string): AppControlEntry | null;
   openFile(workspaceId: string, filePath: string): boolean;
-  showBrowserPanel(): boolean;
+  /** Show a workspace's Browser panel, switching the view to that workspace. */
+  showBrowserPanel(workspaceId: string): boolean;
   getAppRect(): AppPanelRect | null;
   getBrowserCaptureTarget(): { workspaceId: string; tabId: string; rect: AppPanelRect } | null;
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
@@ -109,9 +110,10 @@ export function initAppControlBridge(): () => void {
       useEditorBridge.getState().requestOpenFile(workspaceId, filePath);
       return true;
     },
-    showBrowserPanel() {
-      const workspaceId = useWorkspaceStore.getState().activeWorkspaceId;
-      if (!workspaceId) return false;
+    showBrowserPanel(workspaceId) {
+      // Tabs belong to a workspace, so an agent's tab shows only in its own workspace.
+      if (!useWorkspaceStore.getState().workspaces.some((entry) => entry.id === workspaceId)) return false;
+      selectWorkspaceForApp('explorer', workspaceId);
       const state = useAppStore.getState();
       if (state.activeApp !== 'explorer') state.setActiveApp('explorer');
       useExplorerStore.getState().set(workspaceId, { activePanel: 'browser', sidebarOpen: false });

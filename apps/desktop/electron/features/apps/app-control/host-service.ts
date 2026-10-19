@@ -178,8 +178,8 @@ export const appControlHostService = {
     );
   },
 
-  async showBrowserPanel(): Promise<boolean> {
-    return execRenderer<boolean>('window.__appControl?.showBrowserPanel?.() ?? false');
+  async showBrowserPanel(workspaceId: string): Promise<boolean> {
+    return execRenderer<boolean>(`window.__appControl?.showBrowserPanel?.(${JSON.stringify(workspaceId)}) ?? false`);
   },
 
   async getAppRect(): Promise<AppPanelRect | null> {
