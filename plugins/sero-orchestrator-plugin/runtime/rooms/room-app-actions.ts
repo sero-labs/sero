@@ -174,9 +174,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
   const settled = (result: { ok: boolean; error?: string }): SimpleOutcome =>
     result.ok ? { ok: true } : { ok: false, error: result.error ?? 'That did not work.' };
 
-  return {
+  const actions: RoomAppActions = {
     ...live,
-    ...createRevisionActions(ctx),
+    ...createRevisionActions(ctx, (roomId, body, memberIds) => actions.intervene(roomId, body, memberIds)),
 
     async inspect(roomId) {
       const record = await store.readRoom(roomId);
@@ -480,4 +480,5 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       });
     },
   };
+  return actions;
 }

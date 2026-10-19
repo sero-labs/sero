@@ -50,7 +50,17 @@ export type ObservationOperationKind =
  * Why an operation waited. A cause the runtime did not observe is not recorded:
  * an unexplained interval stays unknown rather than becoming a guessed reason.
  */
-export type ObservationWaitCause = 'approval' | 'queue' | 'pause' | 'backoff';
+export type ObservationWaitCause =
+  | 'approval'
+  | 'queue'
+  | 'pause'
+  | 'backoff'
+  /** A durable wait on a Room or Workflow the project started. */
+  | 'child'
+  /** A durable wait on a dev server Sero manages. */
+  | 'process'
+  /** A durable wait on the CI checks of a branch or commit. */
+  | 'ci';
 
 /** Identities stay distinct. A session outlives turns; a turn contains requests. */
 export interface ObservationIdentities {
