@@ -28,13 +28,14 @@
 
 - [ ] 5.1 Run every action from the Chat panel through its direct tool or `sero-cli`, on host; verify the ledger has every chat-reachable non-exempt action with a pass, and fix each fault found in its owning tool or plugin as its own commit
 - [ ] 5.2 Run the remaining actions at the first site in the design order that is given the tool (subagent, Workflow worker, Architect owner, Room member), answering approval cards and interactive tools through the UI, on host; verify the ledger comparison passes for host
+  - Open: the host ledger has one failure, `sero app click`, and 13 `sero app` actions not run after it. They pass on their own; after `sero browser show` the Explorer folder is not in the tree (#660). 5.1 and 5.2 stay open until #660 is decided.
 - [x] 5.3 Move the hang-recovery, 10 second load, host screenshot and host recording checks from `tools-browser-agent-real-browser.test.ts` into the `automation_browser` scenario, then delete that file; verify the scenario passes on host
 
 ## 6. Site pass, failures and cancellation
 
-- [ ] 6.1 At each site (Chat panel, subagent, Workflow worker, Architect owner, Room member, Code Mode script from chat and from a subagent), read the live tool and command list and run each tool once; verify the ledger comparison passes per site on host
-- [ ] 6.2 In each Code Mode script site, run one failing call per tool and check that it rejects and that the next script line does not run; verify the ledger records each rejection
-- [ ] 6.3 Add the cancellation checks: cancel a long `bash` command and a Code Mode script waiting on a nested call, at each site; verify the session accepts the next prompt each time
+- [x] 6.1 At each site (Chat panel, subagent, Workflow worker, Architect owner, Room member, Code Mode script from chat and from a subagent), read the live tool and command list and run each tool once; verify the ledger comparison passes per site on host
+- [x] 6.2 In each Code Mode script site, run one failing call per tool and check that it rejects and that the next script line does not run; verify the ledger records each rejection
+- [x] 6.3 Add the cancellation checks: cancel a long `bash` command and a Code Mode script waiting on a nested call, at each site; verify the session accepts the next prompt each time
 - [x] 6.4 Add the `sero-cli` check for a quoted argument with line breaks, quotes and non-ASCII text; verify the command receives one unchanged argument
 
 ## 7. Container runtime
