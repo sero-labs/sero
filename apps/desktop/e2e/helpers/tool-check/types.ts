@@ -55,6 +55,8 @@ export interface ToolCheckFixtures {
   pageServerUrl: string;
   /** A bare git repository used as the push and pull remote, as the runtime sees it. */
   gitRemotePath: string;
+  /** The same repository as this test process sees it. A container mounts the workspace elsewhere. */
+  gitRemoteHostPath: string;
 }
 
 export interface StepContext {

@@ -14,7 +14,7 @@ function git(cwd: string, ...args: string[]): string {
 function pushFromElsewhere(ctx: StepContext, branch: string): void {
   const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-tool-check-clone-'));
   try {
-    git(clone, 'clone', '-q', ctx.fixtures.gitRemotePath, '.');
+    git(clone, 'clone', '-q', ctx.fixtures.gitRemoteHostPath, '.');
     git(clone, 'checkout', '-q', '-b', branch);
     git(clone, 'commit', '-q', '--allow-empty', '-m', `${branch} from elsewhere`);
     git(clone, 'push', '-q', 'origin', branch);
@@ -66,7 +66,7 @@ function gitProbe(tool: 'sero git' | 'sero vcs'): ToolProbe {
         params: { argv: ['push', 'main'] },
         expect(result, ctx) {
           expectText(result, "Pushed branch 'main'");
-          const pushed = git(ctx.fixtures.gitRemotePath, 'rev-parse', 'main');
+          const pushed = git(ctx.fixtures.gitRemoteHostPath, 'rev-parse', 'main');
           if (pushed !== ctx.state.head) throw new Error(`the remote's main is ${pushed}, not ${String(ctx.state.head)}`);
         },
       },

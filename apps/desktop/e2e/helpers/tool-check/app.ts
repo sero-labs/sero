@@ -69,7 +69,8 @@ export interface StartOptions {
 
 function initWorkspace(dir: string): void {
   // A Room gives each member a worktree, and git tools need a repository.
-  fs.writeFileSync(path.join(dir, '.gitignore'), '.sero/\n');
+  // .tc-remote.git is the git remote the fixtures put in the workspace.
+  fs.writeFileSync(path.join(dir, '.gitignore'), '.sero/\n.tc-remote.git/\n');
   fs.writeFileSync(path.join(dir, 'README.md'), '# Tool check workspace\n');
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=probe@example.com', '-c', 'user.name=Probe', ...args], { cwd: dir, stdio: 'ignore' });
   git('init', '-b', 'main');

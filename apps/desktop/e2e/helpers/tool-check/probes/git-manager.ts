@@ -50,7 +50,7 @@ function commitFile(cwd: string, file: string, content: string, subject: string)
 function pushFromElsewhere(ctx: StepContext, work: (clone: string) => void): void {
   const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-gm-clone-'));
   try {
-    git(clone, 'clone', '-q', ctx.fixtures.gitRemotePath, '.');
+    git(clone, 'clone', '-q', ctx.fixtures.gitRemoteHostPath, '.');
     work(clone);
   } finally {
     fs.rmSync(clone, { recursive: true, force: true });
@@ -313,7 +313,7 @@ const steps: ScenarioStep[] = [
     params: { action: 'push' },
     expect(result, ctx) {
       expectMessage(result, 'Pushed: ');
-      const pushed = git(ctx.fixtures.gitRemotePath, 'rev-parse', 'refs/heads/tc-gm-sync');
+      const pushed = git(ctx.fixtures.gitRemoteHostPath, 'rev-parse', 'refs/heads/tc-gm-sync');
       if (pushed !== git(cwdOf(ctx), 'rev-parse', 'HEAD')) throw new Error(`the remote's tc-gm-sync is ${pushed}`);
     },
   },
@@ -342,7 +342,7 @@ const steps: ScenarioStep[] = [
       expectMessage(result, 'Pulled: ');
       const cwd = cwdOf(ctx);
       if (!fs.existsSync(path.join(cwd, 'tc-gm-pulled.txt'))) throw new Error('the pulled file is missing');
-      if (git(cwd, 'rev-parse', 'HEAD') !== git(ctx.fixtures.gitRemotePath, 'rev-parse', 'refs/heads/tc-gm-sync')) throw new Error('HEAD is not the remote tip');
+      if (git(cwd, 'rev-parse', 'HEAD') !== git(ctx.fixtures.gitRemoteHostPath, 'rev-parse', 'refs/heads/tc-gm-sync')) throw new Error('HEAD is not the remote tip');
     },
   },
   {
