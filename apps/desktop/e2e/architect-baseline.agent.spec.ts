@@ -39,6 +39,8 @@
  * so a probe run never matches an unprobed run in a comparison.
  * SERO_BASELINE_SERVER_MINUTES seeds a dev script whose server exits with code 0
  * by itself after that many minutes, for a probe that waits on a managed process.
+ * SERO_BASELINE_ORIGIN gives the seeded repository that fetch URL as `origin`,
+ * so gh can read the CI checks of a commit there, for a probe that waits on CI.
  * Results go to e2e/screenshots/architect-baseline/pilot/. The earlier baseline.json
  * and its images beside it are historical evidence and are never touched.
  */
@@ -81,6 +83,8 @@ const PAUSE_BEFORE_RESTART = process.env.SERO_BASELINE_PAUSE_BEFORE_RESTART === 
 // Seeds a dev server that exits with code 0 by itself after this many minutes,
 // so a probe can make the owner wait on a managed process (continuity trial).
 const SERVER_MINUTES = Number(process.env.SERO_BASELINE_SERVER_MINUTES ?? '0');
+// A GitHub repository URL for the seeded `origin`, so a probe can wait on CI checks there.
+const ORIGIN = process.env.SERO_BASELINE_ORIGIN?.trim();
 const RUN_SCENARIOS = PROBE ? SCENARIOS.map((scenario) => ({ ...scenario, request: `${scenario.request} ${PROBE}` })) : SCENARIOS;
 const PILOT = path.join(SHOTS, 'pilot');
 const RECORDS = path.join(PILOT, 'records.json');
@@ -262,6 +266,12 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
   git('init', '-q');
   git('add', '-A');
   git('commit', '-q', '-m', 'Starting files');
+  if (ORIGIN) {
+    git('remote', 'add', 'origin', ORIGIN);
+    // The runner presses every Allow card, so a push must fail on its own: gh
+    // reads the repository from the fetch URL and nothing can push to this one.
+    git('remote', 'set-url', '--push', 'origin', path.join(folder, '.no-push'));
+  }
 }
 
 function seedSelfEndingServer(folder: string): void {
