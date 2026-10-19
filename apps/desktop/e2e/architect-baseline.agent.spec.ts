@@ -1,43 +1,76 @@
 /**
- * Measured efficiency baseline (change architect-execution-efficiency-and-observability, task 5.4).
+ * Strategy pilot (change improve-architect-orchestrator-autonomy, tasks 1.3 and 1.4).
  *
- * Runs two real objectives through the Architect and records what they cost and
- * how long they took, in the metric shape this change adds:
+ * Runs five scenarios (small fix, debugging, substantial feature, collaborative
+ * research, interruption) through two candidates, repeated, and records what each
+ * delivered and what it cost:
  *
- *   1 implementation-and-independent-review — a Workflow that implements an
- *     objective and has it checked by a reviewer that did not write it.
- *   2 collaborative-planning — a Room where several members plan together.
+ *   architect                the current Architect: a project, approvals a user
+ *                            would give, driven until its work settles.
+ *   persistent-single-agent  one ordinary chat session in a workspace on the same
+ *                            seeded folder, given the same request.
  *
- * The numbers come from the project budget and the run journal, folded by the
- * same helpers the product uses. Nothing is synthesised: a synthetic record
- * would be an instrumentation check, not evidence about model efficiency, and
- * `isEfficiencyEvidence` refuses it. The run is bounded by a spend cap and
- * refuses to start without one.
+ * Neither is told to use a Workflow or a Room. Both get the scenario's request
+ * word for word, the same starting files, the same model and effort, and the same
+ * per-run budget and time bound (see architect-baseline/manifest.ts).
  *
- *   env -u ELECTRON_RUN_AS_NODE SERO_E2E_ARCHITECT_BASELINE=1 \
+ * The outcome of a run comes only from the scenario's independent checks, run
+ * against the delivered folder after the run. A run that did not finish inside its
+ * bounds is incomplete whatever its checks say. A number the harness cannot observe
+ * is left out of the record and the cost stays incomplete: nothing is filled with
+ * zero. The pre-paid checks that need no app run in
+ * architect-baseline.contract.spec.ts.
+ *
+ *   env -u ELECTRON_RUN_AS_NODE SERO_E2E_ARCHITECT_BASELINE=1 SERO_BASELINE_TOTAL_CAP=20 \
  *     npx playwright test e2e/architect-baseline.agent.spec.ts --project=agent
  *
- * Optional: SERO_BASELINE_MODEL, SERO_BASELINE_CAP (USD), SERO_BASELINE_ONLY.
- * Results are appended to e2e/screenshots/architect-baseline/baseline.json.
+ * SERO_BASELINE_TIER (low or med, default low) picks the global tier both
+ * candidates run on. SERO_BASELINE_CAP is the per-run USD cap, SERO_BASELINE_MINUTES
+ * the per-run time bound, SERO_BASELINE_TOTAL_CAP the aggregate USD bound (required:
+ * no new run starts once recorded spend reaches it), SERO_BASELINE_REPEATS the runs
+ * per strategy and scenario (default 2). SERO_BASELINE_ONLY and
+ * SERO_BASELINE_STRATEGY filter by scenario id or strategy, comma separated.
+ * SERO_BASELINE_EXECUTION_MODE (workspace or worktree, default workspace) is the
+ * Architect project's execution location. In worktree mode the owner works in a
+ * checkout under the folder's .sero/worktrees, so the acceptance checks run against
+ * the checkout of the milestone the owner did itself, not the untouched folder.
+ * Results go to e2e/screenshots/architect-baseline/pilot/. The earlier baseline.json
+ * and its images beside it are historical evidence and are never touched.
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { closeSeroApp, E2E_DATA_ROOT, launchSeroApp, waitForShell } from './helpers';
+import { closeSeroApp, createOpenAgentSession, E2E_DATA_ROOT, launchSeroApp, waitForShell } from './helpers';
 import {
-  compareBaselines, isEfficiencyEvidence, type BaselineEvidence, type BaselineObjective, type BaselineRecord,
+  compareBaselines, outcomeFromChecks,
+  type BaselineComparison, type BaselineIntervention, type BaselineRecord, type BaselineRecovery, type BaselineStrategy,
 } from '../../../plugins/sero-architect-plugin/runtime/baseline';
 import { summarizeTiming, summarizeTrace, tokenComposition, type ConfigurationProvenance } from '../../../plugins/sero-architect-plugin/runtime/trace-summary';
 import type { JournalRecord } from '../../../plugins/sero-architect-plugin/runtime/run-journal';
+import { runChecks } from './architect-baseline/checks';
+import { buildManifest, STRATEGIES, type RunPlan } from './architect-baseline/manifest';
+import { SCENARIOS, type ScenarioDefinition } from './architect-baseline/scenarios';
+import { observeSession } from './architect-baseline/session-file';
+import { resolveTier, tierFromEnv, type ResolvedTier } from './architect-baseline/tier';
 
 const ENABLED = process.env.SERO_E2E_ARCHITECT_BASELINE === '1';
-const ONLY = process.env.SERO_BASELINE_ONLY ?? 'all';
-const MODEL = process.env.SERO_BASELINE_MODEL ?? 'openai-codex/gpt-5.6-terra:high';
+const list = (value: string | undefined): string[] | null => (value && value !== 'all' ? value.split(',').map((item) => item.trim()) : null);
+const ONLY = list(process.env.SERO_BASELINE_ONLY);
+const ONLY_STRATEGY = list(process.env.SERO_BASELINE_STRATEGY);
+const EXECUTION_MODE = process.env.SERO_BASELINE_EXECUTION_MODE ?? 'workspace';
 const CAP_USD = Number(process.env.SERO_BASELINE_CAP ?? '2');
+const MINUTES = Number(process.env.SERO_BASELINE_MINUTES ?? '20');
+const TOTAL_CAP_USD = Number(process.env.SERO_BASELINE_TOTAL_CAP ?? 'NaN');
+const REPEATS = Number(process.env.SERO_BASELINE_REPEATS ?? '2');
+const BATCH_ID = process.env.SERO_BASELINE_BATCH ?? new Date().toISOString().replace(/[:.]/g, '-');
 const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-baseline');
-const RESULTS = path.join(SHOTS, 'baseline.json');
+const PILOT = path.join(SHOTS, 'pilot');
+const RECORDS = path.join(PILOT, 'records.json');
+const COMPARISONS = path.join(PILOT, 'comparisons.json');
+const MANIFEST = path.join(PILOT, 'manifest.json');
 const PROJECTS_ROOT = path.join(os.homedir(), '.sero-e2e-architect-baseline');
 /**
  * A profile that outlives one run, so a provider login is done once by hand
@@ -51,36 +84,49 @@ const BASELINE_HOME = process.env.SERO_BASELINE_HOME
   ?? path.resolve(__dirname, '..', '.sero-baseline-home');
 
 test.describe.configure({ mode: 'serial' });
-test.skip(!ENABLED, 'Set SERO_E2E_ARCHITECT_BASELINE=1 to run the measured baseline. It spends real money.');
-
-// The credential is the provider login in the persistent profile, not an
-// environment API key, so `requireLlmReady` does not describe this run. The
-// model is checked against the live catalogue in beforeAll instead: that is the
-// real precondition, and it fails with the reason rather than a skip.
+test.skip(!ENABLED, 'Set SERO_E2E_ARCHITECT_BASELINE=1 to run the strategy pilot. It spends real money.');
 
 /** The record fields this harness reads. */
 interface BaselineProjectRecord {
   id: string;
   phase: string;
-  overlay: string | null;
   folder: string;
-  workspaceId: string | null;
-  autonomy: string;
-  stateLine: string;
-  budget: { capUsd: number | null; spentUsd: number; incomplete?: boolean; incompleteSources?: string[]; sources: { owner: number; research: number; dispatched: number } };
-  decisions: { id: string; question: string; options: { id: string; label: string }[]; proposal: { kind: string; milestoneId?: string; dispatchKind?: string } | null; answer: { optionId: string } | null }[];
-  milestones: { id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; chargedUsd: number; failure?: string } | null; pendingDispatch?: unknown }[];
-  runs?: { id: string; objective?: string; openedAt: string; closedAt?: string }[];
+  budget: { capUsd: number | null; spentUsd: number; incomplete?: boolean };
+  decisions: { id: string; question: string; options: { id: string; label: string }[]; answer: { optionId: string } | null }[];
+  milestones: {
+    id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; failure?: string } | null; pendingDispatch?: unknown;
+    direct?: { state: string; placement: { mode: string; directory: string; branch?: string } };
+  }[];
+  runs?: { id: string; startedAt: string; endedAt: string | null; outcome?: string }[];
   session: { turns: number; sessionPath: string | null; model?: string | null; thinking?: string | null };
 }
 
-let homePath = '';
+/** What a strategy observed about its own run. Everything else is read from the delivered folder. */
+interface Observed {
+  finished: boolean;
+  models: ConfigurationProvenance[];
+  cost: BaselineRecord['cost'];
+  time: BaselineRecord['time'];
+  counters: BaselineRecord['counters'];
+  ownerTokensPerTurn?: number[];
+  interventions: BaselineIntervention[];
+  recoveries: BaselineRecovery[];
+  /** Where the delivered files are when they are not in the project folder: the owner's worktree. */
+  resultDirectory?: string;
+  /** The branch that work is saved on. A settled milestone's checkout is released, so the branch outlives it. */
+  resultBranch?: string;
+}
+
 let app: ElectronApplication;
 let page: Page;
 let profileRoot = '';
+let tier: ResolvedTier;
 let mainLog = '';
+const plans = new Map<string, RunPlan>();
+const planKey = (scenario: string, replicate: number): string => `${scenario}:${replicate}`;
 
 const architectHome = (): string => path.join(profileRoot, 'apps', 'architect');
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 function readJson<T>(file: string): T | null {
   try {
@@ -88,6 +134,40 @@ function readJson<T>(file: string): T | null {
   } catch {
     return null;
   }
+}
+
+function writeJson(file: string, value: unknown): void {
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+const readRecords = (): BaselineRecord[] => readJson<BaselineRecord[]>(RECORDS) ?? [];
+const recordedSpendUsd = (): number => readRecords().reduce((total, entry) => total + entry.cost.attributableUsd, 0);
+
+// ── App ──────────────────────────────────────────────────────────────
+
+async function launch(): Promise<void> {
+  ({ app, page } = await launchSeroApp({
+    seroHome: BASELINE_HOME,
+    runtime: 'host',
+    env: {
+      // No provider API key is passed: the credential is the OAuth login in the
+      // profile. The owner is pinned to the resolved tier's model and effort, so a
+      // result is about the work and not about which model happened to be selected.
+      SERO_ARCHITECT_MODEL: `${tier.model}:${tier.thinking}`,
+    },
+  }));
+  const log = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'a' });
+  for (const stream of [app.process().stdout, app.process().stderr]) {
+    stream?.on('data', (chunk: Buffer) => { mainLog += chunk.toString(); });
+    stream?.pipe(log);
+  }
+  await waitForShell(page);
+}
+
+/** Quits the app and starts it again on the same profile, the way a user would. */
+async function restartApp(): Promise<void> {
+  await closeSeroApp(app);
+  await launch();
 }
 
 /** Runs a management action inside Electron main, where the runtime registry lives. */
@@ -107,44 +187,28 @@ async function projects<T>(action: string, ...args: unknown[]): Promise<T> {
       }, { action, args });
     } catch (error) {
       lastError = error;
-      await page.waitForTimeout(2_000);
+      await sleep(2_000);
     }
   }
   throw lastError;
 }
 
-/**
- * Removes a project this run created.
- *
- * The profile outlives the run, so without this every attempt leaves its
- * projects behind and the project list becomes a history of failed attempts.
- */
-async function removeProject(projectId: string): Promise<void> {
-  try {
-    const outcome = await projects<{ ok: boolean; text: string }>('delete', projectId);
-    if (!outcome.ok) console.error(`[baseline] could not delete ${projectId}: ${outcome.text}`);
-  } catch (error) {
-    console.error(`[baseline] could not delete ${projectId}: ${String(error)}`);
-  }
-}
-
 const show = (projectId: string): Promise<BaselineProjectRecord | null> => projects<BaselineProjectRecord | null>('show', projectId);
 
-async function shot(name: string): Promise<void> {
-  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: false }).catch(() => undefined);
-}
-
-/** The prompts that ask the user to permit work. Nothing else is clicked. */
-const APPROVAL_LABELS = ['Allow', 'Approve'] as const;
+/**
+ * The host's permission prompt. Nothing else is clicked. The Architect's own
+ * "Approve ..." buttons belong to whichever project is on screen, which may be
+ * an older one, so charters and plans are approved by project id instead.
+ */
+const APPROVAL_LABELS = ['Allow'] as const;
 
 /**
  * Answers every permission prompt on screen, and returns how many it answered.
  *
- * A grant is not one event. Starting a project asks to run the owner session,
- * and a run can ask again later, so this is called throughout a run rather than
- * once. Only the known permit labels are clicked: a decision is answered through
- * the runtime action instead, where the options are real alternatives and
- * picking the first button would be a guess.
+ * A grant is not one event: starting a project asks to run the owner session, and
+ * a run can ask again later. Only the known permit labels are clicked. A decision
+ * is answered through the runtime action instead, where the options are real
+ * alternatives and picking the first button would be a guess.
  */
 async function approvePrompts(label: string): Promise<number> {
   let answered = 0;
@@ -162,161 +226,113 @@ async function approvePrompts(label: string): Promise<number> {
   return answered;
 }
 
+/**
+ * Seeds the starting files as a committed git repository, the same for both
+ * strategies. Evidence and diffs need a commit to compare against, and neither
+ * candidate should have to spend a turn creating one.
+ */
+function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
+  scenario.seed(folder);
+  const git = (...args: string[]): void => { execFileSync('git', ['-c', 'user.name=Baseline', '-c', 'user.email=baseline@example.invalid', ...args], { cwd: folder, stdio: 'ignore' }); };
+  git('init', '-q');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'Starting files');
+}
+
+// ── Architect candidate ──────────────────────────────────────────────
+
+/**
+ * True once the run reached its end. `verifying` is not the end: a milestone
+ * enters it when evidence collection starts, long before the objective is
+ * finished. A milestone planned but not dispatched does not hold the run open. A
+ * run the Architect closed or delivered without dispatching also ends it, so a
+ * run that works some other way is not waited on forever.
+ */
+function architectFinished(record: BaselineProjectRecord): boolean {
+  // Work is a milestone that was dispatched or that the owner did itself.
+  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null || milestone.direct !== undefined);
+  const settled = dispatched.length > 0
+    && dispatched.every((milestone) => milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
+    && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
+  return settled || (record.runs ?? []).some((run) => run.outcome === 'delivered' || run.endedAt !== null);
+}
+
+/**
+ * Asks the host to run the owner and answers its permission cards.
+ *
+ * `resume` is the action that asks, and it does not return until the card is
+ * answered, so the call and the clicks overlap.
+ */
+async function resumeProject(label: string, projectId: string): Promise<{ ok: boolean; text: string }> {
+  const state: { outcome: { ok: boolean; text: string } | null } = { outcome: null };
+  void projects<{ ok: boolean; text: string }>('resume', projectId).then((value) => { state.outcome = value; }, (error: unknown) => {
+    state.outcome = { ok: false, text: error instanceof Error ? error.message : String(error) };
+  });
+  const deadline = Date.now() + 150_000;
+  while (Date.now() < deadline && !state.outcome) {
+    await approvePrompts(label);
+    if (state.outcome) break;
+    await sleep(2_000);
+  }
+  return state.outcome ?? { ok: false, text: `resume() never returned. On screen: ${await screenText()}` };
+}
+
 /** What is actually on screen, so a missing card is a fact and not a guess. */
 async function screenText(): Promise<string> {
   const buttons = await page.getByRole('button').allInnerTexts().catch(() => []);
   const body = await page.locator('body').innerText().catch(() => '');
-  return `buttons=[${buttons.map((label) => label.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 40).join(' | ')}] text=${body.slice(0, 600).replace(/\s+/g, ' ')}`;
+  return `buttons=[${buttons.map((entry) => entry.trim().replace(/\s+/g, ' ')).filter(Boolean).slice(0, 40).join(' | ')}] text=${body.slice(0, 600).replace(/\s+/g, ' ')}`;
 }
+
+type DriveEnd = 'finished' | 'interrupt' | 'timeout';
 
 /**
- * True once every dispatched milestone has resolved.
- *
- * `verifying` is not the end: a milestone enters it when evidence collection
- * starts, which happens long before the objective is finished. An earlier
- * version stopped there and measured a quarter of the run. A milestone the owner
- * has planned but not dispatched does not hold the run open, because no work is
- * in flight for it.
- */
-function settled(record: BaselineProjectRecord): boolean {
-  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
-  return dispatched.length > 0
-    && dispatched.every((milestone) =>
-      milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
-    && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
-}
-
-interface CreateOutcome {
-  ok: boolean;
-  text: string;
-  projectId?: string;
-}
-
-/**
- * Creates a project, gets permission, and leaves the owner ready to work.
- *
- * `create` deliberately does not ask for permission, so the project sits in
- * intake. `resume` is the action that asks, and it does not return until the
- * card is answered, so the call and the clicks overlap.
- */
-async function createProject(name: string, idea: string, folder: string): Promise<{ projectId: string }> {
-  const created = await projects<CreateOutcome>('create', { idea, folder, executionMode: 'workspace' });
-  expect(created.ok, created.text).toBe(true);
-  const projectId = created.projectId ?? '';
-  expect(projectId, 'create returned no project id').not.toBe('');
-
-  // `resume` is what asks for permission, and it does not return until the card
-  // is answered, so the call and the clicks overlap. Its outcome is read through
-  // an object because a plain `let` assigned inside a callback is not tracked.
-  const state: { outcome: { ok: boolean; text: string } | null } = { outcome: null };
-  const resuming = projects<{ ok: boolean; text: string }>('resume', projectId);
-  void resuming.then((value) => { state.outcome = value; }, (error: unknown) => {
-    state.outcome = { ok: false, text: error instanceof Error ? error.message : String(error) };
-  });
-
-  const deadline = Date.now() + 150_000;
-  let answered = 0;
-  while (Date.now() < deadline && !state.outcome) {
-    answered += await approvePrompts(name);
-    if (state.outcome) break;
-    await page.waitForTimeout(2_000);
-  }
-  if (!state.outcome) {
-    await shot(`${name}-no-grant`);
-    throw new Error(`${name}: resume() never returned. ${answered} permission prompt(s) answered. On screen: ${await screenText()}`);
-  }
-  expect(state.outcome.ok, state.outcome.text).toBe(true);
-  return { projectId };
-}
-
-/**
- * A minimal existing package for the project folder.
- *
- * `create` makes an empty folder and runs `git init`, and the Architect's
- * research Room then has no repository or files to read, so it blocks asking the
- * user for a workspace. A package on disk gives discovery something real.
- */
-function seedPackageFolder(folder: string): void {
-  fs.mkdirSync(path.join(folder, 'src'), { recursive: true });
-  fs.writeFileSync(path.join(folder, 'package.json'), `${JSON.stringify({
-    name: 'baseline-package',
-    version: '0.1.0',
-    private: true,
-    type: 'module',
-    scripts: { test: 'node --test', build: 'tsc --noEmit' },
-  }, null, 2)}\n`);
-  fs.writeFileSync(path.join(folder, 'README.md'), '# Baseline package\n\nA small TypeScript utility package.\n');
-  fs.writeFileSync(
-    path.join(folder, 'src', 'index.ts'),
-    'export function placeholder(): string {\n  return "placeholder";\n}\n',
-  );
-}
-
-interface DriveOptions {
-  /** Stop once this holds. */
-  until: (record: BaselineProjectRecord) => boolean;
-  label: string;
-  timeoutMs: number;
-  /** Approve each milestone plan as it appears, the way a user answering does. */
-  approveMilestones?: boolean;
-}
-
-/**
- * Answers what the owner asks and waits for the objective to start.
+ * Answers what the owner asks until the run ends, `interrupt` holds, or the time
+ * bound passes.
  *
  * It approves what a user would approve and nothing more: a charter, a milestone
  * plan, and any decision the owner raises. It never dispatches on the owner's
- * behalf, so the work that runs is the work the owner chose.
+ * behalf, so the work that runs is the work the owner chose. Running out of time
+ * is a result, not an error, so the run is still recorded.
  */
-async function drive(projectId: string, options: DriveOptions): Promise<BaselineProjectRecord> {
-  const deadline = Date.now() + options.timeoutMs;
+async function drive(projectId: string, label: string, deadline: number, interrupt?: (record: BaselineProjectRecord) => boolean): Promise<DriveEnd> {
   const seen = new Set<string>();
-  let last: BaselineProjectRecord | null = null;
-
   while (Date.now() < deadline) {
     // A run can ask for permission more than once, so every pass answers what is
     // on screen rather than assuming the grant at the start was the only one.
-    await approvePrompts(options.label);
+    await approvePrompts(label);
     const record = await show(projectId);
     if (record) {
-      last = record;
-      if (options.until(record)) return record;
+      if (architectFinished(record)) return 'finished';
+      if (interrupt?.(record)) return 'interrupt';
 
-      // An open decision blocks the owner until it is answered.
       for (const decision of record.decisions) {
         if (decision.answer || seen.has(decision.id)) continue;
         seen.add(decision.id);
         const choice = decision.options.find((option) => option.id === 'apply') ?? decision.options[0];
         if (!choice) continue;
-        console.log(`[baseline] ${options.label}: answering ${decision.id} with ${choice.id} — ${decision.question}`);
+        console.log(`[baseline] ${label}: answering ${decision.id} with ${choice.id} - ${decision.question}`);
         await projects<unknown>('answer', projectId, decision.id, choice.id).catch((error) => {
-          console.error(`[baseline] ${options.label}: answer failed: ${String(error)}`);
+          console.error(`[baseline] ${label}: answer failed: ${String(error)}`);
         });
       }
-
       if (record.phase === 'charter') {
-        console.log(`[baseline] ${options.label}: approving the charter`);
         await projects<unknown>('approve', projectId, 'charter').catch((error) => {
-          console.error(`[baseline] ${options.label}: charter approval failed: ${String(error)}`);
+          console.error(`[baseline] ${label}: charter approval failed: ${String(error)}`);
         });
       }
-
-      if (options.approveMilestones) {
-        for (const milestone of record.milestones) {
-          if (milestone.status !== 'planned' || !milestone.plan) continue;
-          if (seen.has(`m:${milestone.id}`)) continue;
-          seen.add(`m:${milestone.id}`);
-          console.log(`[baseline] ${options.label}: approving milestone ${milestone.id} (${milestone.title})`);
-          await projects<unknown>('approve', projectId, 'milestone', milestone.id).catch((error) => {
-            console.error(`[baseline] ${options.label}: milestone approval failed: ${String(error)}`);
-          });
-        }
+      for (const milestone of record.milestones) {
+        if (milestone.status !== 'planned' || !milestone.plan || seen.has(`m:${milestone.id}`)) continue;
+        seen.add(`m:${milestone.id}`);
+        await projects<unknown>('approve', projectId, 'milestone', milestone.id).catch((error) => {
+          console.error(`[baseline] ${label}: milestone approval failed: ${String(error)}`);
+        });
       }
     }
-    await page.waitForTimeout(5_000);
+    await sleep(5_000);
   }
-  if (!last) throw new Error(`${options.label}: the project never appeared`);
-  throw new Error(`${options.label}: timed out waiting for the objective. State: ${last.phase}/${last.stateLine}; milestones ${JSON.stringify(last.milestones.map((m) => [m.id, m.status]))}. On screen: ${await screenText()}`);
+  console.log(`[baseline] ${label}: time bound reached. On screen: ${await screenText()}`);
+  return 'timeout';
 }
 
 /** Every journal line for one run, in order. A torn tail is dropped, not guessed at. */
@@ -335,88 +351,6 @@ function journalOf(projectId: string, runId: string): JournalRecord[] {
   return records;
 }
 
-interface Captured {
-  record: BaselineRecord;
-  provenance: ConfigurationProvenance[];
-}
-
-/**
- * Folds one completed objective into a baseline record, from the stored record
- * and the run journal. Coverage is reported as recorded; a gap stays a gap.
- */
-async function capture(
-  projectId: string,
-  objective: BaselineObjective,
-  candidate: string,
-  acceptanceCriteria: string[],
-): Promise<Captured> {
-  const record = await show(projectId);
-  if (!record) throw new Error(`${objective}: project ${projectId} disappeared`);
-
-  const runs = record.runs ?? [];
-  const journal = runs.flatMap((run) => journalOf(projectId, run.id));
-  const trace = summarizeTrace(journal, {
-    projectId,
-    runId: runs.map((run) => run.id).join(','),
-    knownSpendUsd: record.budget.spentUsd,
-  });
-  const timing = summarizeTiming(journal);
-  const tokens = tokenComposition(journal);
-  const provenance = provenanceOf(journal);
-
-  // The owner session is the Architect's own model, and the Architect knows it
-  // exactly: it opened the session with it. A span covers a delegated operation,
-  // which deliberately names no model, because the Orchestrator picked it from
-  // the snapshot and the Architect never saw which one ran. Without this the
-  // record would name no model at all.
-  if (record.session.model) {
-    provenance.unshift({
-      operationId: 'owner-session',
-      model: record.session.model,
-      ...(record.session.thinking ? { thinking: record.session.thinking } : {}),
-      source: 'owner session',
-    });
-  }
-
-  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
-  const elapsedMs = elapsedOf(journal, runs);
-  const expected = ['input', 'output'];
-
-  const baseline: BaselineRecord = {
-    candidate,
-    objective,
-    models: provenance,
-    acceptanceCriteria,
-    cost: {
-      attributableUsd: trace.attributableUsd,
-      aggregateOnlyUsd: trace.aggregateUsd,
-      coverage: trace.hasAggregate ? (trace.aggregateUsd >= trace.attributableUsd ? 'aggregate' : 'partial') : 'call',
-      incomplete: trace.incomplete || expected.some((key) => tokens.unavailable.includes(key)),
-    },
-    time: {
-      elapsedMs,
-      activeMs: timing.activeMs,
-      workerMs: timing.workerMs,
-      waitMs: timing.waitMs,
-    },
-    counters: {
-      agents: dispatched.length,
-      turns: record.session.turns,
-      requests: trace.requests,
-      toolCalls: trace.toolCalls,
-      retries: trace.retries,
-      compactions: trace.compactions,
-    },
-    outcome: dispatched.some((milestone) => milestone.dispatch?.failure) ? 'rejected' : 'accepted',
-    budgetUsd: record.budget.capUsd ?? CAP_USD,
-    evidence: 'live' as BaselineEvidence,
-    recordedAt: new Date().toISOString(),
-  };
-
-  console.log(`[baseline] ${objective}: ${JSON.stringify({ cost: baseline.cost, time: baseline.time, counters: baseline.counters, models: provenance.map((entry) => entry.model) })}`);
-  return { record: baseline, provenance };
-}
-
 function provenanceOf(journal: readonly JournalRecord[]): ConfigurationProvenance[] {
   const seen = new Map<string, ConfigurationProvenance>();
   for (const entry of journal) {
@@ -433,131 +367,451 @@ function provenanceOf(journal: readonly JournalRecord[]): ConfigurationProvenanc
   return [...seen.values()];
 }
 
-/** Wall-clock span of the recorded activity, when the journal has timestamps. */
-function elapsedOf(journal: readonly JournalRecord[], runs: { openedAt: string; closedAt?: string }[]): number {
-  const stamps = journal
-    .map((entry) => (typeof entry.at === 'string' ? Date.parse(entry.at) : Number.NaN))
-    .filter((value) => Number.isFinite(value));
-  if (stamps.length >= 2) return Math.max(...stamps) - Math.min(...stamps);
-  const opened = runs.map((run) => Date.parse(run.openedAt)).filter((value) => Number.isFinite(value));
-  const closed = runs.map((run) => (run.closedAt ? Date.parse(run.closedAt) : Number.NaN)).filter((value) => Number.isFinite(value));
-  if (opened.length > 0 && closed.length > 0) return Math.max(...closed) - Math.min(...opened);
-  return 0;
+/**
+ * Folds one Architect run into what it observed, from the stored record, the run
+ * journal and the owner's session file. Coverage is reported as recorded.
+ * Delegated work has no session file this harness can read, so repeated work is
+ * not observed for this strategy and is left out of the record.
+ */
+async function observeArchitect(projectId: string, finished: boolean, elapsedMs: number, restarted: boolean, recoveries: BaselineRecovery[]): Promise<Observed> {
+  const record = await show(projectId);
+  if (!record) throw new Error(`project ${projectId} disappeared`);
+  // The owner's own work in a Worktree project is in its checkout, never in the folder.
+  const worktreeWork = record.milestones.filter((milestone) => milestone.direct && milestone.direct.state !== 'superseded' && milestone.direct.placement.mode === 'worktree');
+  if (worktreeWork.length > 1) console.warn(`[baseline] ${projectId} has ${worktreeWork.length} worktree milestones; the checks read only the last one`);
+  const resultDirectory = worktreeWork.at(-1)?.direct?.placement.directory;
+  const resultBranch = worktreeWork.at(-1)?.direct?.placement.branch;
+  const runs = record.runs ?? [];
+  const journal = runs.flatMap((run) => journalOf(projectId, run.id));
+  const trace = summarizeTrace(journal, { projectId, runId: runs.map((run) => run.id).join(','), knownSpendUsd: record.budget.spentUsd });
+  const timing = summarizeTiming(journal);
+  const tokens = tokenComposition(journal);
+  const provenance = provenanceOf(journal);
+
+  // A span covers a delegated operation, which deliberately names no model: the
+  // Orchestrator picked it and the Architect never saw which one ran. The owner
+  // session is the one model the Architect knows exactly.
+  if (record.session.model) {
+    provenance.unshift({
+      operationId: 'owner-session',
+      model: record.session.model,
+      ...(record.session.thinking ? { thinking: record.session.thinking } : {}),
+      source: 'owner session',
+    });
+  }
+  const owner = observeSession(record.session.sessionPath);
+  const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
+
+  return {
+    finished,
+    models: provenance,
+    cost: {
+      attributableUsd: trace.attributableUsd,
+      aggregateOnlyUsd: trace.aggregateUsd,
+      coverage: trace.hasAggregate ? (trace.aggregateUsd >= trace.attributableUsd ? 'aggregate' : 'partial') : 'call',
+      // A request killed by the restart never reported its usage.
+      incomplete: trace.incomplete || restarted || ['input', 'output'].some((key) => tokens.unavailable.includes(key)),
+    },
+    time: { elapsedMs, activeMs: timing.activeMs, workerMs: timing.workerMs, waitMs: timing.waitMs },
+    counters: {
+      agents: dispatched.length,
+      turns: record.session.turns,
+      requests: trace.requests,
+      toolCalls: trace.toolCalls,
+      retries: trace.retries,
+      compactions: trace.compactions,
+    },
+    ...(owner && owner.tokensPerTurn.length > 0 ? { ownerTokensPerTurn: owner.tokensPerTurn } : {}),
+    interventions: [],
+    recoveries,
+    ...(resultDirectory ? { resultDirectory } : {}),
+    ...(resultBranch ? { resultBranch } : {}),
+  };
 }
 
-function appendResult(entry: BaselineRecord): void {
-  const existing = readJson<BaselineRecord[]>(RESULTS) ?? [];
-  existing.push(entry);
-  fs.writeFileSync(RESULTS, `${JSON.stringify(existing, null, 2)}\n`, 'utf8');
+async function runArchitect(scenario: ScenarioDefinition, folder: string, deadline: number): Promise<Observed> {
+  const startedAt = Date.now();
+  // The project starts on a workspace that already holds the seeded files. A new
+  // folder would be refused because it exists, and an empty one gives a research
+  // Room nothing to read.
+  seedWorkspace(scenario, folder);
+  const workspaceId = await page.evaluate(async ({ dir, name }) => (await window.sero.workspace.addFolder(dir, name)).id, { dir: folder, name: path.basename(folder) });
+  const created = await projects<{ ok: boolean; text: string; projectId?: string }>('create', {
+    idea: scenario.request, workspaceId, executionMode: EXECUTION_MODE, capUsd: CAP_USD,
+  });
+  expect(created.ok, created.text).toBe(true);
+  const projectId = created.projectId ?? '';
+  expect(projectId, 'create returned no project id').not.toBe('');
+  const started = await resumeProject(scenario.id, projectId);
+  expect(started.ok, started.text).toBe(true);
+
+  const recoveries: BaselineRecovery[] = [];
+  let restarted = false;
+  // Work is in flight once something is dispatched and the run has not ended.
+  const midRun = (record: BaselineProjectRecord): boolean => record.milestones.some((milestone) => milestone.dispatch !== null);
+  let end = await drive(projectId, scenario.id, deadline, scenario.id === 'interruption' ? midRun : undefined);
+  if (end === 'interrupt') {
+    restarted = true;
+    await restartApp();
+    // Resuming is the action the app offers after a restart, so it is what a user does.
+    const resumed = await resumeProject(scenario.id, projectId);
+    end = resumed.ok ? await drive(projectId, scenario.id, deadline) : 'timeout';
+    recoveries.push({ cause: 'restart', result: end === 'finished' ? 'recovered' : resumed.ok ? 'held' : 'failed' });
+  }
+  const finished = end === 'finished';
+  // The last charge is written after the final response, so let it land.
+  if (finished) await sleep(30_000);
+  const observed = await observeArchitect(projectId, finished, Date.now() - startedAt, restarted, recoveries);
+  await projects<unknown>('delete', projectId).catch((error: unknown) => console.error(`[baseline] could not delete ${projectId}: ${String(error)}`));
+  await page.evaluate((id) => window.sero.workspace.remove(id), workspaceId).catch(() => undefined);
+  return observed;
 }
+
+// ── Persistent single-agent candidate ───────────────────────────────
+
+type TurnEnd = 'settled' | 'error' | 'timeout' | 'cap' | 'interrupted';
+
+interface TurnResult {
+  end: TurnEnd;
+  /** Time the agent spent inside a turn. */
+  activeMs: number;
+  /** How many times the agent started working in this call. */
+  runs: number;
+  retries: number;
+  detail?: string;
+}
+
+interface TurnLimits {
+  timeoutMs: number;
+  capUsd: number;
+  /** Stop after this many finished tool calls, to interrupt the run mid-way. */
+  interruptAfterToolCalls: number | null;
+}
+
+/**
+ * Sends one prompt and waits for the session to settle: its turn ended with no
+ * further turn starting for a few seconds, so nothing is left pending. A turn
+ * that outlives the time bound or the spend cap is aborted, and the end says why.
+ * Everything is driven by the session's own events, with no polling.
+ */
+function chatTurn(sessionId: string, prompt: string, limits: TurnLimits): Promise<TurnResult> {
+  return page.evaluate(async ({ id, text, timeoutMs, capUsd, interruptAfter }) => {
+    const costBefore = (await window.sero.agent.getUsage(id))?.cost ?? 0;
+    return new Promise<TurnResult>((resolve) => {
+      let activeMs = 0;
+      let startedAt = 0;
+      let runs = 0;
+      let retries = 0;
+      let toolCalls = 0;
+      let ending: TurnEnd | null = null;
+      let settleTimer: number | undefined;
+      const stop = (): void => {
+        if (startedAt) activeMs += Date.now() - startedAt;
+        startedAt = 0;
+      };
+      const done = (end: TurnEnd, detail?: string): void => {
+        window.clearTimeout(timer);
+        window.clearTimeout(settleTimer);
+        off();
+        stop();
+        resolve({ end, activeMs, runs, retries, ...(detail ? { detail } : {}) });
+      };
+      const abort = (end: TurnEnd): void => {
+        if (ending) return;
+        ending = end;
+        void window.sero.agent.abort(id).catch(() => undefined).then(() => window.setTimeout(() => done(end), 3_000));
+      };
+      const timer = window.setTimeout(() => abort('timeout'), timeoutMs);
+      const off = window.sero.agent.onEvent((event) => {
+        if (event.sessionId !== id) return;
+        if (event.type === 'agent_start') {
+          window.clearTimeout(settleTimer);
+          startedAt = Date.now();
+          runs += 1;
+        } else if (event.type === 'agent_end') {
+          stop();
+          if (ending) done(ending);
+          else if (event.outcome === undefined || event.outcome === 'completed') settleTimer = window.setTimeout(() => done('settled'), 5_000);
+          else done('error', `the turn ended as ${event.outcome}`);
+        } else if (event.type === 'retry_start') {
+          retries += 1;
+        } else if (event.type === 'error') {
+          done('error', event.error);
+        } else if (event.type === 'tool_end') {
+          toolCalls += 1;
+          if (interruptAfter !== null && toolCalls >= interruptAfter && !ending) done('interrupted');
+        } else if (event.type === 'message_end' && !ending) {
+          void window.sero.agent.getUsage(id).then((usage) => {
+            if (usage && usage.cost - costBefore >= capUsd) abort('cap');
+          });
+        }
+      });
+      window.sero.agent.prompt(id, text, undefined, `baseline-${Date.now()}`).catch((error: unknown) => {
+        done('error', error instanceof Error ? error.message : String(error));
+      });
+    });
+  }, { id: sessionId, text: prompt, timeoutMs: limits.timeoutMs, capUsd: limits.capUsd, interruptAfter: limits.interruptAfterToolCalls });
+}
+
+/** Pins a session to the resolved tier and returns the model state it reports. */
+async function pinSession(sessionId: string): Promise<ConfigurationProvenance> {
+  const state = await page.evaluate(async ({ id, provider, modelId, thinking }) => {
+    await window.sero.agent.setModel(id, provider, modelId);
+    return window.sero.agent.setThinkingLevel(id, thinking);
+  }, { id: sessionId, provider: tier.provider, modelId: tier.modelId, thinking: tier.thinking });
+  const actual = `${state.model.provider}/${state.model.modelId}`;
+  if (actual !== tier.model || state.thinkingLevel !== tier.thinking) {
+    throw new Error(`The session reports ${actual} at ${state.thinkingLevel}, not the pinned ${tier.model} at ${tier.thinking}.`);
+  }
+  return { operationId: 'chat-session', model: actual, thinking: state.thinkingLevel, source: `${tier.tier} tier, pinned on the session` };
+}
+
+async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folder: string, deadline: number): Promise<Observed> {
+  const startedAt = Date.now();
+  seedWorkspace(scenario, folder);
+  const { workspace, session } = await createOpenAgentSession(page, folder, `baseline ${scenario.id} r${plan.replicate}`);
+  const models = [await pinSession(session.id)];
+  const spentUsd = (): number => observeSession(session.path)?.costUsd ?? 0;
+  const limits = (interruptAfterToolCalls: number | null): TurnLimits => ({
+    timeoutMs: Math.max(1_000, deadline - Date.now()), capUsd: Math.max(0.01, CAP_USD - spentUsd()), interruptAfterToolCalls,
+  });
+
+  const interventions: BaselineIntervention[] = [];
+  const recoveries: BaselineRecovery[] = [];
+  const turns: TurnResult[] = [await chatTurn(session.id, scenario.request, limits(scenario.id === 'interruption' ? 2 : null))];
+  let restarted = false;
+
+  if (turns[0]?.end === 'interrupted') {
+    restarted = true;
+    await restartApp();
+    await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: session.id, file: session.path, ws: workspace.id });
+    await pinSession(session.id);
+    // A chat session has no resume action, so a user would type a nudge. That
+    // is coaching the Architect's project does not need, and it is recorded.
+    interventions.push({ kind: 'coaching', note: 'sent "Continue." after the restart because a chat session has no resume action', at: new Date().toISOString() });
+    turns.push(await chatTurn(session.id, 'Continue.', limits(null)));
+  }
+  if (!restarted && scenario.id === 'interruption') console.log('[baseline] the run settled before the restart point, so nothing was interrupted');
+
+  const last = turns.at(-1);
+  const finished = last?.end === 'settled';
+  if (restarted) recoveries.push({ cause: 'restart', result: finished ? 'recovered' : last?.end === 'timeout' ? 'held' : 'failed' });
+
+  const elapsedMs = Date.now() - startedAt;
+  const activeMs = turns.reduce((total, turn) => total + turn.activeMs, 0);
+  const seen = observeSession(session.path);
+  await page.evaluate((id) => window.sero.agent.close(id), session.id).catch(() => undefined);
+  await page.evaluate((id) => window.sero.workspace.remove(id), workspace.id).catch(() => undefined);
+
+  return {
+    finished,
+    models,
+    cost: {
+      attributableUsd: seen?.costUsd ?? 0,
+      aggregateOnlyUsd: 0,
+      coverage: seen ? 'call' : 'partial',
+      // The request a restart killed never wrote its usage, and no file means no measurement.
+      incomplete: !seen || seen.incomplete || seen.requests === 0 || restarted,
+    },
+    // One agent works alone, so its worker time is its active time. Time outside
+    // its turns is the harness waiting, including the restart.
+    time: { elapsedMs, activeMs, workerMs: activeMs, waitMs: Math.max(0, elapsedMs - activeMs) },
+    counters: {
+      agents: 1,
+      turns: turns.reduce((total, turn) => total + turn.runs, 0),
+      requests: seen?.requests ?? 0,
+      toolCalls: seen?.toolCalls ?? 0,
+      retries: turns.reduce((total, turn) => total + turn.retries, 0),
+      compactions: seen?.compactions ?? 0,
+    },
+    ...(seen && seen.tokensPerTurn.length > 0 ? { ownerTokensPerTurn: seen.tokensPerTurn } : {}),
+    interventions,
+    recoveries,
+  };
+}
+
+// ── Records and comparisons ─────────────────────────────────────────
+
+/** Where the checks read the result: the owner's checkout, or its branch once the checkout is released. */
+function resultFolder(folder: string, observed: Observed): string {
+  if (!observed.resultDirectory) return folder;
+  if (fs.existsSync(observed.resultDirectory) || !observed.resultBranch) return observed.resultDirectory;
+  const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'baseline-result-'));
+  execFileSync('git', ['worktree', 'add', '--detach', checkout, observed.resultBranch], { cwd: folder, stdio: 'ignore' });
+  return checkout;
+}
+
+function toRecord(scenario: ScenarioDefinition, plan: RunPlan, strategy: BaselineStrategy, folder: string, observed: Observed): BaselineRecord {
+  const checks = runChecks(resultFolder(folder, observed), scenario.checks);
+  return {
+    candidate: strategy,
+    objective: scenario.id,
+    models: observed.models,
+    acceptanceCriteria: scenario.checks.map((check) => `${check.id}: ${check.summary}`),
+    cost: observed.cost,
+    time: observed.time,
+    counters: observed.counters,
+    outcome: outcomeFromChecks(checks, observed.finished),
+    budgetUsd: CAP_USD,
+    evidence: 'live',
+    recordedAt: new Date().toISOString(),
+    run: plan.runs[strategy],
+    inputs: plan.inputs,
+    checks,
+    interventions: observed.interventions,
+    recoveries: observed.recoveries,
+    ...(observed.ownerTokensPerTurn ? { ownerTokensPerTurn: observed.ownerTokensPerTurn } : {}),
+  };
+}
+
+/** What a record leaves out because the harness could not observe it for that strategy. */
+function unobserved(record: BaselineRecord): string[] {
+  const gaps = ['protocolFailures'];
+  if (record.candidate === 'architect') gaps.push('repeatedWork (delegated sessions are not readable)');
+  else gaps.push('repeatedWork (no signal for a repeated investigation)');
+  if (!record.ownerTokensPerTurn) gaps.push('ownerTokensPerTurn');
+  if (record.objective === 'interruption' && (record.recoveries?.length ?? 0) === 0) gaps.push('recoveries (the run finished before the restart point)');
+  return gaps;
+}
+
+interface PairComparison {
+  scenario: string;
+  replicate: number;
+  architectRunId: string;
+  singleAgentRunId: string;
+  comparison: BaselineComparison;
+  /** What neither record could observe, so a delta is not read as a measured zero. */
+  unobserved: Record<string, string[]>;
+}
+
+for (const scenario of SCENARIOS) {
+  if (ONLY && !ONLY.includes(scenario.id)) continue;
+  for (let replicate = 1; replicate <= REPEATS; replicate += 1) {
+    // Alternate which strategy goes first, so a slow hour does not always land on one of them.
+    const order = replicate % 2 === 1 ? STRATEGIES : [...STRATEGIES].reverse();
+    for (const strategy of order) {
+      if (ONLY_STRATEGY && !ONLY_STRATEGY.includes(strategy)) continue;
+      test(`${scenario.id} r${replicate} ${strategy}`, async () => {
+        test.setTimeout((MINUTES + 15) * 60_000);
+        test.skip(recordedSpendUsd() >= TOTAL_CAP_USD, `recorded spend has reached the $${TOTAL_CAP_USD} total cap`);
+        const plan = plans.get(planKey(scenario.id, replicate));
+        if (!plan) throw new Error(`no manifest for ${scenario.id} r${replicate}`);
+        const folder = path.join(PROJECTS_ROOT, `${scenario.id}-r${replicate}-${strategy}-${Date.now()}`);
+        const deadline = Date.now() + MINUTES * 60_000;
+
+        const observed = strategy === 'architect'
+          ? await runArchitect(scenario, folder, deadline)
+          : await runSingleAgent(scenario, plan, folder, deadline);
+        const record = toRecord(scenario, plan, strategy, folder, observed);
+        fs.mkdirSync(PILOT, { recursive: true });
+        writeJson(RECORDS, [...readRecords(), record]);
+        console.log(`[baseline] ${record.run?.runId}: ${record.outcome} ${JSON.stringify({ checks: record.checks, cost: record.cost, time: record.time })}`);
+        expect(record.checks).toHaveLength(scenario.checks.length);
+      });
+    }
+  }
+}
+
+test('each strategy pair is two distinct runs, compared without claiming an improvement', async () => {
+  const mine = readRecords().filter((entry) => entry.run?.runId.startsWith(`${BATCH_ID}:`));
+  const pairs: PairComparison[] = [];
+  for (const architect of mine.filter((entry) => entry.run?.strategy === 'architect')) {
+    const single = mine.find((entry) => entry.run?.strategy === 'persistent-single-agent'
+      && entry.objective === architect.objective && entry.run.replicate === architect.run?.replicate);
+    if (!single || !architect.run || !single.run) continue;
+    // The strategies' records for one scenario and replicate, never a record with itself.
+    const comparison = compareBaselines(architect, single);
+    expect(single.run.runId, 'a pair must be two distinct runs').not.toBe(architect.run.runId);
+    pairs.push({
+      scenario: String(architect.objective),
+      replicate: architect.run.replicate,
+      architectRunId: architect.run.runId,
+      singleAgentRunId: single.run.runId,
+      comparison,
+      unobserved: { architect: unobserved(architect), 'persistent-single-agent': unobserved(single) },
+    });
+    console.log(`[baseline] ${architect.objective} r${architect.run.replicate}: comparable=${comparison.comparable} mismatches=[${comparison.mismatches.join(', ')}] unknowns=${comparison.unknowns.length}`);
+  }
+  test.skip(pairs.length === 0, 'no scenario has both strategies recorded in this batch');
+  const kept = (readJson<PairComparison[]>(COMPARISONS) ?? []).filter((old) => !pairs.some((pair) => pair.architectRunId === old.architectRunId));
+  writeJson(COMPARISONS, [...kept, ...pairs]);
+});
+
+// ── Setup ────────────────────────────────────────────────────────────
 
 /**
  * The profile the run uses, resolved read-only.
  *
- * Nothing here creates, repairs or clears anything. OAuth refresh tokens are
- * rotated by the provider, so a profile that was set up anywhere other than
- * where it is used ends up with a token the provider has already replaced, and
- * the symptom is a model that is silently absent. This profile was set up by
- * hand and is used exactly as it is found.
+ * OAuth refresh tokens are rotated by the provider, so a profile that was set up
+ * anywhere other than where it is used ends up with a token the provider has
+ * already replaced, and the symptom is a model that is silently absent.
  */
 function resolveProfileRoot(): string {
-  const registry = readJson<{ activeProfileId?: string | null; profiles?: { id: string; path: string }[] }>(
-    path.join(BASELINE_HOME, 'profiles.json'),
-  );
+  const registry = readJson<{ activeProfileId?: string | null; profiles?: { id: string; path: string }[] }>(path.join(BASELINE_HOME, 'profiles.json'));
   const active = registry?.profiles?.find((entry) => entry.id === registry.activeProfileId);
   // A root with no registry is itself the profile.
   return active?.path ?? BASELINE_HOME;
 }
 
-/** Refuses early when the profile has no signed-in provider, naming the reason. */
-function requireSignedInProfile(root: string): void {
-  const authPath = path.join(root, 'agent', 'auth.json');
-  const auth = readJson<Record<string, unknown>>(authPath);
-  const providers = auth && !Array.isArray(auth) ? Object.keys(auth) : [];
-  if (providers.length === 0) {
-    throw new Error(
-      `No signed-in provider at ${authPath}. Start Sero with SERO_HOME_OVERRIDE=${BASELINE_HOME}, ` +
-      'sign in to the provider, and run this spec again. This spec never signs in for you.',
-    );
-  }
-  console.log(`[baseline] signed-in providers: ${providers.join(', ')}`);
-}
-
-/**
- * Refuses to run against a profile that has not finished onboarding.
- *
- * An un-onboarded profile boots into the wizard, where none of the management
- * actions this spec drives exist. Without this check the run just sits there
- * until it times out, which looks like a product fault instead of a setup step.
- */
-function requireOnboardedProfile(): void {
-  const registry = readJson<{ activeProfileId?: string | null; profiles?: { id: string; onboarded?: boolean }[] }>(
-    path.join(BASELINE_HOME, 'profiles.json'),
-  );
+/** Refuses early when the profile is not onboarded or has no signed-in provider. */
+function requireUsableProfile(root: string): void {
+  const registry = readJson<{ activeProfileId?: string | null; profiles?: { id: string; onboarded?: boolean }[] }>(path.join(BASELINE_HOME, 'profiles.json'));
   const active = registry?.profiles?.find((entry) => entry.id === registry.activeProfileId);
   if (active && active.onboarded !== true) {
-    throw new Error(
-      `The profile at ${BASELINE_HOME} has not finished onboarding. Start Sero with ` +
-      `SERO_HOME_OVERRIDE=${BASELINE_HOME} and complete the wizard, then run this spec again.`,
-    );
+    throw new Error(`The profile at ${BASELINE_HOME} has not finished onboarding. Start Sero with SERO_HOME_OVERRIDE=${BASELINE_HOME} and complete the wizard, then run this spec again.`);
+  }
+  const authPath = path.join(root, 'agent', 'auth.json');
+  const auth = readJson<Record<string, unknown>>(authPath);
+  if (!auth || Array.isArray(auth) || Object.keys(auth).length === 0) {
+    throw new Error(`No signed-in provider at ${authPath}. Start Sero with SERO_HOME_OVERRIDE=${BASELINE_HOME}, sign in to the provider, and run this spec again. This spec never signs in for you.`);
   }
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(240_000);
-  // The global setup clears the e2e data root before this runs. A profile kept
-  // there is a profile lost, so refuse loudly rather than sign in again.
+  test.setTimeout(300_000);
   if (BASELINE_HOME.startsWith(E2E_DATA_ROOT + path.sep)) {
     throw new Error(`SERO_BASELINE_HOME must not sit inside ${E2E_DATA_ROOT}: the Playwright global setup deletes it.`);
   }
-  fs.mkdirSync(SHOTS, { recursive: true });
+  if (EXECUTION_MODE !== 'workspace' && EXECUTION_MODE !== 'worktree') throw new Error(`SERO_BASELINE_EXECUTION_MODE must be workspace or worktree, not "${EXECUTION_MODE}".`);
+  for (const [name, value] of [['SERO_BASELINE_CAP', CAP_USD], ['SERO_BASELINE_MINUTES', MINUTES], ['SERO_BASELINE_REPEATS', REPEATS]] as const) {
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be a positive number.`);
+  }
+  if (!Number.isFinite(TOTAL_CAP_USD) || TOTAL_CAP_USD <= 0) {
+    throw new Error('SERO_BASELINE_TOTAL_CAP (USD) is required: the pilot refuses to start without an aggregate spend bound.');
+  }
+  fs.mkdirSync(PILOT, { recursive: true });
   fs.mkdirSync(PROJECTS_ROOT, { recursive: true });
 
-  homePath = BASELINE_HOME;
   profileRoot = resolveProfileRoot();
-  requireOnboardedProfile();
-  requireSignedInProfile(profileRoot);
+  requireUsableProfile(profileRoot);
+  tier = resolveTier(readJson<unknown>(path.join(profileRoot, 'agent', 'settings.json')), tierFromEnv(process.env.SERO_BASELINE_TIER));
+  await launch();
 
-  ({ app, page } = await launchSeroApp({
-    seroHome: homePath,
-    runtime: 'host',
-    env: {
-      // No provider API key is passed: the credential is the OAuth login in the
-      // profile. Pin the owner and every delegate to one model and one effort
-      // level, so a result is about the work and not about which model happened
-      // to be selected on this machine.
-      SERO_ARCHITECT_MODEL: MODEL,
-    },
-  }));
-
-  const log = fs.createWriteStream(path.join(SHOTS, 'app.log'), { flags: 'a' });
-  for (const stream of [app.process().stdout, app.process().stderr]) {
-    stream?.on('data', (chunk: Buffer) => { mainLog += chunk.toString(); });
-    stream?.pipe(log);
-  }
-  await waitForShell(page);
-
-  // Fail here, clearly, rather than somewhere inside the owner's first turn. A
-  // profile with no working login resolves no model at all. The catalogue is
+  // Fail here, clearly, rather than inside the owner's first turn. The catalogue is
   // filled in the background, so this waits rather than sampling once.
-  const reference = MODEL.split(':')[0] ?? MODEL;
   const listIds = (): Promise<string[] | null> => page.evaluate(async () => {
-    const bridge = (window as unknown as { sero?: { models?: { list: () => Promise<{ provider: string; models: { modelId: string }[] }[]> } } }).sero?.models;
-    if (!bridge) return null;
-    const groups = await bridge.list();
+    const groups = await window.sero.models.list();
     return groups.flatMap((group) => group.models.map((model) => `${group.provider}/${model.modelId}`));
-  });
-
+  }).catch(() => null);
   const deadline = Date.now() + 120_000;
   let ids = await listIds();
-  while (Date.now() < deadline && !(ids ?? []).includes(reference)) {
-    await page.waitForTimeout(3_000);
+  while (Date.now() < deadline && !(ids ?? []).includes(tier.model)) {
+    await sleep(3_000);
     ids = await listIds();
   }
-  const owned = (ids ?? []).filter((id) => id.startsWith(`${reference.split('/')[0]}/`));
-  expect((ids ?? []).includes(reference),
-    `The pinned model ${reference} is not available in this profile. Log in again. ${reference.split('/')[0]} offers: ${owned.slice(0, 20).join(', ') || 'nothing'}`).toBe(true);
-  console.log(`[baseline] model=${MODEL} cap=$${CAP_USD} profile=${profileRoot}`);
+  expect(ids ?? [], `The ${tier.tier} tier model ${tier.model} is not available in this profile. Log in again.`).toContain(tier.model);
+
+  // The pin was read from disk before launch. The running app must agree, or the
+  // owner would run on one model and the single agent on another.
+  const live = await page.evaluate(async (name) => (await window.sero.modelConfig.get()).tiers[name] ?? null, tier.tier);
+  expect(live && `${live.provider}/${live.modelId}`, `The running app resolves the ${tier.tier} tier differently from settings.json.`).toBe(tier.model);
+
+  const settings = { model: tier.model, thinking: tier.thinking, budgetUsd: CAP_USD, budgetMinutes: MINUTES, batchId: BATCH_ID };
+  for (const scenario of SCENARIOS) {
+    for (let replicate = 1; replicate <= REPEATS; replicate += 1) plans.set(planKey(scenario.id, replicate), buildManifest(scenario, replicate, settings));
+  }
+  writeJson(MANIFEST, { batchId: BATCH_ID, tier: tier.tier, settings, plans: [...plans.values()] });
+  console.log(`[baseline] tier=${tier.tier} model=${tier.model}:${tier.thinking} cap=$${CAP_USD}/run, ${MINUTES} min/run, $${TOTAL_CAP_USD} total, profile=${profileRoot}`);
 });
 
 test.afterAll(async () => {
@@ -566,107 +820,8 @@ test.afterAll(async () => {
   try {
     await closeSeroApp(app);
   } finally {
-    // The profile stays: it holds the login. Only the throwaway project folders go.
+    // The profile stays: it holds the login. Only the throwaway folders go.
     fs.rmSync(PROJECTS_ROOT, { recursive: true, force: true });
     fs.writeFileSync(path.join(SHOTS, 'main.log'), mainLog, 'utf8');
   }
-});
-
-test('objective 1 — implementation and independent review', async () => {
-  test.setTimeout(1_500_000);
-  test.skip(ONLY !== 'all' && ONLY !== 'implementation', 'not the selected objective');
-
-  const idea = 'A small TypeScript utility package: a slugify function that lowercases, trims, replaces runs of non-alphanumeric characters with single hyphens, and has unit tests. Keep it under 100 lines.';
-  const folder = path.join(PROJECTS_ROOT, `implement-review-${Date.now()}`);
-  seedPackageFolder(folder);
-  const { projectId } = await createProject('01-implement', idea, folder);
-
-  // Ask for the two-part objective in the user's own words: implement it, then
-  // have someone who did not write it check the result against the criteria.
-  await drive(projectId, {
-    label: 'implementation',
-    timeoutMs: 900_000,
-    approveMilestones: true,
-    until: (record) => record.milestones.length > 0,
-  });
-
-  const directive = await projects<{ ok: boolean; text: string }>('directive', projectId,
-    'Implement the slugify package now. Plan a Workflow whose steps finish it, and make one step an independent review by an agent that did not write the code. The reviewer reads the delivered files and their tests and reports, per acceptance criterion, whether it is met, with specific findings. The reviewer must not accept the implementer\'s own summary, and it reaches its verdict from the artifacts alone: it runs no commands, so the review needs no shell access.');
-  expect(directive.ok, directive.text).toBe(true);
-
-  const done = await drive(projectId, {
-    label: 'implementation',
-    timeoutMs: 1_200_000,
-    approveMilestones: true,
-    until: settled,
-  });
-  await shot('02-implement-done');
-  // The last charge is written after the final response, so let it land rather
-  // than sampling the journal mid-write.
-  await page.waitForTimeout(30_000);
-
-  const captured = await capture(projectId, 'implementation-and-independent-review', idea, [
-    `slugify is implemented in TypeScript with unit tests covering trimming, case folding and separator collapsing`,
-    `an agent that did not write the code read the delivered files and reported a finding for each acceptance criterion`,
-    `spend stays within the $${CAP_USD} cap`,
-  ]);
-  appendResult(captured.record);
-  await removeProject(projectId);
-  expect(isEfficiencyEvidence(captured.record) || captured.record.cost.incomplete).toBe(true);
-  expect(done.milestones.some((milestone) => milestone.dispatch !== null)).toBe(true);
-});
-
-test('objective 2 — collaborative planning', async () => {
-  test.setTimeout(1_500_000);
-  test.skip(ONLY !== 'all' && ONLY !== 'planning', 'not the selected objective');
-
-  const idea = 'Plan a command line tool that converts CSV files to JSON with a configurable schema. The plan must cover parsing, schema validation, error reporting and the command line experience.';
-  const folder = path.join(PROJECTS_ROOT, `collaborative-planning-${Date.now()}`);
-  seedPackageFolder(folder);
-  const { projectId } = await createProject('03-planning', idea, folder);
-
-  await drive(projectId, {
-    label: 'planning',
-    timeoutMs: 900_000,
-    approveMilestones: true,
-    until: (record) => record.milestones.length > 0,
-  });
-
-  const directive = await projects<{ ok: boolean; text: string }>('directive', projectId,
-    'Plan this with a team: run the planning as a Room whose members cover parsing, schema validation and command line experience, and have them agree one plan rather than three separate ones. Planning is a reading and writing task: it needs no shell access. Deliver the agreed plan as the room result.');
-  expect(directive.ok, directive.text).toBe(true);
-
-  const done = await drive(projectId, {
-    label: 'planning',
-    timeoutMs: 1_200_000,
-    approveMilestones: true,
-    until: settled,
-  });
-  await shot('04-planning-done');
-  await page.waitForTimeout(30_000);
-
-  const captured = await capture(projectId, 'collaborative-planning', idea, [
-    'a Room with members covering parsing, schema validation and command line experience',
-    'the members agree one plan rather than three separate ones',
-    `spend stays within the $${CAP_USD} cap`,
-  ]);
-  appendResult(captured.record);
-  await removeProject(projectId);
-  expect(done.milestones.some((milestone) => milestone.dispatch !== null)).toBe(true);
-});
-
-test('the two objectives are comparable', async () => {
-  test.skip(ONLY !== 'all', 'only meaningful when both objectives ran');
-  const results = readJson<BaselineRecord[]>(RESULTS) ?? [];
-  const implementation = results.find((entry) => entry.objective === 'implementation-and-independent-review');
-  const planning = results.find((entry) => entry.objective === 'collaborative-planning');
-  expect(implementation, 'the implementation objective produced no record').toBeTruthy();
-  expect(planning, 'the planning objective produced no record').toBeTruthy();
-
-  // Different objectives are not compared to each other: the comparison is only
-  // meaningful between runs of the same objective.
-  const comparison = compareBaselines(implementation!, implementation!);
-  expect(comparison.comparable).toBe(true);
-  expect(comparison.unknowns).toEqual([]);
-  console.log('[baseline] both objectives recorded');
 });

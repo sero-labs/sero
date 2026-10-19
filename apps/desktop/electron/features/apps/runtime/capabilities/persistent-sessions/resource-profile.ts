@@ -24,6 +24,11 @@ export interface MemberResourceProfileInput {
   allowedSkills: string[];
   /** Appended AFTER the base prompt and host-required blocks. Never replaces them. */
   appendSystemPrompt: string[];
+  /**
+   * More prompt lines, read after the extensions have loaded. For what only
+   * the loaded set can say, such as an approved tool that has no plugin.
+   */
+  lateAppendSystemPrompt?: () => string[];
   settingsManager: SettingsManager;
   /**
    * Only extensions that provide an approved capability, plus the AD-020
@@ -72,6 +77,7 @@ export async function createMemberResourceLoader(
     noExtensions: true,
     additionalExtensionPaths: input.packages,
     appendSystemPrompt: input.appendSystemPrompt,
+    appendSystemPromptOverride: (base) => [...base, ...(input.lateAppendSystemPrompt?.() ?? [])],
     // A member runs one approved prompt, not a library of user-authored ones.
     noPromptTemplates: true,
     // A background session renders nothing, so a theme is pure surface area.

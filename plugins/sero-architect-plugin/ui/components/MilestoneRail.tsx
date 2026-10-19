@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { ProjectRecord } from '../../shared/record';
 import { acceptedCount, railRows, type RailRow } from '../lib/view-model';
 import { Evidence } from './Evidence';
+import type { WorkTab } from '../lib/navigation';
 import { Pill, SectionHead } from './Pill';
 
 const LADDER = ['reported', 'verified', 'accepted', 'delivered'] as const;
@@ -21,7 +22,9 @@ export function Ladder({ level }: { level: number }) {
 export interface MilestoneRailProps {
   record: ProjectRecord;
   /** Opens the Orchestrator record of a dispatched milestone. */
-  onOpenDispatch(link: NonNullable<RailRow['link']>): void;
+  onOpenDispatch(link: Extract<NonNullable<RailRow['link']>, { workspaceId: string }>): void;
+  /** Opens the Work view for a milestone the Architect does itself. */
+  onOpenWork(tab: WorkTab, milestoneId: string): void;
   /** A milestone whose evidence scrolls into view and opens on arrival. */
   focusMilestoneId?: string;
   /** Off where the checks have their own place, so each is shown once. */
@@ -42,7 +45,7 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId, showEvidence = true }: MilestoneRailProps) {
+export function MilestoneRail({ record, onOpenDispatch, onOpenWork, focusMilestoneId, showEvidence = true }: MilestoneRailProps) {
   const rows = railRows(record);
   const focusRef = useRef<HTMLDivElement>(null);
   // Scrolling and opening the evidence are external DOM effects: the record is
@@ -85,11 +88,18 @@ export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId, showEv
               {/* The recovery control lives in the project header, beside the
                   reason it answers. Repeating it here put the same button on
                   the page twice with no way to tell which one mattered. */}
-              {link && (
-                <button type="button" className="ar-btn-link" onClick={() => onOpenDispatch(link)} data-testid={`open-${milestone.id}`}>
-                  Open in Orchestrator <ExternalLink className="ar-i" />
+              {link ? (
+                <button
+                  type="button"
+                  className="ar-btn-link"
+                  onClick={() => (link.kind === 'architect' ? onOpenWork(link.tab, milestone.id) : onOpenDispatch(link))}
+                  data-testid={`open-${milestone.id}`}
+                >
+                  {link.kind === 'architect'
+                    ? <>{link.tab === 'live' ? 'Watch work' : 'Evidence'} <ChevronRight className="ar-i" /></>
+                    : <>Open in Orchestrator <ExternalLink className="ar-i" /></>}
                 </button>
-              )}
+              ) : <span />}
             </div>
           </div>
         ))}

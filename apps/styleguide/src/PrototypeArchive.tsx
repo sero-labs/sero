@@ -2,6 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Rooms — member configuration changes: pending, applied, held, replaced', 'room-amendment-status.html'],
+  ['Architect — waiting on a check, expiry and where each limit came from', 'architect-wait-status.html'],
+  ['Architect — a milestone the Architect does itself (issue 620)', 'architect-direct-milestone.html'],
   [
     'Autonomous delivery — intake, short overview, Watch work, decision and recovery',
     'autonomous-delivery/index.html',

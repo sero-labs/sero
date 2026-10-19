@@ -13,6 +13,7 @@ import { isLive, type ActivityState, type FeedbackSummary } from '@sero-ai/commo
 import type { Milestone, ProjectRecord } from './record';
 import { openDecisions } from './record';
 import { MAINTENANCE_MILESTONE_ID } from './maintenance';
+import { activeDirectMilestone } from './direct-execution';
 
 export interface ProjectActivity {
   state: ActivityState;
@@ -366,6 +367,8 @@ export function projectActivity(
   // session, so a turn that an earlier session left open does not read as work.
   const turnSince = record.session.workingSince;
   if (runtimeRunning && turnSince && turnSince >= sessionStartedAt) {
+    const direct = activeDirectMilestone(record);
+    if (direct?.direct?.state === 'running') return { state: 'working', headline: 'Architect is working', owner: `Architect is doing ${direct.title}` };
     return { state: 'working', headline: 'Architect is working', owner: 'Its turn started', ownerAt: turnSince };
   }
 

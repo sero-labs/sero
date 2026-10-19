@@ -251,6 +251,11 @@ export interface MemberSessionPool {
   /** Opens or reuses this member's session, closing the least-recent one if needed. */
   ensure(room: Room, member: RoomMember): Promise<PersistentSessionHandle>;
   runTurn(room: Room, member: RoomMember, request: MemberTurnRequest): Promise<MemberTurnResult>;
+  /**
+   * Resolves when the member is between turns: at once when it is not running
+   * one, otherwise when its current turn ends. Never aborts, never polls.
+   */
+  settled(roomId: string, memberId: string): Promise<void>;
   /** Closes one member's session. The file and its history stay. */
   release(roomId: string, memberId: string): Promise<void>;
   /** Closes a whole Room's sessions — pause, completion or deletion. */
@@ -284,6 +289,8 @@ export function createMemberSessionPool(
   const entries = new Map<string, LiveEntry>();
   /** Opens in flight, so two wakes for one member share one create. */
   const opening = new Map<string, Promise<LiveEntry>>();
+  /** Callers waiting for a member's current turn to end. */
+  const settledWaiters = new Map<string, (() => void)[]>();
   const key = (roomId: string, memberId: string): string => `${roomId}/${memberId}`;
   const nowMs = (): number => Date.parse(deps.host.now());
 
@@ -375,7 +382,18 @@ export function createMemberSessionPool(
       } finally {
         entry.busy = false;
         entry.lastUsedMs = nowMs();
+        const waiters = settledWaiters.get(key(room.definition.id, member.id)) ?? [];
+        settledWaiters.delete(key(room.definition.id, member.id));
+        for (const resolve of waiters) resolve();
       }
+    },
+
+    settled(roomId, memberId) {
+      if (!entries.get(key(roomId, memberId))?.busy) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        const waiting = key(roomId, memberId);
+        settledWaiters.set(waiting, [...(settledWaiters.get(waiting) ?? []), resolve]);
+      });
     },
 
     async release(roomId, memberId) {

@@ -149,6 +149,17 @@ function clampSubject(
   };
 }
 
+/** Clamps the policies an amendment proposes, exactly as a proposal's subjects are clamped. */
+export function clampSubjectPolicies(
+  subjects: Record<string, PersistentSessionSubjectPolicy>,
+  inputs: ClampInputs,
+): ClampedProposal['proposal']['subjects'] {
+  const notes: ClampNote[] = [];
+  return Object.fromEntries(
+    Object.entries(structuredClone(subjects)).map(([subject, policy]) => [subject, clampSubject(subject, policy, inputs, notes)]),
+  );
+}
+
 /**
  * Clamps the authority a proposal asks to pass on. Each role is clamped as a
  * subject is, so a policy can never hold more than a direct grant could, and

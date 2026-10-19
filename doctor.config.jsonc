@@ -102,6 +102,7 @@
           "ui/components/RoomAdvancedSettings.tsx",
           "ui/components/RoomMessageDialog.tsx",
           "ui/lib/proposal-diff.ts",
+          "ui/lib/room-team.ts",
           "plugins/sero-orchestrator-plugin/shared/room-access-map.ts",
           "plugins/sero-orchestrator-plugin/shared/room-clamp.ts",
           "plugins/sero-orchestrator-plugin/shared/room-diff.ts",
@@ -111,7 +112,8 @@
           "plugins/sero-orchestrator-plugin/ui/components/RoomActivity.tsx",
           "plugins/sero-orchestrator-plugin/ui/components/RoomAdvancedSettings.tsx",
           "plugins/sero-orchestrator-plugin/ui/components/RoomMessageDialog.tsx",
-          "plugins/sero-orchestrator-plugin/ui/lib/proposal-diff.ts"
+          "plugins/sero-orchestrator-plugin/ui/lib/proposal-diff.ts",
+          "plugins/sero-orchestrator-plugin/ui/lib/room-team.ts"
         ],
         "rules": [
           "react-doctor/js-combine-iterations",

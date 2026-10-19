@@ -1,0 +1,181 @@
+[
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_kvle7m79:owner-wake:quiet:wake_wej1rm5g",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.021690719999999997,
+      "aggregateOnlyUsd": 0.0014583,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 481310,
+      "activeMs": 104055,
+      "workerMs": 0,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 0,
+      "turns": 1,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T21:13:37.378Z",
+    "run": {
+      "runId": "phase0:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "a82856342",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      4192,
+      4927,
+      5963,
+      6364,
+      7944,
+      8373,
+      9393,
+      11611,
+      14617,
+      15869,
+      16720,
+      18410,
+      18751,
+      20434,
+      21386,
+      21692,
+      22142,
+      22246,
+      22947,
+      24014,
+      24777
+    ]
+  },
+  {
+    "candidate": "persistent-single-agent",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "chat-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "LOW tier, pinned on the session"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.005635956,
+      "aggregateOnlyUsd": 0,
+      "coverage": "call",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 23068,
+      "activeMs": 15591,
+      "workerMs": 15591,
+      "waitMs": 7477
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 1,
+      "requests": 8,
+      "toolCalls": 7,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T21:14:00.549Z",
+    "run": {
+      "runId": "phase0:small-fix:r1:persistent-single-agent",
+      "strategy": "persistent-single-agent",
+      "revision": "a82856342",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      10400,
+      10709,
+      10889,
+      11090,
+      11899,
+      12096,
+      12434,
+      12646
+    ]
+  }
+]

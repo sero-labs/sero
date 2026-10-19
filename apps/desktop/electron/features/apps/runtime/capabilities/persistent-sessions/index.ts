@@ -87,6 +87,10 @@ export interface PersistentSessionWiring {
    * capability concern.
    */
   approveGrant: PersistentSessionHostDepsApproval;
+  /** Clamps an amendment's policies against the grant's workspace. Null when it cannot be resolved. */
+  clampSubjects: PersistentSessionHostDeps['clampSubjects'];
+  /** Asks the user to approve exactly the authority an amendment adds. */
+  approveExpansion: PersistentSessionHostDeps['approveExpansion'];
   /** Builds the filtered member resource profile from the approved policy. */
   buildSessionInputs(input: {
     grantId: string;
@@ -133,6 +137,8 @@ export async function createPersistentSessionsApi(
     // delete the other's sessions.
     resolveSessionDir: (grantId) => path.join(SERO_SESSION_DIR, wiring.appId, grantId),
     approveGrant: wiring.approveGrant,
+    clampSubjects: wiring.clampSubjects,
+    approveExpansion: wiring.approveExpansion,
     listAvailableModelIds: async () => {
       const { modelRuntime } = await ensureAiInfra();
       // Provider-qualified, because that is the identity a caller names a model

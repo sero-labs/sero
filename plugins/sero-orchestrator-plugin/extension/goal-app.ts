@@ -1,4 +1,4 @@
-/** User-authorized Goal management for the Orchestrator UI. */
+/** User-authorized Goal management for the Orchestrator UI. Its limit changes count as the user's own. */
 
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
@@ -69,7 +69,7 @@ export async function executeGoalApp(
       outcome = await runtime.remove(params.goalId);
       break;
     case 'set_limits':
-      outcome = await runtime.setLimits(params.goalId, limitsOf(params));
+      outcome = await runtime.setLimits(params.goalId, limitsOf(params), 'user');
       break;
   }
   return toolResult(outcome);

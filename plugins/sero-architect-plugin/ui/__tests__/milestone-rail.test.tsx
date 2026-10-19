@@ -41,7 +41,7 @@ describe('the milestone rail', () => {
     const first = source.milestones.find((item) => item.dispatch?.kind === 'workflow')!;
     const record = { ...source, milestones: [{ ...first, dispatch: { ...first.dispatch!, failure: 'Interrupted work', retryStepId: 'check' } }] };
     const open = vi.fn();
-    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={open} />));
+    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={open} onOpenWork={vi.fn()} />));
     // The row keeps its title, its state and its Orchestrator link, and offers
     // no second copy of the control the project header already carries: the
     // same button twice gave no way to tell which one mattered.
@@ -74,7 +74,7 @@ describe('the milestone rail', () => {
         },
       }, ...source.milestones.slice(1)],
     };
-    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={vi.fn()} />));
+    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={vi.fn()} onOpenWork={vi.fn()} />));
 
     const rows = Array.from(container.querySelectorAll('.ar-checks > li'));
     expect(rows.map((row) => row.querySelector('.ar-check-name')?.textContent)).toEqual([
@@ -102,7 +102,7 @@ describe('the milestone rail', () => {
 
   it('shows one Orchestrator link per dispatched milestone and none for the rest', () => {
     const onOpenDispatch = vi.fn();
-    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={onOpenDispatch} />));
+    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={onOpenDispatch} onOpenWork={vi.fn()} />));
     const links = Array.from(container.querySelectorAll('.ar-btn-link')).map((link) => link.getAttribute('data-testid'));
     expect(links).toEqual(['open-m1', 'open-m2', 'open-m3']);
     expect(container.querySelectorAll('.ar-ms').length).toBe(5);
@@ -110,7 +110,7 @@ describe('the milestone rail', () => {
 
   it('opens the Workflow or the Room record through the Orchestrator app', async () => {
     const { openDispatch } = await import('../lib/page-helpers');
-    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={openDispatch} />));
+    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={openDispatch} onOpenWork={vi.fn()} />));
     act(() => container.querySelector<HTMLButtonElement>('[data-testid="open-m2"]')!.click());
     act(() => container.querySelector<HTMLButtonElement>('[data-testid="open-m3"]')!.click());
     expect(openSeroApp.mock.calls).toEqual([
@@ -120,7 +120,7 @@ describe('the milestone rail', () => {
   });
 
   it('keeps evidence behind a disclosure and shows no step detail', () => {
-    act(() => root.render(<MilestoneRail record={FIXTURES.build!} onOpenDispatch={vi.fn()} />));
+    act(() => root.render(<MilestoneRail record={FIXTURES.build!} onOpenDispatch={vi.fn()} onOpenWork={vi.fn()} />));
     const evidence = container.querySelector<HTMLDetailsElement>('details.ar-evidence');
     expect(evidence?.open).toBe(false);
     expect(evidence?.querySelector('summary')?.textContent).toContain('Evidence at 3f1c2ab');
@@ -130,7 +130,7 @@ describe('the milestone rail', () => {
   it('scrolls the focused milestone into view and opens its evidence alone', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
-    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={vi.fn()} focusMilestoneId="m1" />));
+    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={vi.fn()} focusMilestoneId="m1" onOpenWork={vi.fn()} />));
 
     const focused = container.querySelector('[data-milestone="m1"]');
     expect(focused?.querySelector('details.ar-evidence')?.hasAttribute('open')).toBe(true);
@@ -138,5 +138,23 @@ describe('the milestone rail', () => {
     const other = container.querySelector('[data-milestone="m2"]');
     expect(other?.querySelector('details.ar-evidence')?.hasAttribute('open')).toBe(false);
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
+
+  it('links work the Architect does itself to the Work view, and keeps Workflow rows on the Orchestrator', () => {
+    const record = FIXTURES.direct!;
+    const onOpenWork = vi.fn();
+    const onOpenDispatch = vi.fn();
+    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={onOpenDispatch} onOpenWork={onOpenWork} />));
+    const click = (id: string) => act(() => container.querySelector<HTMLButtonElement>(`[data-testid="open-${id}"]`)!.click());
+    click('m1'); // direct, accepted
+    click('m2'); // direct, running
+    expect(onOpenWork.mock.calls).toEqual([['evidence', 'm1'], ['live', 'm2']]);
+    expect(container.querySelector('[data-testid="open-m1"]')?.textContent).toContain('Evidence');
+    expect(container.querySelector('[data-testid="open-m2"]')?.textContent).toContain('Watch work');
+    expect(container.querySelector('[data-testid="open-m4"]')).toBeNull();
+    expect(onOpenDispatch).not.toHaveBeenCalled();
+    click('m3'); // delegated
+    expect(onOpenDispatch).toHaveBeenCalledWith({ kind: 'room', id: 'room-m3', workspaceId: 'ws-hollow' });
+    expect(onOpenWork).toHaveBeenCalledTimes(2);
   });
 });

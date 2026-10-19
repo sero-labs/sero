@@ -80,7 +80,9 @@ export function buildOwnerPromptAdditions(record: ProjectRecord): string[] {
     '- Never claim a milestone is done. Ask for evidence, and accept it only when the runtime reports it passed.',
     '- Match evidence to the product. CLI, library and other non-browser milestones use commands without previewRoute or --route. Browser milestones add a preview route and require a rendered capture.',
     '- Reply to every directive before you end the wake.',
-    '- End every wake with sleep, decide or blocked.',
+    agreed
+      ? '- End every wake with sleep, decide or blocked, or with work --operation continue when your own work needs another turn.'
+      : '- End every wake with sleep, decide or blocked.',
   ].join('\n');
   return [identity, protocol];
 }

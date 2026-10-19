@@ -24,6 +24,7 @@ export type DenyReason =
   | 'grant-revoked'
   | 'caller-mismatch'
   | 'subject-not-granted'
+  | 'subject-retired'
   | 'session-path-escape'
   | 'session-path-unregistered'
   | 'subject-already-bound'
@@ -139,6 +140,10 @@ export function validatePersistentSessionRequest(input: ValidateInput): Validati
   const policy = grant.subjects[request.subject];
   if (!policy) {
     return deny('subject-not-granted', `Subject ${request.subject} is not in grant ${grant.grantId}.`);
+  }
+
+  if (grant.retired?.includes(request.subject)) {
+    return deny('subject-retired', `Subject ${request.subject} was retired and starts no more sessions.`);
   }
 
   // 5. path resolution

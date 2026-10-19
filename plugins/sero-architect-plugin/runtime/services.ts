@@ -29,6 +29,8 @@ import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, Proje
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
+import { isActiveDirect } from '../shared/direct-execution';
+import { workDirectory } from './direct-worktree';
 import { commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
@@ -87,8 +89,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     }, work);
   };
 
-  const runPreview = (record: ProjectRecord, milestone: Milestone, route: string, startedAt: number): Promise<NonNullable<EvidenceRecord['preview']>> =>
-    runPreviewCapture(deps, record, milestone, route, startedAt);
+  const runPreview = (record: ProjectRecord, milestone: Milestone, route: string, startedAt: number, checkout: string): Promise<NonNullable<EvidenceRecord['preview']>> =>
+    runPreviewCapture(deps, record, milestone, route, startedAt, checkout);
 
   /**
    * The milestone is already `verifying`, so a run that throws would leave it
@@ -135,14 +137,17 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const record = await store.read(projectId);
     const milestone = record?.milestones.find((m) => m.id === milestoneId);
     if (!record || !milestone || !record.workspaceId) return;
-    const commit = await commitOf(host, record.folder);
-    const baseCommit = milestone.dispatch?.baseCommit ?? commit;
+    // Where the work is: the owner's worktree for direct worktree work, else the project folder.
+    const directory = await workDirectory(host, record, milestone);
+    const commit = await commitOf(host, directory);
+    // The owner's own work, once reported, is what is being checked.
+    const baseCommit = (milestone.direct?.state === 'reported' ? milestone.direct.baseCommit : null) ?? milestone.dispatch?.baseCommit ?? commit;
     const workspaceId = record.workspaceId;
     const ran: EvidenceCommand[] = [];
     await span(record, 'evidence', milestoneId, async () => {
       for (const command of commands) {
         const began = Date.now();
-        const result = await host.runCommand(workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
+        const result = await host.runCommand(workspaceId, directory, command, COMMAND_TIMEOUT_MS);
         ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
       }
     });
@@ -150,7 +155,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     // capture error as a test exit code sends the owner to repair working code.
     const evidenceSpan = `${activeRun(record)?.id ?? ''}:evidence:${milestoneId}`;
     const preview = route && ran.every((command) => command.exitCode === 0)
-      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt), {
+      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt, directory), {
         parentOperationId: evidenceSpan,
         model: record.session.model ?? undefined,
         thinking: record.session.thinking ?? undefined,
@@ -160,8 +165,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           failure: error instanceof Error ? error.message : String(error),
         })) : null;
     const [diffSummary, fingerprint] = await Promise.all([
-      diffSummaryOf(host, record.folder, baseCommit),
-      worktreeFingerprint(host, record.folder),
+      diffSummaryOf(host, directory, baseCommit),
+      worktreeFingerprint(host, directory),
     ]);
     const filesChanged = diffSummary !== null;
     const passed = ran.every((c) => c.exitCode === 0)
@@ -404,7 +409,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       }
     },
 
-    evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
+    workspaceState: async (record, directory = record.folder) => ({ commit: await commitOf(host, directory), fingerprint: await worktreeFingerprint(host, directory) }),
+    evidenceIsStale: async (record, milestone) => evidenceIsStale(host, { ...record, folder: await workDirectory(host, record, milestone) }, milestone),
     startFailed: (projectId, item) => deps.wake(projectId, { kind: 'dispatch-blocked', at: host.now(), items: [item] }),
 
     async evidence(record, milestone, request) {
@@ -416,6 +422,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           || (fresh.pendingEvidence ?? []).some((pending) => pending.milestoneId === milestone.id)) return null;
         const writer = projectWriter(fresh);
         if (writer) throw new Error(`The project folder is in use by ${writer.id}. Wait for its result before verification.`);
+        // A begin that landed first replaced the reported work, and the new work has no report to check.
+        if (isActiveDirect(current.direct)) throw new Error(`Your own work on ${current.id} is still running. Report it before verification.`);
         const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
         // What the check covers is fixed now, on the record as it stands. A
         // result that lands after a criterion changed still names the old one.

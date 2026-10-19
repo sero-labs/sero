@@ -15,6 +15,8 @@ import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { ARCHITECT_OWNER_LIVE_TOPIC } from '../shared/feedback';
 import { createWorkWatch, type WorkWatch } from './work-watch';
+import { createWaitReconciler, type WaitReconciler } from './wait-reconciler';
+import { reservedWakes, waitMayWake } from '../shared/waits';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
 import { ensureInitialRun } from './run-lifecycle';
@@ -22,6 +24,8 @@ import { createRunJournal } from './run-journal';
 import { openMaintenanceRun } from './run-lifecycle';
 import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
+import { activeDirectMilestone, interruptDirectExecutions } from '../shared/direct-execution';
+import { createDirectWorktrees } from './direct-worktree';
 import { createServices } from './services';
 import { markRuntimeRunning, SESSION_STARTED_AT } from './session-state';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -31,13 +35,17 @@ import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
 /** Work the owner could do now without anything running: a quiet project with this wakes once. */
 export function plannedWorkRemains(record: ProjectRecord): boolean {
   if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return false;
+  // Work the owner does itself runs only while it has a turn, so it remains to be done.
+  if (activeDirectMilestone(record)) return true;
   // The recurring maintenance subscription only reads product files and writes internal triage notes.
   if (record.milestones.some((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.pendingDispatch))) return false;
   return record.milestones.some((m) =>
     m.status === 'approved'
     || (m.status === 'planned' && (record.autonomy !== 'milestones'
       || (m.openSpecChange && !m.plan && !record.pendingResearch?.some((entry) => entry.openSpecChange === m.openSpecChange))))
-    || (m.status === 'verifying' && m.evidence?.passed === true && !m.evidence.stale),
+    || (m.status === 'verifying' && m.evidence?.passed === true && !m.evidence.stale)
+    // The owner reported its own work and Sero closed before evidence was asked for.
+    || (m.status === 'verifying' && m.direct?.state === 'reported' && (!m.evidence || m.evidence.stale) && !record.pendingEvidence?.length),
   );
 }
 
@@ -53,6 +61,7 @@ export class ArchitectRuntime implements AppRuntime {
   private sessions: OwnerSessions | null = null;
   private workWatch: WorkWatch | null = null;
   private services: OwnerServices | null = null;
+  private waits: WaitReconciler | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
   owner: OwnerActions | null = null;
@@ -112,7 +121,11 @@ export class ArchitectRuntime implements AppRuntime {
     });
     this.scheduler = scheduler;
     const wake = (projectId: string, event: WakeEvent) => scheduler.request(projectId, event);
+    // The reconciler reads sources through the watch, and the watch hands it every index push.
+    const waits = createWaitReconciler({ store, now: () => this.host.now(), wake, log: this.host.log, readSources: async (projectId) => (await this.watch?.readSources(projectId)) ?? null });
+    this.waits = waits;
     const watch = createDispatchWatch({
+      waits,
       host: this.host,
       store,
       wake,
@@ -128,8 +141,8 @@ export class ArchitectRuntime implements AppRuntime {
     this.watch = watch;
     const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
-    this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch });
+    this.owner = createOwnerActions({ host: this.host, store, outcomes, services, waits });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch, waits });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 
@@ -140,8 +153,18 @@ export class ArchitectRuntime implements AppRuntime {
       // A blocked owner still needs updates from its existing work. Otherwise
       // a workflow resumed after restart can never clear the old failure.
       if (record.workspaceId) await watch.track(record);
-      const fresh = await store.read(record.id);
+      // A restart ended any turn the owner was working in, on a stopped project
+      // too. The work is kept under its saved identity and never taken as complete.
+      const read = await store.read(record.id);
+      const fresh = read && activeDirectMilestone(read)?.direct?.state === 'running'
+        ? (await store.update(read.id, (current) => interruptDirectExecutions(current, 'Sero restarted while this work was in progress'))) ?? read
+        : read;
       if (!fresh) continue;
+      await createDirectWorktrees(this.host).preserveInterrupted(fresh);
+      // Waits that ended while Sero was closed, a wake reserved but never started, and deadlines passed.
+      // A wake taken for a turn that never started is reserved again first.
+      await waits.requeue(fresh.id);
+      await waits.reconcile(fresh.id);
       const lastWakeAt = fresh.session.lastWakeAt ?? '';
       const unanswered = fresh.directives.filter((directive) => directive.reply === null);
       if (unanswered.length > 0) {
@@ -196,7 +219,8 @@ export class ArchitectRuntime implements AppRuntime {
     if (!store || !sessions) return;
     let record = await store.read(projectId);
     if (!record) return;
-    const allowed = wake.kind === 'directive' || wake.kind === 'decision' || mayWakeForWork(record);
+    const asked = wake.kind === 'directive' || wake.kind === 'decision';
+    const allowed = asked || mayWakeForWork(record);
     if (!allowed) {
       this.host.log(`project ${projectId} is ${record.overlay}; ${wake.kind} wake dropped`);
       return;
@@ -220,14 +244,51 @@ export class ArchitectRuntime implements AppRuntime {
         this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    const result = await sessions.runTurn(record, wake);
-    const after = result.record;
+    let tookWaitWake = false;
+    if (wake.kind === 'wait') {
+      // The wakes are taken once. They stay marked as awaiting their turn until
+      // its prompt is accepted. A stop, cancellation, pause or cap since the
+      // reservation leaves nothing to take, and a paused one is delivered on resume.
+      const consumed = await this.waits?.consume(projectId);
+      if (!consumed?.length) {
+        this.host.log(`project ${projectId} has no reserved wait wake it may start; wait wake dropped`);
+        return;
+      }
+      tookWaitWake = true;
+      record = await store.read(projectId) ?? record;
+    }
+    let started = false;
+    let result: Awaited<ReturnType<OwnerSessions['runTurn']>>;
+    try {
+      result = await sessions.runTurn(record, wake, async () => {
+        started = true;
+        if (tookWaitWake) await this.waits?.started(projectId);
+      }, tookWaitWake ? waitMayWake : asked ? undefined : mayWakeForWork);
+    } finally {
+      if (tookWaitWake && !started) await this.waits?.requeue(projectId);
+    }
+    // A turn that was stopped, failed or timed out did not finish its work.
+    const after = result.status === 'completed' ? result.record
+      : (await store.update(projectId, (current) => interruptDirectExecutions(current, `the owner turn ended as ${result.status}`))) ?? result.record;
+    // Work stopped part-way is committed to its branch, and a checkout whose
+    // milestone is delivered or parked is released after its work is kept.
+    const worktrees = createDirectWorktrees(this.host);
+    if (result.status !== 'completed') await worktrees.preserveInterrupted(after);
+    await worktrees.releaseSettled(after);
+    // The owner asked for another turn on its own work. Directives, answers and
+    // work events queued meanwhile go first, and a pause, block or cap holds it.
+    const direct = activeDirectMilestone(after);
+    if (result.declared === 'continue' && direct?.direct && mayWakeForWork(after)) {
+      this.scheduler?.request(projectId, { kind: 'continue', at: this.host.now(), items: [`continue milestone ${direct.id} "${direct.title}" (execution ${direct.direct.id})`] });
+    }
     if (result.retry && mayWakeForWork(after)) {
-      this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn passed its 10 minute limit and was stopped; the record holds what was done, so continue from it in shorter steps'] });
+      this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn went silent and was stopped; the record holds what was done, so continue from it in shorter steps and checkpoint as you go'] });
     }
     if (result.declared === 'sleep' && wake.kind !== 'quiet' && mayWakeForWork(after) && plannedWorkRemains(after)) {
       this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['nothing is running and planned work remains'] });
     }
+    // A wait that ended while this turn ran, or whose wake a limit dropped, is requested now.
+    if (reservedWakes(after).length > 0) await this.waits?.reconcile(projectId);
     if (after.overlay === 'decision' && record.overlay !== 'decision') {
       this.host.notify(`${after.name} needs a decision.`, 'info');
     }
@@ -244,6 +305,7 @@ export class ArchitectRuntime implements AppRuntime {
     await this.markRuntime(false);
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
+    this.waits?.dispose();
     this.workWatch?.dispose();
     await this.sessions?.disposeAll();
     this.store = null;

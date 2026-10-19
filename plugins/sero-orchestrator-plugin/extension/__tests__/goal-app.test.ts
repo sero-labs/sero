@@ -81,7 +81,7 @@ describe('the Goals management tool', () => {
     }, '/repo', () => runtime);
     expect(calls[0]).toEqual({
       method: 'setLimits',
-      args: ['goal-1', { maxAttemptsTotal: 50, maxWallClockMs: 5_400_000, maxTotalTokens: 400_000, maxCostUsd: 5 }],
+      args: ['goal-1', { maxAttemptsTotal: 50, maxWallClockMs: 5_400_000, maxTotalTokens: 400_000, maxCostUsd: 5 }, 'user'],
     });
   });
 });

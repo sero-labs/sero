@@ -35,12 +35,18 @@ export const GoalBlockedParams = Type.Object({
 export const GoalWaitParams = Type.Object({
   goal_id: GoalIdParam,
   reason: Type.String({ description: 'What you are waiting for, in one line' }),
+  source: Type.Optional(Type.String({ description: 'child: wake the goal when the Workflow named in target ends. process and ci cannot be monitored yet and are refused. Leave out for a manual wait the user restarts' })),
+  target: Type.Optional(Type.String({ description: 'The Workflow id to wait for, with source child' })),
+  deadlineMinutes: Type.Optional(Type.Number({ description: 'End the wait as expired after this many minutes' })),
 });
 
 interface TerminalParams {
   goal_id: string;
   evidence?: string;
   reason?: string;
+  source?: string;
+  target?: string;
+  deadlineMinutes?: number;
 }
 
 export async function executeGoalComplete(params: TerminalParams, ctx: ExtensionContext | undefined): Promise<ToolResult> {
@@ -60,7 +66,11 @@ export async function executeGoalBlocked(params: TerminalParams, ctx: ExtensionC
 export async function executeGoalWait(params: TerminalParams, ctx: ExtensionContext | undefined): Promise<ToolResult> {
   const caller = resolveGoalCaller(ctx);
   if ('error' in caller) return toolFailure(caller.error);
-  return toolResult(await caller.runtime.reportWait(params.goal_id, caller.sessionPath, params.reason ?? ''));
+  // Free text is never a condition: a source needs a target, and the runtime refuses kinds it cannot read.
+  const request = params.source || params.target
+    ? { source: { kind: params.source ?? '', id: params.target ?? '' }, deadlineMinutes: params.deadlineMinutes }
+    : undefined;
+  return toolResult(await caller.runtime.reportWait(params.goal_id, caller.sessionPath, params.reason ?? '', request));
 }
 
 /**
@@ -101,7 +111,7 @@ export function registerGoalTerminalTools(pi: ExtensionAPI): void {
     name: 'goal_wait',
     label: 'Goal wait',
     description:
-      'Park the goal until something observable happens, such as a check finishing or a process exiting. Say what you wait for. The user restarts a waiting goal, so use this only when you cannot make progress yourself, and never to sleep between attempts.',
+      'Park the goal until something observable happens. With source child and target <Workflow id> the goal continues by itself when that Workflow ends, fails or its deadline passes. A process or CI result cannot be monitored: without source and target the wait is manual and the user restarts the goal. Use this only when you cannot make progress yourself, and never to sleep between attempts.',
     parameters: GoalWaitParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return reassert(pi, await executeGoalWait(params as TerminalParams, ctx));

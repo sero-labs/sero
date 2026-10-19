@@ -42,6 +42,8 @@ import { applyDecisionProposal } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
 import type { WorkWatch } from './work-watch';
 import type { DispatchWatch } from './dispatch-watch';
+import type { WaitReconciler } from './wait-reconciler';
+import { stopWaits } from '../shared/waits';
 
 export const STOP_REASON = 'stopped by the user';
 /**
@@ -60,6 +62,8 @@ export interface ProjectsActionsDeps {
   journal?: RunJournal;
   /** Live watch of the owner and linked Rooms. Absent in tests that never watch. */
   workWatch?: WorkWatch;
+  /** Reads the owner's waits after a resume, so a result that landed while paused is delivered once. */
+  waits?: WaitReconciler;
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
@@ -243,6 +247,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return { record: next };
       });
       if (!resumed.ok) return refuse(resumed.error);
+      await deps.waits?.reconcile(projectId);
       const rearmed = await rearmMaintenance(store, resumed.record);
       if (hasAgreement(resumed.record)) {
         // Results that landed while the project was stopped are read first, so
@@ -286,7 +291,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const stopped = await mutateRecord(store, projectId, (record) => {
         if (record.blockedReason === STOP_REASON) return { error: 'The project is already stopped.' };
         const result = block(record, host.now(), STOP_REASON);
-        return result.ok ? { record: result.record } : { error: result.error };
+        return result.ok ? { record: stopWaits(result.record, host.now()) } : { error: result.error };
       });
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);

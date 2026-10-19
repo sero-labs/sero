@@ -12,8 +12,12 @@
 import type {
   ExtensionRuntimeContent,
   PersistentSessionEvent,
+  PersistentSessionExpansion,
+  PersistentSessionGrantAmendment,
+  PersistentSessionGrantAmendmentResult,
   PersistentSessionGrantHandle,
   PersistentSessionGrantProposal,
+  PersistentSessionSubjectPolicy,
   PersistentSessionHandle,
   PersistentSessionRequest,
   PersistentSessionUsage,
@@ -52,10 +56,24 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   liveHandles: Map<string, FakeSession>;
   /** What `liveSnapshot` returns, by subject. Unset means no turn in flight. */
   partials: Map<string, PersistentSessionLiveSnapshot>;
+  /** Every `amendGrant` call, in order, including repeats. */
+  amendments: PersistentSessionGrantAmendment[];
+  /** What the user answers when an amendment asks. */
+  askAnswer: 'approve' | 'decline';
+  /** The next fresh amendment gets this answer instead of being evaluated. */
+  nextAmendment: 'stale' | 'refused' | 'throw' | null;
+  /** Set to have the host store a smaller policy than was asked, as its permission profile does. */
+  clampSubject: ((policy: PersistentSessionSubjectPolicy) => PersistentSessionSubjectPolicy) | null;
+  /** Grants as the host holds them: revision, stored policies, retired subjects. */
+  grantState: Map<string, { revision: number; subjects: Record<string, PersistentSessionSubjectPolicy>; retired: string[] }>;
+  /** Sessions the host has counted against each grant's total. Retiring never lowers it. */
+  consumed: Map<string, number>;
   /** Set to reject the next grant request, as a user decline would. */
   refuseGrant: boolean;
   /** Set to fail the next prompt with this message, as a dead route would. */
   failNextPrompt: string | null;
+  /** Set to fail the next session open, as a host that cannot reopen a session does. */
+  failNextOpen: string | null;
   /** Set to refuse the next session creation, as an unavailable model does. */
   failNextCreate: string | null;
   /** Ends the turn before `prompt()` resolves, the race a naive watcher loses. */
@@ -74,6 +92,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
   const bySubject = new Map<string, FakeSession>();
   const byHandle = new Map<string, FakeSession>();
   const openTurnIds = new Map<string, string>();
+  const stored = new Map<string, PersistentSessionGrantAmendmentResult>();
   let grants = 0;
   let handles = 0;
   let turns = 0;
@@ -103,9 +122,16 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     historyReads: [],
     sessions: bySubject,
     liveHandles: byHandle,
+    amendments: [],
+    askAnswer: 'approve',
+    nextAmendment: null,
+    clampSubject: null,
+    grantState: new Map(),
+    consumed: new Map(),
     refuseGrant: false,
     failNextPrompt: null,
     failNextCreate: null,
+    failNextOpen: null,
     endBeforePromptResolves: false,
     contextFill: 0.1,
 
@@ -113,13 +139,82 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       api.proposals.push(proposal);
       if (api.refuseGrant) throw new Error('the user declined this Room');
       grants += 1;
+      api.grantState.set(`grant-${grants}`, { revision: 0, subjects: { ...proposal.subjects }, retired: [] });
       return {
         grantId: `grant-${grants}`,
         subjects: proposal.subjects,
         maxLiveSessions: proposal.maxLiveSessions,
         maxTotalSessions: proposal.maxTotalSessions,
         issuedAt: '2026-01-01T00:00:00.000Z',
+        revision: 0,
       };
+    },
+
+    async amendGrant(amendment): Promise<PersistentSessionGrantAmendmentResult> {
+      api.amendments.push(amendment);
+      const grant = api.grantState.get(amendment.grantId);
+      const earlier = stored.get(amendment.amendmentId);
+      // A repeat returns the stored answer. A hold is the one answer that is not
+      // final: the user may still say yes to it.
+      if (earlier && earlier.status !== 'needs-approval') return earlier;
+      if (!grant) return { status: 'refused', amendmentId: amendment.amendmentId, revision: null, reason: 'unknown grant' };
+      const finish = (result: PersistentSessionGrantAmendmentResult): PersistentSessionGrantAmendmentResult => {
+        stored.set(amendment.amendmentId, result);
+        return result;
+      };
+      if (api.nextAmendment === 'throw') {
+        api.nextAmendment = null;
+        throw new Error('the host did not answer');
+      }
+      if (api.nextAmendment) {
+        const status = api.nextAmendment;
+        api.nextAmendment = null;
+        return finish(status === 'stale'
+          ? { status, amendmentId: amendment.amendmentId, revision: grant.revision }
+          : { status, amendmentId: amendment.amendmentId, revision: grant.revision, reason: 'the host refused this change' });
+      }
+      if (amendment.expectedRevision !== grant.revision) {
+        return finish({ status: 'stale', amendmentId: amendment.amendmentId, revision: grant.revision });
+      }
+      const expansion: PersistentSessionExpansion[] = [];
+      for (const [subject, policy] of Object.entries(amendment.subjects ?? {})) {
+        const before = grant.subjects[subject];
+        if (!before) {
+          expansion.push({ subject, field: 'subject', value: subject });
+          continue;
+        }
+        const added = (field: PersistentSessionExpansion['field'], next: string[], prior: string[]): void => {
+          for (const value of next.filter((entry) => !prior.includes(entry))) expansion.push({ subject, field, value });
+        };
+        added('model', policy.allowedModels, before.allowedModels);
+        added('thinking', policy.allowedThinkingLevels ?? [], before.allowedThinkingLevels ?? []);
+        added('tool', policy.allowedTools, before.allowedTools);
+        added('skill', policy.allowedSkills, before.allowedSkills);
+      }
+      let approvedByUser = false;
+      if (expansion.length > 0) {
+        if ((amendment.approval ?? 'hold') === 'hold') {
+          return finish({ status: 'needs-approval', amendmentId: amendment.amendmentId, revision: grant.revision, expansion });
+        }
+        if (api.askAnswer === 'decline') {
+          return finish({ status: 'declined', amendmentId: amendment.amendmentId, revision: grant.revision });
+        }
+        approvedByUser = true;
+      }
+      grant.revision += 1;
+      for (const [subject, policy] of Object.entries(amendment.subjects ?? {})) {
+        if (!grant.subjects[subject]) api.consumed.set(amendment.grantId, (api.consumed.get(amendment.grantId) ?? 0) + 1);
+        grant.subjects[subject] = api.clampSubject ? api.clampSubject(policy) : policy;
+      }
+      grant.retired.push(...(amendment.retire ?? []));
+      return finish({
+        status: 'applied',
+        amendmentId: amendment.amendmentId,
+        revision: grant.revision,
+        subjects: { ...grant.subjects },
+        retired: [...grant.retired],
+        approvedByUser,
+      });
     },
 
     async revokeGrant(grantId) {
@@ -157,6 +252,11 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
 
     async open(request): Promise<PersistentSessionHandle> {
       api.requests.push(request);
+      if (api.failNextOpen) {
+        const message = api.failNextOpen;
+        api.failNextOpen = null;
+        throw new Error(message);
+      }
       const session = bySubject.get(request.subject);
       if (!session) throw new Error(`subject ${request.subject} has no session to open`);
       return bind(session);

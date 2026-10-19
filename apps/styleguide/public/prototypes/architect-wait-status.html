@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect: waiting and limits</title>
+<style>
+:root{
+  --bg-base:#0a0a0b;--bg-surface:#111113;--bg-elevated:#18181b;--bg-overlay:#1f1f23;--bg-muted:#27272a;
+  --border-subtle:#27272a;--border-default:#3f3f46;--border-focus:#34d399;
+  --text-primary:#fafafa;--text-secondary:#a1a1aa;--text-muted:#71717a;
+  --brand-primary:#34d399;--brand-primary-hover:#6ee7b7;
+  --status-success:#22c55e;--status-info:#3b82f6;
+  --status-success-muted:rgba(34,197,94,.10);--status-info-muted:rgba(59,130,246,.10);
+  --status-success-border:rgba(34,197,94,.20);--status-warning:#d97706;--status-warning-muted:rgba(217,119,6,.10);--status-warning-border:rgba(217,119,6,.20);--status-info-border:rgba(59,130,246,.20);
+  --status-info-subtle:rgba(59,130,246,.15);
+  --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono','Fira Code','Cascadia Code',Menlo,monospace;
+  --ar-text-2:var(--text-secondary);--ar-text-3:var(--text-muted);
+  --ar-text-4:color-mix(in srgb,var(--text-muted) 80%,var(--bg-base));
+  --ar-line:var(--border-subtle);--ar-line-strong:var(--border-default);
+  --ar-ok:var(--status-success);--ar-info:var(--status-info);--ar-brand:var(--brand-primary);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg-base);color-scheme:dark}
+body{font-family:var(--font-sans)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+[hidden]{display:none!important}
+.ar-app{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--bg-base);color:var(--text-primary);font-size:13px;line-height:1.5}
+.ar-i{width:14px;height:14px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ar-scroll{flex:1;min-height:0;overflow-y:auto}
+.ar-top{height:50px;flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--ar-line)}
+.ar-crumb{display:flex;align-items:center;gap:6px;color:var(--ar-text-3);font-size:13px;min-width:0}
+.ar-leaf{color:var(--text-primary);font-weight:560}
+.ar-body{padding:22px 26px 30px}
+.ar-btn{height:30px;padding:0 11px;border-radius:7px;font-size:12px;gap:7px;display:inline-flex;align-items:center;border:1px solid var(--border-default);background:var(--bg-base)}
+.ar-btn:hover{background:var(--bg-elevated)}
+.ar-btn[data-primary]{background:var(--ar-brand);border-color:var(--ar-brand);color:#04130c;font-weight:600}
+.ar-btn[data-primary]:hover{background:var(--brand-primary-hover)}
+.ar-sec-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:var(--ar-text-3);font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase}
+.ar-sec-head .ar-n{font:10px var(--font-mono);letter-spacing:0;text-transform:none}
+.ar-card{border:1px solid var(--ar-line);border-radius:10px;background:var(--bg-surface);padding:4px 18px}
+.sw{margin-left:auto;display:inline-flex;border:1px solid var(--ar-line-strong);border-radius:8px;overflow:hidden}
+.sw button{padding:4px 10px;font-size:11px;color:var(--ar-text-3)}
+.sw button[aria-pressed="true"]{background:var(--bg-elevated);color:var(--text-primary)}
+
+.ar-back{display:inline-flex;align-items:center;gap:4px;color:var(--ar-text-3)}
+.ar-stateline{border:1px solid var(--ar-line);border-radius:10px;background:var(--bg-surface);padding:16px 18px}
+.ar-sentence{font-size:17px;line-height:1.25;letter-spacing:-.02em;font-weight:600;max-width:780px}
+.ar-activity-state{display:flex;align-items:center;gap:7px;margin-top:14px;color:var(--ar-text-2);font-size:12px}
+.ar-gchip{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;background:var(--status-success-muted);color:var(--ar-ok)}
+.ar-gchip[data-tone="warn"]{background:var(--status-warning-muted);color:var(--status-warning)}
+.ar-gchip[data-tone="info"]{background:var(--status-info-muted);color:var(--ar-info)}
+.ar-gchip svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.facts{margin:14px 0 0;border-top:1px solid var(--ar-line)}
+.fact{display:grid;grid-template-columns:130px minmax(0,1fr);column-gap:16px;padding:8px 0;font-size:12.5px}
+.fact+.fact{border-top:1px solid var(--ar-line)}
+.fact dt{color:var(--ar-text-3)}
+.fact dd{margin:0;color:var(--text-primary)}
+.fact dd[data-tone="warn"]{color:var(--status-warning)}
+.ar-act-row{display:flex;gap:8px;margin-top:14px}
+.wk-tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--ar-line)}
+.wk-tabs button{padding:8px 12px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--ar-text-3);font-size:12.5px}
+.wk-tabs button[aria-selected="true"]{border-bottom-color:var(--ar-brand);color:var(--text-primary)}
+.lim{display:grid;grid-template-columns:minmax(0,1fr) 120px 190px;column-gap:16px;padding:10px 0;font-size:12.5px;align-items:baseline}
+.lim+.lim{border-top:1px solid var(--ar-line)}
+.lim-head{padding:10px 0 8px;font-size:10px;letter-spacing:.07em;text-transform:uppercase;font-weight:650;color:var(--ar-text-4)}
+.lim-v{font:12px var(--font-mono)}
+.lim-o{color:var(--ar-text-2)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></symbol>
+</svg>
+
+<div class="ar-app">
+  <div class="ar-top">
+    <div class="ar-crumb">
+      <span class="ar-back"><svg class="ar-i"><use href="#i-left"/></svg>Projects</span>
+      <span>/</span><span>Pager fixes</span><span>/</span><span class="ar-leaf">Work</span>
+    </div>
+    <div class="sw" role="group" aria-label="Wait state">
+      <button type="button" aria-pressed="true" data-state="waiting">Waiting</button>
+      <button type="button" aria-pressed="false" data-state="resumed">Resumed</button>
+      <button type="button" aria-pressed="false" data-state="expired">Expired</button>
+      <button type="button" aria-pressed="false" data-state="manual">Manual</button>
+    </div>
+  </div>
+
+  <div class="ar-scroll">
+    <div class="ar-body">
+      <div class="wk-tabs" role="tablist" aria-label="Work">
+        <button type="button" role="tab" aria-selected="true" data-tab="work">Work</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="inspector">Inspector</button>
+      </div>
+
+      <div data-panel="work">
+        <section class="ar-stateline" aria-label="Project state">
+          <h2 class="ar-sentence">Fix the pager and add keyboard paging</h2>
+          <div class="ar-activity-state">
+            <span class="ar-gchip" id="chip" aria-hidden="true"><svg viewBox="0 0 24 24"><use id="chip-i" href="#i-clock"/></svg></span>
+            <span id="activity">Waiting</span>
+          </div>
+          <dl class="facts" id="facts"></dl>
+          <div class="ar-act-row" id="acts" hidden><button type="button" class="ar-btn" data-primary>Resume work</button></div>
+        </section>
+      </div>
+
+      <div data-panel="inspector" hidden>
+        <div class="ar-sec-head"><span>Limits</span><span class="ar-n">6</span></div>
+        <div class="ar-card">
+          <div class="lim lim-head"><span>Limit</span><span>Value</span><span>Set by</span></div>
+          <div class="lim" style="border-top:1px solid var(--ar-line)"><span>Project cost</span><span class="lim-v">$40.00</span><span class="lim-o">You set this</span></div>
+          <div class="lim"><span>Time for one turn</span><span class="lim-v">10 min</span><span class="lim-o">Safety stop</span></div>
+          <div class="lim"><span>Turns with no result</span><span class="lim-v">3 in a row</span><span class="lim-o">Safety stop</span></div>
+          <div class="lim"><span>Research Room time</span><span class="lim-v">15 min</span><span class="lim-o">Default</span></div>
+          <div class="lim"><span>Research Room members</span><span class="lim-v">3</span><span class="lim-o">Default</span></div>
+          <div class="lim"><span>Milestone Room cost</span><span class="lim-v">$5.00</span><span class="lim-o">Chosen by the Architect</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SPEC = {
+  waiting: { tone: 'warn', icon: '#i-clock', word: 'Waiting', act: false, rows: [
+    ['Waiting for', 'CI checks on PR #123'], ['Deadline', '18:30, in 2h 10m'], ['Active time', '1h 42m'], ['Waiting time', '48m'],
+  ] },
+  resumed: { tone: 'ok', icon: '#i-play', word: 'Working', act: false, rows: [
+    ['Waited for', 'CI checks on PR #123, passed at 17:12'], ['Active time', '1h 42m'], ['Waiting time', '52m'],
+  ] },
+  expired: { tone: 'warn', icon: '#i-pause', word: 'On hold', act: true, rows: [
+    ['Waited for', 'CI checks on PR #123, no result'], ['Deadline', '18:30, passed'], ['Active time', '1h 42m'], ['Waiting time', '2h 58m'],
+  ] },
+  manual: { tone: 'info', icon: '#i-hand', word: 'Waiting for you', act: true, rows: [
+    ['Reason', 'Needs the staging credentials'], ['Resume', 'You resume it'], ['Active time', '1h 42m'], ['Waiting time', '36m'],
+  ] },
+};
+const buttons = [...document.querySelectorAll('[data-state]')];
+function render(state) {
+  const s = SPEC[state];
+  buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === state)));
+  document.getElementById('chip').dataset.tone = s.tone === 'ok' ? '' : s.tone;
+  document.getElementById('chip-i').setAttribute('href', s.icon);
+  document.getElementById('activity').textContent = s.word;
+  document.getElementById('facts').innerHTML = s.rows.map(([k, v]) => `<div class="fact"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  document.getElementById('acts').hidden = !s.act;
+}
+buttons.forEach((b) => b.addEventListener('click', () => { location.hash = b.dataset.state; render(b.dataset.state); }));
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function showTab(name) {
+  tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+}
+tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+const [state, tab] = location.hash.slice(1).split('/');
+render(SPEC[state] ? state : 'waiting');
+showTab(tab === 'inspector' ? 'inspector' : 'work');
+</script>
+</body>
+</html>

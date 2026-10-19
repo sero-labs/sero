@@ -186,7 +186,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     status === 'starting'
       ? {
           ...current,
-          definition: { ...current.definition, grantId: grant.grantId, historyGrantId: grant.grantId, updatedAt: now },
+          definition: { ...current.definition, grantId: grant.grantId, grantRevision: grant.revision ?? 0, historyGrantId: grant.grantId, updatedAt: now },
           members: current.members.map((member) => withGrantedTools(
             withMemberStatus(member, 'idle', 'Ready.'),
             grant.subjects[member.id]?.allowedTools,

@@ -119,7 +119,7 @@ export function totalTiles(page: TracePage): TileView[] {
 }
 
 /** The counters under the tiles. A zero is left out: one the runtime never counted would read as measured. */
-export function counterWords(page: TracePage): string[] {
+export function counterWords(page: TracePage, idleContinuations = 0): string[] {
   const { summary, activity } = page;
   const counts: [number, string, string][] = [
     [activity.counters.ownerTurns, 'owner turn', 'owner turns'],
@@ -128,6 +128,8 @@ export function counterWords(page: TracePage): string[] {
     [activity.counters.retries, 'retry', 'retries'],
     [summary.compactions, 'compaction', 'compactions'],
     [activity.counters.failures, 'failure', 'failures'],
+    // Information for the person watching. Nothing stops on it.
+    [idleContinuations, 'continuation in a row changed no file', 'continuations in a row changed no file'],
   ];
   return counts.filter(([value]) => value > 0).map(([value, one, many]) => plural(value, one, many));
 }

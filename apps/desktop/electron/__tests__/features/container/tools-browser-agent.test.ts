@@ -178,6 +178,36 @@ describe('createAgentBrowser', () => {
     expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
   });
 
+  it('stops a browser that no longer answers, and tells the agent the page is stuck', async () => {
+    const hung = { stdout: '', stderr: 'Command timed out after 60s.', exitCode: 124 };
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      hung,
+      { stdout: '', stderr: 'Command timed out after 5s.', exitCode: 124 },
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute('tc-hung', { action: 'evaluate', expression: 'spin()' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(/gave no answer in 60s[\s\S]*was reset/);
+
+    expect(exec.mock.calls[2][1]).toContain("'get' 'url'");
+    expect(exec.mock.calls[3][1]).toContain('kill -9');
+    expect(exec.mock.calls[3][1]).toContain('.agent-browser/sero-ws-1-docker');
+  });
+
+  it('leaves a browser alone when one command was slow and the session still answers', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '', stderr: 'Command timed out after 60s.', exitCode: 124 },
+      { stdout: '{"success":true,"data":{"url":"http://localhost:3000/"}}', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute('tc-slow', { action: 'evaluate', expression: 'slow()' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(/timed out/);
+
+    expect(exec.mock.calls.some((call) => String(call[1]).includes('kill -9'))).toBe(false);
+  });
+
   it('resets the browser session after navigate failures instead of poisoning later actions', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },

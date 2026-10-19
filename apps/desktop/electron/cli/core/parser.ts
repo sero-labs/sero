@@ -1,8 +1,29 @@
+/**
+ * One command per line. A line break inside a quoted argument is part of that
+ * argument, not the start of a new command: a script passed to
+ * `--expression "..."` may span lines. The quote and escape rules are the
+ * tokenizer's.
+ */
 export function splitCommandLines(input: string): string[] {
-  return input
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  let quote: "'" | '"' | null = null;
+  let escaping = false;
+  for (const ch of input) {
+    if (ch === '\n' && quote === null) {
+      lines.push(current);
+      current = '';
+      escaping = false;
+      continue;
+    }
+    current += ch;
+    if (escaping) escaping = false;
+    else if (ch === '\\') escaping = true;
+    else if (quote === null && (ch === "'" || ch === '"')) quote = ch;
+    else if (ch === quote) quote = null;
+  }
+  lines.push(current);
+  return lines.map((line) => line.trim()).filter(Boolean);
 }
 
 export function tokenizeCliInput(input: string): string[] {

@@ -7,6 +7,7 @@
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 
+import type { OrchestratorState } from '../../shared/types';
 import type { OrchestratorHost } from '../host';
 import type { SessionDrivers } from '../session-drivers';
 import { createGoalStore } from './goal-store';
@@ -37,7 +38,20 @@ export function createGoalRuntime(
     },
     path.dirname(ctx.stateFilePath),
   );
-  return new GoalRuntime(host, store, drivers);
+  const runtime = new GoalRuntime(host, store, drivers);
+  // The host already notifies the event manager after each state write, by
+  // patching `updateState` in place. The same seam tells registered Goal waits
+  // that a Workflow may have ended; they read the state they were handed.
+  const write = host.updateState.bind(host);
+  host.updateState = async (updater) => {
+    let next: OrchestratorState | undefined;
+    await write((current) => {
+      next = updater(current);
+      return next;
+    });
+    if (next) await runtime.observeState(next);
+  };
+  return runtime;
 }
 
 export { GoalRuntime } from './goal-runtime';

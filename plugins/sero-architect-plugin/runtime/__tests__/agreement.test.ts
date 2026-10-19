@@ -53,7 +53,7 @@ async function management() {
   const gate = createWakeGate();
   gate.release();
   const scheduler = createWakeScheduler({ gate, log: host.log, deliver: async (_id, wake) => { delivered.push(wake); } });
-  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
+  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), readSources: vi.fn(async () => null), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services: fakeServices() });
   return { host, store, actions, delivered };
 }

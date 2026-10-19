@@ -93,6 +93,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
           cwd: params.cwd,
           platformTools: params.platformTools,
           tools: params.tools,
+          toolsAreLoadout: params.toolsAreLoadout,
           disabledTools: params.disabledTools,
           disabledSkills: params.disabledSkills,
           signal: params.signal,

@@ -14,7 +14,7 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { PathClaim } from '../../shared/room-message-types';
 import { TERMINAL_ROOM_STATUSES, type MemberStatus, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 
-export type RoomView = 'timeline' | 'watch' | 'result';
+export type RoomView = 'timeline' | 'watch' | 'team' | 'result';
 
 /**
  * What "the Room moved" means, as one comparable value. Status, spend, who

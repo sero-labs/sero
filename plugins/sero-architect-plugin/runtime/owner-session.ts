@@ -1,20 +1,21 @@
 import { activeRun } from '../shared/runs';
-import { recordCharge, tokenDelta, type TokenCounters } from './project-usage';
+import type { TokenCounters } from './project-usage';
+import { createUsageReader } from './owner-usage';
 import type { SpanRecorder } from './spans';
 import type { RunJournal } from './run-journal';
 /**
  * The owner session: one host-managed persistent session per project, opened
- * from a user-approved grant that names only the platform tools and the
- * `sero-cli` bridge. Every turn starts with the contract built from the
+ * from a user-approved grant that names the platform tools, the `sero-cli`
+ * bridge and, for a new owner, Code Mode. Every turn starts with the contract built from the
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
-import { ARCHITECT_APP_ID, feedbackEventFromSession, type ModelTier } from '@sero-ai/common';
+import { ARCHITECT_APP_ID, feedbackEventFromSession } from '@sero-ai/common';
 import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import type { AgreementAuthority } from '../shared/agreement';
-import { block, charge } from '../shared/lifecycle';
-import type { ModelConfigSource } from '../shared/model-config';
+import { activeDirectMilestone } from '../shared/direct-execution';
+import { block } from '../shared/lifecycle';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
@@ -22,8 +23,10 @@ import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import { delegationProposal } from './delegation';
 import type { ArchitectHost } from './host';
-import { projectModelSource, resolveOwnerSelection, type SelectionSource } from './model-resolution';
+import { chooseOwnerModel, type OwnerModelChoice } from './owner-model';
 import type { RecordStore } from './record-store';
+import { approvedOwnerSkills, newOwnerSkills, ownerGrantTools, withOwnerSkills, withOwnerTools } from './owner-skills';
+import { OWNER_STALL_STEER, watchStall, type StallWatch } from './owner-stall';
 import { applyTurnOutcome, type OutcomeKind, type TurnOutcomes } from './turn-outcomes';
 
 /** The platform tools plus the bridge. Nothing else is reachable from a managed session. */
@@ -32,43 +35,7 @@ export const OWNER_TOOLS = ['read', 'bash', 'write', 'edit', 'sero-cli'] as cons
 const PROMPT_ADDITION_HEADROOM_BYTES = 512;
 export const OWNER_SUBJECT = 'owner';
 
-export interface OwnerModelChoice {
-  model: string;
-  thinking: string;
-  /**
-   * Which rule chose it. The page used to state the owner's model in a
-   * sentence under the tier table and leave the reader to work out how it
-   * related to the tiers above it.
-   */
-  source: SelectionSource;
-  /** The tier the choice takes precedence over, when it is not a tier itself. */
-  outranks?: ModelTier;
-}
-
-/**
- * Resolve the exact selection before requesting authority. Never choose another provider.
- *
- * With a record, the project's own tier overrides apply, so a project MED
- * override governs the owner unless the environment pin takes precedence.
- * Without one, the global selections resolve exactly as before.
- */
-export async function chooseOwnerModel(
-  host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'env'>,
-  source?: ModelConfigSource,
-): Promise<OwnerModelChoice> {
-  const resolved = await resolveOwnerSelection(
-    { listModels: () => host.listModels(), modelTiers: () => host.modelTiers(), env: host.env },
-    projectModelSource(source ?? {}, await host.modelTiers()),
-  );
-  if (!resolved.ok) throw new Error(resolved.error);
-  const chosen = resolved.value;
-  return {
-    model: chosen.model,
-    thinking: chosen.thinking,
-    source: chosen.source,
-    ...(chosen.outranks ? { outranks: chosen.outranks } : {}),
-  };
-}
+export { chooseOwnerModel, type OwnerModelChoice } from './owner-model';
 
 export function ownerSubjectPolicy(record: ProjectRecord, choice: OwnerModelChoice): PersistentSessionSubjectPolicy {
   const additions = buildOwnerPromptAdditions(record);
@@ -105,7 +72,10 @@ export function ownerGrantProposal(record: ProjectRecord, choice: OwnerModelChoi
  * approves the whole start once. Asked again only while no authority is stored.
  */
 async function startProposal(host: ArchitectHost, record: ProjectRecord, choice: OwnerModelChoice): Promise<PersistentSessionGrantProposal> {
-  const proposal = ownerGrantProposal(record, choice);
+  const proposal = withOwnerTools(
+    withOwnerSkills(ownerGrantProposal(record, choice), await newOwnerSkills(host, record)),
+    await ownerGrantTools(host, record, OWNER_TOOLS),
+  );
   if (!record.agreement || record.agreement.authority !== null) return proposal;
   return {
     ...proposal,
@@ -129,7 +99,10 @@ export function ownerSessionRequest(record: ProjectRecord, operation: Persistent
     cwd: record.folder,
     model,
     thinking,
-    tools: grantedTools ?? [...OWNER_TOOLS],
+    // The initial loadout is the five owner tools the first turn needs, kept to
+    // what was approved. The rest of the approval is found with `tool_search`,
+    // and the host loads `sero-cli` and an approved `codemode` on its own.
+    tools: OWNER_TOOLS.filter((tool) => !grantedTools || grantedTools.includes(tool)),
     skills: [],
     systemPromptAdditions: buildOwnerPromptAdditions(record),
     sessionName: ownerSessionName(record),
@@ -147,13 +120,11 @@ export interface OwnerSessionDeps {
   onHandle?: (projectId: string) => void;
 }
 
-export const OWNER_TURN_TIMEOUT_MS = 10 * 60_000;
-
 export interface OwnerTurnResult {
   record: ProjectRecord;
   status: 'completed' | 'aborted' | 'error';
   declared: OutcomeKind | null;
-  /** The turn passed its time limit for the first time: the caller wakes the owner once more. */
+  /** The turn stalled for the first time: the caller wakes the owner once more. */
   retry?: boolean;
 }
 
@@ -178,7 +149,7 @@ export class OwnerSessions {
    * charge carries no tokens rather than the whole session's count.
    */
   private readonly tokenMarks = new Map<string, TokenCounters>();
-  /** Projects whose last turn passed the time limit. A second one in a row blocks. */
+  /** Projects whose last turn stalled and was stopped. A second one in a row holds the project. */
   private readonly overran = new Set<string>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
@@ -203,7 +174,7 @@ export class OwnerSessions {
     const modelTiers = await this.deps.host.modelTiers();
     // Asking the user is slow, so the answer is written afterwards, on the
     // record as it stands then.
-    let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice; authority: AgreementAuthority | null } | null = null;
+    let granted: { grantId: string; tools: string[]; skills: string[]; choice: OwnerModelChoice; authority: AgreementAuthority | null } | null = null;
     let refusal = '';
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -215,7 +186,7 @@ export class OwnerSessions {
       // not an approved start. Saying it was would let work run with no envelope.
       if (proposal.delegation && !policy) throw new Error('the host did not store the access this project may pass on');
       const authority = policy ? { policyId: policy.policyId, workspaceId: policy.workspaceId, roles: policy.roles, maxLiveSessions: policy.maxLiveSessions, maxTotalSessions: policy.maxTotalSessions } : null;
-      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], choice, authority };
+      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], skills: approvedOwnerSkills(handle), choice, authority };
     } catch (error) {
       refusal = error instanceof Error ? error.message : String(error);
     }
@@ -250,6 +221,7 @@ export class OwnerSessions {
           } : {}),
           grantId: granted.grantId,
           grantedTools: granted.tools,
+          grantedSkills: granted.skills,
           model: granted.choice.model,
           thinking: granted.choice.thinking,
           modelSource: granted.choice.source,
@@ -282,7 +254,14 @@ export class OwnerSessions {
    * One wake: contract first, then the turn, then the bookkeeping. The record
    * is re-read after the turn because the owner's actions wrote to it.
    */
-  async runTurn(record: ProjectRecord, wake: WakeEvent): Promise<OwnerTurnResult> {
+  async runTurn(
+    record: ProjectRecord,
+    wake: WakeEvent,
+    /** Called once, when the turn actually begins. */
+    onStarted?: () => Promise<void>,
+    /** Asked with the fresh record just before the prompt. False sends nothing. */
+    mayStart?: (fresh: ProjectRecord) => boolean,
+  ): Promise<OwnerTurnResult> {
     let modelProblem: string | null = null;
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -316,7 +295,10 @@ export class OwnerSessions {
     const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
     const turnRecord = latest ?? opened;
-    const turnRunId = activeRun(turnRecord)?.id;
+    // A turn spent on the owner's own milestone belongs to that work's run, so
+    // usage that lands late is still charged where the work started.
+    const working = activeDirectMilestone(turnRecord)?.direct;
+    const turnRunId = working?.runId ?? activeRun(turnRecord)?.id;
     const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
@@ -330,37 +312,36 @@ export class OwnerSessions {
     const wakeId = turnRunId ? `${turnRunId}:owner-wake:${wake.kind}:${this.deps.host.newId('wake')}` : undefined;
     const spans = this.deps.spans;
     const { model, thinking } = opened.session;
-    let usageRead: Promise<void> | undefined;
-    const readUsage = (): Promise<void> => {
-      usageRead ??= (async () => {
-        const usage = await api.getSessionUsage(handleId).catch(() => null);
-        let delta = 0;
-        await this.deps.store.update(opened.id, (fresh) => {
-          const next = setAccountingIncomplete(fresh, usageSource, !usage || !!usage.incomplete);
-          if (!usage) return next;
-          const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
-          delta = cost - next.session.sessionCostUsd;
-          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, this.deps.host.now());
-        });
-        const tokens = usage ? tokenDelta(this.tokenMarks.get(usageSource), usage) : null;
-        if (usage) this.tokenMarks.set(usageSource, { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens });
-        // A charge with its tokens is call detail; one without is a bare total.
-        await recordCharge(this.deps, turnRecord, usageSource, delta, tokens ? 'call' : 'aggregate', turnRunId, {
-          ...(wakeId ? { parentOperationId: wakeId } : {}),
-          ...(model ? { model } : {}),
-          ...(thinking ? { thinking } : {}),
-          ...(tokens ? { usage: tokens } : {}),
-        });
-      })().finally(() => { usageRead = undefined; });
-      return usageRead;
-    };
+    let capAborted = false;
+    const usage = createUsageReader({
+      deps: this.deps, api, handleId, projectId: opened.id, usageSource, turnRecord, tokenMarks: this.tokenMarks,
+      turnRunId, wakeId, model, thinking,
+      exemptFromCap: wake.kind === 'directive' || wake.kind === 'decision',
+      // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
+      overCap: () => {
+        if (finished || capAborted) return;
+        capAborted = true;
+        this.deps.host.log(`owner turn for ${opened.id} stopped: the project reached its cost cap`);
+        void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not stop the owner at the cost cap: ${String(error)}`));
+        resolveEnd('aborted');
+      },
+    });
     // The owner's request and tool state, for the project views. No text.
     const feedbackKey = `owner:${opened.id}`;
     const feedback = this.deps.host.feedback.open({
       key: feedbackKey, kind: 'owner-wake', owner: 'Architect', subject: opened.name,
       scope: { appId: ARCHITECT_APP_ID, workspaceId: opened.workspaceId, projectId: opened.id },
     });
+    let stall: StallWatch | undefined;
+    // The host's prompt resolves when the run ends, so the turn's own first
+    // event is the start signal. Acknowledged once, from whichever comes first.
+    let acknowledged: Promise<void> | undefined;
+    const acknowledge = (): Promise<void> => (acknowledged ??= onStarted ? onStarted() : Promise.resolve());
     const unsubscribe = api.subscribe(handleId, (event) => {
+      stall?.touch();
+      if (event.type === 'turn_start') {
+        void acknowledge().catch((error: unknown) => this.deps.host.log(`Could not acknowledge the owner turn start: ${String(error)}`));
+      }
       const fact = feedbackEventFromSession(event, this.deps.host.now());
       if (fact) feedback.observe(fact);
       if (event.type === 'compacted') {
@@ -371,7 +352,7 @@ export class OwnerSessions {
         return;
       }
       if (event.type === 'tool_start' || event.type === 'tool_end') {
-        void readUsage().catch((error: unknown) => this.deps.host.log(`Could not save owner usage: ${String(error)}`));
+        void usage.read().catch((error: unknown) => this.deps.host.log(`Could not save owner usage: ${String(error)}`));
       }
       if (event.type !== 'turn_end') return;
       ended.set(event.turnId, event.status);
@@ -381,8 +362,7 @@ export class OwnerSessions {
 
     let status: OwnerTurnResult['status'];
     let failure = 'The Architect turn failed. Open the session log for details, then resume to retry.';
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    let timedOut = false;
+    let stalledOut = false;
     let finished = false;
     try {
       await this.deps.store.update(opened.id, (fresh) => ({
@@ -392,12 +372,19 @@ export class OwnerSessions {
       // Not awaited: an observation never delays the work. The journal keeps
       // one writer per file, so this start still lands before the turn's charges.
       if (spans && wakeId && turnRunId) {
-        void spans.open({ projectId: opened.id, runId: turnRunId, operationId: wakeId, kind: 'owner-wake', ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) })
+        void spans.open({ projectId: opened.id, runId: turnRunId, operationId: wakeId, kind: 'owner-wake', ...(working ? { attemptId: working.id } : {}), ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) })
           .catch((error: unknown) => this.deps.host.log(`owner wake was not recorded: ${String(error)}`));
       }
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
+        // Preparation took time: a pause or cap since the wake was admitted sends nothing.
+        if (mayStart) {
+          const fresh = await this.deps.store.read(opened.id);
+          if (fresh && !mayStart(fresh)) return 'aborted';
+          if (stopRequested()) return 'aborted';
+        }
         const { turnId } = await api.prompt(handleId, contract);
+        await acknowledge();
         if (finished || stopRequested()) return 'aborted';
         watching = turnId;
         const result = ended.get(turnId) ?? (await closedEarly);
@@ -405,11 +392,16 @@ export class OwnerSessions {
         return result;
       };
       status = await Promise.race([turn(), new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          timedOut = true;
-          reject(new Error('The owner turn exceeded 10 minutes and was stopped. Existing work is preserved. Resume the project to continue.'));
-          void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort timed-out owner: ${String(error)}`));
-        }, OWNER_TURN_TIMEOUT_MS);
+        stall = watchStall({
+          steer: () => {
+            void api.steer(handleId, OWNER_STALL_STEER).catch((error: unknown) => this.deps.host.log(`Could not steer stalled owner: ${String(error)}`));
+          },
+          stalled: () => {
+            stalledOut = true;
+            reject(new Error('The owner turn showed no activity and was stopped. Existing work is preserved. Resume the project to continue.'));
+            void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort stalled owner: ${String(error)}`));
+          },
+        });
       })]);
     } catch (error) {
       failure = `The Architect could not continue: ${error instanceof Error ? error.message : String(error)}`;
@@ -417,7 +409,7 @@ export class OwnerSessions {
       status = 'error';
     } finally {
       finished = true;
-      if (timeout) clearTimeout(timeout);
+      stall?.stop();
       this.waiting.delete(opened.id);
       unsubscribe();
       // A turn that was stopped or timed out reported no end of its own.
@@ -428,11 +420,12 @@ export class OwnerSessions {
       }));
     }
 
+    // A turn stopped at the cap is an interruption even if its end arrived first.
+    if (capAborted) status = 'aborted';
     const declared = this.deps.outcomes.end(opened.id);
     const now = this.deps.host.now();
     // The usage read talks to the host, so it happens before the queued write.
-    await usageRead;
-    await readUsage();
+    await usage.flush();
     if (spans && wakeId && turnRunId) {
       await spans.close({
         projectId: opened.id,
@@ -442,8 +435,8 @@ export class OwnerSessions {
         ...(status === 'error' ? { error: failure } : {}),
       }).catch((error: unknown) => this.deps.host.log(`owner wake end was not recorded: ${String(error)}`));
     }
-    // One turn over the limit is tried again; the project blocks on the second.
-    const retry = timedOut && !this.overran.has(opened.id);
+    // One stalled turn is tried again; a second in a row holds the project for the person.
+    const retry = stalledOut && !this.overran.has(opened.id);
     if (retry) this.overran.add(opened.id);
     else this.overran.delete(opened.id);
     const next = await this.deps.store.update(opened.id, (fresh) => {

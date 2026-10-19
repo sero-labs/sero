@@ -133,6 +133,7 @@ export function RoomTopBar({
     ...(finished ? [{ id: 'result' as const, label: 'Result' }] : []),
     { id: 'timeline', label: 'Timeline' },
     { id: 'watch', label: 'Watch' },
+    { id: 'team', label: 'Team' },
   ];
 
   return (

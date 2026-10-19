@@ -71,8 +71,24 @@ export function agentBrowserCommand(
   return `${exports.join(' ')} agent-browser ${commandArgs}`;
 }
 
+/** The browser writes the file itself, so a host workspace needs its real path, not `/workspace`. */
+function browserWorkspacePath(runtime: RuntimeBackend): string {
+  return runtime.backend === 'host' ? runtime.hostWorkspacePath : runtime.runtimeWorkspacePath;
+}
+
 export function defaultRecordingPath(runtime: RuntimeBackend): string {
-  return joinRuntimePath(runtime.runtimeWorkspacePath, 'agent-browser-recording.webm');
+  return joinRuntimePath(browserWorkspacePath(runtime), 'agent-browser-recording.webm');
+}
+
+/**
+ * A host workspace may only touch files inside its own roots, and the browser
+ * pack's temp folder is not one, so the image goes under the workspace's own
+ * `.sero` folder there.
+ */
+export function screenshotPath(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter): string {
+  return runtime.backend === 'host'
+    ? joinRuntimePath(runtime.hostWorkspacePath, '.sero/tmp/automation-browser-shot.png')
+    : defaultScreenshotPath(adapter);
 }
 
 export function defaultScreenshotPath(adapter: BrowserRuntimeAdapter): string {

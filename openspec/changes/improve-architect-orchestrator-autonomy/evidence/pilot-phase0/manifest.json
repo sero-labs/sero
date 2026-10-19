@@ -1,0 +1,183 @@
+{
+  "batchId": "phase0",
+  "tier": "LOW",
+  "settings": {
+    "model": "deepseek/deepseek-flash",
+    "thinking": "low",
+    "budgetUsd": 1,
+    "budgetMinutes": 8,
+    "batchId": "phase0"
+  },
+  "plans": [
+    {
+      "scenario": "small-fix",
+      "replicate": 1,
+      "inputs": {
+        "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+        "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+        "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "capabilities": [
+          "delegation",
+          "file-edit",
+          "file-read",
+          "shell"
+        ],
+        "budgetUsd": 1,
+        "budgetMinutes": 8,
+        "requiresIndependentReview": false
+      },
+      "runs": {
+        "architect": {
+          "runId": "phase0:small-fix:r1:architect",
+          "strategy": "architect",
+          "revision": "a82856342",
+          "replicate": 1
+        },
+        "persistent-single-agent": {
+          "runId": "phase0:small-fix:r1:persistent-single-agent",
+          "strategy": "persistent-single-agent",
+          "revision": "a82856342",
+          "replicate": 1
+        }
+      }
+    },
+    {
+      "scenario": "debugging",
+      "replicate": 1,
+      "inputs": {
+        "request": "Some invoice totals are off by a cent. For one item at 1999 cents, quantity 1, with a 15 percent discount and 8 percent tax, invoiceTotal(order) in src/invoice.js returns 1836 and the right answer is 1835. Every percentage amount is rounded to the nearest cent, halves rounding up. Find the cause and fix it properly.",
+        "workspaceFingerprint": "b5ec9259c2bad67a423b5ec4114f57c9e9c8f306586e157561804625be638274",
+        "acceptanceRevision": "25b0c9e2288d2d431759531be273160cbcd4284a1bf39dd8c7484bb6d60ce3d2",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "capabilities": [
+          "delegation",
+          "file-edit",
+          "file-read",
+          "shell"
+        ],
+        "budgetUsd": 1,
+        "budgetMinutes": 8,
+        "requiresIndependentReview": false
+      },
+      "runs": {
+        "architect": {
+          "runId": "phase0:debugging:r1:architect",
+          "strategy": "architect",
+          "revision": "a82856342",
+          "replicate": 1
+        },
+        "persistent-single-agent": {
+          "runId": "phase0:debugging:r1:persistent-single-agent",
+          "strategy": "persistent-single-agent",
+          "revision": "a82856342",
+          "replicate": 1
+        }
+      }
+    },
+    {
+      "scenario": "substantial-feature",
+      "replicate": 1,
+      "inputs": {
+        "request": "Add tags to the task list in this package.\n- store.add(title, { tags }) accepts an optional array of tags. Tags are trimmed and lower-cased, duplicates are dropped, and every task has a tags array, empty when none were given.\n- store.list({ tag }) returns only the tasks that have that tag, matched without regard to case. store.list() still returns every task.\n- formatTask in src/format.js appends the tags as \" #tag\" after the title, for example \"[ ] 1 Buy milk #home #errand\". A task with no tags prints as before.\n- In the CLI (src/cli.js), \"add Buy milk --tag home --tag errand\" adds a task with those tags, and \"list --tag home\" lists only that tag. An unknown option throws an Error whose message is \"Unknown option: --x\", and a --tag with no value throws \"--tag needs a value\".\nBefore you finish, someone other than whoever wrote the change must review it, and their written findings go in REVIEW.md.",
+        "workspaceFingerprint": "b88ea7c3c0703e7d34bb8cdad2812a46e942dcaceda974c8d7311636a1565953",
+        "acceptanceRevision": "53e6a7b6146a6918be0d6ba914fda7c2729d6ae047e364365d28e2351e6c2038",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "capabilities": [
+          "delegation",
+          "file-edit",
+          "file-read",
+          "shell"
+        ],
+        "budgetUsd": 1,
+        "budgetMinutes": 8,
+        "requiresIndependentReview": true
+      },
+      "runs": {
+        "architect": {
+          "runId": "phase0:substantial-feature:r1:architect",
+          "strategy": "architect",
+          "revision": "a82856342",
+          "replicate": 1
+        },
+        "persistent-single-agent": {
+          "runId": "phase0:substantial-feature:r1:persistent-single-agent",
+          "strategy": "persistent-single-agent",
+          "revision": "a82856342",
+          "replicate": 1
+        }
+      }
+    },
+    {
+      "scenario": "collaborative-research",
+      "replicate": 1,
+      "inputs": {
+        "request": "I need answers about this codebase, not changes to it. Find out which files under src/ call retryWithBackoff, what number of attempts it uses by default, and which callers override the number of attempts and with what value.\nWrite what you find to FINDINGS.md. End the file with one fenced json block of exactly this shape, with paths relative to the repository root:\n{\"callers\": [\"src/a.js\"], \"defaultAttempts\": 3, \"attemptOverrides\": {\"src/a.js\": 2}}\nDo not change any source file.",
+        "workspaceFingerprint": "ec5478e81449d33fd59c2453ff8dd777325eec0584e8ea264dd3ae58a03dd49f",
+        "acceptanceRevision": "cbc3cfb03396367253098d57973c39d1889d11a41596217a054914892474dcee",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "capabilities": [
+          "delegation",
+          "file-edit",
+          "file-read",
+          "shell"
+        ],
+        "budgetUsd": 1,
+        "budgetMinutes": 8,
+        "requiresIndependentReview": false
+      },
+      "runs": {
+        "architect": {
+          "runId": "phase0:collaborative-research:r1:architect",
+          "strategy": "architect",
+          "revision": "a82856342",
+          "replicate": 1
+        },
+        "persistent-single-agent": {
+          "runId": "phase0:collaborative-research:r1:persistent-single-agent",
+          "strategy": "persistent-single-agent",
+          "revision": "a82856342",
+          "replicate": 1
+        }
+      }
+    },
+    {
+      "scenario": "interruption",
+      "replicate": 1,
+      "inputs": {
+        "request": "Implement parseCsv(text) and toObjects(rows) in src/csv.js.\n- parseCsv returns an array of rows, each an array of strings. Fields are separated by commas. A field wrapped in double quotes may contain commas and line breaks, and \"\" inside it means one double quote.\n- Lines end with \\n or \\r\\n. A final line break does not add an empty row, and empty text gives [].\n- toObjects takes parsed rows whose first row is the header and returns one object per remaining row, keyed by the header. A short row gets empty strings for its missing columns.",
+        "workspaceFingerprint": "1cfe20966077097d1316ebe497da876010bcb12be1ca5cc274d7923b1c92463f",
+        "acceptanceRevision": "360ef53eb5ba5a2936ea393334b5332fe8df0083a7a266e401387ba24cf5149d",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "capabilities": [
+          "delegation",
+          "file-edit",
+          "file-read",
+          "shell"
+        ],
+        "budgetUsd": 1,
+        "budgetMinutes": 8,
+        "requiresIndependentReview": false
+      },
+      "runs": {
+        "architect": {
+          "runId": "phase0:interruption:r1:architect",
+          "strategy": "architect",
+          "revision": "a82856342",
+          "replicate": 1
+        },
+        "persistent-single-agent": {
+          "runId": "phase0:interruption:r1:persistent-single-agent",
+          "strategy": "persistent-single-agent",
+          "revision": "a82856342",
+          "replicate": 1
+        }
+      }
+    }
+  ]
+}

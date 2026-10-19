@@ -187,4 +187,14 @@ describe('a large record stays within a wake-sized budget', () => {
     expect(contract).not.toContain('check 0');
     expect(contract.length).toBeLessThan(20_000);
   });
+
+  it('names the worktree while the owner works in one, and only then', () => {
+    const base = record('build', null);
+    const dir = '/home/dan/projects/hollow/.sero/worktrees/card-direct-m1';
+    const execution = { id: 'exec-1', runId: null, owner: { subject: 'owner' as const, sessionId: null, sessionPath: null }, placement: { mode: 'worktree' as const, directory: dir, workspaceId: 'ws-1', branch: 'feat/m1' }, baseCommit: null, baseFingerprint: null, requirementRevision: null, state: 'running' as const, startedAt: T0, claim: null, continuations: 0, idleContinuations: 0 };
+    const working = { ...base, executionMode: 'worktree' as const, milestones: base.milestones.map((item) => (item.id === 'm2' ? { ...item, direct: execution } : item)) };
+    const wake = { kind: 'continue' as const, at: T0, items: ['continue m2'] };
+    expect(buildOwnerContract(working, wake)).toContain(`checkout ${dir}`);
+    expect(buildOwnerContract(base, wake)).not.toContain('Your own work on this milestone is in the checkout');
+  });
 });

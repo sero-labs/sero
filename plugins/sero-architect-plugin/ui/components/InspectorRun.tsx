@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { activeDirectMilestone } from '../../shared/direct-execution';
 import type { ProjectRecord } from '../../shared/record';
 import { buildTree, defaultSelection, matchedCost, modelsOf, NO_FILTERS } from '../lib/activity-tree';
 import { activityCount, emptyFilterMessage, milestoneDispatch, roomMembers } from '../lib/inspector-view';
@@ -42,7 +43,7 @@ export function InspectorRun({ record, page, loading, onLoadMore, onBack }: {
 
   return (
     <>
-      <InspectorTotals page={page} />
+      <InspectorTotals page={page} idleContinuations={activeDirectMilestone(record)?.direct?.idleContinuations ?? 0} />
       <InspectorFilters filters={filters} setFilters={setFilters} models={modelsOf(page.activity)}
         filteredUsd={matchedCost(tree)} fullUsd={page.summary.attributableUsd} />
       <div className="ar-insp-main" data-solo={selectedRow ? undefined : 'true'}>

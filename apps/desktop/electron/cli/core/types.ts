@@ -20,6 +20,12 @@ export interface CliInvocation {
   sessionId: string | null;
   turnId: string | null;
   source: CliSource;
+  /**
+   * A tool issued this call, not the model: a Code Mode script. How many
+   * commands a script runs is the agent's decision, so the per-turn command
+   * limit does not count them.
+   */
+  scripted?: boolean;
   signal?: AbortSignal;
 }
 

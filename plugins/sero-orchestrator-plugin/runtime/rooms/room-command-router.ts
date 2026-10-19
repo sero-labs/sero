@@ -430,6 +430,11 @@ export function createRoomCommandRouter(deps: RoomCommandDeps) {
     switch (result.outcome) {
       case 'applied':
         return ok(result.revision.summary, { revisionId: result.revision.id });
+      case 'pending':
+        return ok(
+          `${result.revision.summary} It is being applied: it takes effect once the member finishes its current turn.`,
+          { revisionId: result.revision.id },
+        );
       case 'awaiting-approval':
         return ok(`${result.approval.title} The user has to approve that, so nothing has changed yet.`, {
           approvalId: result.approval.id,

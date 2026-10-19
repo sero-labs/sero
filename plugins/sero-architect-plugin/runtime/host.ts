@@ -9,6 +9,7 @@ import { promises as fs } from 'node:fs';
 
 import type {
   AppRuntimeContext,
+  AppRuntimeGitApi,
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeSubagentResult,
@@ -30,6 +31,9 @@ export interface CommandRun {
   stderr: string;
 }
 
+/** The managed-checkout calls the owner's own worktree work uses. */
+export type ArchitectGit = Pick<AppRuntimeGitApi, 'createWorktree' | 'removeWorktree' | 'createCheckpoint'>;
+
 export interface ArchitectHost {
   /** `<SERO_HOME>/apps/architect`, created if missing. */
   homeDir(): Promise<string>;
@@ -49,6 +53,8 @@ export interface ArchitectHost {
   runCommand(workspaceId: string, cwd: string, command: string, timeoutMs?: number): Promise<CommandRun>;
   /** A local binary (git) in a directory, outside any workspace runtime. */
   exec(file: string, args: string[], cwd: string): Promise<CommandRun>;
+  /** Managed worktrees and the commit that keeps their work. */
+  git: ArchitectGit;
   detectDevServerCommand(workspacePath: string): Promise<string | null>;
   startDevServer(options: AppRuntimeStartManagedDevServerOptions): Promise<AppRuntimeStartManagedDevServerResult>;
   stopDevServer(serverId: string): Promise<boolean>;
@@ -137,6 +143,11 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
       return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
     },
     exec: (file, args, cwd) => execLocal(file, args, cwd, host.toolchains),
+    git: {
+      createWorktree: (workspacePath, cardId, cardTitle, options) => host.git.createWorktree(workspacePath, cardId, cardTitle, options),
+      removeWorktree: (workspacePath, cardId, options) => host.git.removeWorktree(workspacePath, cardId, options),
+      createCheckpoint: (worktreePath, message) => host.git.createCheckpoint(worktreePath, message),
+    },
     detectDevServerCommand: (workspacePath) => host.verification.detectDevServerCommand(workspacePath),
     startDevServer: (options) => host.devServers.startManaged(options),
     stopDevServer: (serverId) => host.devServers.stop(serverId),

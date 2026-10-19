@@ -44,6 +44,8 @@ export interface SingleRunParams {
   platformTools?: PlatformToolPolicy;
   /** Allowlist of tool names this run may use (e.g. a step's per-step tools). When set, only these tools are active. */
   tools?: string[];
+  /** `tools` is only an initial loadout, not a bound (see RunnerConfig). Default: a hard bound. */
+  toolsAreLoadout?: boolean;
   /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
   systemPromptOverride?: string;
   /** Extra prompt sections appended AFTER the agent body (a caller's must-keep rules, e.g. a step contract). */
@@ -203,6 +205,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         customTools: params.customTools,
         platformTools: params.platformTools,
         tools: params.tools,
+        toolsAreLoadout: params.toolsAreLoadout,
         systemPromptOverride: params.systemPromptOverride,
         appendSystemPrompt: params.appendSystemPrompt,
         disabledTools: params.disabledTools,

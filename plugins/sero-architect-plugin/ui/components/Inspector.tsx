@@ -4,6 +4,7 @@ import type { ArchitectActions } from '../lib/actions';
 import { inspectorPhase, NOTHING_RECORDED } from '../lib/run-state';
 import { LIFETIME, useInspectorTrace, useLifetime } from '../lib/use-inspector-trace';
 import { InspectorHeader } from './InspectorHeader';
+import { InspectorLimits } from './InspectorLimits';
 import { InspectorLifetime } from './InspectorLifetime';
 import { InspectorRun } from './InspectorRun';
 
@@ -57,6 +58,7 @@ export function Inspector({ record, actions, onBack }: {
         onBack={onBack}
       />
       {notice && <p className="ar-error" role="alert">{notice}</p>}
+      <InspectorLimits record={record} />
       {body()}
     </div>
   );

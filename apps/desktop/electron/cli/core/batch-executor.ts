@@ -232,6 +232,7 @@ async function executeCliTokens(
     const turnId = context.invocation.turnId;
     if (
       context.invocation.source !== 'terminal'
+      && !context.invocation.scripted
       && turnId
       && !isHelpCommand(resolved.command.name)
     ) {
@@ -352,6 +353,7 @@ export async function executeCliBatch(
       const turnId = context.invocation.turnId;
       if (
         context.invocation.source !== 'terminal' &&
+        !context.invocation.scripted &&
         turnId &&
         !isHelpCommand(resolved.command.name)
       ) {

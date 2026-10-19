@@ -71,6 +71,21 @@ const accepted = (index: number): Milestone => milestone(index, {
   },
 });
 
+const direct = (state: 'running' | 'reported' | 'interrupted'): NonNullable<Milestone['direct']> => ({
+  id: `direct-${state}`,
+  runId: null,
+  owner: { subject: 'owner', sessionId: null, sessionPath: null },
+  placement: { mode: 'workspace', directory: '/tmp/hollow', workspaceId: null },
+  baseCommit: null,
+  baseFingerprint: null,
+  requirementRevision: null,
+  state,
+  startedAt: T('09:49'),
+  claim: null,
+  continuations: 0,
+  idleContinuations: 0,
+});
+
 export const DECISION: Decision = {
   id: 'd7',
   question: 'How should the dungeon be drawn?',
@@ -141,6 +156,13 @@ export const FIXTURES: Record<string, ProjectRecord> = {
     directives: [{ id: 'dir0', text: 'Keep the brief short.', sentAt: T('09:30'), reply: { text: 'Charter proposed: 5 milestones, $40 cap, you approve each milestone plan. Rendering is left open and will be a decision in milestone 3.', repliedAt: T('09:41') } }],
   }),
   build: base({ milestones: [accepted(0), milestone(1, { status: 'running', dispatch: dispatched(1, '11:09') }), milestone(2), milestone(3), milestone(4)] }),
+  // Work the Architect does itself: one accepted with evidence, one running, beside a Workflow row and a planned one.
+  direct: base({ milestones: [
+    { ...accepted(0), dispatch: null, direct: direct('reported') },
+    milestone(1, { status: 'running', direct: direct('running') }),
+    milestone(2, { status: 'running', dispatch: dispatched(2, '11:09') }),
+    milestone(3),
+  ] }),
   decision: base({
     overlay: 'decision',
     stateLine: 'One decision is waiting on you. Milestone 3 keeps running.',

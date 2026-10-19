@@ -77,6 +77,9 @@ export function fakeSessionsApi(sessionPath = '/sessions/owner.jsonl'): FakeSess
       };
       return handle;
     },
+    async amendGrant(amendment) {
+      return { status: 'refused', amendmentId: amendment.amendmentId, revision: null, reason: 'Not used by these tests.' };
+    },
     async revokeGrant() {},
     async deleteGrant(grantId) { api.deletedGrants.push(grantId); },
     async revokeDelegationPolicy(policyId) { api.revokedPolicies.push(policyId); },
@@ -130,6 +133,9 @@ export interface FakeHost extends ArchitectHost {
   commandResults: Record<string, CommandRun>;
   execResults: Record<string, CommandRun>;
   stateListeners: Map<string, Set<(state: unknown) => void>>;
+  /** What the fake managed-worktree API was asked to do, and how it answers. */
+  gitCalls: { call: 'create' | 'remove' | 'checkpoint'; path: string; key?: string; options?: unknown; message?: string }[];
+  gitFailures: { create?: string; checkpoint?: string; remove?: string };
   jsonFiles: Record<string, unknown>;
   /** Paths that already exist, for the intake folder refusal. */
   existingPaths: Set<string>;
@@ -179,6 +185,25 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
       host.execCalls.push({ file, args, cwd });
       return host.execResults[`${file} ${args.join(' ')}`] ?? { exitCode: 0, stdout: '', stderr: '' };
     },
+    git: {
+      createWorktree: async (workspacePath, cardId, cardTitle, options) => {
+        host.gitCalls.push({ call: 'create', path: workspacePath, key: cardId, options });
+        if (host.gitFailures.create) throw new Error(host.gitFailures.create);
+        const worktreePath = path.join(workspacePath, '.sero', 'worktrees', `card-${cardId}`);
+        host.existingPaths.add(worktreePath);
+        return { worktreePath, branchName: options?.existingBranch ?? `feat/${cardTitle.toLowerCase().replace(/\W+/g, '-')}-${cardId}`, greenfield: false };
+      },
+      removeWorktree: async (workspacePath, cardId, options) => {
+        host.gitCalls.push({ call: 'remove', path: workspacePath, key: cardId, options });
+        if (host.gitFailures.remove) throw new Error(host.gitFailures.remove);
+        host.existingPaths.delete(path.join(workspacePath, '.sero', 'worktrees', `card-${cardId}`));
+      },
+      createCheckpoint: async (worktreePath, message) => {
+        host.gitCalls.push({ call: 'checkpoint', path: worktreePath, message });
+        if (host.gitFailures.checkpoint) throw new Error(host.gitFailures.checkpoint);
+        return 'checkpoint-commit';
+      },
+    },
     detectDevServerCommand: async () => null,
     startDevServer: async () => ({ reason: 'no dev server in tests' }),
     stopDevServer: async () => true,
@@ -206,6 +231,8 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     commandResults: {},
     execResults: {},
     stateListeners: new Map(),
+    gitCalls: [],
+    gitFailures: {},
     jsonFiles: {},
     existingPaths: new Set(),
     emitState: (filePath, state) => {

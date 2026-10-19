@@ -96,6 +96,8 @@ export interface ModelRunParams {
   platformTools?: 'all' | 'readOnly' | 'none';
   /** Per-step allowlist: tool names this run may use. When set, only these are active. */
   tools?: string[];
+  /** True when `tools` is only the starting loadout and the run may load other allowed tools. */
+  toolsAreLoadout?: boolean;
   /** User context override: tool names to remove from this run's surface. */
   disabledTools?: string[];
   /** User context override: skill names to hide from the model for this run. */

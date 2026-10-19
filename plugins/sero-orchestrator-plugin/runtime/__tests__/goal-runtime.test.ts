@@ -101,7 +101,7 @@ describe('goal budgets', () => {
     expect(resumed.ok).toBe(false);
     expect(resumed.text).toContain('automatic turns');
 
-    await runtime.setLimits(goal.id, { maxAttemptsTotal: 5 });
+    await runtime.setLimits(goal.id, { maxAttemptsTotal: 5 }, 'user');
     expect((await runtime.resume(goal.id)).goal?.status).toBe('active');
   });
 
@@ -111,7 +111,7 @@ describe('goal budgets', () => {
     await runtime.checkContinue(turn(goal.id));
     // A budget lowered below what the goal already spent, as a user would after
     // seeing the cost. The restart must not grant one more turn first.
-    await runtime.setLimits(goal.id, { maxAttemptsTotal: 1 });
+    await runtime.setLimits(goal.id, { maxAttemptsTotal: 1 }, 'user');
 
     const restarted = new GoalRuntime(host, createGoalStore(memoryIo(io.files), '/state'), new SessionDrivers());
     await restarted.reconcile();
@@ -368,5 +368,42 @@ describe('charging a turn a terminal tool already ended', () => {
 
     expect(charged).toBeNull();
     expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(0);
+  });
+});
+
+describe('who may change a limit', () => {
+  it('lets an agent tighten a user limit and set one the user left unset, never raise or remove the user\'s', async () => {
+    const { runtime } = createRuntime();
+    const goal = await startGoal(runtime, { maxAttemptsTotal: 10 });
+
+    const tightened = await runtime.setLimits(goal.id, { maxAttemptsTotal: 5, maxCostUsd: 3 }, 'agent');
+    expect(tightened.goal?.limits).toMatchObject({ maxAttemptsTotal: 5, maxCostUsd: 3 });
+
+    const raised = await runtime.setLimits(goal.id, { maxAttemptsTotal: 20 }, 'agent');
+    expect(raised.ok).toBe(false);
+    expect(raised.text).toContain('set by the user');
+    expect((await runtime.forSession(SESSION))?.limits.maxAttemptsTotal).toBe(5);
+
+    // The agent's own limit may still move, and the user may raise anything.
+    expect((await runtime.setLimits(goal.id, { maxCostUsd: 9 }, 'agent')).ok).toBe(true);
+    expect((await runtime.setLimits(goal.id, { maxAttemptsTotal: 40 }, 'user')).ok).toBe(true);
+  });
+
+  it('lets an agent change the built-in default turn limit', async () => {
+    const { runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+    expect((await runtime.setLimits(goal.id, { maxAttemptsTotal: 60 }, 'agent')).ok).toBe(true);
+  });
+
+  it('treats a goal saved with no origins as user-set', async () => {
+    const { io, runtime } = createRuntime();
+    const goal = await startGoal(runtime, { maxAttemptsTotal: 10 });
+    for (const [file, data] of io.files) {
+      const record = data as { limitOrigins?: unknown; id?: string };
+      if (record.id === goal.id) { delete record.limitOrigins; io.files.set(file, record); }
+    }
+    const refused = await runtime.setLimits(goal.id, { maxAttemptsTotal: 99 }, 'agent');
+    expect(refused.ok).toBe(false);
+    expect((await runtime.setLimits(goal.id, { maxAttemptsTotal: 3 }, 'agent')).ok).toBe(true);
   });
 });

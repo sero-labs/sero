@@ -67,7 +67,7 @@ const noop = () => undefined;
 
 function render(record: ProjectRecord, tab: WorkTab, onTab: (tab: WorkTab) => void = noop, runtimeRunning = true) {
   act(() => root.render(
-    <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={onTab} onBack={noop} onProject={noop} onOpenHistory={noop} />,
+    <WorkPage record={record} actions={actions} runtimeRunning={runtimeRunning} tab={tab} onTab={onTab} onOpenEvidence={noop} onBack={noop} onProject={noop} onOpenHistory={noop} />,
   ));
 }
 

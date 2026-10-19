@@ -28,6 +28,25 @@ export function createSeroCodemodeExtension(): ExtensionFactory {
   return createCodemodeExtension({ mode: 'on', models: false });
 }
 
+/**
+ * When an agent should write a script and when it should not. Added to the
+ * system prompt of a session that has `codemode` switched on.
+ */
+export const CODEMODE_PROMPT_BLOCK = `
+
+## Code Mode
+
+Prefer one \`codemode\` script over several tool calls in a row when you already know the calls you need.
+- Run independent calls together, chain a call on an earlier result, and loop over many items in one script.
+- Return only what you need from large output.
+- A script stops at the first failed call, so check a condition in the script before the call that depends on it.
+Use separate tool calls when you must read a result before you can decide the next step.`;
+
+/** The Code Mode block, for a session whose active tools include `codemode`. */
+export function codemodePromptBlock(activeTools: readonly string[]): string {
+  return activeTools.includes(CODEMODE_TOOL_NAME) ? CODEMODE_PROMPT_BLOCK : '';
+}
+
 /** Switch `codemode` on for a session that loaded the extension. Switching twice has no effect. */
 export function activateCodemode(session: CodemodeSession): void {
   const active = session.getActiveToolNames();

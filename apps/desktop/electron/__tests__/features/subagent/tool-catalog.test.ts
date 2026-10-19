@@ -108,6 +108,15 @@ describe('subagent tool catalog', () => {
     expect(getToolPackagePath('bash')).toBeUndefined();
   });
 
+  it('keeps a platform tool for a managed session when a run reports it from inside a package', () => {
+    recordRunToolCatalog([
+      { name: 'sero-cli', description: 'Run Sero workspace commands', sourceInfo: { path: '/plugins/web/extension/index.js' } },
+    ] as never);
+
+    expect(getToolPackagePath('sero-cli')).toBeUndefined();
+    expect(getToolCatalogFor('member').map((tool) => tool.name)).toContain('sero-cli');
+  });
+
   it('leaves a tool out of the catalogue for a session kind its plugin excludes', () => {
     recordRunToolCatalog([
       { name: 'goal', description: 'Goals', sourceInfo: { path: '/plugins/orch/extension/index.js' } },

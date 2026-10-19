@@ -218,7 +218,7 @@ describe('persistent session wiring', () => {
       tools: policy.allowedTools, skills: [], systemPromptAdditions: [], policy,
     });
     const allowed = ['read', 'automation_browser', 'sero-cli', ...(commands === 'all' ? ['bash'] : [])];
-    expect(createMemberRuntimeTools).toHaveBeenLastCalledWith('ws-1', allowed, '/workspace', 'grant-1:investigator');
+    expect(createMemberRuntimeTools).toHaveBeenLastCalledWith('ws-1', allowed, '/workspace', 'grant-1:investigator', allowed);
     expect(inputs.customTools).toEqual(expect.arrayContaining(runtimeTools));
     expect(inputs.tools).toEqual(allowed);
     expect(inputs.customTools).toContain(browser);
@@ -276,5 +276,128 @@ describe('persistent session wiring', () => {
     expect(fakes.choices[0].body).toContain('Tools: read, sero-cli');
     expect(fakes.choices[0].body).not.toContain('Run commands');
     expect(fakes.choices[0].body).toContain('Not available under this approval, so removed: bash, gh, git_manager');
+  });
+});
+
+describe('authorized tools versus the initial loadout', () => {
+  const runtimeTool = (name: string) => ({
+    name, label: name, description: name, parameters: Type.Object({}),
+    execute: async () => ({ content: [], details: undefined }),
+  });
+
+  async function build(policyTools: string[], requestTools: string[], over: { maxBytes?: number; provided?: string[] } = {}) {
+    vi.mocked(createPrivateCliRegistry).mockReturnValue({ list: () => [] } as never);
+    vi.mocked(bridgeExtensionTools).mockImplementation(((base: unknown) => base) as never);
+    vi.mocked(createMemberRuntimeTools).mockResolvedValueOnce(
+      policyTools.filter((name) => ['read', 'bash'].includes(name)).map(runtimeTool),
+    );
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    policy.allowedTools = policyTools;
+    policy.permissionProfile = { filesystem: 'read', commands: 'all', network: 'fetch', vcs: 'read' };
+    policy.maxSystemPromptAdditionBytes = over.maxBytes ?? 1_000;
+    // Run the loader's hooks the way Pi does while it loads, so the session sees what they decide.
+    let late: string[] = [];
+    vi.mocked(createMemberResourceLoader).mockImplementationOnce((async (options: Parameters<typeof createMemberResourceLoader>[0]) => {
+      const tools = new Map((over.provided ?? []).map((name) => [name, { definition: runtimeTool(name), sourceInfo: {} }]));
+      options.bridgeExtensions({ extensions: [{ resolvedPath: '/p/extension.ts', tools, commands: new Map() }], errors: [], runtime: {} } as never);
+      late = options.lateAppendSystemPrompt?.() ?? [];
+      return { loaderOptions: options, tools };
+    }) as never);
+    const inputs = await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/workspace',
+      tools: requestTools, skills: [], systemPromptAdditions: [], policy,
+    });
+    const loader = inputs.resourceLoader as unknown as { loaderOptions: { extensionFactories: unknown[] }; tools: Map<string, { definition: { exposure?: string } }> };
+    return { inputs, late, loader };
+  }
+
+  it('registers every approved tool and defers the ones the request did not load', async () => {
+    const { inputs, loader } = await build(['read', 'bash', 'web_search', 'sero-cli'], ['read'], { provided: ['web_search'] });
+
+    expect(inputs.tools).toEqual(['read', 'bash', 'web_search', 'sero-cli', 'tool_search']);
+    // Only the loadout and the finder are declared when the session opens.
+    expect(inputs.initialTools).toEqual(['read', 'sero-cli', 'tool_search']);
+    const exposure = Object.fromEntries((inputs.customTools ?? []).filter(Boolean).map((tool) => [tool.name, tool.exposure]));
+    expect(exposure).toEqual({ read: undefined, bash: 'deferred' });
+    expect(loader.tools.get('web_search')?.definition.exposure).toBe('deferred');
+    // The extension is loaded beside the Sero factory; the tool list is what switches it on.
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(2);
+  });
+
+  it('adds no tool_search when nothing is deferred', async () => {
+    const { inputs, loader } = await build(['read', 'bash', 'sero-cli'], ['read', 'bash']);
+
+    expect(inputs.tools).toEqual(['read', 'bash', 'sero-cli']);
+    expect(inputs.initialTools).toBeUndefined();
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(1);
+  });
+
+  it('names a tool the profile removed and one with no plugin', async () => {
+    const { inputs, late } = await build(['read', 'write', 'web_search', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).not.toContain('write');
+    expect(late).toHaveLength(1);
+    expect(late[0]).toContain('write (outside the approval)');
+    expect(late[0]).toContain('web_search (its plugin is not installed)');
+  });
+
+  it('loads Code Mode for a session approved for it, switched on from the first turn', async () => {
+    const { inputs, late, loader } = await build(['read', 'codemode', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).toContain('codemode');
+    // Search cannot find Code Mode, so it starts loaded although the request did not name it.
+    expect(inputs.initialTools).toEqual(['read', 'codemode', 'sero-cli']);
+    expect(late).toEqual([]);
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(2);
+  });
+
+  it('does not load Code Mode for a session that was not approved for it', async () => {
+    const { inputs, loader } = await build(['read', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).not.toContain('codemode');
+    expect(inputs.initialTools).toBeUndefined();
+    expect(loader.loaderOptions.extensionFactories).toHaveLength(1);
+  });
+
+  it('keeps a script inside a read-only approval: the write tool is never registered', async () => {
+    const { inputs } = await build(['read', 'write', 'codemode', 'sero-cli'], ['read']);
+
+    expect(inputs.tools).toContain('codemode');
+    expect(inputs.tools).not.toContain('write');
+    expect((inputs.customTools ?? []).filter(Boolean).map((tool) => tool.name)).not.toContain('write');
+  });
+
+  it('skips the note instead of failing the open when it does not fit the addition cap', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { inputs, late } = await build(['read', 'web_search', 'sero-cli'], ['read'], { maxBytes: 10 });
+
+    expect(late).toEqual([]);
+    expect(inputs.tools).toContain('read');
+    expect(warn.mock.calls.flat().join('\n')).toContain('web_search');
+    warn.mockRestore();
+  });
+
+  it('computes the set per subject policy, so one project never sees another project\'s tools', async () => {
+    const first = await build(['read', 'sero-cli'], ['read']);
+    const second = await build(['read', 'bash', 'sero-cli'], ['read']);
+
+    expect(first.inputs.tools).not.toContain('bash');
+    expect(second.inputs.tools).toContain('bash');
+    expect(first.inputs.tools).not.toContain('tool_search');
+  });
+
+  it('reopens with the same registered set, and names a tool whose plugin went away in between', async () => {
+    const before = await build(['read', 'web_search', 'sero-cli'], ['read'], { provided: ['web_search'] });
+    const after = await build(['read', 'web_search', 'sero-cli'], ['read'], { provided: ['web_search'] });
+    const gone = await build(['read', 'web_search', 'sero-cli'], ['read']);
+
+    expect(after.inputs.tools).toEqual(before.inputs.tools);
+    expect(after.late).toEqual([]);
+    expect(gone.late[0]).toContain('web_search (its plugin is not installed)');
   });
 });

@@ -24,6 +24,8 @@ import type { LiveCallNotice } from '../../shared/types';
 import { adjustRoom, type AdjustRoomOutcome } from './adjust';
 import { planRoom } from './planner';
 import { buildRoomRecord } from './room-actions';
+import type { RoomAmendments } from './room-amendment';
+import { createRevisionActions, type RevisionActions, type SimpleOutcome } from './room-app-revisions';
 import type { RoomCoordinator } from './room-coordinator';
 import { readRoomArtifact, type RoomArtifactReadOutcome } from './room-app-artifacts';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
@@ -49,13 +51,15 @@ const PLANNABLE: readonly RoomStatus[] = ['draft'];
 const WAKEABLE: readonly MemberStatus[] = ['idle', 'waiting', 'blocked'];
 
 export interface RoomAppActionsContext extends RoomLiveContext {
+  /** Runs held grant amendments. Absent in tests that never amend a grant. */
+  amendments?: Pick<RoomAmendments, 'approve' | 'decline'>;
   coordinator: RoomCoordinator;
   workspaceId: string;
 }
 
-export type SimpleOutcome = { ok: true } | { ok: false; error: string };
+export type { SimpleOutcome };
 
-export interface RoomAppActions extends RoomLiveActions {
+export interface RoomAppActions extends RoomLiveActions, RevisionActions {
   inspect: OrchestratorRoomHandle['inspect'];
   /** Plans a team from one brief and drafts the Room. Nothing runs yet. */
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
@@ -172,6 +176,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
 
   return {
     ...live,
+    ...createRevisionActions(ctx),
 
     async inspect(roomId) {
       const record = await store.readRoom(roomId);

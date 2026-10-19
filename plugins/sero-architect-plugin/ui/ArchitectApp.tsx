@@ -137,7 +137,7 @@ function ProjectView({ view, onProject, onOpenEvidence, disclosures, ...props }:
   if (view.mode === 'models') return <ModelSettings record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} onBack={onProject} />;
   if (view.mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
   if (view.mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={disclosures.folds} />;
-  if (view.mode === 'work') return <WorkPage record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} tab={view.tab} focusMilestoneId={view.focusMilestoneId} onTab={props.onOpenWork} onBack={props.onBack} onProject={onProject} onOpenHistory={props.onOpenHistory} />;
+  if (view.mode === 'work') return <WorkPage record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} tab={view.tab} focusMilestoneId={view.focusMilestoneId} onTab={props.onOpenWork} onOpenEvidence={onOpenEvidence} onBack={props.onBack} onProject={onProject} onOpenHistory={props.onOpenHistory} />;
   return <ProjectPage {...props} />;
 }
 

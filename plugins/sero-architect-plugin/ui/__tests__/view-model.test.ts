@@ -39,7 +39,7 @@ describe('needs-you items', () => {
 describe('the milestone rail', () => {
   it('maps status to dot, label and one link per dispatched milestone', () => {
     const rows = railRows(FIXTURES.decision!);
-    expect(rows.map((row) => [row.milestone.id, row.dot, row.label, row.link?.id ?? null])).toEqual([
+    expect(rows.map((row) => [row.milestone.id, row.dot, row.label, (row.link && 'id' in row.link ? row.link.id : null)])).toEqual([
       ['m1', 'check', 'accepted', 'workflow-m1'],
       ['m2', 'check', 'accepted', 'workflow-m2'],
       ['m3', 'ring', 'running', 'room-m3'],
@@ -173,5 +173,15 @@ describe('directives, wakefulness and caps', () => {
   it('tones the spend against the cap and suggests the next round cap', () => {
     expect([spendTone(11.4, 40), spendTone(33, 40), spendTone(40, 40), spendTone(5, null)]).toEqual(['ok', 'warn', 'err', 'none']);
     expect([suggestedCapFor(40), suggestedCapFor(null), suggestedCapFor(35)]).toEqual([60, 20, 60]);
+  });
+});
+
+describe('a milestone the Architect does itself', () => {
+  it('says so while it runs, and says the work is kept after an interruption', () => {
+    const record = FIXTURES.direct!;
+    const running = railRows(record).find((row) => row.milestone.id === 'm2')!;
+    expect(running.sub).toBe('Architect is doing this');
+    const stopped = { ...record, milestones: record.milestones.map((m) => (m.id === 'm2' ? { ...m, direct: { ...m.direct!, state: 'interrupted' as const } } : m)) };
+    expect(railRows(stopped).find((row) => row.milestone.id === 'm2')!.sub).toBe('Architect stopped part-way. The work is kept.');
   });
 });

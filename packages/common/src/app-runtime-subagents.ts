@@ -23,6 +23,12 @@ export interface AppRuntimeSubagentRunParams {
   isolated?: boolean;
   customTools?: unknown[];
   tools?: string[];
+  /**
+   * True when `tools` is only what the run starts with loaded. The run may then
+   * find and load any other tool the user has not turned off. False or absent
+   * keeps `tools` as the hard limit.
+   */
+  toolsAreLoadout?: boolean;
   disabledTools?: string[];
   disabledSkills?: string[];
   onUpdate?: (text: string) => void;

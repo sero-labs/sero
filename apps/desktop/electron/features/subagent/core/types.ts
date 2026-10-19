@@ -158,6 +158,13 @@ export interface RunnerConfig {
    * prompt guidance. Omitted = the full platform surface (per `platformTools`).
    */
   tools?: string[];
+  /**
+   * `tools` is only the initial loadout, such as a planner's picks, not a bound.
+   * The session then registers everything the host's tool policy allows and
+   * defers the rest for `tool_search`. Leave unset for a user's explicit
+   * allowlist, which stays a hard bound.
+   */
+  toolsAreLoadout?: boolean;
   /** Replaces the base system prompt for this run (user context override). '' excludes it. The agent suffix still applies. */
   systemPromptOverride?: string;
   /** Extra prompt sections appended AFTER the agent body (a caller's must-keep rules). */

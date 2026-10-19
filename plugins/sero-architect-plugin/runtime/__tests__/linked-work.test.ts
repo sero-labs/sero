@@ -79,7 +79,7 @@ async function setup(record: ProjectRecord) {
   const gate = createWakeGate();
   gate.release();
   const scheduler = createWakeScheduler({ gate, log: host.log, deliver: async (_id, wake) => { delivered.push(wake); } });
-  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
+  const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), readSources: vi.fn(async () => null), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   return {
     store,
     ownerActions: createOwnerActions({ host, store, outcomes, services }),

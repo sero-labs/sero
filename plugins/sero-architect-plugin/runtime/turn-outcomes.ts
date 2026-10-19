@@ -1,14 +1,16 @@
 /**
- * The explicit-outcome rule: a wake ends with sleep, decide or blocked. A turn
+ * The explicit-outcome rule: a wake ends with sleep, decide, blocked, a request
+ * to continue the owner's own work, or a registered wait. A turn
  * that ends without one is no progress, and three in a row block the project.
  */
 
 import { block } from '../shared/lifecycle';
 import type { ProjectRecord } from '../shared/record';
+import { SILENT_TURN_LIMIT } from '../shared/stall-limits';
 
-export type OutcomeKind = 'sleep' | 'decide' | 'blocked';
+export type OutcomeKind = 'sleep' | 'decide' | 'blocked' | 'continue' | 'wait';
 
-export const SILENT_TURN_LIMIT = 3;
+export { SILENT_TURN_LIMIT };
 
 export interface TurnOutcomes {
   /** Marks a turn as started; clears any earlier declaration. */
@@ -45,6 +47,6 @@ export function applyTurnOutcome(record: ProjectRecord, declared: OutcomeKind | 
   const silentTurns = record.session.silentTurns + 1;
   const next = { ...record, session: { ...record.session, silentTurns, turns } };
   if (silentTurns < SILENT_TURN_LIMIT || next.blockedReason !== null) return next;
-  const blocked = block(next, now, `the owner ended ${SILENT_TURN_LIMIT} turns in a row without declaring an outcome (sleep, decide or blocked)`);
+  const blocked = block(next, now, `the owner ended ${SILENT_TURN_LIMIT} turns in a row without declaring an outcome (sleep, decide, blocked, work continue or work wait)`);
   return blocked.ok ? blocked.record : next;
 }

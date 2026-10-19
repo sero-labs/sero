@@ -115,6 +115,7 @@ const WAKE_LABEL: Record<string, string> = {
   'dispatch-blocked': 'work blocked',
   'dispatch-complete': 'work finished',
   'external-event': 'external event',
+  wait: 'wait ended',
   quiet: 'check-in',
 };
 
