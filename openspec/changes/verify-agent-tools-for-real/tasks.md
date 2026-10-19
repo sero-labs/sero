@@ -57,7 +57,7 @@
 
 ## 10. Acceptance: the six #626 faults
 
-- [ ] 10.1 Put back each of the six faults from #626 one at a time by reverting its fix, run the target that should catch it and restore the fix. Expected catches: failed `sero-cli` in Code Mode reported as success (6.2), quoted argument split at line breaks (6.4), host screenshot and host `stop_recording` path failures (5.3), 26 second launch and navigate (5.3), stuck page with no recovery (5.3). Verify each run fails and names the fault, and record the six results in the PR description
+- [x] 10.1 Put back each of the six faults from #626 one at a time by reverting its fix, run the target that should catch it and restore the fix. Expected catches: failed `sero-cli` in Code Mode reported as success (6.2), quoted argument split at line breaks (6.4), host screenshot and host `stop_recording` path failures (5.3), 26 second launch and navigate (5.3), stuck page with no recovery (5.3). Verify each run fails and names the fault, and record the six results in the PR description
 
 ## 11. Follow-up issues
 
