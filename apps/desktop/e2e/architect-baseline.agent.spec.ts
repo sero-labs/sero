@@ -98,6 +98,8 @@ interface BaselineProjectRecord {
   id: string;
   phase: string;
   folder: string;
+  paused?: boolean;
+  blockedReason?: string | null;
   budget: { capUsd: number | null; spentUsd: number; incomplete?: boolean };
   decisions: { id: string; question: string; options: { id: string; label: string }[]; answer: { optionId: string } | null }[];
   milestones: {
@@ -493,8 +495,12 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   if (end === 'interrupt') {
     restarted = true;
     await restartApp();
-    // Resuming is the action the app offers after a restart, so it is what a user does.
-    const resumed = await resumeProject(scenario.id, projectId);
+    // Resuming is the action the app offers after a restart, so it is what a
+    // user does when the project is held. Interrupted direct work continues on
+    // its own, and Resume refuses a project that is neither paused nor blocked.
+    const after = await show(projectId);
+    const held = Boolean(after?.paused || after?.blockedReason);
+    const resumed = held ? await resumeProject(scenario.id, projectId) : { ok: true, text: 'continued without a resume' };
     end = resumed.ok ? await drive(projectId, scenario.id, deadline) : 'timeout';
     recoveries.push({ cause: 'restart', result: end === 'finished' ? 'recovered' : resumed.ok ? 'held' : 'failed' });
   }
