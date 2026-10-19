@@ -1,0 +1,137 @@
+name: Tool Check
+
+# Runs every agent tool action for real (the `tools` Playwright project). It is
+# long, so it runs only by hand: never on a PR and never on a schedule.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - linux-host
+          - linux-docker
+          - macos-host
+          - windows-host
+      real_model:
+        description: Add one short deepseek-flash task per site (spends a few calls per site)
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  TURBO_TELEMETRY_DISABLED: 1
+  NODE_OPTIONS: --max-old-space-size=4096
+  SERO_TOOL_CHECK_REAL_MODEL: ${{ inputs.real_model && '1' || '' }}
+  DEEPSEEK_API_KEY: ${{ inputs.real_model && secrets.DEEPSEEK_API_KEY || '' }}
+
+jobs:
+  # A job's `if` cannot read the matrix, so the chosen targets are picked here.
+  plan:
+    name: Pick targets
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.pick.outputs.targets }}
+    steps:
+      - id: pick
+        shell: bash
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          all='[{"target":"linux-host","os":"ubuntu-latest","runtime":"host"},{"target":"linux-docker","os":"ubuntu-latest","runtime":"docker"},{"target":"macos-host","os":"macos-latest","runtime":"host"},{"target":"windows-host","os":"windows-latest","runtime":"host"}]'
+          echo "targets=$(jq -c --arg target "$TARGET" 'map(select($target == "all" or .target == $target))' <<< "$all")" >> "$GITHUB_OUTPUT"
+
+  tool-check:
+    name: Tool check (${{ matrix.target }})
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.targets) }}
+    env:
+      SERO_E2E_RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 12.5.1, run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+
+      - name: Install Linux display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The browser pack and other managed tools install here once and are cached.
+      - name: Choose the toolchains folder
+        shell: bash
+        run: echo "SERO_TOOL_CHECK_TOOLCHAINS=$RUNNER_TEMP/sero-tool-check-toolchains" >> "$GITHUB_ENV"
+
+      - name: Read the browser pack version
+        id: pack
+        shell: bash
+        run: echo "version=$(node -p "require('./apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the browser pack
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SERO_TOOL_CHECK_TOOLCHAINS }}
+          key: tool-check-toolchains-${{ runner.os }}-${{ runner.arch }}-${{ steps.pack.outputs.version }}
+
+      # The workspace container runs the sero-node image. Build it from the
+      # branch when the branch changes it, so the run checks the new image.
+      - name: Prepare the sero-node image
+        if: matrix.runtime == 'docker'
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=ghcr.io/sero-labs/sero-node:latest
+          # The checkout fetched every branch, so origin/main is here.
+          if git diff --quiet origin/main -- apps/desktop/images/Dockerfile.sero-node; then
+            docker pull "$image"
+          else
+            docker build -f apps/desktop/images/Dockerfile.sero-node -t "$image" .
+          fi
+
+      - name: Check the real-model secret
+        if: inputs.real_model
+        shell: bash
+        run: test -n "$DEEPSEEK_API_KEY" || { echo "::error::Missing DEEPSEEK_API_KEY secret for the real-model pass"; exit 1; }
+
+      - name: Build plugin Vite helpers
+        run: pnpm --filter @sero-ai/plugin-vite build
+
+      - name: Run the tool check
+        if: runner.os != 'Linux'
+        run: pnpm --filter @sero/desktop e2e:tools
+
+      - name: Run the tool check (Linux/Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm --filter @sero/desktop e2e:tools
+
+      - name: Upload the ledger and Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: tool-check-${{ matrix.target }}
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
