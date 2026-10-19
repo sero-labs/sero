@@ -258,6 +258,22 @@ describe('the scheduling pass', () => {
     await waitFor(() => api.prompts.length === 2, 'the second turn');
   });
 
+  it("cancels a running turn for the user's \"now\", then runs the next one", async () => {
+    const roomId = await draftRoom();
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    api.promptResolvesAtTurnEnd = true;
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
+
+    await coordinator.wake(roomId, 'lead', 'user-intervention');
+    expect(api.aborted).toEqual([]);
+
+    await coordinator.wake(roomId, 'lead', 'user-intervention', true);
+    expect(api.aborted).toEqual(['lead']);
+    await waitFor(() => api.prompts.length === 2, 'the turn after the interruption');
+  });
+
   it('wakes a waiting member with its reply and clears the wait in the same step', async () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;

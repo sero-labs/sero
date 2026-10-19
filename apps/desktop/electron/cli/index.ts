@@ -1,18 +1,5 @@
 import type { LoadExtensionsResult, ToolDefinition } from '@earendil-works/pi-coding-agent';
-import {
-  registerAppControlCliCommands,
-  registerAppStateCliCommands,
-  registerArtifactCliCommands,
-} from './commands/apps';
-import {
-  registerDevServerCliCommands,
-  registerTerminalCliCommands,
-} from './commands/container';
-import { registerEditorCliCommands } from './commands/editor';
-import { registerBrowserCliCommands } from './commands/browser';
-import { registerSessionCliCommands } from './commands/agent';
-import { registerVcsCliCommands } from './commands/git';
-import { registerWorkspaceCliCommands } from './commands/workspace';
+import { registerCoreCommands } from './commands/core';
 import {
   registerHelpCliCommand,
   CliRegistry,
@@ -35,6 +22,7 @@ import {
   isUiOnlyTool,
 } from '../features/plugins/bridge-policy';
 import { buildAgentPluginCliCommands } from '../features/agent-plugins/cli';
+import { BUILTIN_COMMANDS } from './core/builtin-commands';
 
 let registry: CliRegistry | null = null;
 
@@ -45,20 +33,6 @@ export function resetCliRegistryForTests(): void {
   registry = null;
   clearPluginBridgePolicyCache();
   clearBridgedExtensionSessionItems();
-}
-
-function registerCoreCommands(target: CliRegistry): void {
-  registerAppControlCliCommands(target);
-  registerWorkspaceCliCommands(target);
-  registerSessionCliCommands(target);
-  registerVcsCliCommands(target);
-  registerDevServerCliCommands(target);
-  registerArtifactCliCommands(target);
-  registerEditorCliCommands(target);
-  registerAppStateCliCommands(target);
-  registerTerminalCliCommands(target);
-  registerBrowserCliCommands(target);
-  registerHelpCliCommand(target);
 }
 
 export function getCliRegistry(): CliRegistry {
@@ -204,18 +178,6 @@ export {
   CliRegistry,
 };
 
-/**
- * Sero built-in commands (registered by the sero extension factory).
- * These are NOT bridged to CLI — they either already have CLI equivalents
- * or are pure UI/session management that the agent shouldn't invoke.
- * DO NOT Add external plugins to this file - they must remain decoupled from the Sero host
- */
-const BUILTIN_COMMANDS = new Set([
-  'workspace', 'pwd',
-  'reload', 'compact', 'name', 'session', 'model', 'thinking',
-  'checkpoint', 'checkpoints', 'restore', 'diffcp',
-  'admin',
-]);
 
 /**
  * `extensionsOverride` callback for DefaultResourceLoader.

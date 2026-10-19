@@ -11,6 +11,7 @@ import type {
   AppRecordingResult,
   AppRecordingStatus,
 } from '@/types/ipc';
+import type { AppRealInput } from '@/types/app-control';
 
 const INTERACTION_SETTLE_MS = 200;
 const RECORDING_FRAME_INTERVAL_MS = 500;
@@ -58,6 +59,17 @@ async function execRenderer<T>(code: string): Promise<T> {
   const win = appWindow();
   if (!win) throw new Error('No main window available');
   return win.webContents.executeJavaScript(code) as Promise<T>;
+}
+
+async function sendRealInput(input: AppRealInput): Promise<void> {
+  const win = appWindow();
+  if (!win) throw new Error('No main window available');
+  if (input.kind === 'insertText') {
+    await win.webContents.insertText(input.text);
+    return;
+  }
+  const zoom = win.webContents.getZoomFactor();
+  win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(input.x * zoom), y: Math.round(input.y * zoom) });
 }
 
 async function captureRect(rect: AppPanelRect): Promise<string | null> {
@@ -166,8 +178,8 @@ export const appControlHostService = {
     );
   },
 
-  async showBrowserPanel(): Promise<boolean> {
-    return execRenderer<boolean>('window.__appControl?.showBrowserPanel?.() ?? false');
+  async showBrowserPanel(workspaceId: string): Promise<boolean> {
+    return execRenderer<boolean>(`window.__appControl?.showBrowserPanel?.(${JSON.stringify(workspaceId)}) ?? false`);
   },
 
   async getAppRect(): Promise<AppPanelRect | null> {
@@ -243,6 +255,7 @@ export const appControlHostService = {
       const result = await execRenderer<AppInteractionResult>(
         `window.__appControl?.interact(${JSON.stringify(params)})`,
       );
+      if (result.success && result.realInput) await sendRealInput(result.realInput);
 
       if (params.action !== 'inspect' && params.captureAfter !== false && result.success) {
         await sleep(INTERACTION_SETTLE_MS);

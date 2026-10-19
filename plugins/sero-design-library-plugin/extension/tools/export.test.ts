@@ -84,4 +84,17 @@ describe('Design Library export tool', () => {
     const result = await call({ action: 'status' });
     expect(resultText(result)).toContain('/Downloads/latest');
   });
+
+  it('reports a queued export as running, not the export before it', async () => {
+    await writeJsonFile(paths.exportsIndexFile, [{
+      id: 'exp-1', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads',
+      status: 'succeeded', createdAt: 1, completedAt: 2, path: '/Downloads/older',
+    }]);
+    const run = await call({ action: 'run', familyId: 'fam-1', versionId: 'ver-1', destination: 'downloads' });
+    const exportId = (run.details as { exportId: string }).exportId;
+
+    expect(resultText(run)).toContain(exportId);
+    expect(resultText(await call({ action: 'status' }))).toBe('Export is running.');
+    expect(resultText(await call({ action: 'status', exportId }))).toBe('Export is running.');
+  });
 });

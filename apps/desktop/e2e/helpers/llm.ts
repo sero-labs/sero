@@ -11,12 +11,14 @@ const CREDENTIAL_ENV_VARS: Record<string, string[]> = {
   openai: ['OPENAI_API_KEY'],
   google: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
+  deepseek: ['DEEPSEEK_API_KEY'],
 };
 const DEFAULT_MODELS: Record<string, Record<Exclude<LlmMode, 'off'>, string>> = {
   anthropic: { cheap: 'claude-haiku-4-5', full: 'claude-sonnet-4-6' },
   openai: { cheap: 'gpt-5.4-mini', full: 'gpt-5.5' },
   google: { cheap: 'gemini-3-flash-preview', full: 'gemini-3-pro-preview' },
   openrouter: { cheap: 'openai/gpt-5.6-luna', full: 'minimax/minimax-m3' },
+  deepseek: { cheap: 'deepseek-flash', full: 'deepseek-flash' },
 };
 
 const loadedEnvFiles = new Map<string, Record<string, string>>();
@@ -27,6 +29,14 @@ export interface LlmConfig {
   modelId: string;
   alternateModelId?: string;
 }
+
+/** The tool check's real-model pass: one short task per site on deepseek-flash, thinking high. */
+export const TOOL_CHECK_LLM: LlmConfig & { thinking: 'high' } = {
+  mode: 'cheap',
+  provider: 'deepseek',
+  modelId: 'deepseek-flash',
+  thinking: 'high',
+};
 
 export interface RequireLlmResult {
   skip: boolean;

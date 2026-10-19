@@ -64,7 +64,17 @@ export function getAgentPoolEntries(): Array<[string, PoolEntry]> {
 if (process.env.NODE_ENV === 'test') {
   (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry = getAgentPoolEntry;
 }
-/** Reload all active session runtimes after resource/package edits. */
+/**
+ * Reload all active session runtimes after resource/package edits.
+ *
+ * Each session builds its own skills, prompts and extensions when it loads, and
+ * Pi has no way to mark one stale, so every open session reloads here: idle
+ * ones at once, busy ones when they go idle. The cost grows with the number of
+ * open sessions: in the tool check, which keeps about 60 open, a skill save
+ * once took over 30 s, most likely because of this. If that ever matters in
+ * real use, reload only the viewed session and reload the others just before
+ * their next prompt.
+ */
 export async function reloadAllSessionResources(): Promise<void> {
   // Read once for the whole batch: the pushed list must hide the same commands
   // as the getCommands/reloadResources paths, or hidden commands come back in

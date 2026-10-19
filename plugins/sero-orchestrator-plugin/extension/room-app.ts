@@ -255,7 +255,7 @@ async function settledResult(
     }
     case 'intervene': {
       const now = params.deliver !== 'next-turn';
-      const outcome = await app.intervene(roomId, params.body ?? '', list(params.memberIds), now);
+      const outcome = await app.intervene(roomId, params.body ?? '', list(params.memberIds), now, now);
       return outcome.ok
         ? done(now ? 'The Room was told, and the members it reached are awake.' : 'The Room was told. It arrives on their next turn.')
         : failure(outcome.error);

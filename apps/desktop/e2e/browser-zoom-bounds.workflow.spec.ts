@@ -90,7 +90,10 @@ test.describe('Browser view zoom bounds', () => {
     // is attached and driven by the placeholder's bounds. The placeholder
     // (browser-viewport) only mounts once a tab exists — the empty panel
     // shows a "New tab" prompt instead.
-    const opened = await page.evaluate(() => Boolean(window.__appControl?.showBrowserPanel()));
+    const opened = await page.evaluate(async () => {
+      const workspace = (await window.sero.workspace.list()).find((entry) => entry.open);
+      return Boolean(workspace && window.__appControl?.showBrowserPanel(workspace.id));
+    });
     expect(opened).toBe(true);
     const newTab = page.getByRole('button', { name: 'New tab', exact: false }).first();
     await expect(newTab).toBeVisible({ timeout: 10_000 });

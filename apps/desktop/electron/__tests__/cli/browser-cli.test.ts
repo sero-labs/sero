@@ -57,7 +57,7 @@ describe('browser CLI', () => {
 
     const result = await registry.get('browser')?.execute(['show'], context());
 
-    expect(appControlMocks.showBrowserPanel).toHaveBeenCalled();
+    expect(appControlMocks.showBrowserPanel).toHaveBeenCalledWith('ws-1');
     expect(result).toEqual({
       output: 'Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.',
       exitCode: 0,

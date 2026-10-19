@@ -70,6 +70,24 @@ describe('app control workspace navigation', () => {
     expect(openApp).toHaveBeenCalledWith('orchestrator');
   });
 
+  it("shows the Browser panel of the agent's workspace, switching to it", () => {
+    useAppStore.setState({ activeApp: 'explorer' });
+
+    expect(window.__appControl!.showBrowserPanel('target')).toBe(true);
+
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('target');
+    expect(useExplorerStore.getState().get('target').activePanel).toBe('browser');
+  });
+
+  it('brings back the file tree when the Explorer is opened after the Browser panel', () => {
+    useAppStore.setState({ apps: [{ id: 'explorer', label: 'Explorer', icon: 'folder', builtin: true, manifest: null }] });
+    window.__appControl!.showBrowserPanel('target');
+
+    expect(window.__appControl!.openApp('explorer')).toBe(true);
+
+    expect(useExplorerStore.getState().get('target')).toMatchObject({ activePanel: 'explorer', sidebarOpen: true });
+  });
+
   it('refuses an unknown workspace without opening the wrong project', () => {
     expect(window.__appControl!.openApp('orchestrator', 'missing')).toBe(false);
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('previous');

@@ -25,6 +25,8 @@ export interface StubTool {
 export interface StubMessage {
   role: string;
   text: string;
+  /** Images in the message, which Pi sends after a tool result for a model that takes images. */
+  images: Array<{ mimeType: string; data: string }>;
   toolCallId?: string;
   toolCalls: Array<{ id: string; name: string; arguments: string }>;
 }
@@ -51,7 +53,7 @@ interface ChatCompletionsBody {
   tools?: Array<{ function: StubTool }>;
   messages?: Array<{
     role: string;
-    content?: string | Array<{ type: string; text?: string }> | null;
+    content?: string | Array<{ type: string; text?: string; image_url?: { url: string } }> | null;
     tool_call_id?: string;
     tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
   }>;
@@ -63,10 +65,19 @@ function textOf(content: NonNullable<ChatCompletionsBody['messages']>[number]['c
   return content.map((part) => part.text ?? '').join('');
 }
 
+function imagesOf(content: NonNullable<ChatCompletionsBody['messages']>[number]['content']): StubMessage['images'] {
+  if (!Array.isArray(content)) return [];
+  return content.flatMap((part) => {
+    const match = /^data:([^;]+);base64,(.*)$/s.exec(part.image_url?.url ?? '');
+    return match ? [{ mimeType: match[1]!, data: match[2]! }] : [];
+  });
+}
+
 function parseRequest(body: ChatCompletionsBody): StubRequest {
   const messages = (body.messages ?? []).map((message): StubMessage => ({
     role: message.role,
     text: textOf(message.content),
+    images: imagesOf(message.content),
     toolCallId: message.tool_call_id,
     toolCalls: (message.tool_calls ?? []).map((call) => ({
       id: call.id,
@@ -148,13 +159,13 @@ function wholeReply(reply: StubReply): string {
 
 /** `respond` gets each request and its position in the run, and returns the scripted reply. */
 export async function startStubModel(
-  respond: (request: StubRequest, index: number) => StubReply,
+  respond: (request: StubRequest, index: number) => StubReply | Promise<StubReply>,
 ): Promise<StubModelServer> {
   const requests: StubRequest[] = [];
   const server = http.createServer((req, res) => {
     const bodyChunks: Buffer[] = [];
     req.on('data', (piece: Buffer) => bodyChunks.push(piece));
-    req.on('end', () => {
+    req.on('end', async () => {
       if (req.method !== 'POST' || !req.url?.endsWith('/chat/completions')) {
         res.writeHead(404).end();
         return;
@@ -162,7 +173,14 @@ export async function startStubModel(
       const body = JSON.parse(Buffer.concat(bodyChunks).toString('utf8')) as ChatCompletionsBody;
       const request = parseRequest(body);
       requests.push(request);
-      const reply = respond(request, requests.length - 1);
+      let reply: StubReply;
+      try {
+        reply = await respond(request, requests.length - 1);
+      } catch (error) {
+        // A reply that throws must not leave the session waiting on a request that never ends.
+        res.writeHead(500, { 'content-type': 'text/plain' }).end(String(error));
+        return;
+      }
       if (body.stream) {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
         res.end(streamReply(reply));
@@ -189,7 +207,7 @@ export async function startStubModel(
  * from a launch `seed` callback, before Sero starts. The provider id is not a
  * built-in one, so it exercises the route a user's own provider takes.
  */
-export function seedStubProvider(seroHome: string, baseUrl: string): void {
+export function seedStubProvider(seroHome: string, baseUrl: string, options: { images?: boolean } = {}): void {
   const agentDir = path.join(seroHome, 'agent');
   fs.mkdirSync(agentDir, { recursive: true });
   fs.writeFileSync(path.join(agentDir, 'models.json'), JSON.stringify({
@@ -199,7 +217,14 @@ export function seedStubProvider(seroHome: string, baseUrl: string): void {
         api: 'openai-completions',
         apiKey: 'stub-key',
         compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
-        models: [{ id: STUB_MODEL_ID, name: 'Stub model', contextWindow: 128_000, maxTokens: 4_096 }],
+        // With `images`, Pi sends a tool result's images on to the stub, so a test can check them.
+        models: [{
+          id: STUB_MODEL_ID,
+          name: 'Stub model',
+          contextWindow: 128_000,
+          maxTokens: 4_096,
+          ...(options.images ? { input: ['text', 'image'] } : {}),
+        }],
       },
     },
   }, null, 2));

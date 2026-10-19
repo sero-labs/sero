@@ -2,6 +2,7 @@
  * Git app state file I/O helpers.
  */
 
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
@@ -41,7 +42,8 @@ export async function writeState(filePath: string, state: GitAppState): Promise<
   const dir = path.dirname(filePath);
   await fs.mkdir(dir, { recursive: true });
 
-  const tmpPath = `${filePath}.tmp.${Date.now()}`;
+  // Unique per write: two writes in the same millisecond must not share a file.
+  const tmpPath = `${filePath}.tmp.${randomUUID()}`;
   await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmpPath, filePath);
 }

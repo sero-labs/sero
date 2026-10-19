@@ -32,8 +32,8 @@ export interface TurnOutcome {
 }
 
 export interface TurnWatch {
-  /** Resolves when `turnId` ends. Aborting the signal aborts the turn first. */
-  settle(turnId: string, signal?: AbortSignal): Promise<TurnOutcome>;
+  /** Resolves when `turnId` ends. */
+  settle(turnId: string): Promise<TurnOutcome>;
   stop(): void;
 }
 
@@ -74,7 +74,7 @@ export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWat
   });
 
   return {
-    settle: (turnId, signal) =>
+    settle: (turnId) =>
       new Promise<TurnOutcome>((resolve) => {
         const already = ended.get(turnId);
         if (already) {
@@ -82,10 +82,6 @@ export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWat
           return;
         }
         pending = { turnId, resolve };
-        // Cancellation still waits for `turn_end`: the session is only free once
-        // the host says the turn stopped, and releasing it earlier would let the
-        // pool close a session that is still executing.
-        signal?.addEventListener('abort', () => void api.abort(handleId), { once: true });
       }),
     stop: unsubscribe,
   };

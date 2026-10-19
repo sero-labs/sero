@@ -1,5 +1,6 @@
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok } from '@electron/cli/lib/utils';
 
@@ -17,26 +18,23 @@ async function listFiles(workspaceId: string, dirPath: string): Promise<string> 
     .join('\n') || '(empty directory)';
 }
 
-async function handleEditor(args: string[], _ctx: CliCommandContext) {
-  const [action, ...rest] = args;
-  const ctx = _ctx;
+const EDITOR_SUBCOMMANDS: CliSubcommands = {
+  read: async (rest, ctx) => {
+    const filePath = rest[0];
+    if (!filePath) return fail('Usage: sero editor read <path>');
+    return ok(await readFile(ctx.workspaceId, filePath));
+  },
+  list: async (rest, ctx) => {
+    const dirPath = rest[0] ?? '/workspace';
+    return ok(await listFiles(ctx.workspaceId, dirPath));
+  },
+};
 
+async function handleEditor(args: string[], ctx: CliCommandContext) {
   try {
-    switch (action) {
-      case 'read': {
-        const filePath = rest[0];
-        if (!filePath) return fail('Usage: sero editor read <path>');
-        return ok(await readFile(ctx.workspaceId, filePath));
-      }
-
-      case 'list': {
-        const dirPath = rest[0] ?? '/workspace';
-        return ok(await listFiles(ctx.workspaceId, dirPath));
-      }
-
-      default:
-        return fail('Usage: sero editor <read|list> ...');
-    }
+    return await runSubcommand(EDITOR_SUBCOMMANDS, args, ctx, undefined, {
+      unknown: () => fail('Usage: sero editor <read|list> ...'),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Editor command failed';
     return fail(message);
@@ -55,6 +53,7 @@ export function registerEditorCliCommands(registry: CliRegistry): void {
       '  list [dir]             List directory entries\n',
     source: 'ipc',
     group: 'Editor',
+    subcommands: EDITOR_SUBCOMMANDS,
     execute: handleEditor,
   });
 }

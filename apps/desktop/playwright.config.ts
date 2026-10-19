@@ -15,10 +15,15 @@ import { defineConfig } from '@playwright/test';
  *                  flows. Runs nightly (cheap) and on-demand (full).
  *                  Skipped entirely when SERO_E2E_LLM_MODE=off (default).
  *
+ *   - "tools"    — Runs every agent tool action for real with the stub
+ *                  model. Started only by a person: `pnpm e2e:tools`
+ *                  locally, or the manual tool-check workflow.
+ *
  * Spec routing is by filename suffix:
  *   *.contract.spec.ts → contract
  *   *.workflow.spec.ts → workflow
  *   *.agent.spec.ts    → agent
+ *   *.tools.spec.ts    → tools
  */
 export default defineConfig({
   testDir: './e2e',
@@ -66,6 +71,11 @@ export default defineConfig({
       name: 'agent',
       testMatch: '**/*.agent.spec.ts',
       metadata: { layer: 'agent' },
+    },
+    {
+      name: 'tools',
+      testMatch: '**/*.tools.spec.ts',
+      metadata: { layer: 'tools' },
     },
   ],
 });

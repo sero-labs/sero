@@ -7,91 +7,88 @@
 
 import { artifactRegistry } from '@electron/shared/infra/shared-infra';
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok, parseFlags, requireFlagString } from '@electron/cli/lib/utils';
 
-async function handleArtifacts(args: string[], ctx: CliCommandContext) {
-  const [action, ...rest] = args;
+const ARTIFACT_SUBCOMMANDS: CliSubcommands = {
+  list: async (rest) => {
+    const { flags } = parseFlags(rest);
+    const sessionId = requireFlagString(flags, 'session') ?? undefined;
+    const artifacts = artifactRegistry.list(sessionId);
+    if (artifacts.length === 0) return ok('No artifacts recorded.');
+    return ok(
+      artifacts
+        .map(
+          (a) =>
+            `${a.id} [${a.type}] ${a.title} (${a.timestamp})` +
+            (a.containerPath ? ` — ${a.containerPath}` : ''),
+        )
+        .join('\n'),
+    );
+  },
+  save: async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const title = requireFlagString(flags, 'title');
+    const type = requireFlagString(flags, 'type') as
+      | 'screenshot'
+      | 'log'
+      | 'video'
+      | null;
+    const containerPath = requireFlagString(flags, 'path') ?? undefined;
 
-  try {
-    switch (action) {
-      case 'list': {
-        const { flags } = parseFlags(rest);
-        const sessionId = requireFlagString(flags, 'session') ?? undefined;
-        const artifacts = artifactRegistry.list(sessionId);
-        if (artifacts.length === 0) return ok('No artifacts recorded.');
-        return ok(
-          artifacts
-            .map(
-              (a) =>
-                `${a.id} [${a.type}] ${a.title} (${a.timestamp})` +
-                (a.containerPath ? ` — ${a.containerPath}` : ''),
-            )
-            .join('\n'),
-        );
-      }
-
-      case 'save': {
-        const { flags } = parseFlags(rest);
-        const title = requireFlagString(flags, 'title');
-        const type = requireFlagString(flags, 'type') as
-          | 'screenshot'
-          | 'log'
-          | 'video'
-          | null;
-        const containerPath = requireFlagString(flags, 'path') ?? undefined;
-
-        if (!title || !type) {
-          return fail(
-            'Usage: sero artifacts save --title <title> --type <screenshot|log|video> [--path <container-path>]',
-          );
-        }
-
-        if (!['screenshot', 'log', 'video'].includes(type)) {
-          return fail(`Invalid type: ${type}. Must be screenshot, log, or video.`);
-        }
-
-        const mimeMap: Record<string, string> = {
-          screenshot: 'image/png',
-          log: 'text/plain',
-          video: 'video/mp4',
-        };
-
-        const artifact = artifactRegistry.add({
-          sessionId: ctx.invocation.sessionId ?? 'unknown',
-          workspaceId: ctx.workspaceId,
-          type,
-          title,
-          containerPath,
-          mimeType: mimeMap[type] ?? 'application/octet-stream',
-        });
-
-        return ok(`Artifact saved: ${artifact.title} (${artifact.id})`);
-      }
-
-      case 'remove': {
-        const artifactId = rest[0];
-        if (!artifactId) return fail('Usage: sero artifacts remove <id>');
-        const removed = artifactRegistry.remove(artifactId);
-        if (!removed) return fail(`Artifact not found: ${artifactId}`);
-        return ok(`Removed artifact: ${artifactId}`);
-      }
-
-      case 'summary': {
-        const { flags } = parseFlags(rest);
-        const sessionId =
-          requireFlagString(flags, 'session') ??
-          ctx.invocation.sessionId ??
-          undefined;
-        if (!sessionId) return fail('Usage: sero artifacts summary --session <id>');
-        const summary = artifactRegistry.buildPrSummary(sessionId);
-        if (!summary) return ok('No artifacts to summarize.');
-        return ok(summary);
-      }
-
-      default:
-        return fail('Usage: sero artifacts <list|save|remove|summary>');
+    if (!title || !type) {
+      return fail(
+        'Usage: sero artifacts save --title <title> --type <screenshot|log|video> [--path <container-path>]',
+      );
     }
+
+    if (!['screenshot', 'log', 'video'].includes(type)) {
+      return fail(`Invalid type: ${type}. Must be screenshot, log, or video.`);
+    }
+
+    const mimeMap: Record<string, string> = {
+      screenshot: 'image/png',
+      log: 'text/plain',
+      video: 'video/mp4',
+    };
+
+    const artifact = artifactRegistry.add({
+      sessionId: ctx.invocation.sessionId ?? 'unknown',
+      workspaceId: ctx.workspaceId,
+      type,
+      title,
+      containerPath,
+      mimeType: mimeMap[type] ?? 'application/octet-stream',
+    });
+
+    return ok(`Artifact saved: ${artifact.title} (${artifact.id})`);
+  },
+  remove: async (rest) => {
+    const artifactId = rest[0];
+    if (!artifactId) return fail('Usage: sero artifacts remove <id>');
+    const removed = artifactRegistry.remove(artifactId);
+    if (!removed) return fail(`Artifact not found: ${artifactId}`);
+    return ok(`Removed artifact: ${artifactId}`);
+  },
+  summary: async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const sessionId =
+      requireFlagString(flags, 'session') ??
+      ctx.invocation.sessionId ??
+      undefined;
+    if (!sessionId) return fail('Usage: sero artifacts summary --session <id>');
+    const summary = artifactRegistry.buildPrSummary(sessionId);
+    if (!summary) return ok('No artifacts to summarize.');
+    return ok(summary);
+  },
+};
+
+async function handleArtifacts(args: string[], ctx: CliCommandContext) {
+  try {
+    return await runSubcommand(ARTIFACT_SUBCOMMANDS, args, ctx, undefined, {
+      unknown: () => fail('Usage: sero artifacts <list|save|remove|summary>'),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Artifacts command failed';
@@ -113,6 +110,7 @@ export function registerArtifactCliCommands(registry: CliRegistry): void {
       '  summary [--session <id>]            — Generate PR summary\n',
     source: 'ipc',
     group: 'Artifacts',
+    subcommands: ARTIFACT_SUBCOMMANDS,
     execute: handleArtifacts,
   });
 }
