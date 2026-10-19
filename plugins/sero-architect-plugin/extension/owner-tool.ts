@@ -41,6 +41,7 @@ export const OwnerToolParams = Type.Object({
   textJson: Type.Optional(Type.String({ description: 'brief/reply: the text as one JSON string, in place of text, when it has more than one line. Write a newline as \\n and a double quote as \\u0022' })),
   planJson: Type.Optional(Type.String({ description: 'milestone: the plan as one JSON string, in place of plan, when it has more than one line' })),
   approachJson: Type.Optional(Type.String({ description: 'working: the approach as one JSON string, in place of approach, when it has more than one line' })),
+  promptJson: Type.Optional(Type.String({ description: 'dispatch: the prompt as one JSON string, in place of prompt, when it has more than one line' })),
   field: Type.Optional(StringEnum(OVERVIEW_FIELDS, { description: 'summary: which short overview sentence to write: outcome (what the user will get), objective (what you work on now), result (what there is to use) or acknowledgement (your answer to the last instruction)' })),
   sourceKind: Type.Optional(StringEnum(SUMMARY_SOURCE_KINDS, { description: 'summary: the kind of work the sentence is about; required for result and acknowledgement' })),
   sourceId: Type.Optional(Type.String({ description: 'summary: the id of that milestone, research, evidence milestone or directive; any value for plan' })),
@@ -92,6 +93,7 @@ export interface OwnerToolParamsShape {
   textJson?: string;
   planJson?: string;
   approachJson?: string;
+  promptJson?: string;
   field?: (typeof OVERVIEW_FIELDS)[number];
   sourceKind?: (typeof SUMMARY_SOURCE_KINDS)[number];
   sourceId?: string;
@@ -186,6 +188,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
   if (typeof plan === 'object') return plan;
   const approach = decodeDocument(params.approach, params.approachJson, 'approach');
   if (typeof approach === 'object') return approach;
+  const prompt = decodeDocument(params.prompt, params.promptJson, 'prompt');
+  if (typeof prompt === 'object') return prompt;
   const extraKeys = RESERVED_IN_SCHEMA.filter((key) => params[key] !== undefined);
   return {
     action: params.action,
@@ -225,7 +229,7 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     artifact: params.artifact,
     needsCommands: params.needsCommands,
     kind: params.kind,
-    prompt: params.prompt,
+    prompt,
     destination: params.destination,
     maxCostUsd: params.maxCostUsd,
     commands,

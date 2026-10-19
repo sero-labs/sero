@@ -332,7 +332,7 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     '',
     ...behaviourBlock(record, wake),
     '',
-    'You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.',
+    'You can find more of your approved tools with tool_search. It lists only what you are already allowed to use. Your approved skills are listed in this prompt; read one when the work needs it.',
     'If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.',
     'If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.',
     `Every architect action takes --projectId ${record.id}. A call with another id is refused.`,
