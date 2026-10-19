@@ -208,7 +208,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
           const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
           if (released.ok) {
             next = released.record;
-            note = ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
+            note += ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
           }
         }
         return { record: next };
