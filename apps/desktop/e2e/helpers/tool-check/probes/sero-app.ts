@@ -116,9 +116,15 @@ export const seroAppProbe: ToolProbe = {
         if (!value.includes('tc-typed-address')) throw new Error(`the address bar holds ${JSON.stringify(value)}`);
       },
     },
-    // The last two fail until app control sends real input (follow-up issues):
-    // Monaco ignores a synthetic input event, and CSS :hover and pointer-event
-    // UI ignore a synthetic mouseover.
+    {
+      action: 'hover',
+      params: { argv: ['hover', item(LAST)] },
+      async expect(result, ctx) {
+        expectText(result, 'Hovered: ');
+        await expectElementState(ctx, item(LAST), ':hover');
+      },
+    },
+    // Fails until app control sends real text input: Monaco ignores a synthetic input event.
     { action: 'click', params: { argv: ['click', item('file-0.txt')] }, expect: (result) => expectText(result, 'Clicked: ') },
     {
       action: 'type',
@@ -128,14 +134,6 @@ export const seroAppProbe: ToolProbe = {
         expectText(result, 'Typed "tc typed text"');
         const shown = await pageOf(ctx).locator(EDITOR_TEXT).innerText();
         if (!shown.replace(/\u00a0/g, ' ').includes('tc typed text')) throw new Error(`the editor did not change: ${JSON.stringify(shown)}`);
-      },
-    },
-    {
-      action: 'hover',
-      params: { argv: ['hover', item(LAST)] },
-      async expect(result, ctx) {
-        expectText(result, 'Hovered: ');
-        await expectElementState(ctx, item(LAST), ':hover');
       },
     },
   ],

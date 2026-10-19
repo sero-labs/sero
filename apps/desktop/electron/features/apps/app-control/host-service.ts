@@ -11,6 +11,7 @@ import type {
   AppRecordingResult,
   AppRecordingStatus,
 } from '@/types/ipc';
+import type { AppRealInput } from '@/types/app-control';
 
 const INTERACTION_SETTLE_MS = 200;
 const RECORDING_FRAME_INTERVAL_MS = 500;
@@ -58,6 +59,13 @@ async function execRenderer<T>(code: string): Promise<T> {
   const win = appWindow();
   if (!win) throw new Error('No main window available');
   return win.webContents.executeJavaScript(code) as Promise<T>;
+}
+
+function sendRealInput(input: AppRealInput): void {
+  const win = appWindow();
+  if (!win) throw new Error('No main window available');
+  const zoom = win.webContents.getZoomFactor();
+  win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(input.x * zoom), y: Math.round(input.y * zoom) });
 }
 
 async function captureRect(rect: AppPanelRect): Promise<string | null> {
@@ -243,6 +251,7 @@ export const appControlHostService = {
       const result = await execRenderer<AppInteractionResult>(
         `window.__appControl?.interact(${JSON.stringify(params)})`,
       );
+      if (result.success && result.realInput) sendRealInput(result.realInput);
 
       if (params.action !== 'inspect' && params.captureAfter !== false && result.success) {
         await sleep(INTERACTION_SETTLE_MS);

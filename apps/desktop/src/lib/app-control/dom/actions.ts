@@ -174,9 +174,11 @@ export function handleHover(panel: HTMLElement, params: AppInteractionParams): A
   if (!params.selector && !params.ref) return { success: false, message: 'Hover requires a selector or ref' };
   const element = findTarget(panel, params);
   if (!element) return { success: false, message: `No element found: ${targetLabel(params)}` };
-  element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-  element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-  return { success: true, message: `Hovered: ${targetLabel(params)}` };
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const rect = element.getBoundingClientRect();
+  // The main process moves the real pointer here, so `:hover` and pointer handlers react.
+  const realInput = { kind: 'mouseMove' as const, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+  return { success: true, message: `Hovered: ${targetLabel(params)}`, realInput };
 }
 
 export function handleGetText(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
