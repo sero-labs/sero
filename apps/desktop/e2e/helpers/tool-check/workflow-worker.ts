@@ -27,9 +27,19 @@ export interface WorkerOutcome extends RunOutcome {
   createResult: string;
 }
 
+/** A real model's step: its own instructions, and a `provider/modelId` pin in place of the stub's tier. */
+export interface RealStep {
+  instructions: string;
+  model: string;
+  thinking: string;
+}
+
 /** One background-agent step. A tool outside the default loadout is added to the step's tools. */
-export function planningReply(goal: string, tool: string, defaultTools: boolean): string {
+export function planningReply(goal: string, tool: string, defaultTools: boolean, real?: RealStep): string {
   const extra = defaultTools || STEP_TOOLS.includes(tool) || tool.startsWith('sero ') ? [] : [tool];
+  const execution = real
+    ? { type: 'background-agent', model: real.model, thinking: real.thinking }
+    : { type: 'background-agent', model: 'LOW', ...(extra.length ? { tools: extra } : {}) };
   return JSON.stringify({
     schemaVersion: 1,
     title: goal,
@@ -41,9 +51,9 @@ export function planningReply(goal: string, tool: string, defaultTools: boolean)
       steps: [{
         id: 'tool-check',
         title: goal,
-        instructions: `Run the ${tool} tool check, then report the outcome.`,
+        instructions: real?.instructions ?? `Run the ${tool} tool check, then report the outcome.`,
         expectedOutcome: 'Every check step ran.',
-        execution: { type: 'background-agent', model: 'LOW', ...(extra.length ? { tools: extra } : {}) },
+        execution,
       }],
     },
   });

@@ -5,7 +5,8 @@
  * `SERO_E2E_RUNTIME` picks the runtime: host by default, `docker` on Linux or
  * `apple-container` on a Mac. `SERO_TOOL_CHECK_ONLY=bash,sero git` runs only
  * the named tools, which is for checking one fix; the ledger comparison then
- * fails, because the rest did not run.
+ * fails, because the rest did not run. `SERO_TOOL_CHECK_REAL_MODEL=1` adds one
+ * short task per site on a real model (helpers/tool-check/real-model.ts).
  */
 import { test, expect } from '@playwright/test';
 import { startToolCheckApp, type ToolCheckApp } from './helpers/tool-check/app';
@@ -14,6 +15,7 @@ import { checkCancel } from './helpers/tool-check/cancel';
 import { startFixtures, type RunningFixtures } from './helpers/tool-check/fixtures';
 import { exemptionReport, ledgerProblems, requiredActions } from './helpers/tool-check/ledger';
 import { readCodemodeSurface, rejectionSteps, runAt, sessionSurface, sitePassSteps, type SiteSurface } from './helpers/tool-check/site-pass';
+import { REAL_MODEL_SITES, realModelSkipReason, runRealModelTask } from './helpers/tool-check/real-model';
 import { runInChat } from './helpers/tool-check/sites';
 import { runInSubagent } from './helpers/tool-check/subagent-site';
 import { runRoomsWithMember } from './helpers/tool-check/room-member';
@@ -151,4 +153,17 @@ test.describe.serial('action pass', () => {
     for (const line of exemptionReport(TOOL_PROBES)) console.log(`exempt: ${line}`);
     expect(ledgerProblems(check.ledger.ledger, TOOL_PROBES)).toEqual([]);
   });
+});
+
+// One short task per site on a real model, checked by the file it writes.
+// Outside the serial block, so one site failing does not skip the rest.
+test.describe('real-model pass', () => {
+  for (const site of REAL_MODEL_SITES) {
+    test(`real model at ${site}`, async () => {
+      test.setTimeout(420_000);
+      const skip = realModelSkipReason();
+      test.skip(skip !== null, skip ?? '');
+      expect(await runRealModelTask(check, site)).toBeNull();
+    });
+  }
 });

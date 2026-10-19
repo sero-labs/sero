@@ -153,6 +153,12 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
           path.join(seroHome, 'agent', 'settings.json'),
           JSON.stringify({ sero: { modelTiers: { LOW: tier, MED: tier, HIGH: tier } } }, null, 2),
         );
+        // Memory that is set up, as a used profile has. Without it a real model's
+        // first chat runs the memory questionnaire and waits for a person.
+        const memoryRoot = path.join(seroHome, 'workspaces', 'global');
+        fs.mkdirSync(memoryRoot, { recursive: true });
+        fs.writeFileSync(path.join(memoryRoot, 'IDENTITY.md'), '# Identity\n\n- **Name:** Sero\n');
+        fs.writeFileSync(path.join(memoryRoot, 'USER.md'), '# User\n\n- **Role:** Developer\n');
       },
     });
     app = launched.app;
