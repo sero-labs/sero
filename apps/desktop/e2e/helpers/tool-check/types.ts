@@ -7,6 +7,8 @@
  * Playwright project runs it.
  */
 
+import type { Page } from '@playwright/test';
+
 export type ToolCheckRuntime = 'host' | 'docker' | 'apple-container';
 
 /** The places a tool runs from, in the order the action pass tries them. */
@@ -55,6 +57,7 @@ export interface ToolCheckFixtures {
 }
 
 export interface StepContext {
+  workspaceId: string;
   /** The workspace folder as the test process sees it, for checking effects. */
   workspacePath: string;
   runtime: ToolCheckRuntime;
@@ -62,6 +65,8 @@ export interface StepContext {
   fixtures: ToolCheckFixtures;
   /** Values an earlier step saved for a later one, such as a created id. */
   state: Record<string, unknown>;
+  /** The app window, for a setup or an effect only the app can show. Absent in unit tests. */
+  page?: Page;
 }
 
 export type StepParams = Record<string, unknown>;

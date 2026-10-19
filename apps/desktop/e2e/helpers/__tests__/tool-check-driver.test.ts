@@ -50,7 +50,7 @@ describe('tool check scenario driver', () => {
     const ledger = new LedgerWriter(path.join(dir, 'ledger-host.json'), 'host');
     const driver = new ScenarioDriver(ledger);
     stub = await startProbeStub({}, undefined, driver);
-    const ctx: StepContext = { workspacePath: dir, runtime: 'host', site: 'chat', fixtures: { pageServerUrl: '', gitRemotePath: '' }, state: {} };
+    const ctx: StepContext = { workspaceId: 'ws', workspacePath: dir, runtime: 'host', site: 'chat', fixtures: { pageServerUrl: '', gitRemotePath: '' }, state: {} };
     const outcome = driver.add({ prompt: 'check notes', tool: probe.tool, steps: probe.steps, via, ctx });
     return { ledger, outcome };
   }
