@@ -662,6 +662,9 @@ function chatTurn(sessionId: string, prompt: string, limits: TurnLimits): Promis
 async function answeredChatTurn(label: string, sessionId: string, prompt: string, limits: TurnLimits): Promise<TurnResult> {
   let settled = false;
   const turn = chatTurn(sessionId, prompt, limits).finally(() => { settled = true; });
+  // Handled at once, so a turn that fails while a card is being answered is not
+  // an unhandled rejection; the caller still gets the error from `return turn`.
+  turn.catch(() => undefined);
   while (!settled) {
     await approvePrompts(label);
     await Promise.race([turn, sleep(2_000)]);
