@@ -35,7 +35,11 @@ export interface InventoryEntry {
 
 /** A tool call's result as the session received it. */
 export interface ToolCallResult {
-  isError: boolean;
+  /**
+   * Null where the site does not report it. A model is sent only a result's
+   * text, so only the chat, whose events reach the test, reports the flag.
+   */
+  isError: boolean | null;
   /** Every text block, joined with line breaks. */
   text: string;
   images: Array<{ mimeType: string; data: string }>;

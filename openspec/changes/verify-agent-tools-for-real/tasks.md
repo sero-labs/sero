@@ -19,8 +19,8 @@
 
 ## 4. Scenario driver and ledger
 
-- [ ] 4.1 Extend `startProbeStub` in `e2e/helpers/session-probe.ts` with a scenario mode that emits one step, reads its result from the next request, runs `expect` and records the outcome; verify with a unit test in `e2e/helpers/__tests__/`
-- [ ] 4.2 Add the ledger writer and the final ledger comparison (design decision 5); verify with a unit test that a non-exempt action missing from a ledger fails and is named with its site and runtime
+- [x] 4.1 Extend `startProbeStub` in `e2e/helpers/session-probe.ts` with a scenario mode that emits one step, reads its result from the next request, runs `expect` and records the outcome; verify with a unit test in `e2e/helpers/__tests__/`
+- [x] 4.2 Add the ledger writer and the final ledger comparison (design decision 5); verify with a unit test that a non-exempt action missing from a ledger fails and is named with its site and runtime
 - [ ] 4.3 Add the `tools` Playwright project (`*.tools.spec.ts`) and the `e2e:tools` script, with one host-artifacts directory per run so the browser pack installs once; verify an empty `tools` spec starts and stops the app on host
 - [ ] 4.4 Add the Workflow worker harness: create a one-step Orchestrator plan through `sero-cli orchestrator`, with the stub as the step model, and run it; verify the step session's tool list reaches the stub and the step finishes
 
