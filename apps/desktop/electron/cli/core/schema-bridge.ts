@@ -29,6 +29,9 @@ const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   code_search: 90_000,
   // Launch, navigation waits and recording stop each run for tens of seconds.
   automation_browser: 120_000,
+  // `rooms prepare` returns only once the planner has designed the Room, which
+  // takes a minute or more on a slow model.
+  rooms: 300_000,
 };
 
 const SCHEMA_PROP_TYPES = new Set<SchemaPropType>([
