@@ -109,5 +109,7 @@ export interface Exemption {
 export interface ToolProbe {
   tool: string;
   steps: ScenarioStep[];
+  /** The longest the whole session may take, where a first-use install or a background run makes it slow. */
+  timeoutMs?: number;
   exemptions?: Exemption[];
 }

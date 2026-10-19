@@ -23,3 +23,22 @@ export function expectText(result: ToolCallResult, fragment: string): void {
   expectOk(result);
   if (!result.text.includes(fragment)) throw new Error(`result does not mention ${JSON.stringify(fragment)}: ${result.text}`);
 }
+
+/** Magic bytes by type. A session may re-encode a tool's PNG as JPEG on its way to the model. */
+const SIGNATURES: Record<string, Buffer> = {
+  'image/png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  'image/jpeg': Buffer.from([0xff, 0xd8, 0xff]),
+};
+
+/** Fails unless the call succeeded with a real PNG or JPEG image larger than a blank capture. */
+export function expectImage(result: ToolCallResult, minBytes = 1_000): void {
+  expectOk(result);
+  const image = result.images[0];
+  if (!image) throw new Error(`no image came back: ${result.text}`);
+  const bytes = Buffer.from(image.data, 'base64');
+  const signature = SIGNATURES[image.mimeType];
+  if (!signature || !bytes.subarray(0, signature.length).equals(signature)) {
+    throw new Error(`the image is not a PNG or JPEG (${image.mimeType}, ${bytes.length} bytes)`);
+  }
+  if (bytes.length < minBytes) throw new Error(`the image is only ${bytes.length} bytes`);
+}

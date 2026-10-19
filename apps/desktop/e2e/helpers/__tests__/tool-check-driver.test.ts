@@ -123,6 +123,10 @@ describe('sero-cli command lines', () => {
     expect(tokenizeCliInput(cliCommandFor('sero git', { argv: ['checkpoint', 'two words'] })))
       .toEqual(['git', 'checkpoint', 'two words']);
   });
+
+  it('passes argv to a plugin tool that parses its own command line', () => {
+    expect(tokenizeCliInput(cliCommandFor('usage', { argv: ['summary', 'today'] }))).toEqual(['usage', 'summary', 'today']);
+  });
 });
 
 describe('tool check ledger', () => {
@@ -155,5 +159,16 @@ describe('tool check ledger', () => {
       'failed: notes remove at chat on docker: still there',
       'not run: notes at subagent on docker, which the site was given',
     ]);
+  });
+
+  it('fails an action whose session failed after its step passed', () => {
+    const problems = ledgerProblems(ledger({
+      rows: [
+        { runtime: 'docker', site: 'chat', tool: 'notes', action: 'add', result: 'pass', ms: 5 },
+        { runtime: 'docker', site: 'chat', tool: 'notes', action: 'remove', result: 'pass', ms: 5 },
+        { runtime: 'docker', site: 'chat', tool: 'notes', action: 'remove', result: 'fail', ms: 0, error: 'the turn did not end' },
+      ],
+    }), probes);
+    expect(problems).toEqual(['failed: notes remove at chat on docker: the turn did not end']);
   });
 });

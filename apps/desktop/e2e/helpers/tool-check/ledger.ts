@@ -78,6 +78,10 @@ function label(tool: string, action: string | null): string {
 const same = (tool: string, action: string | null) => (row: { tool: string; action: string | null }) =>
   row.tool === tool && row.action === action;
 
+function latestBySite(rows: LedgerRow[]): LedgerRow[] {
+  return [...new Map(rows.map((row) => [row.site, row])).values()];
+}
+
 /** Every action the table gives a scenario, minus the exempt ones. */
 export function requiredActions(probes: ToolProbe[]): Array<{ tool: string; action: string | null }> {
   return probes.flatMap((probe) => {
@@ -101,9 +105,11 @@ export function ledgerProblems(ledger: Ledger, probes: ToolProbe[]): string[] {
   const problems: string[] = [];
   const runtime = ledger.runtime;
   for (const { tool, action } of requiredActions(probes)) {
-    const rows = ledger.rows.filter(same(tool, action));
-    if (rows.some((row) => row.result === 'pass')) continue;
-    const failed = rows.find((row) => row.result === 'fail');
+    // A site's latest row decides it there: a later failure, such as a turn
+    // that never ended, overrides the pass the driver recorded first.
+    const latest = latestBySite(ledger.rows.filter(same(tool, action)));
+    if (latest.some((row) => row.result === 'pass')) continue;
+    const failed = latest.find((row) => row.result === 'fail');
     if (failed) {
       problems.push(`failed: ${label(tool, action)} at ${failed.site} on ${runtime}: ${failed.error ?? 'no detail'}`);
       continue;

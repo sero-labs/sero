@@ -11,8 +11,13 @@ export function stepContext(check: ToolCheckApp, site: ToolCheckSite, fixtures: 
   return { workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page, respondWith: check.respondWith };
 }
 
-/** A new chat on the stub model, in the check's workspace. */
+/**
+ * A new chat on the stub model, in the check's workspace. The workspace is
+ * opened first, as a user has it open before chatting in it: a probe that
+ * creates a workspace moves the app to the new one.
+ */
 export async function openChat(check: ToolCheckApp): Promise<string> {
+  await check.page.getByText('Tool Check', { exact: true }).first().click();
   return check.page.evaluate(async ({ id, provider, model }) => {
     const created = await window.sero.sessions.create(id);
     await window.sero.agent.open(created.id, created.path, id);

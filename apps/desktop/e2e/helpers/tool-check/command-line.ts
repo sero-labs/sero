@@ -28,12 +28,14 @@ export function isCoreCommand(tool: string): boolean {
  * as JSON. The `=` form keeps a value that starts with `--` a value.
  */
 export function cliCommandFor(tool: string, params: StepParams): string {
-  if (isCoreCommand(tool)) {
+  // A core command, or a plugin tool that parses its own command line, takes tokens.
+  if (isCoreCommand(tool) || 'argv' in params) {
     const argv = params.argv;
     if (!Array.isArray(argv) || argv.some((token) => typeof token !== 'string')) {
       throw new Error(`${tool}: a core command step needs params.argv as a list of strings`);
     }
-    return [tool.slice('sero '.length), ...(argv as string[]).map(quoteArg)].join(' ');
+    const command = isCoreCommand(tool) ? tool.slice('sero '.length) : tool;
+    return [command, ...(argv as string[]).map(quoteArg)].join(' ');
   }
   const flags = Object.entries(params)
     .filter(([, value]) => value !== undefined)

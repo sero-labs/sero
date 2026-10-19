@@ -50,7 +50,7 @@ test.describe.serial('action pass', () => {
 
   for (const probe of PROBES) {
     test(probe.tool, async () => {
-      test.setTimeout(300_000);
+      test.setTimeout(Math.max(300_000, (probe.timeoutMs ?? 0) + 60_000));
       const via = routeTo(chat, probe.tool);
       test.skip(via === null, `a chat is not given ${probe.tool}`);
       const exempt = new Set((probe.exemptions ?? []).map((exemption) => exemption.action));
@@ -59,10 +59,16 @@ test.describe.serial('action pass', () => {
       // A failed test makes Playwright start a new worker, and with it a new
       // app and an empty ledger. So a probe only reports its failure; the
       // ledger check below fails the run, with every failure listed.
-      const failure = await runInChat(check, { tool: probe.tool, steps, via: via!, fixtures: fixtures.values })
-        .then((outcome) => outcome.failure, (error: unknown) => (error instanceof Error ? error.message : String(error)));
+      const failure = await runInChat(check, { tool: probe.tool, steps, via: via!, fixtures: fixtures.values, timeoutMs: probe.timeoutMs })
+        .then((outcome) => outcome.failure, (error: unknown) => {
+          const message = `the turn did not end: ${(error instanceof Error ? error.message : String(error)).slice(0, 300)}`;
+          // The steps may all have passed; the session still failed after the last of them.
+          const last = check.ledger.ledger.rows.filter((row) => row.tool === probe.tool && row.site === 'chat').at(-1);
+          check.ledger.record({ site: 'chat', tool: probe.tool, action: last?.action ?? null, result: 'fail', ms: 0, error: message });
+          return message;
+        });
       if (failure) {
-        console.log(`${probe.tool} stopped: ${failure}`);
+        console.log(`${probe.tool} stopped: ${failure}\nmain process, last lines:\n${check.mainLog().split('\n').slice(-30).join('\n')}`);
         test.info().annotations.push({ type: 'tool check failure', description: failure });
       }
     });
