@@ -37,6 +37,8 @@
  * SERO_BASELINE_PROBE appends one sentence to every request, to probe one
  * behaviour such as finding a deferred tool. The request is a controlled input,
  * so a probe run never matches an unprobed run in a comparison.
+ * SERO_BASELINE_PAUSE_BEFORE_RESTART=1 or SERO_BASELINE_STOP_BEFORE_RESTART=1 makes the
+ * interruption scenario pause or stop the project before Sero restarts.
  * SERO_BASELINE_SERVER_MINUTES seeds a dev script whose server exits with code 0
  * by itself after that many minutes, for a probe that waits on a managed process.
  * SERO_BASELINE_ORIGIN gives the seeded repository that fetch URL as `origin`,
@@ -77,9 +79,10 @@ const REPEATS = Number(process.env.SERO_BASELINE_REPEATS ?? '2');
 const BATCH_ID = process.env.SERO_BASELINE_BATCH ?? new Date().toISOString().replace(/[:.]/g, '-');
 const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-baseline');
 const PROBE = process.env.SERO_BASELINE_PROBE?.trim();
-// The interruption scenario pauses the project before the restart, as a user
-// would, to show the pause outlives the restart and nothing runs until Resume.
-const PAUSE_BEFORE_RESTART = process.env.SERO_BASELINE_PAUSE_BEFORE_RESTART === '1';
+// The interruption scenario pauses or stops the project before the restart, as a
+// user would, to show that intent outlives the restart and nothing runs until Resume.
+const HOLD_BEFORE_RESTART = process.env.SERO_BASELINE_PAUSE_BEFORE_RESTART === '1' ? 'pause'
+  : process.env.SERO_BASELINE_STOP_BEFORE_RESTART === '1' ? 'stop' : null;
 // Seeds a dev server that exits with code 0 by itself after this many minutes,
 // so a probe can make the owner wait on a managed process (continuity trial).
 const SERVER_MINUTES = Number(process.env.SERO_BASELINE_SERVER_MINUTES ?? '0');
@@ -510,15 +513,16 @@ function sessionLines(sessionPath: string | null | undefined): number {
   return sessionPath && fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8').split('\n').filter(Boolean).length : 0;
 }
 
-/** True when the project is still paused after a restart and its owner wrote nothing for a minute. */
-async function stayedPaused(projectId: string): Promise<boolean> {
+/** True when the project is still paused or stopped after a restart and its owner wrote nothing for a minute. */
+async function stayedHeld(projectId: string): Promise<boolean> {
+  const held = (record: BaselineProjectRecord | null): boolean => Boolean(record?.paused || record?.blockedReason === 'stopped by the user');
   const before = await show(projectId);
   const lines = sessionLines(before?.session.sessionPath);
   await sleep(60_000);
   const after = await show(projectId);
   const quiet = sessionLines(after?.session.sessionPath) === lines;
-  console.log(`[baseline] after the restart: paused ${String(before?.paused)} then ${String(after?.paused)}, owner session ${lines} lines, quiet ${String(quiet)}`);
-  return Boolean(before?.paused && after?.paused && quiet);
+  console.log(`[baseline] after the restart: held ${String(held(before))} then ${String(held(after))}, owner session ${lines} lines, quiet ${String(quiet)}`);
+  return held(before) && held(after) && quiet;
 }
 
 async function runArchitect(scenario: ScenarioDefinition, folder: string, deadline: number): Promise<Observed> {
@@ -546,12 +550,15 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   let end = await drive(projectId, scenario.id, deadline, scenario.id === 'interruption' ? midRun : undefined);
   if (end === 'interrupt') {
     restarted = true;
-    if (PAUSE_BEFORE_RESTART) {
-      const paused = await projects<{ ok: boolean; text: string }>('pause', projectId);
-      expect(paused.ok, paused.text).toBe(true);
+    if (HOLD_BEFORE_RESTART) {
+      const held = await projects<{ ok: boolean; text: string }>(HOLD_BEFORE_RESTART, projectId);
+      expect(held.ok, held.text).toBe(true);
     }
     await restartApp();
-    if (PAUSE_BEFORE_RESTART) recoveries.push({ cause: 'restart while paused', result: await stayedPaused(projectId) ? 'held' : 'failed' });
+    if (HOLD_BEFORE_RESTART) {
+      const cause = HOLD_BEFORE_RESTART === 'pause' ? 'restart while paused' : 'restart while stopped';
+      recoveries.push({ cause, result: await stayedHeld(projectId) ? 'held' : 'failed' });
+    }
     // Resuming is the action the app offers after a restart, so it is what a
     // user does when the project is held. Interrupted direct work continues on
     // its own, and Resume refuses a project that is neither paused nor blocked.
