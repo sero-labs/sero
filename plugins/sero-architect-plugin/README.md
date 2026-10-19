@@ -117,7 +117,8 @@ host grant amendment that the user approves. A NEW owner also asks for Code Mode
 workspace offers them (`OPTIONAL_OWNER_TOOLS`); an existing owner keeps what was
 approved. The owner session registers every approved tool, loads a small set,
 and finds the rest with `tool_search`. An approved `codemode` is loaded at
-start, because `tool_search` cannot find it. The architect plugin needs no
+start, because `tool_search` cannot find it. `tool_search` finds tools only:
+the approved skills are listed in the owner's prompt. The architect plugin needs no
 discovery code of its own: the host builds the tool surface (`tool-surface.ts`
 in the persistent sessions capability).
 

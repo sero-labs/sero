@@ -249,7 +249,7 @@ owner tries to change an approved charter, deliver to a destination outside
 the workspace (`email-send`, `chat-post`, `webhook-post`), or spend over the
 remaining cap. The proposal is applied only when you pick `apply`.
 
-![Architect decision card with a recommended option and parked milestone](../assets/images/architect-decision.png)
+![Architect board asking a two-option question, with the step it holds waiting for your answer](../assets/images/architect-decision.png)
 
 ## Delivery
 
@@ -265,7 +265,7 @@ On entering `maintain`, the runtime creates one Workflow subscribed to
 (Mondays at 08:00 UTC). Each run wakes the owner to triage. A fix is a
 milestone and moves through the same four verification states.
 
-![Architect maintenance phase showing a delivered release and a fix under verification](../assets/images/architect-maintain.png)
+![Architect board after delivery: the result with Open preview and See the checks, and proof for each step](../assets/images/architect-maintain.png)
 
 ## Runs and telemetry
 

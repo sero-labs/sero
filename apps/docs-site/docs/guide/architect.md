@@ -250,7 +250,7 @@ is recorded on the milestone as one of four states:
 | `accepted` | the owner accepted the verified result |
 | `delivered` | the result was delivered, for example a merged pull request |
 
-![Architect build phase showing milestone status and verification evidence](../assets/images/architect-build.png)
+![Architect board while it works: the live browser view, the plan with proof for the finished step, and the decisions made](../assets/images/architect-build.png)
 
 A lower state never stands in for a higher one. If files change after the
 evidence was taken, the evidence is marked stale and the checks run again.
