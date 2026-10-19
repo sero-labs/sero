@@ -272,8 +272,11 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
   if (ORIGIN) {
     git('remote', 'add', 'origin', ORIGIN);
     // The runner presses every Allow card, so a push must fail on its own: gh
-    // reads the repository from the fetch URL and nothing can push to this one.
-    git('remote', 'set-url', '--push', 'origin', path.join(folder, '.no-push'));
+    // reads the repository from the fetch URL, and every GitHub push URL, named
+    // remote or explicit, is rewritten to a missing path.
+    const noPush = path.join(folder, '.no-push');
+    git('remote', 'set-url', '--push', 'origin', noPush);
+    for (const prefix of ['https://github.com/', 'git@github.com:', 'ssh://git@github.com/']) git('config', '--add', `url.${noPush}/.pushInsteadOf`, prefix);
   }
 }
 
@@ -312,7 +315,8 @@ function architectFinished(record: BaselineProjectRecord): boolean {
     && dispatched.length > 0
     && dispatched.every((milestone) => milestone.status === 'done' || milestone.status === 'parked' || Boolean(milestone.dispatch?.failure))
     && !record.milestones.some((milestone) => milestone.pendingDispatch !== undefined);
-  return settled || (record.runs ?? []).some((run) => run.outcome === 'delivered' || run.endedAt !== null);
+  // A run the user stopped is not the end: Resume continues it.
+  return settled || (record.runs ?? []).some((run) => run.outcome === 'delivered' || (run.endedAt !== null && run.outcome !== 'stopped'));
 }
 
 /**
