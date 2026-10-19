@@ -38,10 +38,17 @@ export interface ToolCheckApp {
   workspaceId: string;
   workspaceDir: string;
   homePath: string;
+  /**
+   * Answers requests the scenario driver does not claim, such as a Workflow
+   * planner's, until the returned function removes it.
+   */
+  respondWith(responder: Responder): () => void;
   /** Everything Electron main printed so far. */
   mainLog(): string;
   close(): Promise<void>;
 }
+
+export type Responder = (request: StubRequest) => StubReply | undefined;
 
 export interface StartOptions {
   /** Answers a request no scenario claims, such as a Room planner's. */
@@ -62,7 +69,15 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
   const runtime = currentRuntimeFromEnv() ?? 'host';
   const ledger = new LedgerWriter(ledgerPath(LEDGER_DIR, runtime), runtime);
   const driver = new ScenarioDriver(ledger);
-  const stub = await startProbeStub({}, options.override, driver);
+  const responders = new Set<Responder>();
+  const answer = (request: StubRequest) => {
+    for (const responder of [options.override, ...responders]) {
+      const reply = responder?.(request);
+      if (reply) return reply;
+    }
+    return undefined;
+  };
+  const stub = await startProbeStub({}, answer, driver);
   let home: TempSeroHome | undefined;
   let workspaceDir = '';
   let app: ElectronApplication | undefined;
@@ -128,6 +143,10 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
     return {
       runtime, app, page: launched.page, stub, driver, ledger,
       workspaceId: workspace.id, workspaceDir, homePath: home.path,
+      respondWith: (responder) => {
+        responders.add(responder);
+        return () => responders.delete(responder);
+      },
       mainLog: () => log,
       close,
     };

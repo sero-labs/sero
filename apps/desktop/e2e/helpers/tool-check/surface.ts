@@ -2,7 +2,8 @@
  * What a session was given, read from its first request to the stub.
  */
 import { cliCommandsListed } from '../session-probe';
-import type { StubModelServer } from '../stub-model';
+import type { StubModelServer, StubRequest } from '../stub-model';
+import { firstUserText } from './driver';
 
 export interface SessionSurface {
   /** Direct tools, by name. */
@@ -11,9 +12,10 @@ export interface SessionSurface {
   commands: string[];
 }
 
-export function surfaceOf(server: StubModelServer, prompt: string): SessionSurface | undefined {
-  const request = server.requests.find((candidate) =>
-    candidate.messages.find((message) => message.role === 'user')?.text.includes(prompt));
+/** The surface of the first request whose first user message is `prompt`, or that `prompt` matches. */
+export function surfaceOf(server: StubModelServer, prompt: string | ((request: StubRequest) => boolean)): SessionSurface | undefined {
+  const matches = typeof prompt === 'string' ? (request: StubRequest) => firstUserText(request) === prompt : prompt;
+  const request = server.requests.find(matches);
   if (!request) return undefined;
   return { tools: request.tools.map((tool) => tool.name), commands: cliCommandsListed(request.system) };
 }

@@ -14,6 +14,8 @@ import { exemptionReport, ledgerProblems, requiredActions } from './helpers/tool
 import { runInChat } from './helpers/tool-check/sites';
 import { routeTo, surfaceOf, type SessionSurface } from './helpers/tool-check/surface';
 import { TOOL_PROBES } from './helpers/tool-check/table';
+import { runInWorkflowWorker, STEP_TOOLS } from './helpers/tool-check/workflow-worker';
+import { writeProbe } from './helpers/tool-check/probes/write';
 
 const ONLY = new Set((process.env.SERO_TOOL_CHECK_ONLY ?? '').split(',').map((name) => name.trim()).filter(Boolean));
 const PROBES = ONLY.size ? TOOL_PROBES.filter((probe) => ONLY.has(probe.tool)) : TOOL_PROBES;
@@ -65,6 +67,15 @@ test.describe.serial('action pass', () => {
       }
     });
   }
+
+  test('a Workflow worker runs a check step', async () => {
+    test.setTimeout(300_000);
+    const worker = await runInWorkflowWorker(check, { tool: writeProbe.tool, steps: writeProbe.steps, via: 'direct', fixtures: fixtures.values });
+    console.log(`step session tools: ${worker.surface.tools.join(', ')}`);
+    expect(worker.createResult).toContain('(status: complete)');
+    expect(worker.surface.tools).toEqual(expect.arrayContaining(STEP_TOOLS));
+    expect(worker.failure).toBeUndefined();
+  });
 
   test('the run proved every non-exempt action', () => {
     for (const line of exemptionReport(TOOL_PROBES)) console.log(`exempt: ${line}`);

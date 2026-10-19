@@ -15,6 +15,10 @@ import type { ScenarioStep, StepContext, ToolCallResult } from './types';
 export interface ScenarioRun {
   /** The first user message of the session. The driver tells sessions apart by it. */
   prompt: string;
+  /** Claims a session another way, where the site wraps the prompt in its own first message. */
+  matches?: (request: StubRequest) => boolean;
+  /** The last reply, once the steps are done or stopped. A site that reads the session's answer sets it. */
+  finalText?: (outcome: RunOutcome) => string;
   tool: string;
   steps: ScenarioStep[];
   /** `cli` runs each step through `sero-cli`. A core command always does. */
@@ -33,14 +37,17 @@ export interface RunOutcome {
 interface RunState {
   run: ScenarioRun;
   index: number;
+  /** Makes call ids unique across every run of the app. */
+  number: number;
   callId: string | null;
   startedAt: number;
   settle: (outcome: RunOutcome) => void;
   passed: number;
-  done: boolean;
+  /** Set once the run has settled. */
+  outcome: RunOutcome | null;
 }
 
-function firstUserText(request: StubRequest): string {
+export function firstUserText(request: StubRequest): string {
   return request.messages.find((message) => message.role === 'user')?.text ?? '';
 }
 
@@ -59,6 +66,7 @@ export function resultFromRequest(request: StubRequest, callId: string): ToolCal
 
 export class ScenarioDriver {
   private readonly runs = new Map<string, RunState>();
+  private added = 0;
 
   constructor(private readonly ledger: LedgerWriter) {}
 
@@ -67,9 +75,9 @@ export class ScenarioDriver {
     if (this.runs.has(run.prompt)) throw new Error(`A run already uses the prompt ${run.prompt}`);
     return new Promise((settle) => {
       this.runs.set(run.prompt, {
-        run, index: 0, callId: null, startedAt: 0, passed: 0, done: false,
+        run, number: ++this.added, index: 0, callId: null, startedAt: 0, passed: 0, outcome: null,
         settle: (outcome) => {
-          this.runs.get(run.prompt)!.done = true;
+          this.runs.get(run.prompt)!.outcome = outcome;
           settle(outcome);
         },
       });
@@ -78,13 +86,19 @@ export class ScenarioDriver {
 
   /** Whether this request belongs to a registered run. */
   claims(request: StubRequest): boolean {
-    return this.runs.has(firstUserText(request));
+    return this.find(request) !== undefined;
+  }
+
+  private find(request: StubRequest): RunState | undefined {
+    const exact = this.runs.get(firstUserText(request));
+    if (exact && !exact.run.matches) return exact;
+    return [...this.runs.values()].find((state) => state.run.matches?.(request));
   }
 
   async respond(request: StubRequest): Promise<StubReply> {
-    const state = this.runs.get(firstUserText(request));
+    const state = this.find(request);
     if (!state) throw new Error('respond() called for a request no run claims');
-    if (state.done) return { text: 'tool check finished' };
+    if (state.outcome) return this.finish(state, state.outcome);
     if (state.callId === null) return this.emit(state);
 
     const { run } = state;
@@ -105,17 +119,21 @@ export class ScenarioDriver {
     state.passed += 1;
     state.index += 1;
     if (state.index < run.steps.length) return this.emit(state);
-    state.settle({ passed: state.passed });
-    return { text: 'tool check finished' };
+    return this.finish(state, { passed: state.passed });
+  }
+
+  /** Settles the run, if it has not yet, and sends its last reply. */
+  private finish(state: RunState, outcome: RunOutcome): StubReply {
+    if (!state.outcome) state.settle(outcome);
+    const settled = state.outcome!;
+    const fallback = settled.failure === undefined ? 'tool check finished' : 'tool check stopped';
+    return { text: state.run.finalText?.(settled) ?? fallback };
   }
 
   private async emit(state: RunState): Promise<StubReply> {
     const { run } = state;
     const step = run.steps[state.index];
-    if (!step) {
-      state.settle({ passed: state.passed });
-      return { text: 'tool check finished' };
-    }
+    if (!step) return this.finish(state, { passed: state.passed });
     let params;
     try {
       await step.setup?.(run.ctx);
@@ -123,7 +141,7 @@ export class ScenarioDriver {
     } catch (error) {
       return this.stop(state, step, 0, `setup failed: ${errorText(error)}`);
     }
-    const callId = `tc-${state.index}-${run.prompt.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`;
+    const callId = `tc-${state.number}-${state.index}`;
     state.callId = callId;
     state.startedAt = Date.now();
     const call = run.via === 'cli' || isCoreCommand(run.tool)
@@ -134,8 +152,7 @@ export class ScenarioDriver {
 
   private stop(state: RunState, step: ScenarioStep, ms: number, error: string): StubReply {
     this.record(state, step, ms, 'fail', error);
-    state.settle({ passed: state.passed, failure: `${step.action ?? state.run.tool}: ${error}` });
-    return { text: 'tool check stopped' };
+    return this.finish(state, { passed: state.passed, failure: `${step.action ?? state.run.tool}: ${error}` });
   }
 
   private record(state: RunState, step: ScenarioStep, ms: number, result: 'pass' | 'fail', error?: string): void {
