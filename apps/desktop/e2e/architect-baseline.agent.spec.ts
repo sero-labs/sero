@@ -267,7 +267,10 @@ function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
 function seedSelfEndingServer(folder: string): void {
   fs.writeFileSync(path.join(folder, 'server.js'), [
     "import http from 'node:http';",
-    "const server = http.createServer((request, response) => { response.writeHead(200, { 'content-type': 'text/html' }); response.end('<h1>soak</h1>'); });",
+    "import fs from 'node:fs';",
+    "// Serves the project's README, so a visual check sees the project and not a stub.",
+    "const page = () => '<pre>' + (fs.existsSync('README.md') ? fs.readFileSync('README.md', 'utf8') : 'no README') + '</pre>';",
+    "const server = http.createServer((request, response) => { response.writeHead(200, { 'content-type': 'text/html' }); response.end(page()); });",
     "server.listen(0, () => console.log('Listening on http://localhost:' + server.address().port));",
     `setTimeout(() => { console.log('soak finished'); process.exit(0); }, ${SERVER_MINUTES * 60_000});`,
     '',
