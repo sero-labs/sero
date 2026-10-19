@@ -44,7 +44,7 @@
 
 ## 8. Real-model pass
 
-- [ ] 8.1 Add `deepseek/deepseek-flash` as a provider and model option in `e2e/helpers/llm.ts`, with thinking set to high for the tool check; verify a dry run resolves the model and credential key name without spending
+- [x] 8.1 Add `deepseek/deepseek-flash` as a provider and model option in `e2e/helpers/llm.ts`, with thinking set to high for the tool check; verify a dry run resolves the model and credential key name without spending
 - [ ] 8.2 Add the one-task-per-site real-model pass behind the `real_model` switch; verify one live run on host passes every site, and record its cost in the PR description
 
 ## 9. CI workflow and docs

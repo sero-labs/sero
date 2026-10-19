@@ -12,6 +12,7 @@ import {
   loadE2eEnv,
   requireLlm,
   requireLlmReady,
+  TOOL_CHECK_LLM,
   type LlmMode,
 } from '../llm';
 
@@ -30,6 +31,7 @@ describe('llm helper', () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.GOOGLE_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
   });
 
   afterEach(() => {
@@ -139,6 +141,7 @@ describe('llm helper', () => {
         'GEMINI_API_KEY',
         'GOOGLE_API_KEY',
         'OPENROUTER_API_KEY',
+        'DEEPSEEK_API_KEY',
       ]);
     });
 
@@ -176,5 +179,14 @@ describe('llm helper', () => {
         OPENROUTER_API_KEY: 'secret',
       });
     });
+  });
+
+  it('resolves the tool check model and its key name without a call', () => {
+    expect(`${TOOL_CHECK_LLM.provider}/${TOOL_CHECK_LLM.modelId}`).toBe('deepseek/deepseek-flash');
+    expect(TOOL_CHECK_LLM.thinking).toBe('high');
+    expect(getLlmCredentialEnvVars(TOOL_CHECK_LLM.provider)).toEqual(['DEEPSEEK_API_KEY']);
+    expect(hasLlmCredentials('deepseek')).toBe(false);
+    process.env.DEEPSEEK_API_KEY = 'test-key';
+    expect(hasLlmCredentials('deepseek')).toBe(true);
   });
 });
