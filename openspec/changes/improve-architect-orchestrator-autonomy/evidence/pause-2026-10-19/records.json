@@ -1,0 +1,134 @@
+[
+  {
+    "candidate": "architect",
+    "objective": "interruption",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_ci3a3v9o:owner-wake:quiet:wake_phz2ty2n",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_ci3a3v9o:owner-wake:decision:wake_eqlayqdv",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_ci3a3v9o:owner-wake:quiet:wake_ijoiihwi",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_ci3a3v9o:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_ci3a3v9o:owner-wake:dispatch-complete:wake_grccdi9t",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "csv-behaviour: parseCsv and toObjects behave as described, including quoting, line endings and short rows"
+    ],
+    "cost": {
+      "attributableUsd": 0.013703568,
+      "aggregateOnlyUsd": 0.002258148,
+      "coverage": "partial",
+      "incomplete": true
+    },
+    "time": {
+      "elapsedMs": 139933,
+      "activeMs": 55496,
+      "workerMs": 405,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 3,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-19T01:15:18.016Z",
+    "run": {
+      "runId": "pause-2026-10-19:interruption:r1:architect",
+      "strategy": "architect",
+      "revision": "dec68164d+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "Implement parseCsv(text) and toObjects(rows) in src/csv.js.\n- parseCsv returns an array of rows, each an array of strings. Fields are separated by commas. A field wrapped in double quotes may contain commas and line breaks, and \"\" inside it means one double quote.\n- Lines end with \\n or \\r\\n. A final line break does not add an empty row, and empty text gives [].\n- toObjects takes parsed rows whose first row is the header and returns one object per remaining row, keyed by the header. A short row gets empty strings for its missing columns.",
+      "workspaceFingerprint": "1cfe20966077097d1316ebe497da876010bcb12be1ca5cc274d7923b1c92463f",
+      "acceptanceRevision": "360ef53eb5ba5a2936ea393334b5332fe8df0083a7a266e401387ba24cf5149d",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 10,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "csv-behaviour",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [
+      {
+        "cause": "restart while paused",
+        "result": "failed"
+      },
+      {
+        "cause": "restart",
+        "result": "recovered"
+      }
+    ],
+    "ownerTokensPerTurn": [
+      5617,
+      6407,
+      6876,
+      7329,
+      7427,
+      8911,
+      8992,
+      11240,
+      12357,
+      13049,
+      14199,
+      14336,
+      14864,
+      15088,
+      15479,
+      15612,
+      15930,
+      16044,
+      16131,
+      19277,
+      19664,
+      19833
+    ],
+    "protocolFailures": 0
+  }
+]
