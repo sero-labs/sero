@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { ScenarioStep, StepContext, ToolCallResult, ToolProbe } from '../types';
 import { expectText } from '../expect';
-import { expectFile, fileText, putFile } from '../files';
+import { expectFile, fileText, putFile, waitUntil } from '../files';
 
 const REMOTE = 'tc-gm';
 const DOC = 'tc-gm-doc.txt';
@@ -78,6 +78,22 @@ async function stateFile(ctx: StepContext): Promise<GitStateFile> {
   return JSON.parse((await fileText(ctx, STATE_FILE)) ?? '{}') as GitStateFile;
 }
 
+/**
+ * The state file once `ready` holds it. The plugin writes the file after the
+ * tool has answered, so a read straight after the call can be too early.
+ */
+async function stateWhen(ctx: StepContext, what: string, ready: (state: GitStateFile) => boolean): Promise<GitStateFile> {
+  let last: GitStateFile = {};
+  try {
+    return await waitUntil(path.join(ctx.workspacePath, path.dirname(STATE_FILE)), what, async () => {
+      last = await stateFile(ctx).catch(() => last);
+      return ready(last) ? last : undefined;
+    }, 10_000);
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; the state file holds ${JSON.stringify(last).slice(0, 300)}`);
+  }
+}
+
 function stashMessages(ctx: StepContext): string[] {
   return lines(git(cwdOf(ctx), 'stash', 'list', '--format=%gs'));
 }
@@ -139,10 +155,7 @@ const steps: ScenarioStep[] = [
       const branches = lines(git(cwdOf(ctx), 'for-each-ref', '--format=%(refname)', 'refs/heads/')).length;
       if (!result.text.includes(`, ${branches} branches, `)) throw new Error(`expected ${branches} branches: ${result.text}`);
       if (!result.text.endsWith('0 staged, 0 unstaged files.')) throw new Error(`the tree should be clean: ${result.text}`);
-      const state = await stateFile(ctx);
-      if (state.currentBranch !== 'main' || state.branches?.length !== branches) {
-        throw new Error(`the state file holds ${String(state.currentBranch)} with ${String(state.branches?.length)} branches`);
-      }
+      await stateWhen(ctx, `the state file to hold main with ${branches} branches`, (state) => state.currentBranch === 'main' && state.branches?.length === branches);
     },
   },
   {
@@ -160,8 +173,7 @@ const steps: ScenarioStep[] = [
     params: { action: 'diff', file: DOC },
     async expect(result, ctx) {
       expectMessage(result, `Diff for ${DOC}: +1 -0 (1 hunks)`);
-      const diff = (await stateFile(ctx)).activeDiff;
-      if (diff?.path !== DOC || diff.additions !== 1) throw new Error(`the state file's diff is ${JSON.stringify(diff)}`);
+      await stateWhen(ctx, `the state file to hold the diff of ${DOC}`, (state) => state.activeDiff?.path === DOC && state.activeDiff.additions === 1);
     },
   },
   {
@@ -221,7 +233,7 @@ const steps: ScenarioStep[] = [
     params: (ctx) => ({ action: 'show_commit', hash: String(ctx.state.gmCommit) }),
     async expect(result, ctx) {
       expectMessage(result, `Commit ${String(ctx.state.gmCommit)}: 1 files, +1 -0`);
-      if ((await stateFile(ctx)).selectedCommitHash !== ctx.state.gmCommit) throw new Error('the state file does not hold the commit');
+      await stateWhen(ctx, 'the state file to hold the commit', (state) => state.selectedCommitHash === ctx.state.gmCommit);
     },
   },
   {
