@@ -1,0 +1,53 @@
+{
+  "id": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3",
+  "runNumber": 1,
+  "status": "running",
+  "startedStepIds": [
+    "triage-incident"
+  ],
+  "stepAttempts": [
+    {
+      "id": "attempt_576539c4-4f79-40d0-af36-b4a0d954bad3",
+      "stepId": "triage-incident",
+      "attemptNumber": 1,
+      "parentSessionId": "orchestrator:small-fix-r1-architect-1792378433767:loop_c74726ac-89a0-452e-8306-1efa97b93dc4",
+      "executionType": "background-agent",
+      "status": "running",
+      "workspace": {
+        "id": "ws_03b20ee4-e4f7-4758-84ab-9d87300e4628",
+        "type": "workspace-root",
+        "workspaceRoot": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378433767",
+        "cwd": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378433767",
+        "resolvedBy": "dirty-workspace-allowed",
+        "createdAt": "2026-10-19T02:55:50.003Z"
+      },
+      "observations": [],
+      "usage": {
+        "inputTokens": 7767,
+        "outputTokens": 358,
+        "totalTokens": 13757,
+        "cacheReadTokens": 5632,
+        "cacheWriteTokens": 0,
+        "costUsd": 0.0209564,
+        "incomplete": true
+      },
+      "startedAt": "2026-10-19T02:55:50.014Z",
+      "workerRunId": "bfd381f7-0558-46ae-a449-bcd0a3cb73ae",
+      "activationId": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3:triage-incident:1"
+    }
+  ],
+  "stepActivations": [
+    {
+      "id": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3:triage-incident:1",
+      "stepId": "triage-incident",
+      "visitNumber": 1,
+      "title": "Investigate and record one incident",
+      "status": "running",
+      "attemptIds": [],
+      "startedAt": "2026-10-19T02:55:50.006Z"
+    }
+  ],
+  "recoveryDecisions": [],
+  "observations": [],
+  "startedAt": "2026-10-19T02:55:49.951Z"
+}

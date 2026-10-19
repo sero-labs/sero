@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "run_0e4af888-4348-4867-8055-55ffde4e68fe",
+      "runNumber": 1,
+      "status": "running",
+      "startedAt": "2026-10-19T03:06:21.175Z",
+      "steps": [
+        {
+          "stepId": "complete-m1-soak-and-deliver",
+          "title": "Run, soak-check, and accept m1",
+          "visitNumber": 1,
+          "activationId": "run_0e4af888-4348-4867-8055-55ffde4e68fe:complete-m1-soak-and-deliver:1",
+          "attemptNumber": 1,
+          "executionType": "background-agent",
+          "status": "running",
+          "planIndex": 0
+        }
+      ],
+      "recoveries": [],
+      "usage": {
+        "incomplete": true
+      }
+    }
+  ]
+}

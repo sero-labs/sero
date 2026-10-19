@@ -1,0 +1,47 @@
+{
+  "id": "run_0e4af888-4348-4867-8055-55ffde4e68fe",
+  "runNumber": 1,
+  "status": "running",
+  "startedStepIds": [
+    "complete-m1-soak-and-deliver"
+  ],
+  "stepAttempts": [
+    {
+      "id": "attempt_8ea3f6f4-3503-4237-b691-3bd19bf06f0d",
+      "stepId": "complete-m1-soak-and-deliver",
+      "attemptNumber": 1,
+      "parentSessionId": "orchestrator:small-fix-r1-architect-1792378755548:loop_90d4eb51-c8ea-4b16-a74f-b26fbd1ad581",
+      "executionType": "background-agent",
+      "status": "running",
+      "workspace": {
+        "id": "ws_1dc2302f-41f7-48d2-a32e-f1abd43dabaf",
+        "type": "workspace-root",
+        "workspaceRoot": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378755548",
+        "cwd": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378755548",
+        "resolvedBy": "dirty-workspace-allowed",
+        "createdAt": "2026-10-19T03:06:21.302Z"
+      },
+      "observations": [],
+      "usage": {
+        "incomplete": true
+      },
+      "startedAt": "2026-10-19T03:06:21.314Z",
+      "workerRunId": "dcaff35a-ad7e-4912-97e7-60374317a6c7",
+      "activationId": "run_0e4af888-4348-4867-8055-55ffde4e68fe:complete-m1-soak-and-deliver:1"
+    }
+  ],
+  "stepActivations": [
+    {
+      "id": "run_0e4af888-4348-4867-8055-55ffde4e68fe:complete-m1-soak-and-deliver:1",
+      "stepId": "complete-m1-soak-and-deliver",
+      "visitNumber": 1,
+      "title": "Run, soak-check, and accept m1",
+      "status": "running",
+      "attemptIds": [],
+      "startedAt": "2026-10-19T03:06:21.306Z"
+    }
+  ],
+  "recoveryDecisions": [],
+  "observations": [],
+  "startedAt": "2026-10-19T03:06:21.175Z"
+}

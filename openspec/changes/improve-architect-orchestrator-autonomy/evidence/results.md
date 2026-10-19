@@ -121,6 +121,26 @@ Room scenario 6, run on 2026-10-19 with the same model and settings. The record 
 
 An earlier scenario 6 asked the Conductor to retire the reviewer. Retiring a member is a Room revision that does not touch the grant, so it could never show an amendment. That run was also vacuous because the Conductor proposed nothing, and the spec let that pass. The spec now asks for the narrowing and fails when no change is proposed.
 
+### The collaborative scenario with a Room
+
+The pilot's `collaborative-research` runs never formed a Room. This is a probe batch: the same scenario for both strategies, with one sentence added to the request by the runner's `SERO_BASELINE_PROBE`: "Research this as a team: start a research Room of two agents who each test a different reading of the code and check each other's findings, and do not do the research yourself." Both strategies got the same sentence in every pair. Model `deepseek/deepseek-flash` at low thinking, $1 and 15 minutes per run.
+
+| Pair | Strategy | Outcome | Elapsed | Cost | What happened |
+| --- | --- | --- | --- | --- | --- |
+| A | Architect | incomplete | 903 s | $0.083 + $0.039 project-only | A Room of two researchers agreed on the answer and published FINDINGS.md as a Room report. Research Rooms cannot write files, so the Conductor asked the user for write access. The Room paused and the project blocked behind it. |
+| A | Single agent | incomplete | 901 s | $0.081 | `sero rooms prepare` timed out after 30 s while the planner worked, twice. The chat then read Sero's source, deleted a Room it had made, and tried to click the app window, and never got a Room. |
+| B | Architect | accepted | 286 s | $0.170 + $0.111 project-only | A Room of two researchers, one reading direct calls and one checking indirect paths, completed for $0.069. The owner wrote FINDINGS.md from its findings, and evidence passed. |
+| C | Single agent | accepted | 629 s | $0.013 for the chat | `rooms prepare` returned a Room of two members. The runner answered its start card, and the Room ran from 02:43 to 02:52. The chat polled it with `sleep` and `watch`, then wrote FINDINGS.md from the Room's result. The Room's own spend is not in the record. |
+
+Pair A found two defects, fixed before pairs B and C:
+
+- d14d97d88: a research Room's brief now says its answer is its findings, and that Architect writes any file the request names.
+- cadaed077: the `rooms` CLI command now has 5 minutes, enough for the Room planner.
+
+A third fault was in the runner. A single-agent turn held the page until it ended, so a start card the chat raised waited and was declined by its own timeout. bc0ca2de3 answers cards during the turn, as the runner already did for Architect. B's single-agent run was made before that fix and failed on it, so it is replaced by run C. The records are in `collab-2026-10-19a/`, `collab-2026-10-19b/` and `collab-2026-10-19c/`.
+
+One pair per strategy shows each can form and use a Room on this request. It is too small to compare them.
+
 ## Tool discovery probe (3.7)
 
 This is a probe, not a matched replay. It is the `small-fix` scenario with one sentence added to the request (the runner's `SERO_BASELINE_PROBE`): "Before you finish, look at https://example.com the way a user would see it, using Sero's browser automation tool, and write its main heading to NOTES.md." No pilot scenario needed a tool outside the owner's first loadout, and that is why the 16 pilot runs made no `tool_search` call. The record and the owner's session and grant are in `probe-2026-10-19/`.

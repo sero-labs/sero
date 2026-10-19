@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3",
+      "runNumber": 1,
+      "status": "running",
+      "startedAt": "2026-10-19T02:55:49.951Z",
+      "steps": [
+        {
+          "stepId": "triage-incident",
+          "title": "Investigate and record one incident",
+          "visitNumber": 1,
+          "activationId": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3:triage-incident:1",
+          "attemptNumber": 1,
+          "executionType": "background-agent",
+          "status": "running",
+          "planIndex": 0
+        }
+      ],
+      "recoveries": [],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 7767,
+        "outputTokens": 358,
+        "totalTokens": 13757,
+        "costUsd": 0.0209564
+      }
+    }
+  ]
+}

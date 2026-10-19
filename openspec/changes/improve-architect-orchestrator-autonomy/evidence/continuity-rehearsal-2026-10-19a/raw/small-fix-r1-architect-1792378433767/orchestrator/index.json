@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "loops": [
+    {
+      "id": "loop_c74726ac-89a0-452e-8306-1efa97b93dc4",
+      "title": "small-fix-r1-architect-1792378433767: maintenance",
+      "status": "active",
+      "liveRun": {
+        "runId": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3",
+        "startedAt": "2026-10-19T02:55:49.952Z",
+        "reportedAt": "2026-10-19T02:56:01.681Z"
+      },
+      "summary": "For each issue-opened, CI-failure, or weekly trigger, investigate one relevant incident without modifying product code, write an in-workspace triage note, and report its path.",
+      "prompt": "Maintenance triage for the project \"small-fix-r1-architect-1792378433767\" in /Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378433767. This Workflow runs when a GitHub issue is opened, when CI fails, and once a week. On each run: read the event that fired it (or, for the weekly run, the open issues and the latest CI results), reproduce or confirm the problem where you can without changing the code, and write a short triage note to .sero/apps/architect/triage/<date>-<slug>.md with: what happened, where in the code it likely is, a severity, and a suggested fix. Do not change the project code and do not open a pull request; the project owner decides what to dispatch. Finish by reporting the triage note path in your completion.",
+      "progress": {
+        "total": 1,
+        "done": 0,
+        "running": true
+      },
+      "schedules": [
+        {
+          "triggerId": "trigger_60e5232e-6a14-4e32-9f20-2887c1fa8838",
+          "type": "cron",
+          "schedule": "0 8 * * 1",
+          "nextFireAt": "2026-10-19T08:00:00.000Z"
+        }
+      ],
+      "armedEventSources": [
+        "github:issue-opened",
+        "github:ci-failed"
+      ],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 16615,
+        "outputTokens": 1006,
+        "totalTokens": 23253,
+        "costUsd": 0.0464284
+      },
+      "activeStepTitles": [
+        "Investigate and record one incident"
+      ],
+      "maxCostUsd": 0.970273156,
+      "checkoutPath": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792378433767",
+      "lastRunId": "run_5c50d1f3-1226-43ed-9bab-1b3e71ee77e3",
+      "lastRunAt": "2026-10-19T02:55:49.951Z",
+      "createdAt": "2026-10-19T02:55:31.086Z",
+      "updatedAt": "2026-10-19T02:55:49.942Z"
+    }
+  ]
+}
