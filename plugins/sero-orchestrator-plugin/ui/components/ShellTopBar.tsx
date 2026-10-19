@@ -106,6 +106,8 @@ export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needs
             key={tab}
             type="button"
             aria-current={tab === active ? 'page' : undefined}
+            // The label is hidden in a narrow panel, and a count badge would then be the tab's only name.
+            aria-label={label}
             title={label}
             onClick={() => onSelect(tab)}
             className={cn(
