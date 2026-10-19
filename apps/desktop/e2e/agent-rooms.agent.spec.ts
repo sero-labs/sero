@@ -175,13 +175,22 @@ function members(roomId: string): MemberFile[] {
  * work lands on a member branch and the shared tree is deliberately untouched
  * until the user merges. Reading only the shared tree would score the Room on
  * something it is designed not to do.
+ *
+ * A finished Room has released its checkouts, so a member's copy is read from
+ * the branch it kept, and `root` names that branch. `matches` picks the files:
+ * the brief names no path for a new test, so a pattern finds it wherever it went.
  */
-function roomCopiesOf(roomId: string, relativePath: string): { root: string; content: string }[] {
-  const roots = [wsDir, ...members(roomId).map((member) => member.worktreePath).filter((root): root is string => !!root)];
-  return roots
-    .map((root) => ({ root, file: path.join(root, relativePath) }))
-    .filter((entry) => fs.existsSync(entry.file))
-    .map((entry) => ({ root: entry.root, content: fs.readFileSync(entry.file, 'utf8') }));
+function roomCopiesOf(roomId: string, matches: string | RegExp): { root: string; content: string }[] {
+  const wanted = (file: string) => typeof matches === 'string' ? file === matches : matches.test(file);
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: wsDir, encoding: 'utf8' });
+  const copies = git('ls-files').split('\n').filter(wanted)
+    .map((file) => ({ root: wsDir, content: fs.readFileSync(path.join(wsDir, file), 'utf8') }));
+  const branches = new Set(members(roomId).map((member) => member.worktreeBranch).filter((branch): branch is string => !!branch));
+  for (const branch of branches) {
+    const files = (() => { try { return git('ls-tree', '-r', '--name-only', branch).split('\n'); } catch { return []; } })();
+    for (const file of files.filter(wanted)) copies.push({ root: branch, content: git('show', `${branch}:${file}`) });
+  }
+  return copies;
 }
 
 interface RevisionAmendment {
@@ -471,7 +480,7 @@ test.describe('the Room evaluation gate', () => {
 
     const room = await settle(roomId, 'delivery');
     const greet = roomCopiesOf(roomId, 'src/greet.ts');
-    const tests = roomCopiesOf(roomId, 'src/greet.test.ts');
+    const tests = roomCopiesOf(roomId, /greet[^/]*\.test\.[cm]?[jt]sx?$/);
     record('1-delivery', room, members(roomId), {
       workItems: room.work.length,
       artifacts: room.artifacts.length,
@@ -516,7 +525,8 @@ test.describe('the Room evaluation gate', () => {
     const roomId = await startRoomByTool(BRIEFS.parallel, 'parallel');
     const room = await settle(roomId, 'parallel');
     const roster = members(roomId);
-    const worktrees = roster.filter((member) => member.worktreePath !== null);
+    // A finished Room has released its checkouts and kept their branches.
+    const worktrees = roster.filter((member) => member.worktreeBranch !== null);
     record('3-parallel', room, roster, {
       worktrees: worktrees.map((member) => member.worktreeBranch),
       claims: room.claims.map((claim) => `${claim.memberId}:${claim.pattern}`),
@@ -526,7 +536,7 @@ test.describe('the Room evaluation gate', () => {
     // Separate checkouts are the real safety boundary; claims are the warning
     // that two people are heading for the same file.
     expect(worktrees.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(worktrees.map((member) => member.worktreePath)).size).toBe(worktrees.length);
+    expect(new Set(worktrees.map((member) => member.worktreeBranch)).size).toBe(worktrees.length);
     expect(room.claims.length).toBeGreaterThan(0);
   });
 
