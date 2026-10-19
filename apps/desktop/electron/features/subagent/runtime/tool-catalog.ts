@@ -23,7 +23,7 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { isToolForSessionKind, onPluginBridgePolicyCleared, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
-import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
+import { getPackageCompatibilityForResourcePath, packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { createSubagentResourceLoader } from './resource-loader';
 
 /**
@@ -78,6 +78,17 @@ function persist(): void {
   }
 }
 
+/**
+ * The plugin package a tool comes from, or null for a host tool. A host tool's
+ * source sits inside the desktop app, whose package root is the app itself;
+ * recording that would make a member approved for the tool load the whole app
+ * as an extension.
+ */
+function pluginPackageOf(resourcePath: string): string | null {
+  const packagePath = packageRootForResourcePath(resourcePath);
+  return packagePath && getPackageCompatibilityForResourcePath(resourcePath) !== null ? packagePath : null;
+}
+
 function loadPersisted(): void {
   try {
     const parsed = JSON.parse(readFileSync(cachePath(), 'utf8')) as { version?: number; tools?: PersistedTool[] };
@@ -87,7 +98,8 @@ function loadPersisted(): void {
       // A plugin that was uninstalled leaves a tool no session can load. Drop it.
       if (tool.packagePath && !existsSync(path.join(tool.packagePath, 'package.json'))) continue;
       catalog.set(tool.name, { name: tool.name, description: tool.description });
-      if (tool.packagePath && !PLATFORM_TOOL_NAMES.has(tool.name)) toolPackages.set(tool.name, tool.packagePath);
+      const packagePath = tool.packagePath ? pluginPackageOf(path.join(tool.packagePath, 'package.json')) : null;
+      if (packagePath && !PLATFORM_TOOL_NAMES.has(tool.name)) toolPackages.set(tool.name, packagePath);
     }
   } catch {
     // No cache yet — the baseline + startup enumeration fill it in.
@@ -143,8 +155,9 @@ export function recordRunToolCatalog(tools: ToolInfo[]): void {
   for (const tool of tools) {
     seenThisProcess.add(tool.name);
     if (PLATFORM_TOOL_NAMES.has(tool.name)) continue;
-    const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
+    const packagePath = pluginPackageOf(tool.sourceInfo.path);
     if (packagePath) toolPackages.set(tool.name, packagePath);
+    else toolPackages.delete(tool.name);
   }
   if (merge(tools.map((tool) => ({ name: tool.name, description: tool.description })))) persist();
 }

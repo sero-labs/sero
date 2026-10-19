@@ -14,6 +14,8 @@ vi.mock('fs', () => ({
 }));
 vi.mock('@electron/features/plugins/resource-compatibility', () => ({
   packageRootForResourcePath: (resourcePath: string) => resourcePath.split('/extension/')[0] ?? null,
+  // A package with a plugin declaration lives under /plugins; the desktop app has none.
+  getPackageCompatibilityForResourcePath: (resourcePath: string) => (resourcePath.startsWith('/plugins/') ? { supported: true } : null),
 }));
 const policy = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
 vi.mock('@electron/features/plugins/bridge-policy', () => ({
@@ -106,6 +108,15 @@ describe('subagent tool catalog', () => {
 
     expect(getToolPackagePath('web_search')).toBe('/plugins/web');
     expect(getToolPackagePath('bash')).toBeUndefined();
+  });
+
+  it('names no package for a host tool, so a member approved for it does not load the app as an extension', () => {
+    recordRunToolCatalog([
+      { name: 'ls', description: 'List files', sourceInfo: { path: '/app/desktop/extension/host-tools.js' } },
+    ] as never);
+
+    expect(getToolPackagePath('ls')).toBeUndefined();
+    expect(getToolCatalogFor('member').map((tool) => tool.name)).toContain('ls');
   });
 
   it('keeps a platform tool for a managed session when a run reports it from inside a package', () => {

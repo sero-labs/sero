@@ -79,7 +79,9 @@ sessions capability. The Room side is `runtime/rooms/room-amend-plan.ts`
 
 Members and Workflow workers share one tool rule. A session registers every
 tool its approval allows, loads a small set, and uses Pi's `tool_search` to
-load another. A tool outside the approval is never registered. A Workflow
+load another. A tool outside the approval is never registered. A tool the host
+provides, such as `ls`, names no plugin package in the tool catalogue, so
+approving it never loads the app as an extension. A Workflow
 worker whose step lists tools treats that list as its starting set
 (`toolsAreLoadout`). A member has Code Mode only when its tool list names `codemode`. It starts
 loaded, and a script can call only the tools the member was approved for.
