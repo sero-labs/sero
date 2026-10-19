@@ -76,10 +76,19 @@ export async function runPreviewCapture(
   // A server an earlier check left running is reused by command and folder and
   // serves the code it loaded then, so it is stopped first. One the owner waits
   // on is left alone: stopping it would end that wait as if it had finished.
-  const waitedOn = new Set((record.waits ?? []).filter((wait) => wait.outcome === null && wait.source.kind === 'process').map((wait) => wait.source.id));
-  for (const earlier of record.milestones) {
+  // Read now, not from when evidence started, so a wait registered since counts.
+  const current = (await deps.store.read(record.id)) ?? record;
+  const waitedOn = new Set((current.waits ?? []).filter((wait) => wait.outcome === null && wait.source.kind === 'process').map((wait) => wait.source.id));
+  const running = new Set(host.listDevServers(workspaceId).filter((server) => server.status === 'running').map((server) => server.id));
+  for (const earlier of current.milestones) {
     const serverId = earlier.evidence?.preview?.serverId;
-    if (serverId && !waitedOn.has(serverId)) await host.stopDevServer(serverId).catch(() => false);
+    if (!serverId || !running.has(serverId)) continue;
+    if (!waitedOn.has(serverId)) {
+      await host.stopDevServer(serverId).catch(() => false);
+    } else if (checkout === record.folder) {
+      // The start would reuse it, and the check would see old code.
+      return { route, smokePassed: false, capturePath: null, failure: `The preview would reuse dev server ${serverId}, which you are waiting on, and check the code it loaded then. Let that wait end, then request evidence again.` };
+    }
   }
   const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: checkout, command, name: `architect ${milestone.id}`, scope: 'workspace' });
   if (!server.url) {
@@ -87,6 +96,9 @@ export async function runPreviewCapture(
     host.log(failure);
     return { route, smokePassed: false, capturePath: null, failure };
   }
+  // In the project folder the server keeps running, so the owner can wait on it,
+  // and the next check can stop it even when this capture fails.
+  const keptRunning = checkout === record.folder && server.serverId ? { serverId: server.serverId } : {};
   try {
     const url = new URL(route, server.url).toString();
     let smokePassed = false;
@@ -160,9 +172,9 @@ export async function runPreviewCapture(
         throw new Error(`Preview capture failed: ${capture.error}.${file}`);
       }
     }
-    // In the project folder the server keeps running, so the owner can wait on it.
-    const running = checkout === record.folder && server.serverId ? { serverId: server.serverId } : {};
-    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}), ...running };
+    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}), ...keptRunning };
+  } catch (error) {
+    return { route, smokePassed: false, capturePath: null, failure: error instanceof Error ? error.message : String(error), ...keptRunning };
   } finally {
     // A checkout is released and restored later. A server left running would be reused
     // by command and directory, and could serve the code it loaded before.
