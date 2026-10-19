@@ -286,13 +286,29 @@ async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<voi
 }
 
 /**
+ * Opens the Room brief the way a user does: the Room start action on the Home
+ * tab. A narrow panel folds the start actions into its More actions menu.
+ */
+async function openRoomBrief(): Promise<void> {
+  await panel().locator('nav button[title="Home"]').click();
+  const action = panel().getByRole('button', { name: 'Room', exact: true });
+  if (await action.isVisible()) {
+    await action.click();
+  } else {
+    await panel().getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Room', exact: true }).click();
+  }
+  await expect(panel().getByPlaceholder(/session-fixation/)).toBeVisible({ timeout: 10_000 });
+}
+
+/**
  * Drives the panel the way a user does: describe the problem, read the team
  * Sero proposes, start it, allow the sessions. Returns the Room id.
  */
 async function startRoom(brief: string, name: string): Promise<string> {
   await openRooms();
   const before = new Set((roomIndex()?.rooms ?? []).map((room) => room.id));
-  await panel().getByRole('button', { name: 'New', exact: true }).click();
+  await openRoomBrief();
   await panel().getByPlaceholder(/session-fixation/).fill(brief);
   await shot(`${name}-01-brief.png`);
   await panel().getByRole('button', { name: 'Design the team' }).click();
@@ -442,6 +458,8 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '1', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
+    // The one scenario that starts through the form. The rest start through the
+    // tool the form calls, so a change to the form fails here and only here.
     const roomId = await startRoom(BRIEFS.delivery, 'delivery');
     const roster = members(roomId);
     // Staffed for THIS problem: a Conductor plus specialists, not a fixed cast.
@@ -471,7 +489,7 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '2', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
-    const roomId = await startRoom(BRIEFS.adversarial, 'adversarial');
+    const roomId = await startRoomByTool(BRIEFS.adversarial, 'adversarial');
     const room = await settle(roomId, 'adversarial');
     const roster = members(roomId);
     const decision = roomCopiesOf(roomId, 'DECISION.md');
@@ -492,7 +510,7 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '3', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
-    const roomId = await startRoom(BRIEFS.parallel, 'parallel');
+    const roomId = await startRoomByTool(BRIEFS.parallel, 'parallel');
     const room = await settle(roomId, 'parallel');
     const roster = members(roomId);
     const worktrees = roster.filter((member) => member.worktreePath !== null);
