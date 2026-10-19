@@ -26,6 +26,7 @@
 import { browserViewManager } from '@electron/features/browser/view-manager';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
 import { isNotAChat, type CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
 import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
@@ -77,158 +78,156 @@ function formatTabRow(info: {
   return `${marker}${info.id}  [${info.workspaceId}]  ${title}\n    ${info.url}`;
 }
 
-async function handleBrowser(
-  args: string[],
-  ctx: CliCommandContext,
-): Promise<CliResult> {
-  const [action, ...rest] = args;
-  const { positionals, flags } = parseFlags(rest);
-
-  switch (action) {
-    case undefined:
-    case 'list': {
-      const wantsAll = flags.get('all') === true;
-      const list = browserViewManager.listLoadedTabs(
-        wantsAll ? undefined : ctx.workspaceId,
+const BROWSER_SUBCOMMANDS: CliSubcommands = {
+  list: async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const wantsAll = flags.get('all') === true;
+    const list = browserViewManager.listLoadedTabs(
+      wantsAll ? undefined : ctx.workspaceId,
+    );
+    if (list.length === 0) {
+      return ok(
+        wantsAll
+          ? 'No tabs are currently loaded in any workspace.'
+          : `No tabs are currently loaded in workspace "${ctx.workspaceId}". ` +
+              `Use 'sero browser open <url>' to open one.`,
       );
-      if (list.length === 0) {
-        return ok(
-          wantsAll
-            ? 'No tabs are currently loaded in any workspace.'
-            : `No tabs are currently loaded in workspace "${ctx.workspaceId}". ` +
-                `Use 'sero browser open <url>' to open one.`,
-        );
-      }
-      const body = list.map(formatTabRow).join('\n');
-      return ok(body);
     }
-
-    case 'show': {
-      // Showing the panel takes the user away from their work. A background
-      // agent never does that: only a tab on screen can be captured, so it reads
-      // the page instead or uses the headless browser.
-      if (ctx.invocation?.sessionId && isNotAChat(ctx.invocation.sessionId)) {
-        return fail('An agent working in the background cannot show the Browser panel: it would take the user away from their work. Read the page with `sero browser get-text`, or take screenshots with automation_browser.');
-      }
-      const shown = await appControlHostService.showBrowserPanel();
-      return shown
-        ? ok('Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.')
-        : fail('Failed to show Browser panel.');
+    const body = list.map(formatTabRow).join('\n');
+    return ok(body);
+  },
+  show: async (_rest, ctx) => {
+    // Showing the panel takes the user away from their work. A background
+    // agent never does that: only a tab on screen can be captured, so it reads
+    // the page instead or uses the headless browser.
+    if (ctx.invocation?.sessionId && isNotAChat(ctx.invocation.sessionId)) {
+      return fail('An agent working in the background cannot show the Browser panel: it would take the user away from their work. Read the page with `sero browser get-text`, or take screenshots with automation_browser.');
     }
-
-    case 'open': {
-      const url = positionals[0];
-      if (!url) return fail('Usage: sero browser open <url>');
+    const shown = await appControlHostService.showBrowserPanel();
+    return shown
+      ? ok('Browser panel shown. Use `sero browser screenshot` to capture it; do not use `sero app screenshot --app web`.')
+      : fail('Failed to show Browser panel.');
+  },
+  open: async (rest, ctx) => {
+    const { positionals } = parseFlags(rest);
+    const url = positionals[0];
+    if (!url) return fail('Usage: sero browser open <url>');
+    const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
+    if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
+    return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
+  },
+  goto: async (rest, ctx) => {
+    const { positionals } = parseFlags(rest);
+    const url = positionals[0];
+    if (!url) return fail('Usage: sero browser goto <url>');
+    const active = browserViewManager.resolveActiveTabForWorkspace(ctx.workspaceId);
+    if (!active) {
       const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
       if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
       return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
     }
-
-    case 'goto': {
-      const url = positionals[0];
-      if (!url) return fail('Usage: sero browser goto <url>');
-      const active = browserViewManager.resolveActiveTabForWorkspace(ctx.workspaceId);
-      if (!active) {
-        const tabId = browserViewManager.openTabForHost(url, ctx.workspaceId);
-        if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
-        return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
-      }
-      browserViewManager.navigate(active, url, ctx.workspaceId);
-      return ok(`Navigating active tab ${active} → ${url}`);
-    }
-
-    case 'close': {
-      const tabId = positionals[0];
-      if (!tabId) return fail('Usage: sero browser close <tab-id>');
-      // closeTabForHost now enforces workspace ownership itself; check first
-      // so we can return a precise error instead of a silent no-op.
-      const owner = browserViewManager.workspaceForTab(tabId);
-      if (!owner) return fail(`Unknown or already-closed tab: ${tabId}`);
-      if (owner !== ctx.workspaceId) {
-        return fail(
-          `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
-            `Refusing to close.`,
-        );
-      }
-      if (!browserViewManager.closeTabForHost(tabId, ctx.workspaceId)) {
-        return fail(`Failed to close tab ${tabId}`);
-      }
-      return ok(`Closed tab ${tabId}`);
-    }
-
-    case 'navigate': {
-      const tabId = positionals[0];
-      const url = positionals[1];
-      if (!tabId || !url) return fail('Usage: sero browser navigate <tab-id> <url>');
-      const owner = browserViewManager.workspaceForTab(tabId);
-      if (!owner) return fail(`Unknown or unloaded tab: ${tabId}`);
-      if (owner !== ctx.workspaceId) {
-        return fail(
-          `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
-            `Refusing to navigate.`,
-        );
-      }
-      try {
-        const parsed = new URL(url);
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-          return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
-        }
-      } catch {
-        return fail(`Not a valid URL: ${url}`);
-      }
-      browserViewManager.navigate(tabId, url, ctx.workspaceId);
-      return ok(`Navigating tab ${tabId} → ${url}`);
-    }
-
-    case 'get-text': {
-      const resolved = resolveTabId(
-        typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
-        ctx,
+    browserViewManager.navigate(active, url, ctx.workspaceId);
+    return ok(`Navigating active tab ${active} → ${url}`);
+  },
+  close: async (rest, ctx) => {
+    const { positionals } = parseFlags(rest);
+    const tabId = positionals[0];
+    if (!tabId) return fail('Usage: sero browser close <tab-id>');
+    // closeTabForHost now enforces workspace ownership itself; check first
+    // so we can return a precise error instead of a silent no-op.
+    const owner = browserViewManager.workspaceForTab(tabId);
+    if (!owner) return fail(`Unknown or already-closed tab: ${tabId}`);
+    if (owner !== ctx.workspaceId) {
+      return fail(
+        `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
+          `Refusing to close.`,
       );
-      if ('error' in resolved) return fail(resolved.error);
-      const page = await browserViewManager.extractPage(resolved.tabId, ctx.workspaceId);
-      if (!page) return fail(`Failed to extract text from tab ${resolved.tabId}`);
-      const header = page.title
-        ? `# ${page.title}\n\n_${page.url}_\n\n`
-        : `_${page.url}_\n\n`;
-      return ok(`${header}${page.text}`);
     }
-
-    case 'scroll': {
-      const resolved = resolveTabId(
-        typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
-        ctx,
+    if (!browserViewManager.closeTabForHost(tabId, ctx.workspaceId)) {
+      return fail(`Failed to close tab ${tabId}`);
+    }
+    return ok(`Closed tab ${tabId}`);
+  },
+  navigate: async (rest, ctx) => {
+    const { positionals } = parseFlags(rest);
+    const tabId = positionals[0];
+    const url = positionals[1];
+    if (!tabId || !url) return fail('Usage: sero browser navigate <tab-id> <url>');
+    const owner = browserViewManager.workspaceForTab(tabId);
+    if (!owner) return fail(`Unknown or unloaded tab: ${tabId}`);
+    if (owner !== ctx.workspaceId) {
+      return fail(
+        `Tab ${tabId} belongs to workspace "${owner}", not "${ctx.workspaceId}". ` +
+          `Refusing to navigate.`,
       );
-      if ('error' in resolved) return fail(resolved.error);
-      const rawAmount = typeof flags.get('amount') === 'string' ? Number(flags.get('amount')) : 800;
-      if (!Number.isFinite(rawAmount)) return fail('--amount must be a finite number.');
-      const directionValue = flags.get('direction');
-      const direction = typeof directionValue === 'string' ? directionValue : 'down';
-      if (direction !== 'down' && direction !== 'up') return fail('--direction must be "down" or "up".');
-      const amount = Math.abs(rawAmount) * (direction === 'up' ? -1 : 1);
-      const result = await browserViewManager.scrollPage(resolved.tabId, ctx.workspaceId, amount);
-      if (!result) return fail(`Failed to scroll tab ${resolved.tabId}`);
-      return ok(`Scrolled ${direction} by ${Math.abs(rawAmount)}px (y=${result.scrollY}/${result.maxY})`);
     }
-
-    case 'screenshot': {
-      const resolved = resolveTabId(
-        typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
-        ctx,
-      );
-      if ('error' in resolved) return fail(resolved.error);
-      const base64 = await browserViewManager.capturePage(resolved.tabId, ctx.workspaceId);
-      if (!base64) return fail(`Failed to capture tab ${resolved.tabId}`);
-      return {
-        output: `Captured tab ${resolved.tabId}`,
-        exitCode: 0,
-        content: [{ type: 'image', data: base64, mimeType: 'image/png' }],
-      };
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
+      }
+    } catch {
+      return fail(`Not a valid URL: ${url}`);
     }
+    browserViewManager.navigate(tabId, url, ctx.workspaceId);
+    return ok(`Navigating tab ${tabId} → ${url}`);
+  },
+  'get-text': async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const resolved = resolveTabId(
+      typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
+      ctx,
+    );
+    if ('error' in resolved) return fail(resolved.error);
+    const page = await browserViewManager.extractPage(resolved.tabId, ctx.workspaceId);
+    if (!page) return fail(`Failed to extract text from tab ${resolved.tabId}`);
+    const header = page.title
+      ? `# ${page.title}\n\n_${page.url}_\n\n`
+      : `_${page.url}_\n\n`;
+    return ok(`${header}${page.text}`);
+  },
+  scroll: async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const resolved = resolveTabId(
+      typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
+      ctx,
+    );
+    if ('error' in resolved) return fail(resolved.error);
+    const rawAmount = typeof flags.get('amount') === 'string' ? Number(flags.get('amount')) : 800;
+    if (!Number.isFinite(rawAmount)) return fail('--amount must be a finite number.');
+    const directionValue = flags.get('direction');
+    const direction = typeof directionValue === 'string' ? directionValue : 'down';
+    if (direction !== 'down' && direction !== 'up') return fail('--direction must be "down" or "up".');
+    const amount = Math.abs(rawAmount) * (direction === 'up' ? -1 : 1);
+    const result = await browserViewManager.scrollPage(resolved.tabId, ctx.workspaceId, amount);
+    if (!result) return fail(`Failed to scroll tab ${resolved.tabId}`);
+    return ok(`Scrolled ${direction} by ${Math.abs(rawAmount)}px (y=${result.scrollY}/${result.maxY})`);
+  },
+  screenshot: async (rest, ctx) => {
+    const { flags } = parseFlags(rest);
+    const resolved = resolveTabId(
+      typeof flags.get('tab') === 'string' ? (flags.get('tab') as string) : undefined,
+      ctx,
+    );
+    if ('error' in resolved) return fail(resolved.error);
+    const base64 = await browserViewManager.capturePage(resolved.tabId, ctx.workspaceId);
+    if (!base64) return fail(`Failed to capture tab ${resolved.tabId}`);
+    return {
+      output: `Captured tab ${resolved.tabId}`,
+      exitCode: 0,
+      content: [{ type: 'image', data: base64, mimeType: 'image/png' }],
+    };
+  },
+};
 
-    default:
-      return fail(`Unknown browser action: ${action}`);
-  }
+function handleBrowser(
+  args: string[],
+  ctx: CliCommandContext,
+): Promise<CliResult> {
+  return runSubcommand(BROWSER_SUBCOMMANDS, args, ctx, undefined, {
+    fallback: 'list',
+    unknown: (action) => fail(`Unknown browser action: ${action}`),
+  });
 }
 
 export function registerBrowserCliCommands(registry: CliRegistry): void {
@@ -271,6 +270,7 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       '  then run app record stop as its own command.',
     source: 'ipc',
     group: 'Builtin',
+    subcommands: BROWSER_SUBCOMMANDS,
     execute: handleBrowser,
   });
 }

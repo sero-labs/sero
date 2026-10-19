@@ -84,6 +84,13 @@ export interface CliAppCommandOwner {
   extensionPath: string;
 }
 
+/** Runs one subcommand. `args` are the tokens after the subcommand name. */
+export type CliSubcommandHandler = (
+  args: string[],
+  context: CliCommandContext,
+  onUpdate?: (update: CliCommandUpdate) => void,
+) => Promise<CliResult>;
+
 export interface CliCommand {
   name: string;
   summary: string;
@@ -94,6 +101,11 @@ export interface CliCommand {
     context: CliCommandContext,
     onUpdate?: (update: CliCommandUpdate) => void,
   ) => Promise<CliResult>;
+  /**
+   * The subcommands `execute` dispatches to, by name. The tool check reads
+   * these keys, so declare every handled subcommand here, not in a switch.
+   */
+  subcommands?: Record<string, CliSubcommandHandler>;
   source?: 'app' | 'ipc' | 'builtin' | 'agent-plugin';
   owner?: CliAppCommandOwner;
   group?: string;

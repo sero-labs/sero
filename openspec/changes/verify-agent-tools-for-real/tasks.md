@@ -2,12 +2,12 @@
 
 ## 1. Issue scope
 
-- [ ] 1.1 Ask Dan to approve replacing the narrowed "Focused v1.0 release slice" comment on #626 with the full scope of this change, then post the edit and verify the issue shows the new comment
+- [x] 1.1 Ask Dan to approve replacing the narrowed "Focused v1.0 release slice" comment on #626 with the full scope of this change, then post the edit and verify the issue shows the new comment
 
 ## 2. Core CLI subcommand maps
 
-- [ ] 2.1 Add an optional `subcommands` map (name to handler) to `CliCommand` in `electron/cli/core/types.ts`, and make the registry expose a command's subcommand names; verify with a CLI unit test that a command's names equal its map keys
-- [ ] 2.2 Convert the subcommand dispatch in each core command that has one (`workspace`, `session`, `git`, `vcs`, `devserver`, `terminal`, `browser`, `editor`, `app`, `appstate`, `artifacts`) to its map, keeping each unknown-subcommand message; verify the existing CLI unit tests and `cli.contract.spec.ts` pass unchanged
+- [x] 2.1 Add an optional `subcommands` map (name to handler) to `CliCommand` in `electron/cli/core/types.ts`, and make the registry expose a command's subcommand names; verify with a CLI unit test that a command's names equal its map keys
+- [x] 2.2 Convert the subcommand dispatch in each core command that has one (`workspace`, `session`, `git`, `vcs`, `devserver`, `terminal`, `browser`, `editor`, `app`, `appstate`, `artifacts`) to its map, keeping each unknown-subcommand message; verify the existing CLI unit tests and `cli.contract.spec.ts` pass unchanged
 
 ## 3. Inventory and coverage check
 

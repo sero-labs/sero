@@ -169,6 +169,11 @@ export class CliRegistry {
     return this.buildVisibleCommands(scope).get(normalizeName(name));
   }
 
+  /** The subcommands a command declares; empty when it takes none. */
+  subcommandNames(name: string, scope?: CliRegistryScope): string[] {
+    return Object.keys(this.get(name, scope)?.subcommands ?? {});
+  }
+
   list(scope?: CliRegistryScope): CliCommand[] {
     return [...this.buildVisibleCommands(scope).values()].sort((a, b) => a.name.localeCompare(b.name));
   }

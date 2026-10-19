@@ -1,15 +1,13 @@
 import { buildModelState } from '@electron/ipc/agent/core/agent-helpers';
 import { getCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok } from '@electron/cli/lib/utils';
 
 const MAX_SESSION_TITLE_LENGTH = 48;
 
-async function handleSession(args: string[], ctx: CliCommandContext) {
-  const [action = 'info'] = args;
-  if (action !== 'info') return fail('Usage: sero session info');
-
+async function handleSessionInfo(_args: string[], ctx: CliCommandContext) {
   const bridge = getCliSessionBridge();
   const sessionId = ctx.invocation.sessionId;
   const entry = sessionId
@@ -39,6 +37,8 @@ async function handleSession(args: string[], ctx: CliCommandContext) {
 
   return ok(lines.join('\n'));
 }
+
+const SESSION_SUBCOMMANDS: CliSubcommands = { info: handleSessionInfo };
 
 async function handleSetTitle(args: string[], ctx: CliCommandContext) {
   const ifUnnamed = args.includes('--if-unnamed');
@@ -75,7 +75,11 @@ export function registerSessionCliCommands(registry: CliRegistry): void {
     help: 'session — Agent session info\n\nUsage: sero session info\n',
     source: 'builtin',
     group: 'Builtin',
-    execute: handleSession,
+    subcommands: SESSION_SUBCOMMANDS,
+    execute: (args, ctx, onUpdate) => runSubcommand(SESSION_SUBCOMMANDS, args, ctx, onUpdate, {
+      fallback: 'info',
+      unknown: () => fail('Usage: sero session info'),
+    }),
   });
 
   registry.register({
