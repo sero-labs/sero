@@ -6,7 +6,8 @@ import type { McpRuntime } from '../runtime/mcp-runtime';
 import { createToolResult, isManagerAction, MCP_MANAGER_ACTIONS, type ManagerAction } from './types';
 
 const ManagerParams = Type.Object({
-  action: Type.Optional(Type.String({
+  // `status` is the legacy name. It stays accepted, and the description tells agents not to choose it.
+  action: Type.Optional(StringEnum([...MCP_MANAGER_ACTIONS, 'status'] as const, {
     description: `Internal MCP management action. Use this tool only for server administration, auth, diagnostics, or viewer/UI flows: ${MCP_MANAGER_ACTIONS.join(', ')}. DO NOT use this tool for normal MCP status/list/search/list_tools/list_resources/describe_tool/call_tool/read_resource work; route those to the mcp tool instead, even if a similarly named internal action exists here. Legacy compatibility: action="status" is still accepted but agents should not choose it.`,
   })),
   rawConfig: Type.Optional(Type.String({ description: 'Raw MCP config JSON for save_raw_config.' })),
