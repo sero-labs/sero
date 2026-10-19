@@ -131,6 +131,7 @@ export class ArchitectRuntime implements AppRuntime {
       readSources: async (projectId) => (await this.watch?.readSources(projectId)) ?? null,
       listDevServers: (workspaceId) => this.host.listDevServers(workspaceId),
       refChecks: (repoPath, ref) => this.host.refChecks(repoPath, ref),
+      spans,
     });
     this.waits = waits;
     this.stopDevServerFollow = this.host.onDevServerChange((change) => waits.devServerChanged(change.serverId));
