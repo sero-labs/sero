@@ -5,6 +5,8 @@
 .bd-canvas {
   /* Sizes are the host's text-xs, text-sm and text-base. The numbers are used only where the host does not publish them. */
   flex: 1; min-height: 0; height: 100%; display: flex; flex-direction: column; font-size: var(--text-sm, .9rem); line-height: 1.5;
+  /* The board's layout follows the pane it is in, not the window: sidebars can make a wide window's pane narrow. */
+  container: bd / inline-size;
   --bd-tile: var(--glass-tile, rgba(255, 255, 255, .06));
   --bd-raised: var(--glass-surface, rgba(255, 255, 255, .09));
   --bd-line: var(--glass-border, rgba(255, 255, 255, .12));
@@ -121,9 +123,11 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-thumb:hover img { border-color: var(--brand-primary); }
 .bd-thumb:hover .bd-link { color: var(--text-primary); }
 .bd-thumb img { width: 74px; height: 74px; object-fit: cover; object-position: top; border-radius: 5px; border: 1px solid var(--bd-line); }
-.bd-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 28px; align-content: start; }
-.bd-result .bd-label { grid-column: 1 / -1; }
-.bd-picture { display: block; max-width: 320px; max-height: 240px; border-radius: 6px; border: 1px solid var(--bd-line); }
+/* The picture sits beside the words while both fit, and goes under them when they do not. */
+.bd-result { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-start; align-content: start; }
+.bd-result .bd-label { flex-basis: 100%; margin-bottom: 0; }
+.bd-result-text { flex: 1 1 15rem; min-width: 0; }
+.bd-picture { display: block; flex: 0 1 320px; min-width: 0; max-width: 100%; max-height: 240px; object-fit: contain; object-position: top left; border-radius: 6px; border: 1px solid var(--bd-line); }
 /* The picture is a frame of one size, as tall as the words beside it. The tile is the same height with or without it. */
 .bd-now-seen { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; gap: 0 24px; align-items: stretch; }
 .bd-sees { position: relative; margin: 0; height: calc(8.4rem + 6px); border-radius: 8px; overflow: hidden; border: 1px solid var(--bd-line); background: var(--bd-raised); }
@@ -152,7 +156,7 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-say .ar-composer .ar-btn { height: 32px; border-radius: 9px; border: 1px solid var(--bd-line); background: var(--bd-raised); color: var(--text-primary); }
 @keyframes bd-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .bd-dot, .bd-stream p span::after { animation: none !important; } }
-@media (max-width: 980px) {
+@container bd (max-width: 1100px) {
   .bd-board { grid-template-columns: minmax(0, 1fr); }
   .bd-hero { grid-template-columns: 44px minmax(0, 1fr); }
   .bd-nums { grid-column: 2; }
