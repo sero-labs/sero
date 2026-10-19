@@ -89,8 +89,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     }, work);
   };
 
-  const runPreview = (record: ProjectRecord, milestone: Milestone, route: string, startedAt: number, checkout: string): Promise<NonNullable<EvidenceRecord['preview']>> =>
-    runPreviewCapture(deps, record, milestone, route, startedAt, checkout);
+  const runPreview = (record: ProjectRecord, milestone: Milestone, route: string, checkout: string): Promise<NonNullable<EvidenceRecord['preview']>> =>
+    runPreviewCapture(deps, record, milestone, route, checkout);
 
   /**
    * The milestone is already `verifying`, so a run that throws would leave it
@@ -155,7 +155,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     // capture error as a test exit code sends the owner to repair working code.
     const evidenceSpan = `${activeRun(record)?.id ?? ''}:evidence:${milestoneId}`;
     const preview = route && ran.every((command) => command.exitCode === 0)
-      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt, directory), {
+      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, directory), {
         parentOperationId: evidenceSpan,
         model: record.session.model ?? undefined,
         thinking: record.session.thinking ?? undefined,

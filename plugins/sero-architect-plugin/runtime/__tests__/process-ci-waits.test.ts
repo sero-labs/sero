@@ -7,7 +7,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppRuntimeDevServer } from '@sero-ai/common';
 import type { ProjectRecord } from '../../shared/record';
+import { openRun } from '../../shared/runs';
 import { ArchitectRuntime } from '../index';
+import { createRunJournal } from '../run-journal';
+import { createSpanRecorder } from '../spans';
+import { summarizeTiming } from '../trace-summary';
 import { createWaitReconciler } from '../wait-reconciler';
 import { agreedProject, cleanupHosts, fakeHost, milestone, storeFor, T0, type FakeHost } from './helpers';
 
@@ -163,6 +167,39 @@ describe('a CI wait', () => {
       expect(vi.getTimerCount()).toBe(0);
       await vi.advanceTimersByTimeAsync(600_000);
       expect(host.checkReads.length).toBe(reads);
+    } finally {
+      waits.dispose();
+    }
+  });
+});
+
+describe('waiting time', () => {
+  it('journals a durable wait from its registration to its outcome, so the run reports it', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const opened = openRun(agreedProject({ milestones: [milestone('m1', { status: 'running' })], waits: [{
+      id: 'wait_ci', owner: { milestoneId: 'm1', executionId: null }, source: { kind: 'ci', id: 'feat/x' }, condition: 'checks-concluded',
+      deadline: null, controlRevision: 0, registeredAt: T0, outcome: null, wake: null,
+    }] }), { id: 'run-1', kind: 'maintenance' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.checks['feat/x'] = { state: 'passed', sha: 'abc123', checks: [{ name: 'test', state: 'passed' }] };
+    const ended = new Date(Date.parse(T0) + 2 * 60 * 60_000).toISOString();
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
+    const waits = createWaitReconciler({
+      store, now: () => ended, log: () => undefined, readSources: async () => null, wake: () => undefined,
+      listDevServers: () => [], refChecks: (repoPath, ref) => host.refChecks(repoPath, ref),
+      spans: createSpanRecorder({ journal, now: () => ended }),
+    });
+    try {
+      await waits.reconcile('proj_1');
+      let timing = summarizeTiming([]);
+      for (let i = 0; i < 2_000 && timing.waitMs === 0; i += 1) {
+        await new Promise((resolve) => setImmediate(resolve));
+        timing = summarizeTiming((await journal.readPage('proj_1', 'run-1', { limit: 50 })).records);
+      }
+      expect(timing.waitMs).toBe(2 * 60 * 60_000);
+      expect(timing.waitByCause).toEqual({ ci: 2 * 60 * 60_000 });
     } finally {
       waits.dispose();
     }
