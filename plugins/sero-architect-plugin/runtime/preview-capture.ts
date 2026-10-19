@@ -73,6 +73,14 @@ export async function runPreviewCapture(
     host.log(failure);
     return { route, smokePassed: false, capturePath: null, failure };
   }
+  // A server an earlier check left running is reused by command and folder and
+  // serves the code it loaded then, so it is stopped first. One the owner waits
+  // on is left alone: stopping it would end that wait as if it had finished.
+  const waitedOn = new Set((record.waits ?? []).filter((wait) => wait.outcome === null && wait.source.kind === 'process').map((wait) => wait.source.id));
+  for (const earlier of record.milestones) {
+    const serverId = earlier.evidence?.preview?.serverId;
+    if (serverId && !waitedOn.has(serverId)) await host.stopDevServer(serverId).catch(() => false);
+  }
   const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: checkout, command, name: `architect ${milestone.id}`, scope: 'workspace' });
   if (!server.url) {
     const failure = `Dev server did not start: ${server.reason ?? 'no URL was returned'}`;

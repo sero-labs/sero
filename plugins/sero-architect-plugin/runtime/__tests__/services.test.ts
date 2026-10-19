@@ -378,6 +378,22 @@ describe('runtime services', () => {
     expect(started).toEqual([{ workspacePath: '/home/dan/projects/hollow', cwdPath: dir }]);
   });
 
+  it('stops a preview server earlier evidence left running before it starts one, unless the owner waits on it', async () => {
+    const earlier = (serverId: string) => ({ commit: 'abc', checkedAt: T0, commands: [], diffSummary: null, filesChanged: true, preview: { route: '/', smokePassed: true, capturePath: '/x.png', serverId }, passed: true, stale: true });
+    const target = milestone('m1', { status: 'verifying', preview: { route: '/' }, evidence: earlier('srv-old') });
+    const waited = milestone('m2', { status: 'verifying', evidence: earlier('srv-waited') });
+    const wait = { id: 'wait_1', owner: { milestoneId: 'm2', executionId: null }, source: { kind: 'process' as const, id: 'srv-waited' }, condition: 'exited', deadline: null, controlRevision: 0, registeredAt: T0, outcome: null, wake: null };
+    const project = buildingProject({ milestones: [target, waited], waits: [wait] as never });
+    const { host, services, wakes } = await setup(project);
+    const calls: string[] = [];
+    host.detectDevServerCommand = async () => 'node server.js';
+    host.stopDevServer = async (serverId) => { calls.push(`stop ${serverId}`); return true; };
+    host.startDevServer = async () => { calls.push('start'); return { reason: 'stopped here' }; };
+    await services.evidence(project, target, { commands: ['pnpm test'], route: '/' });
+    await waitFor(() => wakes.length > 0);
+    expect(calls).toEqual(['stop srv-old', 'start']);
+  });
+
   it('rejects an HTTP error preview, keeps the shared preview server running and names it for a wait', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
     const { host, store, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
