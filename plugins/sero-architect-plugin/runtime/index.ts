@@ -182,7 +182,9 @@ export class ArchitectRuntime implements AppRuntime {
         scheduler.request(fresh.id, { kind: 'directive', at: this.host.now(), items: unanswered.map((directive) => `directive ${directive.id} awaits a reply after restart`) });
       }
       const answered = fresh.decisions.filter((decision) => decision.answer && decision.answer.answeredAt > lastWakeAt);
-      const approvals = fresh.history.filter((entry) => entry.at > lastWakeAt && entry.cause.includes('approved'));
+      // A replayed approval is not a new user action, so it does not wake a paused or stopped project.
+      // The turn that saw it may have ended before `lastWakeAt` was stamped.
+      const approvals = mayWakeForWork(fresh) ? fresh.history.filter((entry) => entry.at > lastWakeAt && entry.cause.includes('approved')) : [];
       if (answered.length > 0 || approvals.length > 0) {
         scheduler.request(fresh.id, {
           kind: 'decision',

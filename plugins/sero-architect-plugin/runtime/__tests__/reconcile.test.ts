@@ -145,6 +145,23 @@ describe('restart reconciliation', () => {
     await runtime.dispose();
   });
 
+  it('does not replay an approval as a wake on a paused project', async () => {
+    const host = await fakeHost();
+    // The restart killed the first turn, so lastWakeAt was never stamped.
+    await seed(host, buildingProject({
+      paused: true,
+      session: { ...buildingProject().session, lastWakeAt: null },
+      history: [{ at: T0, phase: 'build', overlay: null, cause: 'you approved the start; work starts' }],
+    }));
+    const runtime = new ArchitectRuntime(host, {});
+
+    await runtime.start();
+    await runtime.scheduler?.idle('proj_1');
+
+    expect(host.sessions.prompts).toHaveLength(0);
+    await runtime.dispose();
+  });
+
   it('does nothing while the kill switch is set, and keeps the records', async () => {
     const host = await fakeHost();
     await seed(host, overBudget());
