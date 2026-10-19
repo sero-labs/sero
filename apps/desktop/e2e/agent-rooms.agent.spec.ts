@@ -292,10 +292,13 @@ async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<voi
 async function openRoomBrief(): Promise<void> {
   await panel().locator('nav button[title="Home"]').click();
   const action = panel().getByRole('button', { name: 'Room', exact: true });
+  const more = panel().getByRole('button', { name: 'More actions' });
+  // Both stay in the page and the width hides one, so wait for whichever shows.
+  await expect(action.or(more).filter({ visible: true })).toBeVisible({ timeout: 10_000 });
   if (await action.isVisible()) {
     await action.click();
   } else {
-    await panel().getByRole('button', { name: 'More actions' }).click();
+    await more.click();
     await page.getByRole('menuitem', { name: 'Room', exact: true }).click();
   }
   await expect(panel().getByPlaceholder(/session-fixation/)).toBeVisible({ timeout: 10_000 });
