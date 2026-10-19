@@ -62,7 +62,7 @@ describe('an execution identity is saved before work starts', () => {
 
   it('reads a milestone saved before direct execution unchanged', () => {
     const saved = milestone({ status: 'verifying', verification: 'reported' });
-    const reloaded = JSON.parse(JSON.stringify(project([saved]))) as ProjectRecord;
+    const reloaded: ProjectRecord = structuredClone(project([saved]));
     expect(reloaded.milestones[0]).toEqual(saved);
     expect(reloaded.milestones[0]?.direct).toBeUndefined();
   });
