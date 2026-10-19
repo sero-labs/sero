@@ -37,7 +37,7 @@ const HARMLESS_GLOBAL_FLAGS = new Set([
 ]);
 
 /** Harmless global options that consume the next token as their value. */
-const HARMLESS_GLOBAL_VALUE_FLAGS = new Set(['-C']);
+const HARMLESS_GLOBAL_VALUE_FLAGS = new Set(['-C', '--git-dir', '--work-tree']);
 
 /** Harmless global options in glued (`-C/path`) or `--x=y` form. */
 const HARMLESS_GLOBAL_PREFIXES = [
@@ -48,24 +48,30 @@ const HARMLESS_GLOBAL_PREFIXES = [
   /^--super-prefix=/,
 ];
 
-/**
- * Global options that can change what a command runs or how it behaves: a
- * config override can install a pager, external diff driver or alias that
- * spawns a process, so a read-only-looking subcommand is not trusted with one.
- */
-const BEHAVIOUR_CHANGING_GLOBAL_PREFIXES = [/^-c/, /^--config-env/, /^--exec-path/, /^--list-cmds/, /^--attr-source/];
-
 /** Strip shell redirections (2>&1, >/dev/null, etc.) so they don't pollute arg matching. */
 function stripRedirections(s: string): string {
   return s.replace(/\d*>\s*&?\d+/g, '').replace(/\d*>+\s*\S+/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** Split a segment into tokens, keeping quoted arguments together. */
-function tokenize(input: string): string[] {
-  const tokens: string[] = [];
+/** A shell word after quote removal. `quoted` is true when any part of it was quoted. */
+interface ShellWord {
+  text: string;
+  quoted: boolean;
+}
+
+/** Split a segment into words, keeping quoted arguments together. */
+function tokenize(input: string): ShellWord[] {
+  const words: ShellWord[] = [];
   let current = '';
   let quote: '"' | "'" | null = null;
   let started = false;
+  let quoted = false;
+  const finish = () => {
+    if (started) words.push({ text: current, quoted });
+    current = '';
+    started = false;
+    quoted = false;
+  };
   for (const ch of input) {
     if (quote) {
       if (ch === quote) quote = null;
@@ -76,19 +82,18 @@ function tokenize(input: string): string[] {
     if (ch === '"' || ch === "'") {
       quote = ch;
       started = true;
+      quoted = true;
       continue;
     }
     if (/\s/.test(ch)) {
-      if (started) tokens.push(current);
-      current = '';
-      started = false;
+      finish();
       continue;
     }
     current += ch;
     started = true;
   }
-  if (started) tokens.push(current);
-  return tokens;
+  finish();
+  return words;
 }
 
 function basename(token: string): string {
@@ -96,18 +101,35 @@ function basename(token: string): string {
   return slash === -1 ? token : token.slice(slash + 1);
 }
 
+/** Words that run the command after them, so a command name may follow them. */
+const COMMAND_WRAPPERS = new Set([
+  'sudo', 'env', 'xargs', 'command', 'exec', 'nohup', 'time',
+  'builtin', '!', 'if', 'then', 'do', 'else',
+]);
+const ENV_ASSIGNMENT = /^[A-Za-z_]\w*=/;
+
+/** True when a command name can stand at `words[index]`: only env assignments, options and wrappers come before it. */
+function atCommandPosition(words: ShellWord[], index: number): boolean {
+  for (let j = index - 1; j >= 0; j -= 1) {
+    const text = words[j]!.text;
+    if (ENV_ASSIGNMENT.test(text) || text.startsWith('-') || COMMAND_WRAPPERS.has(text)) continue;
+    return false;
+  }
+  return true;
+}
+
 type ParsedGitInvocation =
   | { kind: 'classified'; subcommand: string | null; args: string[] }
   | { kind: 'behaviour-changing' };
 
 /**
- * Read the global options at `tokens[start]` (the `git` word) and return the
- * subcommand with its arguments.
+ * Read the global options after the `git` word at `words[start]` and return
+ * the subcommand with its arguments.
  */
-function parseGitInvocation(tokens: string[], start: number): ParsedGitInvocation {
+function parseGitInvocation(words: ShellWord[], start: number): ParsedGitInvocation {
   let i = start + 1;
-  while (i < tokens.length) {
-    const token = tokens[i] as string;
+  while (i < words.length) {
+    const token = words[i]!.text;
     if (HARMLESS_GLOBAL_FLAGS.has(token)) {
       i += 1;
       continue;
@@ -124,7 +146,11 @@ function parseGitInvocation(tokens: string[], start: number): ParsedGitInvocatio
     // `-c`, `--config-env`, `--exec-path` and anything unrecognised.
     return { kind: 'behaviour-changing' };
   }
-  return { kind: 'classified', subcommand: tokens[i] ?? null, args: tokens.slice(i + 1) };
+  return {
+    kind: 'classified',
+    subcommand: words[i]?.text ?? null,
+    args: words.slice(i + 1).map((word) => word.text),
+  };
 }
 
 const BRANCH_MUTATING_FLAGS = /(?:^|\s)-[dDmMCuf]\b|--delete|--move|--copy|--force|--set-upstream|--unset-upstream|--edit-description/;
@@ -205,11 +231,18 @@ export function hasMutatingGit(command: string): boolean {
     .filter(Boolean);
 
   for (const segment of segments) {
-    const tokens = tokenize(stripRedirections(segment));
+    const words = tokenize(stripRedirections(segment));
 
-    for (let i = 0; i < tokens.length; i += 1) {
-      if (basename(tokens[i] as string) !== 'git') continue;
-      const invocation = parseGitInvocation(tokens, i);
+    for (let i = 0; i < words.length; i += 1) {
+      const word = words[i]!;
+      // Strip shell syntax that can cling to the command name: `(git`, `{git`, `!git`, `\git`.
+      const name = word.text.replace(/^[\\({!]+/, '');
+      if (basename(name) !== 'git') continue;
+      // A bare `git` counts anywhere unless it is quoted (`grep "git" src` searches for text). A path
+      // such as `apps/git` is a command only where a command name can stand (`sudo /usr/bin/git`).
+      const isCommand = name === 'git' ? !word.quoted || atCommandPosition(words, i) : atCommandPosition(words, i);
+      if (!isCommand) continue;
+      const invocation = parseGitInvocation(words, i);
       if (invocation.kind === 'behaviour-changing') return true;
       if (invocation.subcommand === null) continue;
       if (isMutatingGitSubcommand(invocation.subcommand, invocation.args)) return true;

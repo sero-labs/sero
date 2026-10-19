@@ -9,6 +9,8 @@ describe('hasMutatingGit', () => {
       expect(hasMutatingGit('git -C /repo status')).toBe(false);
       expect(hasMutatingGit('git --no-pager -C /repo log --oneline')).toBe(false);
       expect(hasMutatingGit('git --git-dir=/repo/.git status')).toBe(false);
+      expect(hasMutatingGit('git --git-dir /repo/.git status')).toBe(false);
+      expect(hasMutatingGit('git --work-tree /repo status')).toBe(false);
     });
 
     it('keeps reporting mutating subcommands that carry a global option', () => {
@@ -33,6 +35,24 @@ describe('hasMutatingGit', () => {
       expect(hasMutatingGit('/usr/bin/git switch -c other')).toBe(true);
       expect(hasMutatingGit('/usr/bin/git status')).toBe(false);
       expect(hasMutatingGit('sudo /usr/bin/git push')).toBe(true);
+    });
+
+    it('classifies git written right after a subshell, group or backslash', () => {
+      expect(hasMutatingGit('(git push origin main)')).toBe(true);
+      expect(hasMutatingGit('cd repo && (git reset --hard)')).toBe(true);
+      expect(hasMutatingGit('\\git push origin main')).toBe(true);
+    });
+  });
+
+  describe('arguments that only contain git', () => {
+    it('does not treat a quoted git search term as a git command', () => {
+      expect(hasMutatingGit('rg -n "git" apps/')).toBe(false);
+      expect(hasMutatingGit("grep -rn 'git' src/ && pnpm test")).toBe(false);
+    });
+
+    it('does not treat a directory named git as a git command', () => {
+      expect(hasMutatingGit('grep -r retry apps/desktop/electron/features/git src/')).toBe(false);
+      expect(hasMutatingGit('cat docs/git notes.md')).toBe(false);
     });
   });
 
