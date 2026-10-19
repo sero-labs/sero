@@ -8,7 +8,7 @@ import type { RunOutcome } from './driver';
 import type { ScenarioStep, StepContext, ToolCheckFixtures, ToolCheckSite } from './types';
 
 export function stepContext(check: ToolCheckApp, site: ToolCheckSite, fixtures: ToolCheckFixtures): StepContext {
-  return { workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page };
+  return { workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page, respondWith: check.respondWith };
 }
 
 /** A new chat on the stub model, in the check's workspace. */

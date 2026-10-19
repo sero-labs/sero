@@ -75,7 +75,8 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
       const reply = responder?.(request);
       if (reply) return reply;
     }
-    return undefined;
+    // Never the probe stub's own plan, which calls every tool the session has.
+    return { text: 'No tool check scenario claims this session.' };
   };
   const stub = await startProbeStub({}, answer, driver);
   let home: TempSeroHome | undefined;

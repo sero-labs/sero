@@ -8,6 +8,7 @@
  */
 
 import type { Page } from '@playwright/test';
+import type { StubReply, StubRequest } from '../stub-model';
 
 export type ToolCheckRuntime = 'host' | 'docker' | 'apple-container';
 
@@ -67,6 +68,12 @@ export interface StepContext {
   state: Record<string, unknown>;
   /** The app window, for a setup or an effect only the app can show. Absent in unit tests. */
   page?: Page;
+  /**
+   * Answers model requests the step causes outside its own session, such as
+   * a design synthesis or a cron job's run, until the returned function
+   * removes the responder. Absent in unit tests.
+   */
+  respondWith?: (responder: (request: StubRequest) => StubReply | undefined) => () => void;
 }
 
 export type StepParams = Record<string, unknown>;

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { ExtensionAPI, ExtensionFactory } from '@earendil-works/pi-coding-agent';
 import { registerCoreCommands } from '@electron/cli/commands/core';
+import { BUILTIN_COMMANDS } from '@electron/cli/core/builtin-commands';
 import { CliRegistry } from '@electron/cli/core/registry';
 import { createSeroCodemodeExtension } from '@electron/features/codemode';
 import { createRuntimeTools } from '@electron/features/container/tools/tools';
@@ -41,8 +42,8 @@ export function actionsOf(parameters: unknown): string[] | null {
   return values as string[];
 }
 
-/** An ExtensionAPI that records `registerTool` and answers every other call with nothing. */
-function recordingApi(tools: RecordedTool[]): ExtensionAPI {
+/** An ExtensionAPI that records `registerTool` and `registerCommand`, and answers every other call with nothing. */
+function recordingApi(tools: RecordedTool[], commands: string[] = []): ExtensionAPI {
   const nothing: unknown = new Proxy(() => undefined, {
     get: (_target, prop) => (prop === 'then' ? undefined : nothing),
     apply: () => undefined,
@@ -50,6 +51,7 @@ function recordingApi(tools: RecordedTool[]): ExtensionAPI {
   return new Proxy({}, {
     get(_target, prop) {
       if (prop === 'registerTool') return (tool: RecordedTool) => tools.push(tool);
+      if (prop === 'registerCommand') return (name: string) => commands.push(name);
       if (prop === 'getActiveTools' || prop === 'getAllTools' || prop === 'getCommands') return () => [];
       if (prop === 'then') return undefined;
       return nothing;
@@ -57,9 +59,9 @@ function recordingApi(tools: RecordedTool[]): ExtensionAPI {
   }) as ExtensionAPI;
 }
 
-async function runFactory(factory: ExtensionFactory): Promise<RecordedTool[]> {
+async function runFactory(factory: ExtensionFactory, commands?: string[]): Promise<RecordedTool[]> {
   const tools: RecordedTool[] = [];
-  await factory(recordingApi(tools));
+  await factory(recordingApi(tools, commands));
   return tools;
 }
 
@@ -105,8 +107,14 @@ interface PluginManifest {
   sero?: { plugin?: { uiOnlyTools?: string[] } };
 }
 
-async function pluginTools(): Promise<InventoryEntry[]> {
+/**
+ * Every plugin tool, and every plugin slash command the CLI bridge passes to
+ * an agent (`sero <command>` through `sero-cli`). The bridge skips a command
+ * that shares a tool's name, a built-in or a core command (`cli/index.ts`).
+ */
+async function pluginTools(coreCommands: ReadonlySet<string>): Promise<InventoryEntry[]> {
   const entries: InventoryEntry[] = [];
+  const commands: Array<{ name: string; source: string }> = [];
   for (const dir of readdirSync(PLUGINS_DIR).sort()) {
     const manifestPath = path.join(PLUGINS_DIR, dir, 'package.json');
     if (!existsSync(manifestPath)) continue;
@@ -115,16 +123,24 @@ async function pluginTools(): Promise<InventoryEntry[]> {
     for (const extension of manifest.pi?.extensions ?? []) {
       const url = pathToFileURL(path.join(PLUGINS_DIR, dir, extension)).href;
       const module = (await import(url)) as { default: ExtensionFactory };
-      const tools = (await runFactory(module.default)).filter((tool) => !uiOnly.has(tool.name));
+      const registered: string[] = [];
+      const tools = (await runFactory(module.default, registered)).filter((tool) => !uiOnly.has(tool.name));
       entries.push(...entriesFor(tools, dir));
+      commands.push(...registered.map((name) => ({ name, source: dir })));
     }
   }
-  return entries;
+  const toolNames = new Set(entries.map((entry) => entry.tool));
+  const bridged = commands.filter(({ name }) => !toolNames.has(name) && !BUILTIN_COMMANDS.has(name) && !coreCommands.has(name));
+  return [...entries, ...bridged.map(({ name, source }): InventoryEntry => ({ tool: name, action: null, source }))];
 }
 
-function cliCommands(): InventoryEntry[] {
+function coreRegistry(): CliRegistry {
   const registry = new CliRegistry();
   registerCoreCommands(registry);
+  return registry;
+}
+
+function cliCommands(registry: CliRegistry): InventoryEntry[] {
   return registry.list().flatMap((command): InventoryEntry[] => {
     const tool = `sero ${command.name}`;
     const subcommands = registry.subcommandNames(command.name);
@@ -135,11 +151,12 @@ function cliCommands(): InventoryEntry[] {
 }
 
 export async function buildToolInventory(): Promise<InventoryEntry[]> {
+  const registry = coreRegistry();
   const entries = [
     ...(await platformTools()),
     ...(await inlineTools()),
-    ...(await pluginTools()),
-    ...cliCommands(),
+    ...(await pluginTools(new Set(registry.list().map((command) => command.name)))),
+    ...cliCommands(registry),
   ];
   const seen = new Set<string>();
   for (const entry of entries) {

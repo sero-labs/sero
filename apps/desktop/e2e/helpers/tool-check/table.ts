@@ -1,3 +1,8 @@
+import { cronMemoryProbes } from './probes/group-cron-memory';
+import { designLibraryProbes } from './probes/group-design-library';
+import { gitGraphifyProbes } from './probes/group-git-graphify';
+import { mcpProbes } from './probes/group-mcp';
+import { webFeedbackProbes } from './probes/group-web-feedback';
 import type { ToolProbe } from './types';
 import { bashProbe } from './probes/bash';
 import { editProbe } from './probes/edit';
@@ -33,4 +38,9 @@ export const TOOL_PROBES: ToolProbe[] = [
   seroDevserverProbe,
   seroGitProbe,
   seroVcsProbe,
+  ...cronMemoryProbes,
+  ...webFeedbackProbes,
+  ...gitGraphifyProbes,
+  ...mcpProbes,
+  ...designLibraryProbes,
 ];
