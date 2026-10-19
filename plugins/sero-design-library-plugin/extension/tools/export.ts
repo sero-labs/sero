@@ -10,7 +10,7 @@ import { isExportDestination, type ExportSummary } from '../../shared/export';
 import { normalizeGalleryVersion } from '../../shared/gallery';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import { galleryVersionRecordFile } from '../../shared/paths';
-import { appendRequest, readJsonFile } from '../../shared/state-io';
+import { appendRequest, pendingRequests, readJsonFile, readState } from '../../shared/state-io';
 import { checkId, failure, text, type ToolResult } from './result';
 
 const ACTIONS = ['run', 'status'] as const;
@@ -43,6 +43,12 @@ export function registerExportTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, context): Promise<ToolResult> {
       if (params.action === 'status') {
+        // The runtime records an export only once it picks the request up, so a
+        // queued one is checked first; otherwise the answer would be the previous export.
+        const queued = pendingRequests(await readState(paths)).flatMap((request) =>
+          request.body.kind === 'export.run' ? [request.body.exportId] : []);
+        const waiting = params.exportId ? queued.find((id) => id === params.exportId) : queued.at(-1);
+        if (waiting) return text('Export is running.', { exportId: waiting });
         const exports = await readIndex(paths.exportsIndexFile, normalizeExportIndex);
         const selected = params.exportId
           ? exports.find((entry) => entry.id === params.exportId)
@@ -81,9 +87,9 @@ export function registerExportTool(pi: ExtensionAPI, paths: DesignLibraryPaths):
           : {}),
       });
       return text(
-        params.destination === 'downloads'
+        `${params.destination === 'downloads'
           ? 'Exporting that exact Gallery version to Downloads.'
-          : 'Exporting that exact Gallery version to the active workspace.',
+          : 'Exporting that exact Gallery version to the active workspace.'} Export id: ${exportId}.`,
         { exportId },
       );
     },
