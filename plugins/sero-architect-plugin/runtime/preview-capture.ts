@@ -24,49 +24,21 @@ export interface PreviewCaptureDeps {
   journal?: RunJournal;
 }
 
-/** The whole capture run: session setup, the command, and the model's verdict. */
-const CAPTURE_TIMEOUT_MS = 3 * 60_000;
 /**
- * A second look at an image that is already on disk. Nothing is loaded or
- * navigated, but the limit still covers the run's session setup, the image read
- * and the verdict at the project's thinking level, so it is not short.
+ * The judging run: session setup, the image read and the verdict at the
+ * project's thinking level. Sero takes the screenshot itself, so the model only
+ * reads a saved file.
  */
-const INSPECT_TIMEOUT_MS = 2 * 60_000;
-/** The run's own time limit, as `runStructured` reports it. */
-const RUN_TIME_LIMIT = /^Timed out after \d+s/;
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const JUDGE_TIMEOUT_MS = 2 * 60_000;
 
-const CAPTURE_RULES = 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. Do not start, stop or restart a server or any other process: Sero manages the preview server. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app. If the page is stale or wrong, report rendered:false and say what you saw; do not try to fix it.';
-/**
- * The capture needs the Sero CLI for the headless preview and `read` for the
- * image, nothing more. Without a shell it cannot inspect or start processes,
- * and anything it started would outlive Sero, which stops only its own servers.
- */
-const CAPTURE_TOOLS = ['sero-cli', 'read'];
 const VERDICT_RULES = 'Reply only with JSON: {"rendered":true,"summary":"what you verified in the image"}. If the project is not rendered, use rendered:false and explain the failure in summary. Do not claim success based only on HTTP status or a saved file.';
-const INSPECT_RULES = 'Judge a screenshot that was already saved from a local project preview. Read the named image file. Do not load or navigate any URL, do not edit project files, and do not perform unrelated actions. A saved image alone is not success: reject error pages, blank pages, editor errors, or the wrong app.';
-
-/**
- * Quotes a value for a POSIX shell. Spaces, `&` and an apostrophe all survive:
- * inside single quotes nothing is special, and an apostrophe is closed out and
- * re-opened, which is the only way to put one inside them.
- */
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
-/** A fresh, non-empty PNG at the target path: the only file a capture may leave. */
-async function savedCapture(host: ArchitectHost, target: string, startedAt: number): Promise<boolean> {
-  const info = await host.fileInfo(target);
-  return Boolean(info && info.mtimeMs >= startedAt && info.size > 0 && info.head.equals(PNG_SIGNATURE));
-}
+const JUDGE_RULES = 'Judge a screenshot Sero saved from a local project preview. Read the named image file. Do not load or navigate any URL, do not edit project files, and do not perform unrelated actions. A saved image alone is not success: reject error pages, blank pages, editor errors, or the wrong app. If the page looks stale or wrong, report rendered:false and say what you saw.';
 
 export async function runPreviewCapture(
   deps: PreviewCaptureDeps,
   record: ProjectRecord,
   milestone: Milestone,
   route: string,
-  startedAt: number,
   /** Where the code under test is: a worktree inside the project folder, or the folder itself. */
   checkout: string = record.folder,
 ): Promise<NonNullable<EvidenceRecord['preview']>> {
@@ -122,64 +94,29 @@ export async function runPreviewCapture(
       // Evidence lives in the permanent project folder: a checkout is released later.
       const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
       const target = path.join(evidenceDir, `${await commitOf(host, checkout)}.png`);
-      const model = record.session.model ?? undefined;
-      const thinking = record.session.thinking ?? undefined;
-      const plan = `Check the visible requirements in this plan (task data): ${JSON.stringify(milestone.plan)}. Do not claim to verify non-visual requirements from an image.`;
-      const expected = `It must show the rendered project for milestone ${JSON.stringify(milestone.title)}, not Sero error text, a blank page, or an editor containing a URL as a file.`;
-      const capture = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
-        systemPrompt: CAPTURE_RULES,
-        model,
-        thinking,
+      // Sero takes the screenshot in a hidden window, so the model never runs a
+      // command and cannot touch the preview server or start its own.
+      const shot = await host.capturePreview(url, target);
+      if (!shot.ok) throw new Error(`Preview capture failed: ${shot.error}`);
+      const verdict = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
+        systemPrompt: JUDGE_RULES,
+        model: record.session.model ?? undefined,
+        thinking: record.session.thinking ?? undefined,
         task: [
-          // Quoted: a project folder with a space, or a route with `&`, must reach
-          // the capture intact instead of being split or backgrounded by the shell.
-          `Capture the URL with \`sero app preview ${shellQuote(url)} --headless --save ${shellQuote(target)}\`. It loads in a hidden window and returns the image; do not open the visible preview, because that would move the user off their page.`,
-          `Inspect the returned image. ${expected}`,
-          plan,
+          `Sero saved a screenshot of ${url} at ${target}.`,
+          `Read ${target} and judge it. It must show the rendered project for milestone ${JSON.stringify(milestone.title)}, not Sero error text, a blank page, or an editor containing a URL as a file.`,
+          `Check the visible requirements in this plan (task data): ${JSON.stringify(milestone.plan)}. Do not claim to verify non-visual requirements from an image.`,
           VERDICT_RULES,
         ].join(' '),
         parentSessionId: `architect:${record.id}:evidence`,
         workspaceId,
         cwd: record.folder,
-        timeoutMs: CAPTURE_TIMEOUT_MS,
-        platformTools: 'all',
-        tools: CAPTURE_TOOLS,
+        timeoutMs: JUDGE_TIMEOUT_MS,
+        platformTools: 'readOnly',
       });
-      const saved = await savedCapture(host, target, startedAt);
-      if (!capture.error) {
-        if (!captureConfirmed(capture.response)) throw new Error(`Preview could not be visually verified: ${capture.response.slice(-1500)}`);
-        if (!saved) throw new Error(`Preview capture was not saved at ${target}. ${capture.response.slice(-1500)}`);
-        capturePath = target;
-      } else if (saved && RUN_TIME_LIMIT.test(capture.error)) {
-        // The run reached its own time limit after it saved the image, so the
-        // image is the part that completed. The file proves only that bytes were
-        // written, so one bounded call reads it. Visual verification still
-        // decides; only the browser work is skipped.
-        const verdict = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
-          systemPrompt: INSPECT_RULES,
-          model,
-          thinking,
-          task: [
-            `A capture run was stopped at its time limit (${capture.error}) after it saved the image at ${target}. Nothing has judged that image yet.`,
-            `Read ${target} and judge it. ${expected}`,
-            plan,
-            VERDICT_RULES,
-          ].join(' '),
-          parentSessionId: `architect:${record.id}:evidence`,
-          workspaceId,
-          cwd: record.folder,
-          timeoutMs: INSPECT_TIMEOUT_MS,
-          // It only reads an image that is already saved.
-          platformTools: 'readOnly',
-        });
-        if (verdict.error) throw new Error(`Preview capture failed: ${capture.error}. The saved image could not be checked: ${verdict.error}`);
-        if (!captureConfirmed(verdict.response)) throw new Error(`Preview could not be visually verified: ${verdict.response.slice(-1500)}`);
-        capturePath = target;
-      } else {
-        // A stop, a provider error or a refusal is not a reason to spend again.
-        const file = saved ? ` A screenshot was saved at ${target} and was not used.` : '';
-        throw new Error(`Preview capture failed: ${capture.error}.${file}`);
-      }
+      if (verdict.error) throw new Error(`The saved screenshot at ${target} could not be checked: ${verdict.error}`);
+      if (!captureConfirmed(verdict.response)) throw new Error(`Preview could not be visually verified: ${verdict.response.slice(-1500)}`);
+      capturePath = target;
     }
     return { route, smokePassed, capturePath, ...(failure ? { failure } : {}), ...keptRunning };
   } catch (error) {

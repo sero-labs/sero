@@ -98,6 +98,7 @@ export type {
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeDevServersApi,
+  AppRuntimePageCapture,
   AppRuntimeProviderApiKey,
   AppRuntimeCredentialsApi,
   AppRuntimeToolchainsApi,
