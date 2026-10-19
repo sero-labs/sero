@@ -59,7 +59,7 @@
 
 ## 11. Follow-up issues
 
-- [ ] 11.1 Open GitHub issues for the out-of-scope defects in the proposal: cron sessions use Pi built-in tools that bypass the workspace runtime, and `tools-host.ts` is used only by tests so those tests skip the production tools; verify both issues exist and link to this change
+- [x] 11.1 Open GitHub issues for the out-of-scope defects in the proposal: cron sessions use Pi built-in tools that bypass the workspace runtime, and `tools-host.ts` is used only by tests so those tests skip the production tools; verify both issues exist and link to this change
 
 ## Workflow follow-up
 
