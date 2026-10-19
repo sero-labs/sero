@@ -1,0 +1,503 @@
+[
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_9mgfkdjv:owner-wake:quiet:wake_gvmo2d0n",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_9mgfkdjv:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_9mgfkdjv:owner-wake:dispatch-complete:wake_u9k7ktpt",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.0165864,
+      "aggregateOnlyUsd": 0.0015825359999999998,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 90016,
+      "activeMs": 78287,
+      "workerMs": 268,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 2,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T22:34:14.184Z",
+    "run": {
+      "runId": "worktree1:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "69ade37c4",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": null,
+        "detail": "the check could not run: ENOENT: no such file or directory, lstat '/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1791325964116/.sero/worktrees/card-direct-m1'"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      5184,
+      7522,
+      8979,
+      9352,
+      9876,
+      10296,
+      11015,
+      11558,
+      11692,
+      12441,
+      12809,
+      13485,
+      13910,
+      14589,
+      15293,
+      15936,
+      16280,
+      16453,
+      16671,
+      16950,
+      19811,
+      20230,
+      20624,
+      21009,
+      21212
+    ]
+  },
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_s5zm6439:owner-wake:quiet:wake_a3px9pzy",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_s5zm6439:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_s5zm6439:owner-wake:dispatch-complete:wake_c5yt2lie",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.014666711999999998,
+      "aggregateOnlyUsd": 0.0016047359999999998,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 90051,
+      "activeMs": 74622,
+      "workerMs": 191,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 2,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-06T22:42:07.122Z",
+    "run": {
+      "runId": "worktree2:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "bd13f6d80+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 8,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      5198,
+      5826,
+      7103,
+      7472,
+      7781,
+      8130,
+      8235,
+      8641,
+      9124,
+      9708,
+      10256,
+      10801,
+      11537,
+      11763,
+      11955,
+      12184,
+      14812,
+      16225,
+      18408,
+      18974,
+      19206
+    ]
+  },
+  {
+    "candidate": "architect",
+    "objective": "collaborative-research",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_ba0fepk4:owner-wake:quiet:wake_cdlw7hvv",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "findings-match-the-codebase: the json block in FINDINGS.md names the real callers, the default attempts and the overrides"
+    ],
+    "cost": {
+      "attributableUsd": 0.08333054399999999,
+      "aggregateOnlyUsd": 0.039046368000000005,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 903465,
+      "activeMs": 143632,
+      "workerMs": 125713,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 0,
+      "turns": 1,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-19T02:01:44.518Z",
+    "run": {
+      "runId": "2026-10-19T01-46-37-467Z:collaborative-research:r1:architect",
+      "strategy": "architect",
+      "revision": "a71b1dc94+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "I need answers about this codebase, not changes to it. Find out which files under src/ call retryWithBackoff, what number of attempts it uses by default, and which callers override the number of attempts and with what value.\nWrite what you find to FINDINGS.md. End the file with one fenced json block of exactly this shape, with paths relative to the repository root:\n{\"callers\": [\"src/a.js\"], \"defaultAttempts\": 3, \"attemptOverrides\": {\"src/a.js\": 2}}\nDo not change any source file. Research this as a team: start a research Room of two agents who each test a different reading of the code and check each other's findings, and do not do the research yourself.",
+      "workspaceFingerprint": "ec5478e81449d33fd59c2453ff8dd777325eec0584e8ea264dd3ae58a03dd49f",
+      "acceptanceRevision": "cbc3cfb03396367253098d57973c39d1889d11a41596217a054914892474dcee",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 15,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "findings-match-the-codebase",
+        "passed": false,
+        "detail": "the findings file does not exist"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      5807,
+      8606,
+      9200,
+      9590,
+      9813,
+      9938,
+      10035
+    ]
+  },
+  {
+    "candidate": "persistent-single-agent",
+    "objective": "collaborative-research",
+    "models": [
+      {
+        "operationId": "chat-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "LOW tier, pinned on the session"
+      }
+    ],
+    "acceptanceCriteria": [
+      "findings-match-the-codebase: the json block in FINDINGS.md names the real callers, the default attempts and the overrides"
+    ],
+    "cost": {
+      "attributableUsd": 0.08141340000000002,
+      "aggregateOnlyUsd": 0,
+      "coverage": "call",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 901039,
+      "activeMs": 898948,
+      "workerMs": 898948,
+      "waitMs": 2091
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 1,
+      "requests": 122,
+      "toolCalls": 123,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "incomplete",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-19T02:16:45.588Z",
+    "run": {
+      "runId": "2026-10-19T01-46-37-467Z:collaborative-research:r1:persistent-single-agent",
+      "strategy": "persistent-single-agent",
+      "revision": "a71b1dc94+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "I need answers about this codebase, not changes to it. Find out which files under src/ call retryWithBackoff, what number of attempts it uses by default, and which callers override the number of attempts and with what value.\nWrite what you find to FINDINGS.md. End the file with one fenced json block of exactly this shape, with paths relative to the repository root:\n{\"callers\": [\"src/a.js\"], \"defaultAttempts\": 3, \"attemptOverrides\": {\"src/a.js\": 2}}\nDo not change any source file. Research this as a team: start a research Room of two agents who each test a different reading of the code and check each other's findings, and do not do the research yourself.",
+      "workspaceFingerprint": "ec5478e81449d33fd59c2453ff8dd777325eec0584e8ea264dd3ae58a03dd49f",
+      "acceptanceRevision": "cbc3cfb03396367253098d57973c39d1889d11a41596217a054914892474dcee",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 15,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "findings-match-the-codebase",
+        "passed": false,
+        "detail": "the findings file does not exist"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      10714,
+      12268,
+      13057,
+      13466,
+      13634,
+      13947,
+      14569,
+      14775,
+      15053,
+      15622,
+      16146,
+      16356,
+      16967,
+      17690,
+      18577,
+      18773,
+      19260,
+      19747,
+      21113,
+      21736,
+      21840,
+      22572,
+      23575,
+      24107,
+      24428,
+      25402,
+      26443,
+      27567,
+      27811,
+      28243,
+      30756,
+      31050,
+      31269,
+      31739,
+      32505,
+      32763,
+      33346,
+      33886,
+      34163,
+      35137,
+      35504,
+      36062,
+      36362,
+      36939,
+      38064,
+      38434,
+      38941,
+      39336,
+      39691,
+      41285,
+      42340,
+      42676,
+      42852,
+      43721,
+      43897,
+      44154,
+      44354,
+      44444,
+      44586,
+      45509,
+      45824,
+      46327,
+      47180,
+      47415,
+      48346,
+      48568,
+      50678,
+      51165,
+      52566,
+      52862,
+      53035,
+      53218,
+      53415,
+      54480,
+      54653,
+      54849,
+      55674,
+      56008,
+      56737,
+      57032,
+      57364,
+      58429,
+      59805,
+      60989,
+      61185,
+      62040,
+      62323,
+      62556,
+      63053,
+      63513,
+      63944,
+      64195,
+      65137,
+      66087,
+      66572,
+      69184,
+      69827,
+      70023,
+      70818,
+      71430,
+      71786,
+      72495,
+      72789,
+      73988,
+      75303,
+      75764,
+      76840,
+      78584,
+      78936,
+      79586,
+      79982,
+      80217,
+      80817,
+      81044,
+      81240,
+      82234,
+      82598,
+      82869,
+      83086,
+      83846,
+      85014,
+      0
+    ]
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "msg_694f5ef8-4f14-4b88-9c4f-ef5ba03b7979",
+    "kind": "system",
+    "fromMemberId": null,
+    "toMemberIds": [
+      "indirect-path-researcher"
+    ],
+    "body": "Lin — Indirect Path Researcher was assigned: Investigate reading B: exclude or confirm indirect paths (aliased imports, re-export barrels, wrappers) to retryWithBackoff, and complete the mutual review of Ada's direct evidence artifact.",
+    "questionId": null,
+    "inReplyToQuestionId": null,
+    "wakeRecipients": false,
+    "commandId": "cmd_26dba3a2-ae62-492a-80d7-95369deecf91",
+    "createdAt": "2026-10-19T02:23:20.298Z",
+    "roomId": "room_a58a80ff-385d-488a-a193-81264d331e82",
+    "sequence": 1
+  },
+  {
+    "id": "msg_e9d92a16-9890-4892-ace8-251a9fc31591",
+    "kind": "question",
+    "fromMemberId": "conductor-direct-researcher",
+    "toMemberIds": [
+      "indirect-path-researcher"
+    ],
+    "body": "Work item work_fab38896-8c6e-46aa-8e53-d6b3046b658c is yours. My direct-track evidence is published as artifact_76da209f-9867-454e-9d78-f7c3f56381b3 — read it with read-artifact before you start.\n\nMy direct findings, for you to attack: src/ contains exactly 8 files. Definition src/net/retry.js:3. Default attempts at src/net/retry.js:4 ('options.attempts ?? DEFAULTS.attempts') resolving to src/config.js:1 (attempts: 5). Four call sites: src/billing/charge.js:4 (attempts: 2), src/billing/refund.js:4 (attempts: 3), src/sync/pull.js:4 (no options -> 5), src/sync/push.js:4 (baseDelayMs: 100 only -> attempts 5). I excluded src/net/retry-sync.js:1 (distinct symbol retryWithBackoffSync, own param default 1) and src/legacy/old-sync.js:1 (comment only).\n\nPlease deliver TWO things in one reply:\n(1) READING B RESULT — for each of these, confirm or exclude with path:line evidence, including which files you checked: (a) aliased imports of retryWithBackoff under a different local name anywhere in src/; (b) any re-export barrel (index.js or similar) re-exporting retryWithBackoff; (c) any wrapper function that itself calls retryWithBackoff and is called from elsewhere; (d) whether retryWithBackoffSync is imported/called by any src/ file (I found none — confirm); (e) whether any file outside src/ imports the four src/ wrappers (charge/refund/pull/push), which would extend the caller graph without adding a direct caller.\n(2) MUTUAL REVIEW — state explicitly AGREE or DISAGREE on each of: the 4-file caller list, the default value 5 at config.js:1, the two overrides (2 at charge.js:4, 3 at refund.js:4), and the two exclusions. If you disagree on any item, give the path:line that overturns it.\n\nPublish your reading-B evidence as your own artifact as well, so the Room has both tracks on record.",
+    "questionId": "question_c6dc2122-5bc3-4d05-b8fa-63320e8859cf",
+    "inReplyToQuestionId": null,
+    "wakeRecipients": true,
+    "commandId": "cmd_1365413d-06e2-4174-b2c3-e40aebd7fddb",
+    "createdAt": "2026-10-19T02:23:23.503Z",
+    "roomId": "room_a58a80ff-385d-488a-a193-81264d331e82",
+    "sequence": 2
+  },
+  {
+    "id": "msg_b9e59b69-3fc9-43a1-8831-8178c2b33465",
+    "kind": "reply",
+    "fromMemberId": "indirect-path-researcher",
+    "toMemberIds": [
+      "conductor-direct-researcher"
+    ],
+    "body": "(1) READING B RESULT — my artifact is artifact_4e38c215-8138-44ba-aa86-1318d830c1f3. Method: full reads of all 8 src/ files + repo-wide greps (excluding .sero/) for retryWithBackoff, retryWithBackoffSync, oldSync, attempts, DEFAULTS, all module specifiers, and every import/export form (import * as, require(, module.exports, exports., export *, export {} from, dynamic import()). No file modified.\n\nFILES CHECKED: all 8 of src/ (config.js, net/retry.js, net/retry-sync.js, billing/charge.js, billing/refund.js, sync/pull.js, sync/push.js, legacy/old-sync.js) plus every non-.sero file outside src/ — only package.json and .sero-workspace.json exist. There is no index.js and no test file anywhere.\n\n(a) ALIASED IMPORTS — EXCLUDED. Zero hits for 'import * as', require(, module.exports, exports., ' as ', or dynamic import(). All four imports are static named canonical imports from '../net/retry.js': charge.js:1, refund.js:1, pull.js:1, push.js:1. No rename, no namespace import, no CJS interop.\n\n(b) RE-EXPORT BARRELS — EXCLUDED. Zero hits for 'export *', 'export {', 'export ... from'. Every export in src/ is an inline declaration (config.js:1, retry.js:3, retry-sync.js:1, charge.js:3, refund.js:3, pull.js:3, push.js:3, old-sync.js:2). retryWithBackoff has exactly one export site (src/net/retry.js:3) and is never re-exported. package.json has no main/exports field (only :5 name, :6 type=module, :7 test script), so no package-level barrel.\n\n(c) WRAPPER HELPERS — no hidden extra layer. The only functions calling retryWithBackoff are your four call sites, each a one-line pass-through (charge.js:3-5, refund.js:3-5, pull.js:3-5, push.js:3-5). Nothing calls those four wrappers inside the repo, and no helper wraps a retry util. Options objects are plain literals at line 4 only, so no spread/indirection can inject attempts.\n\n(d) retryWithBackoffSync — CONFIRMED, never imported or called. Repo-wide grep returns exactly one hit: its own definition at src/net/retry-sync.js:1. Body :2-6 loops on its own positional param and calls task() directly; it never imports or delegates to retryWithBackoff. Its 'attempts = 1' is a different symbol's parameter default, not an attempts override.\n\n(e) OUTSIDE-src CONSUMERS of charge/refund/pull/push — NONE. Grep for 'billing/charge|billing/refund|sync/pull|sync/push|net/retry|net/retry-sync|config.js' repo-wide returns only the 5 intra-src imports. The caller graph does not extend; the four wrappers are exported but unreferenced in-repo.\n\n(2) MUTUAL REVIEW — ALL AGREE, no disagreement:\n- 4-file caller list (charge, refund, pull, push): AGREE.\n- default 5 at src/config.js:1, read via src/net/retry.js:4 'options.attempts ?? DEFAULTS.attempts': AGREE, independently reproduced; DEFAULTS is only written at config.js:1 and only read at retry.js:1,4,5, so attempts is never mutated at runtime, and the '??' also maps explicit null to 5.\n- override 2 at src/billing/charge.js:4: AGREE.\n- override 3 at src/billing/refund.js:4: AGREE.\n- exclusion of src/net/retry-sync.js: AGREE (distinct symbol, zero importers).\n- exclusion of src/legacy/old-sync.js: AGREE (comment only at :1; oldSync :2-4 makes no retry call; zero importers).\n- 'src/ contains exactly 8 files': AGREE, verified by reading all 8 and by enumerating the whole repo.\n- your UNRESOLVED item (no aliases / barrels / wrappers / no index.js): now POSITIVELY established, not merely unobserved — the negative greps above were exhaustive across all non-.sero files.\nTwo non-overturning reporting notes: (i) push.js:4 must be described as 'options present, attempts absent' not 'no options' — you already flag this; (ii) never attribute retry-sync.js:1's 'attempts = 1' to retryWithBackoff. Neither changes the numbers.",
+    "questionId": null,
+    "inReplyToQuestionId": "question_c6dc2122-5bc3-4d05-b8fa-63320e8859cf",
+    "wakeRecipients": false,
+    "commandId": "cmd_9dbeb8ce-2d53-4377-8813-aaa8248e8472",
+    "createdAt": "2026-10-19T02:24:02.166Z",
+    "roomId": "room_a58a80ff-385d-488a-a193-81264d331e82",
+    "sequence": 3
+  }
+]

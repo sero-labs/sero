@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "run_a4e3e96c-327d-4a11-a547-3d4bade2158f",
+      "runNumber": 1,
+      "status": "running",
+      "startedAt": "2026-10-19T02:25:56.196Z",
+      "steps": [
+        {
+          "stepId": "author-findings-release",
+          "title": "Create approved findings and validator",
+          "visitNumber": 1,
+          "activationId": "run_a4e3e96c-327d-4a11-a547-3d4bade2158f:author-findings-release:1",
+          "attemptNumber": 1,
+          "executionType": "background-agent",
+          "status": "running",
+          "planIndex": 0
+        }
+      ],
+      "recoveries": [],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 13737,
+        "outputTokens": 1011,
+        "totalTokens": 42908,
+        "costUsd": 0.045238
+      }
+    }
+  ]
+}

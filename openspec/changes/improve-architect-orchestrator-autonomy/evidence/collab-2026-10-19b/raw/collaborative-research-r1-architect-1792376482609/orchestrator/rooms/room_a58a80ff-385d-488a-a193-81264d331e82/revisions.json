@@ -1,0 +1,27 @@
+[
+  {
+    "id": "rev_d66142ae-5093-48de-8063-00b83b348bba",
+    "roomId": "room_a58a80ff-385d-488a-a193-81264d331e82",
+    "kind": "assign-work",
+    "actorMemberId": "conductor-direct-researcher",
+    "reason": "",
+    "summary": "Lin — Indirect Path Researcher was assigned: Investigate reading B: exclude or confirm indirect paths (aliased imports, re-export barrels, wrappers) to retryWithBackoff, and complete the mutual review of Ada's direct evidence artifact.",
+    "previousValue": null,
+    "newValue": null,
+    "proposal": {
+      "kind": "assign-work",
+      "memberId": "indirect-path-researcher",
+      "task": "Investigate reading B: exclude or confirm indirect paths (aliased imports, re-export barrels, wrappers) to retryWithBackoff, and complete the mutual review of Ada's direct evidence artifact.",
+      "priorities": [
+        "1) exclusions with path:line evidence 2) mutual review of artifact_76da209f-9867-454e-9d78-f7c3f56381b3 3) flag any disagreement"
+      ]
+    },
+    "outcome": "applied",
+    "requiresApproval": false,
+    "approvalId": null,
+    "rejectionReason": null,
+    "commandId": "cmd_92ed5c5e-3b8c-44da-a472-edef04ba421e",
+    "createdAt": "2026-10-19T02:23:20.260Z",
+    "resolvedAt": "2026-10-19T02:23:20.260Z"
+  }
+]

@@ -110,7 +110,16 @@ Two earlier attempts on the same day are not counted as results:
 
 **Found:** in the counted run the Conductor had also called `request-attention` after its change was held. That paused the Room for the user. Approving the change applied it but did not resume the Room or wake the Conductor, so the tester never ran. A typed message would have resumed it. Filed as issue 640, because whether an approval should count as the answer is a product decision.
 
-**Not shown live:** an in-policy change applied with no dialog. That path is covered by the host grant-amendment tests and the Orchestrator amendment tests. The matched collaborative scenario did not form a Room in either Architect run (see above).
+### An in-policy change, live
+
+Room scenario 6, run on 2026-10-19 with the same model and settings. The record and screenshots are in `room-inpolicy-2026-10-19/`. Cost $0.028, 85 s.
+
+1. The Room started with a Conductor, a reviewer the brief gave `read` and `write`, and a fixer, on grant `grant_gwaipcx9`. The runner did not save the reviewer's starting tools. The Room refuses a setup change that changes nothing, so the applied change shows they were not already `read` alone.
+2. Once REVIEW.md existed, the Conductor proposed a `change-configuration` that left the reviewer only `read`.
+3. Taking a tool away adds no authority. The host amended the grant to revision 1 with nothing added, and the change was `applied`. No dialog opened and nothing waited for the user.
+4. The grant id was `grant_gwaipcx9` before and after. The reviewer's tools read `["read"]`. Its session file stayed the same file at 18 lines, and the Conductor and fixer kept theirs (31 to 62 and 9 to 38 lines).
+
+An earlier scenario 6 asked the Conductor to retire the reviewer. Retiring a member is a Room revision that does not touch the grant, so it could never show an amendment. That run was also vacuous because the Conductor proposed nothing, and the spec let that pass. The spec now asks for the narrowing and fails when no change is proposed.
 
 ## Tool discovery probe (3.7)
 
@@ -132,6 +141,20 @@ One run of the `interruption` scenario, Architect only, with the runner's `SERO_
 - **Nothing ran while paused.** No file changed and nothing was dispatched until Resume at 01:14:15. After Resume the owner called `work --operation continue` on the same execution id, finished the work, and m1 was accepted on evidence. There is one `begin` and no second execution.
 - **One turn did start while paused,** at 01:13:15, so the runner recorded the paused check as failed. The turn's contract said the project was paused, and the owner slept without acting. The restart had replayed the start approval as a `decision` wake, which may run on a paused project, because the interrupted first turn never stamped its wake time. That breaks the promise that a paused owner is not woken. Filed as issue 641.
 - **Not shown:** a stop across a restart (unit tests only), and a multi-hour continuity trial. The multi-hour trial was not run and stays unproved.
+
+## Wait sources (5.3)
+
+Each check 5.3 names, and the test that makes it. The files are under `plugins/sero-architect-plugin/runtime/__tests__/` unless another plugin is named. All of them passed in the 865-test Architect run and the 1,849-test Orchestrator run at f2a7b50c3.
+
+| Check | Test |
+| --- | --- |
+| Polling an unmet condition starts no owner turn | `owner-wait-runtime.test.ts` "gives one wake for duplicate notifications and none while the condition is unmet"; `process-ci-waits.test.ts` "starts no turn while the server runs, and one when it exits with its code" and "reads again every two minutes while checks run, and starts no turn until they conclude"; Orchestrator `goal-waits-runtime.test.ts` "stays waiting while the condition is unmet, however many notifications arrive" |
+| Completion before the subscription is not lost | `owner-wait-runtime.test.ts` "observes a completion that happened before the subscription, with one continuation"; `process-ci-waits.test.ts` "observes checks that concluded before the wait, with one turn" |
+| Restart cannot lose a matched condition | `owner-wait-runtime.test.ts` "re-reads on restart, and a wake reserved but never started is delivered once"; Orchestrator `goal-waits-runtime.test.ts` "is found on restart when the Workflow ended while Sero was closed" |
+| A dropped notification (queue overflow) cannot lose it | `owner-wait-runtime.test.ts` "is not lost when a notification is dropped: a later push re-reads every open wait" |
+| An unknown process outcome holds | `owner-wait-runtime.test.ts` "holds the project when a process outcome cannot be confirmed, and starts no turn"; `process-ci-waits.test.ts` "holds the project and starts nothing when the server vanished, as after a restart" |
+
+Live, a child wait ended `satisfied` with one wake in substantial-feature replay 1 (above). No CI wait ran live: the scenarios have no remote repository with checks. The CI source is covered by the tests above only.
 
 ## Overview and Work views (6.3)
 
