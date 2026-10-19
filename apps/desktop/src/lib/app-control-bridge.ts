@@ -97,6 +97,10 @@ export function initAppControlBridge(): () => void {
         if (!workspace.workspaces.some((entry) => entry.id === workspaceId)) return false;
         if (workspace.activeWorkspaceId !== workspaceId) selectWorkspaceForApp(appId, workspaceId);
       }
+      // Opening the Explorer brings back its file tree, even when `showBrowserPanel`
+      // left it on the Browser panel with the sidebar closed (#660).
+      const target = workspaceId ?? useWorkspaceStore.getState().activeWorkspaceId;
+      if (appId === 'explorer' && target) useExplorerStore.getState().set(target, { activePanel: 'explorer', sidebarOpen: true });
       openApp(appId);
       return true;
     },
