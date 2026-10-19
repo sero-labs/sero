@@ -1,4 +1,13 @@
-/** User-authorized Goal management for the Orchestrator UI. Its limit changes count as the user's own. */
+/**
+ * User-authorized Goal management for the Orchestrator UI. Its limit changes count as the user's own.
+ *
+ * This is a UI bridge, not a model tool. The UI reaches it through
+ * `appAgent.invokeTool`, which calls the registered definition directly, so the tool
+ * must stay registered while never appearing in a model's tool set. `hidden` does
+ * exactly that: registered and resolvable, but never declared, activated, callable
+ * through codemode, or found by tool search. Without it a model could call
+ * `set_limits` and raise or remove a budget the user set.
+ */
 
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
@@ -81,6 +90,7 @@ export function registerGoalAppTool(pi: ExtensionAPI): void {
     label: 'Goals',
     description: 'Manage Goal records from the Orchestrator user interface.',
     parameters: GoalAppParams,
+    exposure: 'hidden',
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return executeGoalApp(params as GoalAppParamsShape, ctx?.cwd);
     },

@@ -15,6 +15,8 @@ interface PluginBridgePolicy {
   toolNames: Set<string>;
   /** Tools that declare the session kinds they are for. A tool not listed is for every kind. */
   toolSessionKinds: Map<string, Set<string>>;
+  /** Tools the plugin's UI calls through `appAgent.invokeTool`. No model may reach them. */
+  uiOnlyToolNames: Set<string>;
 }
 
 interface PluginPkgJson {
@@ -22,6 +24,7 @@ interface PluginPkgJson {
     plugin?: {
       bridgeTools?: PluginBridgeToolsSetting;
       toolSessionKinds?: Record<string, unknown>;
+      uiOnlyTools?: unknown;
     };
   };
 }
@@ -50,11 +53,17 @@ function parseToolSessionKinds(setting: Record<string, unknown> | undefined): Ma
   return kinds;
 }
 
+function parseUiOnlyTools(setting: unknown): Set<string> {
+  if (!Array.isArray(setting)) return new Set();
+  return new Set(setting.filter((name): name is string => typeof name === 'string' && !!name));
+}
+
 function parseBridgePolicy(plugin: NonNullable<NonNullable<PluginPkgJson['sero']>['plugin']>): PluginBridgePolicy {
   const setting = plugin.bridgeTools;
   const toolSessionKinds = parseToolSessionKinds(plugin.toolSessionKinds);
+  const uiOnlyToolNames = parseUiOnlyTools(plugin.uiOnlyTools);
   if (setting === false) {
-    return { bridgeAll: false, toolNames: new Set(), toolSessionKinds };
+    return { bridgeAll: false, toolNames: new Set(), toolSessionKinds, uiOnlyToolNames };
   }
 
   if (Array.isArray(setting)) {
@@ -62,10 +71,11 @@ function parseBridgePolicy(plugin: NonNullable<NonNullable<PluginPkgJson['sero']
       bridgeAll: false,
       toolNames: new Set(setting.filter((name): name is string => typeof name === 'string' && !!name)),
       toolSessionKinds,
+      uiOnlyToolNames,
     };
   }
 
-  return { bridgeAll: true, toolNames: new Set(), toolSessionKinds };
+  return { bridgeAll: true, toolNames: new Set(), toolSessionKinds, uiOnlyToolNames };
 }
 
 export function getPluginBridgePolicy(extensionPath: string): PluginBridgePolicy | null {
@@ -112,6 +122,32 @@ export function clearPluginBridgePolicyCache(): void {
 /** Whether the plugin behind `extensionPath` allows this tool in this kind of session. */
 export function isToolForSessionKind(extensionPath: string, name: string, kind: ToolSessionKind): boolean {
   return getPluginBridgePolicy(extensionPath)?.toolSessionKinds.get(name)?.has(kind) ?? true;
+}
+
+/**
+ * Whether this tool exists only for the plugin's own UI. Its actions count as the
+ * user's, so a model must never reach it: not as a declared tool, not through
+ * codemode or tool search, and not as a `sero-cli` command.
+ */
+export function isUiOnlyTool(extensionPath: string, name: string): boolean {
+  return getPluginBridgePolicy(extensionPath)?.uiOnlyToolNames.has(name) ?? false;
+}
+
+/**
+ * Neutralize every UI-only tool so no model can reach it, while leaving it
+ * registered for `appAgent.invokeTool`. A plugin declares its list in
+ * `sero.plugin.uiOnlyTools`; a tool that names the `hidden` exposure itself does
+ * not need the declaration, but the declaration keeps a forgotten line harmless.
+ */
+export function hideUiOnlyTools(base: LoadExtensionsResult): LoadExtensionsResult {
+  for (const extension of base.extensions) {
+    for (const [name, registered] of [...extension.tools]) {
+      if (registered.definition.exposure === 'hidden') continue;
+      if (!isUiOnlyTool(extension.resolvedPath, name)) continue;
+      extension.tools.set(name, { ...registered, definition: { ...registered.definition, exposure: 'hidden' } });
+    }
+  }
+  return base;
 }
 
 /**

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { GoalRuntime } from '../../runtime/goals/goal-runtime';
 import type { Goal } from '../../shared/goal-types';
-import { executeGoalApp } from '../goal-app';
+import { executeGoalApp, registerGoalAppTool } from '../goal-app';
 import { toolResult } from '../goal-session';
 
 const goal: Goal = {
@@ -40,6 +41,22 @@ function stubRuntime() {
 }
 
 describe('the Goals management tool', () => {
+  it('registers as a UI-only tool no model can reach', () => {
+    const registered: Array<ToolDefinition<never, unknown, unknown>> = [];
+    const pi = {
+      registerTool: (tool: ToolDefinition<never, unknown, unknown>) => registered.push(tool),
+    } as unknown as ExtensionAPI;
+
+    registerGoalAppTool(pi);
+
+    // `hidden` keeps the definition resolvable for `appAgent.invokeTool` while
+    // removing it from every model surface: declared tools, activation, codemode
+    // and tool search. `set_limits` here counts as the user's own authority, so a
+    // model reaching it could raise a budget the user set.
+    expect(registered[0]?.name).toBe('goals');
+    expect(registered[0]?.exposure).toBe('hidden');
+  });
+
   it('returns the runtime refusal text in structured details', () => {
     const result = toolResult({ ok: false, text: 'Stop this Goal before deleting it.' });
 

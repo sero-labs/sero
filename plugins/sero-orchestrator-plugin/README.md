@@ -204,6 +204,14 @@ An agent cannot raise or remove a Goal limit the user set. `changeGoalLimits`
 in `runtime/goals/goal-limits.ts` refuses it and allows a lower value or a limit
 the user left unset.
 
+The Orchestrator's `goals` tool is the UI's own bridge, not a model surface. It
+manages any goal in the workspace by id, and its `set_limits` counts as the
+user's own. The plugin declares it in `sero.plugin.uiOnlyTools` and registers it
+with `exposure: 'hidden'`, so no model reaches it as a declared tool, a
+`sero-cli` command, codemode or tool search, while
+`appAgent.invokeTool` still resolves it by name. Any other plugin UI bridge with
+user-only actions needs the same two declarations.
+
 The chat banner and the Orchestrator Goals view are gated on the approved
 prototypes (`goal-mode-chat.html`, `goal-mode-orchestrator.html`). The runtime
 already emits a `goal-status` custom message for the host to intercept.

@@ -28,7 +28,12 @@ import {
   clearBridgedExtensionSessionItemsForSession,
   replaceBridgedExtensionSessionItems,
 } from './bridges/extension-session-bridge';
-import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features/plugins/bridge-policy';
+import {
+  clearPluginBridgePolicyCache,
+  getPluginBridgePolicy,
+  hideUiOnlyTools,
+  isUiOnlyTool,
+} from '../features/plugins/bridge-policy';
 import { buildAgentPluginCliCommands } from '../features/agent-plugins/cli';
 
 let registry: CliRegistry | null = null;
@@ -170,12 +175,17 @@ const INTERACTIVE_TOOLS = new Set([
  * manifest-driven: any extension loaded from a package with `sero.plugin`
  * opts into bridging via `sero.plugin.bridgeTools`.
  *
+ * The host removes UI-only tools before this runs, but a ui-only name must also
+ * stay out of the CLI surface, where the model could otherwise call it as a
+ * command.
+ *
  * - `undefined` / `true` → bridge all tools from that plugin extension
  * - `false`              → bridge none
  * - `string[]`           → bridge only the listed tool names
  */
 function shouldBridgeTool(name: string, extensionPath: string): boolean {
   if (NEVER_BRIDGE_TO_CLI.has(name)) return false;
+  if (isUiOnlyTool(extensionPath, name)) return false;
   if (CORE_TOOLS_TO_BRIDGE.has(name)) return true;
 
   const pluginPolicy = getPluginBridgePolicy(extensionPath);
@@ -233,6 +243,9 @@ export function bridgeExtensionTools(
     bridgeCommands?: boolean;
   },
 ): LoadExtensionsResult {
+  // Every model-facing session reaches plugin tools through here, so this is the
+  // one place that keeps a UI-only tool out of `sero-cli` as well as the tool list.
+  base = hideUiOnlyTools(base);
   const reg = options?.registry ?? getCliRegistry();
   const sessionCommands: CliCommand[] = [];
 
