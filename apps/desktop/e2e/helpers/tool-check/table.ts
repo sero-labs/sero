@@ -7,6 +7,7 @@ import { seroArtifactsProbe } from './probes/sero-artifacts';
 import { seroCliProbe } from './probes/sero-cli';
 import { seroDevserverProbe } from './probes/sero-devserver';
 import { seroEditorProbe } from './probes/sero-editor';
+import { seroGitProbe, seroVcsProbe } from './probes/sero-git';
 import { seroHelpProbe } from './probes/sero-help';
 import { seroSessionProbe } from './probes/sero-session';
 import { seroSetTitleProbe } from './probes/sero-set-title';
@@ -30,4 +31,6 @@ export const TOOL_PROBES: ToolProbe[] = [
   seroAppstateProbe,
   seroWorkspaceProbe,
   seroDevserverProbe,
+  seroGitProbe,
+  seroVcsProbe,
 ];

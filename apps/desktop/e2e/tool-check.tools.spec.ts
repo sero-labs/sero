@@ -54,13 +54,20 @@ test.describe.serial('action pass', () => {
       const exempt = new Set((probe.exemptions ?? []).map((exemption) => exemption.action));
       const steps = probe.steps.filter((step) => !exempt.has(step.action));
       check.ledger.plan(requiredActions([probe]).map(({ tool, action }) => ({ tool, action, site: 'chat' as const })));
-      const outcome = await runInChat(check, { tool: probe.tool, steps, via: via!, fixtures: fixtures.values });
-      expect(outcome.failure, `${probe.tool} stopped`).toBeUndefined();
+      // A failed test makes Playwright start a new worker, and with it a new
+      // app and an empty ledger. So a probe only reports its failure; the
+      // ledger check below fails the run, with every failure listed.
+      const failure = await runInChat(check, { tool: probe.tool, steps, via: via!, fixtures: fixtures.values })
+        .then((outcome) => outcome.failure, (error: unknown) => (error instanceof Error ? error.message : String(error)));
+      if (failure) {
+        console.log(`${probe.tool} stopped: ${failure}`);
+        test.info().annotations.push({ type: 'tool check failure', description: failure });
+      }
     });
   }
-});
 
-test('the run proved every non-exempt action', () => {
-  for (const line of exemptionReport(TOOL_PROBES)) console.log(`exempt: ${line}`);
-  expect(ledgerProblems(check.ledger.ledger, TOOL_PROBES)).toEqual([]);
+  test('the run proved every non-exempt action', () => {
+    for (const line of exemptionReport(TOOL_PROBES)) console.log(`exempt: ${line}`);
+    expect(ledgerProblems(check.ledger.ledger, TOOL_PROBES)).toEqual([]);
+  });
 });
