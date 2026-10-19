@@ -30,6 +30,18 @@ describe('coverageProblems', () => {
     expect(problems).toEqual([expect.stringContaining('notes remove')]);
   });
 
+  it('counts a step that calls another tool against that tool', () => {
+    const problems = coverageProblems(inventory, probes({
+      notes: { tool: 'notes', steps: [
+        { action: 'add', params: {}, expect: pass },
+        { tool: 'search', action: null, params: {}, expect: pass },
+        { action: 'remove', params: {}, expect: pass },
+      ] },
+      search: { tool: 'search', steps: [] },
+    }));
+    expect(problems).toEqual([]);
+  });
+
   it('names a stale entry', () => {
     const problems = coverageProblems(inventory, [
       ...probes(),

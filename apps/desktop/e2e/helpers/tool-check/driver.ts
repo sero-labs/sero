@@ -11,17 +11,16 @@ import type { StubReply, StubRequest } from '../stub-model';
 import { callScript, rejectionScript, unwrapScriptResult } from './codemode-call';
 import { cliCommandFor, isCoreCommand } from './command-line';
 import type { LedgerWriter } from './ledger';
-import type { ScenarioStep, StepContext, ToolCallResult } from './types';
+import type { ScenarioStep, StepContext, StepRoute, ToolCallResult } from './types';
 
-/** How a step reaches its tool: called directly, through `sero-cli`, or from a `codemode` script. */
-export type StepRoute = 'direct' | 'cli' | 'codemode' | 'codemode-cli';
+export type { StepRoute } from './types';
 
 /**
- * A step, and for a run that mixes tools (a site pass), the tool and route it
- * uses. `rejects` makes a script step call the tool, then a line that must
+ * A step, and for a run that mixes tools (a site pass), the route it uses.
+ * `rejects` makes a script step call the tool, then a line that must
  * not run: the call has to fail the script.
  */
-export type RunStep = ScenarioStep & { tool?: string; via?: StepRoute; rejects?: boolean };
+export type RunStep = ScenarioStep & { rejects?: boolean };
 
 export interface ScenarioRun {
   /** The first user message of the session. The driver tells sessions apart by it. */

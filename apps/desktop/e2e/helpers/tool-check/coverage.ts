@@ -24,10 +24,10 @@ export function coverageProblems(inventory: InventoryEntry[], probes: ToolProbe[
     if (seenTools.has(probe.tool)) problems.push(`${probe.tool}: more than one probe module`);
     seenTools.add(probe.tool);
 
-    const tested = new Set(probe.steps.map((step) => key(probe.tool, step.action)));
+    const tested = new Set(probe.steps.map((step) => key(step.tool ?? probe.tool, step.action)));
     for (const step of probe.steps) {
-      const k = key(probe.tool, step.action);
-      if (!known.has(k)) problems.push(`stale scenario step: ${label(probe.tool, step.action)} is not a tool action`);
+      const k = key(step.tool ?? probe.tool, step.action);
+      if (!known.has(k)) problems.push(`stale scenario step: ${label(step.tool ?? probe.tool, step.action)} is not a tool action`);
       covered.add(k);
     }
     for (const exemption of probe.exemptions ?? []) {

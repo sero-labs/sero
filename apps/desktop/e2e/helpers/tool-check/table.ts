@@ -2,6 +2,8 @@ import { cronMemoryProbes } from './probes/group-cron-memory';
 import { designLibraryProbes } from './probes/group-design-library';
 import { gitGraphifyProbes } from './probes/group-git-graphify';
 import { mcpProbes } from './probes/group-mcp';
+import { orchestratorProbes } from './probes/group-orchestrator';
+import { roomsArchitectProbes } from './probes/group-rooms-architect';
 import { webFeedbackProbes } from './probes/group-web-feedback';
 import type { ToolProbe } from './types';
 import { codemodeProbe, createAgentProbe, subagentProbe } from './probes/agents';
@@ -55,4 +57,6 @@ export const TOOL_PROBES: ToolProbe[] = [
   ...gitGraphifyProbes,
   ...mcpProbes,
   ...designLibraryProbes,
+  ...orchestratorProbes,
+  ...roomsArchitectProbes,
 ];

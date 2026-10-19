@@ -78,7 +78,18 @@ export interface StepContext {
 
 export type StepParams = Record<string, unknown>;
 
+/** How a step reaches its tool: called directly, through `sero-cli`, or from a `codemode` script. */
+export type StepRoute = 'direct' | 'cli' | 'codemode' | 'codemode-cli';
+
 export interface ScenarioStep {
+  /**
+   * Another tool the step calls, where a probe's session must reach it first
+   * through the probe's own tool (a goal's terminal tools, which a goal start
+   * turns on). The step proves that tool's action, not the probe's.
+   */
+  tool?: string;
+  /** How the step reaches its tool, where that differs from the run's route. */
+  via?: StepRoute;
   /** The action this step proves. Null for a tool with no `action` parameter. */
   action: string | null;
   /**

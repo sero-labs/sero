@@ -177,6 +177,20 @@ describe('tool check ledger', () => {
     expect(problems).toEqual(['not run: notes remove at chat on docker']);
   });
 
+  it('needs a step that calls another tool to pass as that tool', () => {
+    const withSearch: ToolProbe[] = [{ tool: 'notes', steps: [
+      { action: 'add', params: {}, expect: () => undefined },
+      { tool: 'search', action: null, params: {}, expect: () => undefined },
+    ] }];
+    const problems = ledgerProblems(ledger({
+      rows: [
+        { runtime: 'docker', site: 'chat', tool: 'notes', action: 'add', result: 'pass', ms: 5 },
+        { runtime: 'docker', site: 'chat', tool: 'notes', action: null, result: 'pass', ms: 5 },
+      ],
+    }), withSearch);
+    expect(problems).toEqual([expect.stringContaining('not run: search')]);
+  });
+
   it('names a failed action, and a tool a site was given that never ran there', () => {
     const problems = ledgerProblems(ledger({
       siteTools: { subagent: ['notes', 'search'] },
@@ -204,6 +218,19 @@ describe('tool check ledger', () => {
       siteTools: { 'codemode-chat': ['notes'] },
       rows: [...passes.slice(0, 2), { runtime: 'docker', site: 'codemode-chat', tool: 'notes', action: '(rejects)', result: 'pass', ms: 5 }],
     }), probes)).toEqual(['not run: notes at codemode-chat on docker, which the site was given']);
+  });
+
+  it('needs a site given bash to cancel a long command, and keeps that apart from its bash call', () => {
+    const probesWithBash: ToolProbe[] = [{ tool: 'bash', steps: [{ action: null, params: {}, expect: () => undefined }] }];
+    const call = { runtime: 'docker' as const, site: 'subagent' as const, tool: 'bash', action: null, result: 'pass' as const, ms: 5 };
+    const cancel = { runtime: 'docker' as const, site: 'subagent' as const, tool: 'bash', action: '(cancels)', ms: 5 };
+    expect(ledgerProblems(ledger({ siteTools: { subagent: ['bash'] }, rows: [call] }), probesWithBash))
+      .toEqual(['not run: bash (cancels) at subagent on docker']);
+    expect(ledgerProblems(ledger({ siteTools: { subagent: ['bash'] }, rows: [call, { ...cancel, result: 'fail', error: 'still running' }] }), probesWithBash))
+      .toEqual(['failed: bash (cancels) at subagent on docker: still running']);
+    // A passing cancel does not stand in for the tool's own call.
+    expect(ledgerProblems(ledger({ siteTools: { subagent: ['bash'] }, rows: [{ ...call, site: 'chat' }, { ...cancel, result: 'pass' }] }), probesWithBash))
+      .toEqual(['not run: bash at subagent on docker, which the site was given']);
   });
 
   it('fails an action whose session failed after its step passed', () => {

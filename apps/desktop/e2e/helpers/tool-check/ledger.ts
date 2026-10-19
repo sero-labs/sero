@@ -13,6 +13,9 @@ import type { ToolCheckRuntime, ToolCheckSite, ToolProbe } from './types';
 /** The action a Code Mode site records for a tool's failing call. */
 export const REJECTS = '(rejects)';
 
+/** The action a site records for its cancellation check (cancel.ts). */
+export const CANCELS = '(cancels)';
+
 const CODEMODE_SITES: ReadonlySet<ToolCheckSite> = new Set(['codemode-chat', 'codemode-subagent']);
 
 export interface LedgerRow {
@@ -91,14 +94,34 @@ function latestBySite(rows: LedgerRow[]): LedgerRow[] {
 export function requiredActions(probes: ToolProbe[]): Array<{ tool: string; action: string | null }> {
   return probes.flatMap((probe) => {
     const exempt = new Set((probe.exemptions ?? []).map((exemption) => exemption.action));
-    const actions = [...new Set(probe.steps.map((step) => step.action))].filter((action) => !exempt.has(action));
-    return actions.map((action) => ({ tool: probe.tool, action }));
+    const seen = new Map<string, { tool: string; action: string | null }>();
+    for (const step of probe.steps) {
+      const tool = step.tool ?? probe.tool;
+      if (tool === probe.tool && exempt.has(step.action)) continue;
+      seen.set(`${tool}\u0000${step.action ?? ''}`, { tool, action: step.action });
+    }
+    return [...seen.values()];
   });
 }
 
 /** Tools with no action left to run once their exemptions are taken out. */
 function fullyExemptTools(probes: ToolProbe[]): Set<string> {
   return new Set(probes.filter((probe) => probe.steps.length === 0 && (probe.exemptions?.length ?? 0) > 0).map((probe) => probe.tool));
+}
+
+/** Every site given `bash` must show a cancelled long command, run directly or from a script. */
+function cancelProblems(ledger: Ledger): string[] {
+  const problems: string[] = [];
+  for (const [site, tools] of Object.entries(ledger.siteTools) as Array<[ToolCheckSite, string[]]>) {
+    if (!tools.includes('bash')) continue;
+    const tool = CODEMODE_SITES.has(site) ? 'codemode' : 'bash';
+    const rows = latestBySite(ledger.rows.filter((row) => row.site === site && row.tool === tool && row.action === CANCELS));
+    if (rows.some((row) => row.result === 'pass')) continue;
+    problems.push(rows[0]
+      ? `failed: ${tool} ${CANCELS} at ${site} on ${ledger.runtime}: ${rows[0].error ?? 'no detail'}`
+      : `not run: ${tool} ${CANCELS} at ${site} on ${ledger.runtime}`);
+  }
+  return problems;
 }
 
 /**
@@ -125,13 +148,14 @@ export function ledgerProblems(ledger: Ledger, probes: ToolProbe[]): string[] {
       : `not run: ${label(tool, action)} on ${runtime}, and no site was planned for it`);
   }
 
+  problems.push(...cancelProblems(ledger));
   const exempt = fullyExemptTools(probes);
   const cannotFail = new Set(probes.filter((probe) => probe.failingCall === null).map((probe) => probe.tool));
   for (const [site, tools] of Object.entries(ledger.siteTools) as Array<[ToolCheckSite, string[]]>) {
     for (const tool of tools) {
       if (exempt.has(tool)) continue;
       const rows = ledger.rows.filter((row) => row.site === site && row.tool === tool);
-      const calls = rows.filter((row) => row.action !== REJECTS);
+      const calls = rows.filter((row) => row.action !== REJECTS && row.action !== CANCELS);
       if (!calls.some((row) => row.result === 'pass')) {
         const failed = calls.find((row) => row.result === 'fail');
         problems.push(failed

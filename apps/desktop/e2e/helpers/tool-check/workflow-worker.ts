@@ -13,9 +13,9 @@ import { openChat, releaseResponders, stepContext, type ChatRun } from './sites'
 import { surfaceOf, type SessionSurface } from './surface';
 
 // Markers in the Orchestrator's system prompts (plugins/sero-orchestrator-plugin/runtime).
-const PLANNER = 'You are the PLANNER for Sero Orchestrator';
-const TRIGGER = 'You decide ONLY how a task should be TRIGGERED';
-const STEP = 'You are executing ONE step of a Sero Orchestrator loop';
+export const PLANNER = 'You are the PLANNER for Sero Orchestrator';
+export const TRIGGER = 'You decide ONLY how a task should be TRIGGERED';
+export const STEP = 'You are executing ONE step of a Sero Orchestrator loop';
 
 /** The tools every step session is given (`DEFAULT_TOOLS` in the plugin's shared/constants.ts). */
 export const STEP_TOOLS = ['bash', 'read', 'write', 'edit', 'sero-cli'];
@@ -28,7 +28,7 @@ export interface WorkerOutcome extends RunOutcome {
 }
 
 /** One background-agent step. A tool outside the default loadout is added to the step's tools. */
-function planningReply(goal: string, tool: string, defaultTools: boolean): string {
+export function planningReply(goal: string, tool: string, defaultTools: boolean): string {
   const extra = defaultTools || STEP_TOOLS.includes(tool) || tool.startsWith('sero ') ? [] : [tool];
   return JSON.stringify({
     schemaVersion: 1,
