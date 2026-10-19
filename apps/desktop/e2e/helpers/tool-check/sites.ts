@@ -80,11 +80,15 @@ export async function runInChat(check: ToolCheckApp, run: ChatRun, site: ToolChe
     ctx,
     readResult: chatResultReader(check.page),
   });
+  let sessionId: string | undefined;
   try {
-    const sessionId = await openChat(check);
+    sessionId = await openChat(check);
     await promptAndCollectEvents(check.page, sessionId, prompt, run.timeoutMs ?? 120_000);
     return await outcome;
   } finally {
     releaseResponders(ctx);
+    // A person closes chats they are done with. Leaving every probe's chat
+    // open made each skill save reload about 60 sessions, past the CLI's 30 s.
+    if (sessionId) await check.page.evaluate((id) => window.sero.agent.close(id), sessionId).catch(() => undefined);
   }
 }

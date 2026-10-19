@@ -147,8 +147,6 @@ export const skillSteps: ScenarioStep[] = [
   },
   {
     // The person approves exactly these bytes in the app window, over the channel a model does not have.
-    // Possibly brittle: in one full run this timed out after the CLI's 30 s although the skill was saved.
-    // Not proven, but the likely cause is the save reloading every open chat (about 60 by then).
     action: 'save_skill',
     setup: async (ctx) => {
       const scope = `${manualId(ctx)}:${String(ctx.state['orchestrator:skillDraft'])}`;
