@@ -97,7 +97,7 @@ function sentTypes(sent: readonly AgentStreamEvent[]): string[] {
 describe('core response projection', () => {
   it('reports one failed settlement for the stalled tool-call incident', async () => {
     cliMocks.getCliActiveTurnId.mockReturnValue('turn-provider-error');
-    const restore = await installShortBodyTimeout(200);
+    const restore = installShortBodyTimeout(200);
     cleanups.push(async () => restore());
     const scenario = PROVIDER_SCENARIOS.partialToolTimeout;
     const run = await openScenarioSession(scenario, cleanups, {

@@ -36,7 +36,9 @@ import {
   type WaitRegistration,
   type WaitSourceKind,
 } from '../shared/waits';
+import { activeRun } from '../shared/runs';
 import type { RecordStore } from './record-store';
+import type { SpanRecorder } from './spans';
 
 /** What a reconcile may read of a Workflow or Room. Absent lists were not read. */
 export interface WaitSources {
@@ -55,6 +57,8 @@ export interface WaitReconcilerDeps {
   listDevServers(workspaceId: string): AppRuntimeDevServer[];
   /** One read of the CI checks of a branch or commit in the repo at this path. */
   refChecks(repoPath: string, ref: string): Promise<AppRuntimeRefChecks>;
+  /** Where an ended wait's observed interval is journalled. Absent records nothing. */
+  spans?: Pick<SpanRecorder, 'recordObservedWait'>;
 }
 
 export interface WaitReconciler {
@@ -111,6 +115,12 @@ function externalOutcome(wait: WaitRegistration, reads: ExternalReads): { kind: 
   return checks ? ciWaitOutcome(wait.source.id, checks) : null;
 }
 
+/** The run the wait's time belongs to: its direct execution's run, or the project's open run. */
+function runOf(record: ProjectRecord, wait: WaitRegistration): string | undefined {
+  const direct = wait.owner.milestoneId ? record.milestones.find((m) => m.id === wait.owner.milestoneId)?.direct : undefined;
+  return (direct && direct.id === wait.owner.executionId ? direct.runId : null) ?? activeRun(record)?.id;
+}
+
 const subjectOf = (wait: WaitRegistration) => (wait.owner.milestoneId ? { kind: 'milestone' as const, id: wait.owner.milestoneId, label: null } : undefined);
 
 export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
@@ -163,6 +173,23 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
     timers.set(projectId, timer);
   };
 
+  /** Journals each ended wait from its registration to its outcome, so waiting time is measured. */
+  function journalEnded(project: ProjectRecord, ended: WaitRegistration[]): void {
+    for (const wait of ended) {
+      const runId = runOf(project, wait);
+      if (!deps.spans || !runId || !wait.outcome) continue;
+      void deps.spans.recordObservedWait({
+        projectId: project.id,
+        runId,
+        operationId: `${runId}:wait:${wait.id}`,
+        kind: 'wait',
+        waitCause: wait.source.kind,
+        startedAt: wait.registeredAt,
+        endedAt: wait.outcome.at,
+      }).catch((error: unknown) => deps.log(`the wait ${wait.id} of ${project.id} was not journalled: ${error instanceof Error ? error.message : String(error)}`));
+    }
+  }
+
   async function reconcile(projectId: string, given?: WaitSources | null): Promise<void> {
     const peek = await store.read(projectId);
     if (!peek?.waits?.length) return;
@@ -172,7 +199,9 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
     const sources = open.some((wait) => wait.source.kind === 'child') ? (given?.loops && given.rooms ? given : await deps.readSources(projectId)) : null;
     const external = await readExternal(peek);
     const now = deps.now();
+    const ended: WaitRegistration[] = [];
     const written = await store.update(projectId, (record) => {
+      ended.length = 0;
       let next = record;
       for (const wait of openWaits(record)) {
         const seen = wait.source.kind === 'child' ? (sources ? childOutcome(wait.source.id, sources) : null) : externalOutcome(wait, external);
@@ -189,6 +218,7 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
         const before = record.waits?.find((item) => item.id === wait.id);
         if (before?.outcome === null && wait.outcome) {
           next = appendHistory(next, now, describeWait(wait), subjectOf(wait));
+          ended.push(wait);
         }
       }
       for (const wait of unreservedMatches(next)) {
@@ -197,6 +227,7 @@ export function createWaitReconciler(deps: WaitReconcilerDeps): WaitReconciler {
       }
       return next === record ? null : settle(next, now);
     });
+    if (written) journalEnded(written, ended);
     const after = written ?? await store.read(projectId);
     arm(projectId, after);
     follow(projectId, after);

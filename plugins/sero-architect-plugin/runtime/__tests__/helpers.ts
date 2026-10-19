@@ -149,6 +149,8 @@ export interface FakeHost extends ArchitectHost {
   /** CI checks per ref; an unknown ref has none yet. */
   checks: Record<string, AppRuntimeRefChecks>;
   checkReads: string[];
+  /** Every screenshot Sero was asked to take. */
+  captures: { url: string; savePath: string }[];
   sessions: FakeSessionsApi;
   workspaces: { id: string; name: string; path: string; open: boolean }[];
   clock: string[];
@@ -215,6 +217,10 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     },
     detectDevServerCommand: async () => null,
     startDevServer: async () => ({ reason: 'no dev server in tests' }),
+    capturePreview: async (url, savePath) => {
+      host.captures.push({ url, savePath });
+      return { ok: true };
+    },
     stopDevServer: async () => true,
     listDevServers: (workspaceId) => host.devServers.filter((server) => server.workspaceId === workspaceId),
     onDevServerChange: (listener) => {
@@ -257,6 +263,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     devServerListeners: new Set(),
     checks: {},
     checkReads: [],
+    captures: [],
     emitState: (filePath, state) => {
       for (const cb of host.stateListeners.get(filePath) ?? []) cb(state);
     },

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
 import { join } from 'node:path';
+import { Agent, setGlobalDispatcher } from 'undici';
 import {
   FIXTURE_MODEL_ID,
   FIXTURE_PROVIDER_ID,
@@ -22,35 +23,24 @@ export interface ProviderFixture {
   close(): Promise<void>;
 }
 
-interface FetchDispatcher {
-  dispatch(options: Record<string, unknown>, handler: unknown): boolean;
-  constructor: new(input: Record<string, unknown> | FetchDispatcher) => FetchDispatcher;
-}
-
-export async function installShortBodyTimeout(timeoutMs: number): Promise<() => void> {
-  await fetch('data:,');
+/**
+ * Gives fetch short body and header timeouts. undici's own setter fills both
+ * global slots: the dispatcher, and the wrapper older fetch builds read. A
+ * dispatcher built from whatever class sits in each slot breaks every
+ * connection when the legacy slot does not hold that wrapper.
+ */
+export function installShortBodyTimeout(timeoutMs: number): () => void {
   const target = globalThis as unknown as Record<symbol, unknown>;
   const v1Symbol = Symbol.for('undici.globalDispatcher.1');
   const v2Symbol = Symbol.for('undici.globalDispatcher.2');
-  const previousV1 = target[v1Symbol] as FetchDispatcher | undefined;
-  const previousV2 = target[v2Symbol] as FetchDispatcher | undefined;
-  if (!previousV1 || typeof previousV1.dispatch !== 'function') {
-    throw new Error('Node fetch dispatcher is unavailable');
-  }
-  const options = {
-    bodyTimeout: timeoutMs,
-    headersTimeout: timeoutMs,
-  };
-  if (previousV2 && typeof previousV2.dispatch === 'function') {
-    const configured = new previousV2.constructor(options);
-    target[v2Symbol] = configured;
-    target[v1Symbol] = new previousV1.constructor(configured);
-  } else {
-    target[v1Symbol] = new previousV1.constructor(options);
-  }
+  const previousV1 = target[v1Symbol];
+  const previousV2 = target[v2Symbol];
+  const configured = new Agent({ bodyTimeout: timeoutMs, headersTimeout: timeoutMs });
+  setGlobalDispatcher(configured);
   return () => {
     target[v1Symbol] = previousV1;
-    if (previousV2) target[v2Symbol] = previousV2;
+    target[v2Symbol] = previousV2;
+    void configured.close();
   };
 }
 
