@@ -234,6 +234,11 @@ jobs:
             xvfb-run --auto-servernum pnpm turbo run test --affected --concurrency=1 --summarize
           fi
           echo "Tests took $((SECONDS - start))s"
+      # Outside turbo on purpose: the desktop test task does not depend on the
+      # plugins, so `--affected` skips it when only a plugin's tools change.
+      - name: Tool coverage check
+        shell: bash
+        run: pnpm --filter @sero/desktop exec vitest run electron/__tests__/tool-check/coverage.test.ts
       - name: Advisory test report
         if: always()
         shell: bash
