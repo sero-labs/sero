@@ -126,6 +126,19 @@ describe('dispatch watch', () => {
     watch.dispose();
   });
 
+  it('leaves the project alone when a restart interrupted its maintenance Workflow', async () => {
+    const maintenance = milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_m', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
+    const { host, store, watch, settle } = await setup(buildingProject({ milestones: [maintenance] }));
+    host.emitState(loopRunsIndexFile('/home/dan/projects/hollow', 'loop_m'), {
+      runs: [{ id: 'run_1', status: 'orphaned', startedAt: T0, steps: [{ stepId: 's1', status: 'orphaned', planIndex: 0 }], interruptedStepIds: ['s1'] }],
+    });
+    await settle();
+    const record = await store.read('proj_1');
+    expect(record?.blockedReason).toBeNull();
+    expect(record?.milestones[0]?.dispatch?.failure).toBeUndefined();
+    watch.dispose();
+  });
+
   it('reports an exhausted Workflow cap with its actual reason and preserves live charges', async () => {
     const { host, store, watch, wakes, settle } = await setup();
     host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'CLI', status: 'blocked', maxCostUsd: 1.2, block: { limit: 'maxCostUsd', reason: 'reached max cost ($1.2)' }, usage: { costUsd: 1.21 } }] });

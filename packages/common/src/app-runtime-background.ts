@@ -14,6 +14,18 @@ import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
 import type { AppRuntimeSubagentsApi } from './app-runtime-subagents';
 import type { AppRuntimeUiApi } from './app-runtime-ui';
+import type { AppRuntimeDevServersApi } from './app-runtime-dev-servers';
+
+// Split into app-runtime-dev-servers.ts (500-LOC limit); re-exported for existing imports.
+export type {
+  AppRuntimeDevServerScope,
+  AppRuntimeDevServerStatus,
+  AppRuntimeDevServer,
+  AppRuntimeDevServerChange,
+  AppRuntimeStartManagedDevServerOptions,
+  AppRuntimeStartManagedDevServerResult,
+  AppRuntimeDevServersApi,
+} from './app-runtime-dev-servers';
 
 // Split into app-runtime-ui.ts (500-LOC limit); re-exported for existing imports.
 export type { AppRuntimeUiApi } from './app-runtime-ui';
@@ -33,6 +45,8 @@ export type {
   AppRuntimePullRequestMergeMethod,
   AppRuntimeMergePullRequestResult,
   AppRuntimePullRequestMergeState,
+  AppRuntimeCheckState,
+  AppRuntimeRefChecks,
   AppRuntimePullRequestSummary,
   AppRuntimeIssueSummary,
   AppRuntimeWorkspaceStatusResult,
@@ -217,53 +231,6 @@ export interface AppRuntimeVerificationApi {
     options?: AppRuntimeRunCommandOptions & { startupTimeoutMs?: number },
   ): Promise<AppRuntimeVerificationCommandResult>;
   summarizeFailure(result: AppRuntimeVerificationCommandResult): string;
-}
-
-export type AppRuntimeDevServerScope = 'workspace' | 'card-preview';
-export type AppRuntimeDevServerStatus = 'running' | 'stopped' | 'starting';
-
-export interface AppRuntimeDevServer {
-  id: string;
-  workspaceId: string;
-  name: string;
-  port: number;
-  url: string;
-  framework?: string;
-  command: string;
-  cwd: string;
-  scope: AppRuntimeDevServerScope;
-  cardId?: string;
-  status: AppRuntimeDevServerStatus;
-  registeredAt: string;
-}
-
-export interface AppRuntimeStartManagedDevServerOptions {
-  workspaceId: string;
-  workspacePath: string;
-  cwdPath: string;
-  command: string;
-  name?: string;
-  framework?: string;
-  scope?: AppRuntimeDevServerScope;
-  cardId?: string;
-  logPath?: string;
-}
-
-export interface AppRuntimeStartManagedDevServerResult {
-  serverId?: string;
-  url?: string;
-  port?: number;
-  reason?: string;
-}
-
-export interface AppRuntimeDevServersApi {
-  startManaged(
-    options: AppRuntimeStartManagedDevServerOptions,
-  ): Promise<AppRuntimeStartManagedDevServerResult>;
-  list(workspaceId: string): AppRuntimeDevServer[];
-  stop(serverId: string): Promise<boolean>;
-  restart(serverId: string): Promise<boolean>;
-  unregister(serverId: string): boolean;
 }
 
 export interface AppRuntimeProviderApiKey {

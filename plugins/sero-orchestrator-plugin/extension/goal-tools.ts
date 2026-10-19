@@ -35,8 +35,8 @@ export const GoalBlockedParams = Type.Object({
 export const GoalWaitParams = Type.Object({
   goal_id: GoalIdParam,
   reason: Type.String({ description: 'What you are waiting for, in one line' }),
-  source: Type.Optional(Type.String({ description: 'child: wake the goal when the Workflow named in target ends. process and ci cannot be monitored yet and are refused. Leave out for a manual wait the user restarts' })),
-  target: Type.Optional(Type.String({ description: 'The Workflow id to wait for, with source child' })),
+  source: Type.Optional(Type.String({ description: 'child: wake the goal when the Workflow named in target ends. process: when the dev server named in target exits. ci: when the CI checks of the branch or commit named in target conclude. Leave out for a manual wait the user restarts' })),
+  target: Type.Optional(Type.String({ description: 'The Workflow id (child), dev server id (process) or branch or commit (ci) to wait for' })),
   deadlineMinutes: Type.Optional(Type.Number({ description: 'End the wait as expired after this many minutes' })),
 });
 
@@ -111,7 +111,7 @@ export function registerGoalTerminalTools(pi: ExtensionAPI): void {
     name: 'goal_wait',
     label: 'Goal wait',
     description:
-      'Park the goal until something observable happens. With source child and target <Workflow id> the goal continues by itself when that Workflow ends, fails or its deadline passes. A process or CI result cannot be monitored: without source and target the wait is manual and the user restarts the goal. Use this only when you cannot make progress yourself, and never to sleep between attempts.',
+      'Park the goal until something observable happens. With source child and target <Workflow id>, source process and target <dev server id>, or source ci and target <branch or commit>, the goal continues by itself when that ends, fails or its deadline passes. Anything else cannot be monitored: without source and target the wait is manual and the user restarts the goal. Use this only when you cannot make progress yourself, and never to sleep between attempts.',
     parameters: GoalWaitParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       return reassert(pi, await executeGoalWait(params as TerminalParams, ctx));

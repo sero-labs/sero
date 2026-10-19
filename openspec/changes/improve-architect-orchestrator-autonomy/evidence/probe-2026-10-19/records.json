@@ -1,0 +1,150 @@
+[
+  {
+    "candidate": "architect",
+    "objective": "small-fix",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:owner-wake:quiet:wake_ex2e6im0",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:evidence:m1:capture",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:owner-wake:decision:wake_09codij1",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:owner-wake:dispatch-complete:wake_dmd6la7e",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      },
+      {
+        "operationId": "run-initial-proj_st4o3mrb:owner-wake:dispatch-complete:wake_l7t52puj",
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "source": "owner-wake"
+      }
+    ],
+    "acceptanceCriteria": [
+      "truncate-respects-max: truncate never returns more than max characters and ends in \"...\" when it cut"
+    ],
+    "cost": {
+      "attributableUsd": 0.027429276000000006,
+      "aggregateOnlyUsd": 0.0017672999999999999,
+      "coverage": "partial",
+      "incomplete": false
+    },
+    "time": {
+      "elapsedMs": 174733,
+      "activeMs": 168981,
+      "workerMs": 4518,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 4,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 1,
+    "evidence": "live",
+    "recordedAt": "2026-10-19T01:12:17.580Z",
+    "run": {
+      "runId": "probe-2026-10-19:small-fix:r1:architect",
+      "strategy": "architect",
+      "revision": "dec68164d+dirty",
+      "replicate": 1
+    },
+    "inputs": {
+      "request": "In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone. Before you finish, look at https://example.com the way a user would see it, using Sero's browser automation tool, and write its main heading to NOTES.md.",
+      "workspaceFingerprint": "33dfb18ad0a1191f68a614d9b0596eb8e0f5459134b94ea0e838698613218bfb",
+      "acceptanceRevision": "8725b37ae189767fcc99e0d91be8d119d924f796d72682733c6856fa737109ff",
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "capabilities": [
+        "delegation",
+        "file-edit",
+        "file-read",
+        "shell"
+      ],
+      "budgetUsd": 1,
+      "budgetMinutes": 10,
+      "requiresIndependentReview": false
+    },
+    "checks": [
+      {
+        "id": "truncate-respects-max",
+        "passed": true,
+        "detail": "1 hidden test file(s) passed"
+      }
+    ],
+    "interventions": [],
+    "recoveries": [],
+    "ownerTokensPerTurn": [
+      5585,
+      6120,
+      6807,
+      8825,
+      9383,
+      9942,
+      10229,
+      10348,
+      10994,
+      11178,
+      11815,
+      12317,
+      12968,
+      13294,
+      14110,
+      14427,
+      15104,
+      15300,
+      15435,
+      15582,
+      18242,
+      18638,
+      18947,
+      21479,
+      21857,
+      22118,
+      22572,
+      22680,
+      22796,
+      22865,
+      25741,
+      26168,
+      26444,
+      26692,
+      26815,
+      26878,
+      29444,
+      30053,
+      30371,
+      30567,
+      30944
+    ],
+    "protocolFailures": 0
+  }
+]

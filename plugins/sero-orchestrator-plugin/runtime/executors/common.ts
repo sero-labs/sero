@@ -136,6 +136,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   // the run waits for a pool slot, so the step can follow its worker's output
   // from the start. The attempt keeps the id for the rest of its life.
   let workerRunId: string | undefined;
+  let repairs = 0;
   const captureRunId = createRunIdCapture();
   const queueSnapshot = (attempt: StepAttempt, note: string): void => {
     progress = progress
@@ -182,6 +183,8 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       },
     },
     onObservation: (record) => {
+      // A repair pass is its own request in the same session: the reply broke the step's contract.
+      if (record.kind === 'request-start' && record.identities.attemptId?.includes(':repair-')) repairs += 1;
       // The run's own first observation carries the tracker run id; later records
       // carry the subagent session's id, which the tracker does not know.
       const runId = captureRunId(record);
@@ -231,6 +234,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     workerRunId,
     outputPath: stored.artifactRef,
     observations: [observation],
+    ...(repairs > 0 ? { repairs } : {}),
     usage: {
       ...toUsage(result.durationMs, result.usage ?? latestUsage),
       ...((result.error || !result.usage || result.usage.incomplete || result.usage.costUsd === undefined) ? { incomplete: true } : {}),

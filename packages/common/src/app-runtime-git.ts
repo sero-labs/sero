@@ -72,6 +72,20 @@ export type AppRuntimeMergePullRequestResult =
 
 export type AppRuntimePullRequestMergeState = 'merged' | 'open' | 'closed' | 'unknown';
 
+export type AppRuntimeCheckState = 'pending' | 'passed' | 'failed';
+
+/**
+ * The CI checks GitHub reports for one commit: check runs and commit statuses
+ * together. `none` means GitHub has no check for the commit yet. `unknown`
+ * means the read failed, and `reason` says why.
+ */
+export interface AppRuntimeRefChecks {
+  state: AppRuntimeCheckState | 'none' | 'unknown';
+  sha?: string;
+  checks: { name: string; state: AppRuntimeCheckState; url?: string }[];
+  reason?: string;
+}
+
 /** An open pull request in this workspace's repo (from `gh pr list`). */
 export interface AppRuntimePullRequestSummary {
   number: number;
@@ -178,4 +192,6 @@ export interface AppRuntimeGitApi {
     prNumber: number,
   ): Promise<AppRuntimePullRequestMergeState>;
   getPrMergeError(worktreePath: string, prNumber: number): Promise<string | null>;
+  /** The CI checks of a branch or commit in the repo at this path. Never throws. */
+  getRefChecks(repoPath: string, ref: string): Promise<AppRuntimeRefChecks>;
 }

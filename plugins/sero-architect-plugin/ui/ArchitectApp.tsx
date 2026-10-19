@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
+import { openSeroApp, useAppState } from '@sero-ai/app-runtime';
 
 import type { CreateProjectInput } from '../shared/create-project';
 import type { ArchitectIndex } from '../shared/types';
@@ -102,6 +102,12 @@ export function ArchitectApp() {
 
   const { create, permissionProjectId, refusal } = useCreateProject(actions, navigate);
 
+  // The shell's workspace follows the project on screen, so the title bar, sidebar and chat name the same project.
+  const projectWorkspace = projectId ? index.projects.find((entry) => entry.id === projectId)?.workspaceId ?? null : null;
+  useEffect(() => {
+    if (projectWorkspace) void openSeroApp('architect', undefined, projectWorkspace);
+  }, [projectWorkspace]);
+
   // A deleted project's page falls back to the list once the index no longer lists it.
   const listed = index.projects.some((entry) => entry.id === projectId);
   const gone = projectId !== null && ready && record === null && !listed;
@@ -138,7 +144,7 @@ function ProjectView({ view, onProject, onOpenEvidence, disclosures, ...props }:
   if (view.mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
   if (view.mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={disclosures.folds} />;
   if (view.mode === 'work') return <WorkPage record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} tab={view.tab} focusMilestoneId={view.focusMilestoneId} onTab={props.onOpenWork} onOpenEvidence={onOpenEvidence} onBack={props.onBack} onProject={onProject} onOpenHistory={props.onOpenHistory} />;
-  return <ProjectPage {...props} />;
+  return <ProjectPage {...props} onOpenEvidence={onOpenEvidence} />;
 }
 
 export default ArchitectApp;

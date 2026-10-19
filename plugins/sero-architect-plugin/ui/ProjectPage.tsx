@@ -1,16 +1,17 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
-import { ChevronRight, ExternalLink, Eye } from 'lucide-react';
 
 import { sessionStartedAt, type FeedbackSummary } from '@sero-ai/common';
-import { useProjectFeedback } from './lib/use-project-feedback';
-import { projectActivity } from '../shared/activity';
+import { useProjectFeedback, useProjectWork } from './lib/use-project-feedback';
+import { projectActivity, type ProjectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
-import { openDispatch, type Disclosures } from './lib/page-helpers';
-import { CapInput, type CapInputProps } from './components/CapInput';
+import { boardOf, liveRows, liveSummary, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
+import { openDispatch } from './lib/page-helpers';
+import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
+import { BoardLive } from './components/BoardLive';
+import { CapInput } from './components/CapInput';
 import { DirectiveComposer } from './components/Directives';
-import { NeedsYou } from './components/NeedsYou';
 import { RepairCard } from './components/RepairCard';
 import { PreviewFrame } from './components/PreviewFrame';
 import { usePreviewAvailable, useProjectPreview } from './lib/use-project-preview';
@@ -18,8 +19,16 @@ import { agreementApproved, hasAgreement } from '../shared/agreement';
 import type { WorkTab } from './lib/navigation';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
-import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
+import { WaitCard } from './components/WaitCard';
+import { waitCard, type WaitCard as WaitCardFacts } from './lib/wait-status';
+
+/** A control a stop offers. At most one is the action the state is really asking for. */
+interface HeaderAction {
+  label: string;
+  run(): void;
+  primary?: boolean;
+}
 
 export interface ProjectPageProps {
   permissionPending?: boolean;
@@ -38,6 +47,8 @@ export interface ProjectPageProps {
   onOpenHistory(): void;
   /** Opens the work behind the overview, on one of its tabs. */
   onOpenWork(tab: WorkTab): void;
+  /** Opens the checks of one step, with its screenshot. */
+  onOpenEvidence?(milestoneId: string): void;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
@@ -178,85 +189,27 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
   );
 }
 
-/** The state header and the control that recovers its cap or Workflow. */
-function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning, feedback, links }: {
-  links: ReactNode;
-  feedback: FeedbackSummary | null;
-  record: ProjectRecord;
-  actions: ArchitectActions;
-  onNotice(notice: string | null): void;
-  headerActions: HeaderAction[];
-  runtimeRunning: boolean;
-}) {
+/** The control a stop needs before work can go on: a new cap, or the step to run again. */
+function recoveryForm(record: ProjectRecord, actions: ArchitectActions, onNotice: (notice: string | null) => void): ReactNode {
   const id = record.id;
-  // At the cap the header carries the field, because raising it needs a number
+  // At the cap the tile carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
-  // A dispatch that stopped at its own cap needs a number too. Both cases are
-  // one field with different wording and target, so they are built together.
+  // A dispatch that stopped at its own cap needs a number too.
   const cappedMilestone = cappedWorkflow(record);
   const workflowCap = cappedMilestone?.dispatch?.costLimitUsd;
-  let capForm: Omit<CapInputProps, 'onError' | 'onDone'> | null = null;
   if (atCap) {
-    capForm = {
-      cap: record.budget.capUsd,
-      inputId: 'ar-header-cap-in',
-      label: 'New cap',
-      submitLabel: 'Raise and resume',
-      onRaise: (capUsd) => actions.raiseCap(id, capUsd),
-    };
-  } else if (cappedMilestone && workflowCap !== undefined) {
-    capForm = {
-      cap: workflowCap,
-      inputId: 'ar-header-wf-cap-in',
-      label: 'New Workflow cap',
-      submitLabel: 'Approve cap and resume',
-      onRaise: (capUsd) => actions.retry(id, cappedMilestone.id, capUsd),
-    };
+    return <CapInput cap={record.budget.capUsd} inputId="ar-header-cap-in" label="New cap" submitLabel="Raise and resume" onRaise={(capUsd) => actions.raiseCap(id, capUsd)} onError={onNotice} onDone={() => onNotice(null)} />;
   }
-
+  if (cappedMilestone && workflowCap !== undefined) {
+    return <CapInput cap={workflowCap} inputId="ar-header-wf-cap-in" label="New Workflow cap" submitLabel="Approve cap and resume" onRaise={(capUsd) => actions.retry(id, cappedMilestone.id, capUsd)} onError={onNotice} onDone={() => onNotice(null)} />;
+  }
   // A dispatch that stopped with NO cap to approve: a time limit clears the step
-  // id, so there is no step to retry from and the whole Workflow restarts. The
-  // milestone row carried this control before it moved; without it here the
-  // recovery is unreachable, which is the fault this shape exists to prevent.
-  const stoppedWorkflow = record.milestones.find(
-    (item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined,
-  );
-  let form: ReactNode;
-  if (capForm) {
-    form = <CapInput {...capForm} onError={onNotice} onDone={() => onNotice(null)} />;
-  } else if (stoppedWorkflow) {
-    form = (
-      <RetryWorkflowControl
-        label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'}
-        retry={() => actions.retry(id, stoppedWorkflow.id)}
-        onError={onNotice}
-      />
-    );
-  }
-  return <StateLine record={record} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} links={links} />;
+  // id, so there is no step to retry from and the whole Workflow restarts.
+  const stoppedWorkflow = record.milestones.find((item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined);
+  if (!stoppedWorkflow) return null;
+  return <RetryWorkflowControl label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'} retry={() => actions.retry(id, stoppedWorkflow.id)} onError={onNotice} />;
 }
-
-/** The ways into the work behind the overview: the preview, the live work and the checks. */
-function OverviewLinks({ record, preview, onOpenWork }: { record: ProjectRecord; preview: ReturnType<typeof useProjectPreview>; onOpenWork(tab: WorkTab): void }) {
-  const checked = record.milestones.some((milestone) => milestone.evidence);
-  // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
-  const hasPreview = usePreviewAvailable(record.id, record.milestones.map((milestone) => milestone.status).join(','));
-  return (
-    <>
-      {hasPreview && (
-        <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
-          <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
-        </Button>
-      )}
-      <Button size="sm" variant="outline" className="ar-btn" onClick={() => onOpenWork('live')}><Eye className="ar-i" />Watch work</Button>
-      {checked && <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>}
-    </>
-  );
-}
-
-/** Before the start is approved there is no work to watch and nothing to note. */
-const hasStarted = (record: ProjectRecord): boolean => !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
 
 /** What the last action said, and the cap field while it is open. The block reason has its own place. */
 function PageNotice({ record, actions, notice, page }: { record: ProjectRecord; actions: ProjectPageProps['actions']; notice: string | null; page: ReturnType<typeof useProjectPageControls> }) {
@@ -279,47 +232,242 @@ function PageNotice({ record, actions, notice, page }: { record: ProjectRecord; 
   );
 }
 
-export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
+const UNLINKED = 'dispatch state could not be confirmed after restart:';
+
+/** The stop tile: the saved cause in the user's words, and the controls that recover it. */
+function StoppedTile({ record, activity, form, headerActions, asking }: { record: ProjectRecord; activity: ReturnType<typeof projectActivity>; form: ReactNode; headerActions: HeaderAction[]; asking: boolean }) {
+  // The start prompt is open and the top tile says so. A tile that repeats it would be said twice.
+  if (asking) return null;
+  const unlinked = record.blockedReason?.startsWith(UNLINKED);
+  const notStarted = activity.action === 'Review access';
+  const reason = unlinked
+    ? 'Architect lost the link to a workflow when Sero restarted. The work may have started, so Architect will not start another copy. The existing workflow must be reconnected before this project can continue.'
+    : activity.reason ?? null;
+  return (
+    <BoardStopped
+      label={notStarted ? 'Not started' : activity.state === 'waiting-for-you' ? 'Needs you' : 'Stopped'}
+      // A project that was never approved says why once: the label already says it is not started.
+      headline={unlinked ? 'The link to a workflow is lost' : notStarted ? activity.owner : activity.headline}
+      // The owner line names the Room or Workflow, so Open Room says which one it opens.
+      what={unlinked || notStarted ? null : activity.owner}
+      reason={reason}
+      detail={unlinked ? record.blockedReason ?? undefined : undefined}
+    >
+      {form}
+      {headerActions.map((item) => (
+        <Button key={item.label} size="sm" className={`ar-btn ${item.primary ? 'ar-btn-solid' : ''}`} onClick={item.run}>{item.label}</Button>
+      ))}
+    </BoardStopped>
+  );
+}
+
+/** One large tile. The board says which tiles apply, so the page only draws them in order. */
+function Tile({ when, children }: { when: boolean; children: ReactNode }) {
+  return when ? <>{children}</> : null;
+}
+
+/** Whether the project's start approval is behind it. */
+function hasStarted(record: ProjectRecord): boolean {
+  return hasAgreement(record) ? agreementApproved(record) : record.phase !== 'intake';
+}
+
+/** The sentence a refused start left on screen, until a later action says something newer. */
+function pageNotice(record: ProjectRecord, notice: string | null, startRefusal: string | null): string | null {
+  if (notice !== null) return notice;
+  return hasAgreement(record) && !agreementApproved(record) ? startRefusal : null;
+}
+
+/** What a waiting project waits for, as the wait card names it. */
+function waitingFor(wait: WaitCardFacts | null): string | undefined {
+  return wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined;
+}
+
+/** The wait card is drawn unless work is in hand: that is the Live tile's to say. */
+function showsWait(wait: WaitCardFacts | null): boolean {
+  return wait !== null && wait.kind !== 'working';
+}
+
+/** The Plan tile exists when there are steps, a written plan or research to open. */
+function planOnBoard(board: Board): boolean {
+  return board.steps.length > 0 || board.planNote !== null || board.researched;
+}
+
+/** Change on the record is offered at maintain, when the spec is open. */
+function changeRequest(id: string, record: ProjectRecord, actions: ArchitectActions): ((text: string) => Promise<ActionOutcome>) | undefined {
+  return record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined;
+}
+
+/**
+ * The state a stop tile reports, with the open questions set aside: a failed
+ * Workflow keeps its fix on screen while a question waits.
+ */
+function beneathQuestions(record: ProjectRecord, activity: ProjectActivity, context: Parameters<typeof projectActivity>[1]): ProjectActivity {
+  if (record.decisions.every((decision) => decision.answer !== null)) return activity;
+  return projectActivity({ ...record, decisions: record.decisions.filter((decision) => decision.answer !== null) }, context);
+}
+
+/** The newest proof picture a step saved: the one checked last that has one. */
+function newestProof(steps: readonly BoardStep[]): BoardStep | null {
+  return steps.reduce<BoardStep | null>((newest, step) => (step.proofKey !== null && (!newest?.proofKey || step.proofKey > newest.proofKey) ? step : newest), null);
+}
+
+/** The result's own sentence, unless the top tile already says it. */
+function resultSentence(record: ProjectRecord, board: Board): string | null {
+  const result = record.overview?.result;
+  return result !== undefined && result.text !== board.sentence ? result.text : null;
+}
+
+/** A delegated step stopped without reporting, so the card that repairs it is on the board. */
+function needsRepair(record: ProjectRecord): boolean {
+  return record.blockedReason !== null && record.milestones.some((item) => item.pendingDispatch);
+}
+
+/** Beside a plan, what was decided is listed under it, so live work never pushes it off the screen. */
+function madeBelowPlan(hasPlan: boolean, board: Board): boolean {
+  return !hasPlan && board.made.length > 0;
+}
+
+interface BoardColumnProps {
+  record: ProjectRecord;
+  actions: ArchitectActions;
+  page: ReturnType<typeof useProjectPageControls>;
+  board: Board;
+  /** The state a stop tile reports: the project's state with open questions set aside. */
+  activity: ReturnType<typeof projectActivity>;
+  /** True when the page has a wait card that says why nothing runs. Work in hand is the Live tile's to show. */
+  wait: boolean;
+  rows: readonly LiveRow[];
+  notice: string | null;
+  headerActions: HeaderAction[];
+  onOpenWork(tab: WorkTab): void;
+  onChangeDecision(row: MadeRow): void;
+  /** A plan is on the board. What was decided is then listed under it. */
+  hasPlan: boolean;
+  /** The host's start prompt is open. */
+  asking: boolean;
+}
+
+/**
+ * The large tiles that apply now, in their fixed order, then the decisions made.
+ *
+ * Which tiles apply is the board's answer, not this component's: each rule is a
+ * named question below, so the markup reads in page order.
+ */
+function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision, hasPlan, asking }: BoardColumnProps) {
+  const id = record.id;
+  const preview = useProjectPreview(id);
+  // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
+  const hasPreview = usePreviewAvailable(id, record.milestones.map((milestone) => milestone.status).join(','));
+  const started = hasStarted(record);
+  const checked = record.milestones.some((milestone) => milestone.evidence);
+  // The result shows the newest proof picture: the step checked last that has one.
+  const proof = newestProof(board.steps);
+  // The top tile already says the newest sentence. It is not said twice.
+  const resultText = resultSentence(record, board);
+  return (
+    <div className="bd-col">
+      <PageNotice record={record} actions={actions} notice={notice} page={page} />
+      <Tile when={board.main.includes('ask')}>
+        <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />
+      </Tile>
+      <Tile when={board.main.includes('stopped')}>
+        <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} asking={asking} />
+      </Tile>
+      {/* A stop or a question already says why nothing runs, and holds its own control. */}
+      <Tile when={started && wait && !board.main.includes('stopped') && !board.main.includes('ask')}>
+        <WaitCard record={record} actions={actions} />
+      </Tile>
+      <Tile when={board.main.includes('live')}>
+        <BoardLive record={record} rows={rows} onOpenSession={page.controls.openSession} />
+      </Tile>
+      <Tile when={board.main.includes('result')}>
+        <BoardResult
+          headline={activity.headline}
+          text={resultText}
+          preview={hasPreview ? { busy: preview.busy, open: () => void preview.open() } : null}
+          onOpenChecks={checked ? () => onOpenWork('evidence') : null}
+          picture={proof === null ? undefined : <ProofPicture projectId={id} step={proof} className="bd-picture" />}
+        />
+      </Tile>
+      {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
+      {preview.url && <PreviewFrame url={preview.url} />}
+      <Tile when={needsRepair(record)}>
+        <RepairCard projectId={id} />
+      </Tile>
+      {/* Beside a plan, what was decided is listed under it, so live work does not push it off the screen. */}
+      <Tile when={madeBelowPlan(hasPlan, board)}>
+        <BoardMade rows={board.made} onChange={onChangeDecision} />
+      </Tile>
+    </div>
+  );
+}
+
+export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, onOpenEvidence, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   const directiveRef = useRef<HTMLTextAreaElement>(null);
   const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
+  // Change on a decision starts a message about it. A new seed remounts the box with that text.
+  const [seed, setSeed] = useState({ count: 0, text: '' });
   const feedback = useProjectFeedback(record, actions);
+  const { epoch, work } = useProjectWork(record, actions);
   const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
   // A refused start is shown until the project starts or a later action says something newer.
-  const notice = page.notice ?? (hasAgreement(record) && !agreementApproved(record) ? startRefusal : null);
-  const preview = useProjectPreview(id);
+  const notice = pageNotice(record, page.notice, startRefusal);
   const started = hasStarted(record);
-  const links = started && <OverviewLinks record={record} preview={preview} onOpenWork={onOpenWork} />;
+
+  const context = { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback };
+  const activity = projectActivity(record, context);
+  const rows = liveRows(record, work, epoch, runtimeRunning);
+  const wait = waitCard(record, Date.parse(record.updatedAt));
+  // The state with the open questions set aside. A failed Workflow keeps its fix on screen while a question waits.
+  const beneath = beneathQuestions(record, activity, context);
+  const board = boardOf(record, activity, {
+    beneath,
+    live: rows.length > 0,
+    action: liveSummary(rows),
+    asking: permissionPending,
+    waitingFor: waitingFor(wait),
+  });
+  const hasPlan = planOnBoard(board);
+  const changeDecision = (row: MadeRow): void => setSeed((was) => ({ count: was.count + 1, text: `Change this decision: "${row.text}". ` }));
 
   return (
-    <>
+    <div className="bd-canvas">
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
-      <div className="ar-scroll">
-        <div className="ar-body">
-          <PageNotice record={record} actions={actions} notice={notice} page={page} />
-          <ProjectStateHeader
-            record={record}
-            actions={actions}
-            onNotice={page.setNotice}
-            headerActions={headerActions}
-            runtimeRunning={runtimeRunning}
-            feedback={feedback}
-            links={links}
-          />
-          {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
-          {preview.url && <PreviewFrame url={preview.url} />}
-          {started && <NeedsYou record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
-          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
-        </div>
+      <div className="bd-board" data-solo={hasPlan ? undefined : ''}>
+        <BoardHero record={record} board={board} />
+        <BoardColumn
+          record={record}
+          actions={actions}
+          page={page}
+          board={board}
+          activity={beneath}
+          wait={showsWait(wait)}
+          rows={rows}
+          notice={notice}
+          headerActions={headerActions}
+          onOpenWork={onOpenWork}
+          onChangeDecision={changeDecision}
+          hasPlan={hasPlan}
+          asking={permissionPending && !started}
+        />
+        {hasPlan && (
+          <div className="bd-side">
+            <BoardPlan projectId={id} steps={board.steps} note={board.planNote} onOpenPlan={() => onOpenWork('plan')} onOpenResearch={board.researched ? () => onOpenWork('research') : null} onOpenChecks={(milestoneId) => (onOpenEvidence ? onOpenEvidence(milestoneId) : onOpenWork('evidence'))} />
+            {board.made.length > 0 && <BoardMade rows={board.made} onChange={changeDecision} />}
+          </div>
+        )}
       </div>
-      <div className="ar-dock">
-        {record.overview?.acknowledgement && <p className="ar-ack" role="status">{record.overview.acknowledgement.text}</p>}
+      <div className="bd-tile bd-say">
         <DirectiveComposer
+          key={seed.count}
+          initialDraft={seed.text}
+          autoFocus={seed.count > 0}
           disabled={!started}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
-          onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}
+          onRequestChange={changeRequest(id, record, actions)}
         />
       </div>
       <SessionHistoryDialog
@@ -330,6 +478,6 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
         error={page.historyError}
         onClose={() => page.setHistoryOpen(false)}
       />
-    </>
+    </div>
   );
 }

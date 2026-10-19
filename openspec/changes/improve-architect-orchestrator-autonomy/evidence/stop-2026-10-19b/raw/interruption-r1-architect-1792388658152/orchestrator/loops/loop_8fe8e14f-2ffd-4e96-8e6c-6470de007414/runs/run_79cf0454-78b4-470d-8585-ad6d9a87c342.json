@@ -1,0 +1,53 @@
+{
+  "id": "run_79cf0454-78b4-470d-8585-ad6d9a87c342",
+  "runNumber": 1,
+  "status": "running",
+  "startedStepIds": [
+    "implement-csv-parser"
+  ],
+  "stepAttempts": [
+    {
+      "id": "attempt_d76cce15-e6d4-4a99-9681-0e4d379d7a63",
+      "stepId": "implement-csv-parser",
+      "attemptNumber": 1,
+      "parentSessionId": "orchestrator:interruption-r1-architect-1792388658152:loop_8fe8e14f-2ffd-4e96-8e6c-6470de007414",
+      "executionType": "background-agent",
+      "status": "running",
+      "workspace": {
+        "id": "ws_d353295e-662a-4197-ad3f-d0899b33e8c4",
+        "type": "workspace-root",
+        "workspaceRoot": "/Users/danielcarter/.sero-e2e-architect-baseline/interruption-r1-architect-1792388658152",
+        "cwd": "/Users/danielcarter/.sero-e2e-architect-baseline/interruption-r1-architect-1792388658152",
+        "resolvedBy": "dirty-workspace-allowed",
+        "createdAt": "2026-10-19T05:46:28.496Z"
+      },
+      "observations": [],
+      "usage": {
+        "inputTokens": 9084,
+        "outputTokens": 301,
+        "totalTokens": 15017,
+        "cacheReadTokens": 5632,
+        "cacheWriteTokens": 0,
+        "costUsd": 0.0229064,
+        "incomplete": true
+      },
+      "startedAt": "2026-10-19T05:46:28.506Z",
+      "workerRunId": "5880d4fe-c2bd-4052-b84d-98098cd22cc0",
+      "activationId": "run_79cf0454-78b4-470d-8585-ad6d9a87c342:implement-csv-parser:1"
+    }
+  ],
+  "stepActivations": [
+    {
+      "id": "run_79cf0454-78b4-470d-8585-ad6d9a87c342:implement-csv-parser:1",
+      "stepId": "implement-csv-parser",
+      "visitNumber": 1,
+      "title": "Implement CSV behavior and tests",
+      "status": "running",
+      "attemptIds": [],
+      "startedAt": "2026-10-19T05:46:28.499Z"
+    }
+  ],
+  "recoveryDecisions": [],
+  "observations": [],
+  "startedAt": "2026-10-19T05:46:28.444Z"
+}

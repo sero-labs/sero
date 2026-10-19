@@ -1,0 +1,69 @@
+{
+  "grantId": "grant_a51jdj14",
+  "appId": "architect",
+  "owner": "architect:proj_pwrlhtzw",
+  "scope": "project-owner",
+  "workspaceId": "debugging-r1-architect-1792366513103",
+  "sessionDir": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-baseline-home/profiles/testharness/agent/sessions/architect/grant_a51jdj14",
+  "subjects": {
+    "owner": {
+      "allowedCwds": [
+        "/Users/danielcarter/.sero-e2e-architect-baseline/debugging-r1-architect-1792366513103"
+      ],
+      "allowedModels": [
+        "deepseek/deepseek-flash"
+      ],
+      "allowedTools": [
+        "read",
+        "bash",
+        "write",
+        "edit",
+        "sero-cli",
+        "codemode",
+        "automation_browser"
+      ],
+      "allowedSkills": [
+        "chrome-cdp",
+        "context7",
+        "frontend-design",
+        "pi-docs",
+        "sero-browser",
+        "sero-dashboard-ui",
+        "sero-plugin",
+        "skill-creator",
+        "brandkit",
+        "industrial-brutalist-ui",
+        "gpt-taste",
+        "image-to-code",
+        "imagegen-frontend-mobile",
+        "imagegen-frontend-web",
+        "minimalist-ui",
+        "full-output-enforcement",
+        "redesign-existing-projects",
+        "high-end-visual-design",
+        "stitch-design-taste",
+        "design-taste-frontend"
+      ],
+      "allowedThinkingLevels": [
+        "low"
+      ],
+      "permissionProfile": {
+        "filesystem": "write",
+        "commands": "all",
+        "network": "fetch",
+        "vcs": "commit"
+      },
+      "maxSystemPromptAdditionBytes": 6054
+    }
+  },
+  "maxLiveSessions": 1,
+  "maxTotalSessions": 1,
+  "approvalId": "approval_mvegquca",
+  "status": "active",
+  "issuedAt": "2026-10-18T23:35:15.226Z",
+  "sessionPaths": {
+    "owner": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-baseline-home/profiles/testharness/agent/sessions/architect/grant_a51jdj14/2026-10-18T23-35-15-250Z_01a1515e-9432-74c9-93d4-4110e8e6dbbc.jsonl"
+  },
+  "createdSessions": 1,
+  "pending": {}
+}

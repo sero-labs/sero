@@ -120,6 +120,7 @@ export class RuntimeManager {
     cardId?: string;
     registeredAt?: string;
     status?: 'running' | 'stopped' | 'starting' | 'failed';
+    exit?: { exitCode: number | null; signal?: string };
   }> {
     const runtimeServers = [...this.backends.entries()]
       .filter(([key]) => key.startsWith(`${workspaceId}:`))
@@ -139,6 +140,7 @@ export class RuntimeManager {
       cardId: server.cardId,
       registeredAt: server.registeredAt,
       status: server.status,
+      ...('exit' in server && server.exit ? { exit: server.exit } : {}),
     }));
   }
 

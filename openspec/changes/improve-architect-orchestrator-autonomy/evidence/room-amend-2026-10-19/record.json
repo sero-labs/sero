@@ -1,0 +1,230 @@
+[
+  {
+    "scenario": "5-amend-restart",
+    "roomId": "room_6a7938e6-e47e-4eda-9e0f-f19fcdfc69ce",
+    "status": "paused",
+    "durationMs": 0,
+    "costUsd": 0.032661708000000005,
+    "maxCostUsd": 5,
+    "turns": 2,
+    "rosterRevisions": 1,
+    "memberReplacements": 0,
+    "stopReason": "awaiting-user",
+    "delivered": false,
+    "deliveryRef": null,
+    "roster": [
+      {
+        "role": "Conductor",
+        "conductor": true,
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "costUsd": 0.022690512000000003
+      },
+      {
+        "role": "Reviewer",
+        "conductor": false,
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "costUsd": 0.003892392
+      },
+      {
+        "role": "Tester",
+        "conductor": false,
+        "model": "deepseek/deepseek-flash",
+        "thinking": "low",
+        "costUsd": 0
+      }
+    ],
+    "restarted": true,
+    "grantBefore": "grant_aw8sykae",
+    "grantAfterRestart": "grant_aw8sykae",
+    "grantAtEnd": "grant_aw8sykae",
+    "amendmentsAsked": [
+      {
+        "id": "rev_73fb7d92-d183-49be-9d3e-658e43d83c16",
+        "state": "held",
+        "adds": [
+          {
+            "subject": "tester",
+            "field": "subject",
+            "value": "tester"
+          },
+          {
+            "subject": "tester",
+            "field": "cwd",
+            "value": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-pYwpoT/.sero-ui/profiles/workflow-test/e2e-workspaces/agent-rooms-e2e-1792371593004"
+          },
+          {
+            "subject": "tester",
+            "field": "model",
+            "value": "deepseek/deepseek-flash"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "read"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "grep"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "ls"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "write"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "bash"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "sero-cli"
+          },
+          {
+            "subject": "tester",
+            "field": "thinking",
+            "value": "low"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "filesystem: write"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "commands: all"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "vcs: commit"
+          }
+        ]
+      }
+    ],
+    "amendmentsAfterRestart": [
+      {
+        "id": "rev_73fb7d92-d183-49be-9d3e-658e43d83c16",
+        "state": "held",
+        "adds": [
+          {
+            "subject": "tester",
+            "field": "subject",
+            "value": "tester"
+          },
+          {
+            "subject": "tester",
+            "field": "cwd",
+            "value": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-pYwpoT/.sero-ui/profiles/workflow-test/e2e-workspaces/agent-rooms-e2e-1792371593004"
+          },
+          {
+            "subject": "tester",
+            "field": "model",
+            "value": "deepseek/deepseek-flash"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "read"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "grep"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "ls"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "write"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "bash"
+          },
+          {
+            "subject": "tester",
+            "field": "tool",
+            "value": "sero-cli"
+          },
+          {
+            "subject": "tester",
+            "field": "thinking",
+            "value": "low"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "filesystem: write"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "commands: all"
+          },
+          {
+            "subject": "tester",
+            "field": "permission",
+            "value": "vcs: commit"
+          }
+        ],
+        "reason": "This adds access, so it needs your approval: tester: subject tester; tester: cwd /Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-pYwpoT/.sero-ui/profiles/workflow-test/e2e-workspaces/agent-rooms-e2e-1792371593004; tester: model deepseek/deepseek-flash; tester: tool read; tester: tool grep; tester: tool ls; tester: tool write; tester: tool bash; tester: tool sero-cli; tester: thinking low; tester: permission filesystem: write; tester: permission commands: all; tester: permission vcs: commit.",
+        "grantRevision": null
+      }
+    ],
+    "approvals": [
+      {
+        "id": "rev_73fb7d92-d183-49be-9d3e-658e43d83c16",
+        "outcome": {
+          "text": "Change rev_73fb7d92-d183-49be-9d3e-658e43d83c16 approved.",
+          "content": [
+            {
+              "type": "text",
+              "text": "Change rev_73fb7d92-d183-49be-9d3e-658e43d83c16 approved."
+            }
+          ],
+          "details": {
+            "ok": true,
+            "roomId": "room_6a7938e6-e47e-4eda-9e0f-f19fcdfc69ce"
+          },
+          "isError": false
+        }
+      }
+    ],
+    "amendmentsAtEnd": [
+      {
+        "id": "rev_73fb7d92-d183-49be-9d3e-658e43d83c16",
+        "state": "applied"
+      }
+    ],
+    "historiesKept": [
+      {
+        "memberId": "conductor",
+        "samePath": true,
+        "linesBefore": 92,
+        "linesAfter": 105
+      },
+      {
+        "memberId": "reviewer",
+        "samePath": true,
+        "linesBefore": 25,
+        "linesAfter": 25
+      }
+    ]
+  }
+]

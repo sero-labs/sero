@@ -45,8 +45,11 @@ export interface EvidenceRecord {
   diffSummary: string | null;
   /** Whether the runtime found project file changes against the dispatch baseline. */
   filesChanged: boolean;
-  /** The runtime's own smoke check and capture for a preview milestone. */
-  preview: { route: string; smokePassed: boolean; capturePath: string | null; failure?: string } | null;
+  /**
+   * The runtime's own smoke check and capture for a preview milestone. `serverId`
+   * is the dev server it left running, which the owner may wait on.
+   */
+  preview: { route: string; smokePassed: boolean; capturePath: string | null; failure?: string; serverId?: string } | null;
   /** True when every item passed; the runtime computes it, never the owner. */
   passed: boolean;
   /** Set when the milestone's files changed after this evidence was taken. */

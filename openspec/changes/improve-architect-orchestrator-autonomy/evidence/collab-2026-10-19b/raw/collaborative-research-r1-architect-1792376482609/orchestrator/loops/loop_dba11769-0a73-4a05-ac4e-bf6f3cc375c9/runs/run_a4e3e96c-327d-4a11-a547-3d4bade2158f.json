@@ -1,0 +1,53 @@
+{
+  "id": "run_a4e3e96c-327d-4a11-a547-3d4bade2158f",
+  "runNumber": 1,
+  "status": "running",
+  "startedStepIds": [
+    "author-findings-release"
+  ],
+  "stepAttempts": [
+    {
+      "id": "attempt_320cd55a-479a-46f7-86cf-919d65c53c12",
+      "stepId": "author-findings-release",
+      "attemptNumber": 1,
+      "parentSessionId": "orchestrator:collaborative-research-r1-architect-1792376482609:loop_dba11769-0a73-4a05-ac4e-bf6f3cc375c9",
+      "executionType": "background-agent",
+      "status": "running",
+      "workspace": {
+        "id": "ws_47eb501b-2fb5-4cb5-aa68-9cf21ee65e3a",
+        "type": "workspace-root",
+        "workspaceRoot": "/Users/danielcarter/.sero-e2e-architect-baseline/collaborative-research-r1-architect-1792376482609",
+        "cwd": "/Users/danielcarter/.sero-e2e-architect-baseline/collaborative-research-r1-architect-1792376482609",
+        "resolvedBy": "dirty-workspace-allowed",
+        "createdAt": "2026-10-19T02:25:56.348Z"
+      },
+      "observations": [],
+      "usage": {
+        "inputTokens": 13737,
+        "outputTokens": 1011,
+        "totalTokens": 42908,
+        "cacheReadTokens": 28160,
+        "cacheWriteTokens": 0,
+        "costUsd": 0.045238,
+        "incomplete": true
+      },
+      "startedAt": "2026-10-19T02:25:56.358Z",
+      "workerRunId": "0c6ae4a1-eadf-484d-94d0-71493e6d109b",
+      "activationId": "run_a4e3e96c-327d-4a11-a547-3d4bade2158f:author-findings-release:1"
+    }
+  ],
+  "stepActivations": [
+    {
+      "id": "run_a4e3e96c-327d-4a11-a547-3d4bade2158f:author-findings-release:1",
+      "stepId": "author-findings-release",
+      "visitNumber": 1,
+      "title": "Create approved findings and validator",
+      "status": "running",
+      "attemptIds": [],
+      "startedAt": "2026-10-19T02:25:56.351Z"
+    }
+  ],
+  "recoveryDecisions": [],
+  "observations": [],
+  "startedAt": "2026-10-19T02:25:56.196Z"
+}

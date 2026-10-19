@@ -41,6 +41,7 @@ export const OwnerToolParams = Type.Object({
   textJson: Type.Optional(Type.String({ description: 'brief/reply: the text as one JSON string, in place of text, when it has more than one line. Write a newline as \\n and a double quote as \\u0022' })),
   planJson: Type.Optional(Type.String({ description: 'milestone: the plan as one JSON string, in place of plan, when it has more than one line' })),
   approachJson: Type.Optional(Type.String({ description: 'working: the approach as one JSON string, in place of approach, when it has more than one line' })),
+  promptJson: Type.Optional(Type.String({ description: 'dispatch: the prompt as one JSON string, in place of prompt, when it has more than one line' })),
   field: Type.Optional(StringEnum(OVERVIEW_FIELDS, { description: 'summary: which short overview sentence to write: outcome (what the user will get), objective (what you work on now), result (what there is to use) or acknowledgement (your answer to the last instruction)' })),
   sourceKind: Type.Optional(StringEnum(SUMMARY_SOURCE_KINDS, { description: 'summary: the kind of work the sentence is about; required for result and acknowledgement' })),
   sourceId: Type.Optional(Type.String({ description: 'summary: the id of that milestone, research, evidence milestone or directive; any value for plan' })),
@@ -55,7 +56,7 @@ export const OwnerToolParams = Type.Object({
   capUsd: Type.Optional(Type.Number({ description: 'charter: the cost cap in USD (required)' })),
   objective: Type.Optional(Type.String({ description: 'working: what the work must achieve, in one or two sentences' })),
   approach: Type.Optional(Type.String({ description: 'working: how you intend to do it now. Revise it when findings change it' })),
-  assumptionsJson: Type.Optional(Type.String({ description: 'working: JSON ["..."], the assumptions the approach depends on' })),
+  assumptionsJson: Type.Optional(Type.String({ description: 'working: JSON [{"text":"...","why":"..."}], the choices you made without asking; why is optional and shown to the user next to the choice' })),
   criteriaJson: Type.Optional(Type.String({ description: 'working: JSON [{"id":"c1","text":"...","userStated":true}]. Set userStated true for a requirement the user stated; it cannot be removed without a user decision' })),
   question: Type.Optional(Type.String({ description: 'decide/research: the question' })),
   optionsJson: Type.Optional(Type.String({ description: 'decide: JSON [{"id":"a","label":"...","consequence":"..."}]' })),
@@ -66,8 +67,8 @@ export const OwnerToolParams = Type.Object({
   changeName: Type.Optional(Type.String({ description: 'openspec/research: the OpenSpec change linked to a milestone; research requires a read-only Room' })),
   operation: Type.Optional(StringEnum(['status', 'instructions', 'validate', 'pause', 'resume', 'retry', 'cancel', 'begin', 'continue', 'report', 'wait'] as const, { description: 'openspec: status, instructions or validate. control: pause, resume, retry or cancel. work: begin, continue, report or wait' })),
   executionId: Type.Optional(Type.String({ description: 'work continue/report: the execution id that begin returned' })),
-  target: Type.Optional(Type.String({ description: 'control/work wait: the milestone id or research id whose Room or Workflow you control or wait for' })),
-  source: Type.Optional(Type.String({ description: 'work wait: child (the target\'s Room or Workflow). process and ci cannot be monitored yet and are refused' })),
+  target: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow you control. work wait: that id for child, the dev server id for process, the branch or commit for ci' })),
+  source: Type.Optional(Type.String({ description: 'work wait: child (the target\'s Room or Workflow), process (a dev server Sero manages) or ci (the CI checks of a branch or commit)' })),
   deadlineMinutes: Type.Optional(Type.Number({ description: 'work wait: end the wait as expired after this many minutes' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time. The user decides' })),
   artifact: Type.Optional(StringEnum(['proposal', 'specs', 'design', 'tasks', 'apply'] as const, { description: 'openspec instructions: artifact to prepare' })),
@@ -92,6 +93,7 @@ export interface OwnerToolParamsShape {
   textJson?: string;
   planJson?: string;
   approachJson?: string;
+  promptJson?: string;
   field?: (typeof OVERVIEW_FIELDS)[number];
   sourceKind?: (typeof SUMMARY_SOURCE_KINDS)[number];
   sourceId?: string;
@@ -186,6 +188,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
   if (typeof plan === 'object') return plan;
   const approach = decodeDocument(params.approach, params.approachJson, 'approach');
   if (typeof approach === 'object') return approach;
+  const prompt = decodeDocument(params.prompt, params.promptJson, 'prompt');
+  if (typeof prompt === 'object') return prompt;
   const extraKeys = RESERVED_IN_SCHEMA.filter((key) => params[key] !== undefined);
   return {
     action: params.action,
@@ -225,7 +229,7 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     artifact: params.artifact,
     needsCommands: params.needsCommands,
     kind: params.kind,
-    prompt: params.prompt,
+    prompt,
     destination: params.destination,
     maxCostUsd: params.maxCostUsd,
     commands,

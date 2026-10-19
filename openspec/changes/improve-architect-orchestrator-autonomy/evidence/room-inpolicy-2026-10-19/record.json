@@ -1,0 +1,79 @@
+{
+  "scenario": "6-narrow-in-policy",
+  "roomId": "room_17e3ada8-0f69-4e6f-92ae-a4ee0fb67c71",
+  "status": "completed",
+  "durationMs": 85286,
+  "costUsd": 0.02812218,
+  "maxCostUsd": 5,
+  "turns": 5,
+  "rosterRevisions": 0,
+  "memberReplacements": 0,
+  "stopReason": null,
+  "delivered": true,
+  "deliveryRef": "workspace",
+  "roster": [
+    {
+      "role": "Conductor",
+      "conductor": true,
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "costUsd": 0.01473612
+    },
+    {
+      "role": "Implementer",
+      "conductor": false,
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "costUsd": 0.006728172
+    },
+    {
+      "role": "Reviewer",
+      "conductor": false,
+      "model": "deepseek/deepseek-flash",
+      "thinking": "low",
+      "costUsd": 0.003020484
+    }
+  ],
+  "grantBefore": "grant_gwaipcx9",
+  "grantAtChange": "grant_gwaipcx9",
+  "amendments": [
+    {
+      "id": "rev_e2560fec-c465-4598-9bf1-046b1f4e5737",
+      "state": "applied",
+      "adds": [],
+      "reason": null,
+      "grantRevision": 1
+    }
+  ],
+  "reviewerToolsAtChange": [
+    "read"
+  ],
+  "historiesAtChange": {
+    "conductor": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-17-989Z_01a151d4-b945-736c-83e9-a9ebb03af218.jsonl",
+      "lines": 31
+    },
+    "fixer": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-43-051Z_01a151d5-1b2b-736c-83e9-a9ef37f553c8.jsonl",
+      "lines": 9
+    },
+    "reviewer": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-31-578Z_01a151d4-ee59-736c-83e9-a9eca48b9447.jsonl",
+      "lines": 18
+    }
+  },
+  "historiesAtEnd": {
+    "conductor": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-17-989Z_01a151d4-b945-736c-83e9-a9ebb03af218.jsonl",
+      "lines": 62
+    },
+    "fixer": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-43-051Z_01a151d5-1b2b-736c-83e9-a9ef37f553c8.jsonl",
+      "lines": 38
+    },
+    "reviewer": {
+      "sessionPath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-e2e/home-VM6wtP/.sero-ui/profiles/workflow-test/agent/sessions/orchestrator/grant_gwaipcx9/2026-10-19T01-44-31-578Z_01a151d4-ee59-736c-83e9-a9eca48b9447.jsonl",
+      "lines": 18
+    }
+  }
+}

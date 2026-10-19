@@ -8,16 +8,13 @@ import type { ArchitectActions } from './lib/actions';
 import { shortTime } from './lib/format';
 import { WORK_TABS, type WorkTab } from './lib/navigation';
 import { openDispatch } from './lib/page-helpers';
-import { useProjectWork } from './lib/use-project-feedback';
 import { Evidence } from './components/Evidence';
 import { FolderLink } from './components/FolderLink';
 import { MilestoneRail } from './components/MilestoneRail';
 import { ProjectResearch } from './components/ProjectResearch';
 import { TopBar } from './components/TopBar';
-import { WaitCard } from './components/WaitCard';
-import { WorkLive } from './components/WorkLive';
 
-const TAB_LABEL: Record<WorkTab, string> = { live: 'Live', plan: 'Plan', research: 'Research', evidence: 'Evidence' };
+const TAB_LABEL: Record<WorkTab, string> = { plan: 'Plan', research: 'Research', evidence: 'Evidence' };
 
 export interface WorkPageProps {
   record: ProjectRecord;
@@ -32,16 +29,6 @@ export interface WorkPageProps {
   onBack(): void;
   onProject(): void;
   onOpenHistory(): void;
-}
-
-function LiveTab({ record, actions, runtimeRunning }: Pick<WorkPageProps, 'record' | 'actions' | 'runtimeRunning'>) {
-  const { epoch, work } = useProjectWork(record, actions);
-  return (
-    <>
-      <WaitCard record={record} actions={actions} />
-      <WorkLive record={record} work={work} epoch={epoch} runtimeRunning={runtimeRunning} />
-    </>
-  );
 }
 
 /** The full plan: the request as written, what the Architect makes of it, and each step. */
@@ -113,13 +100,11 @@ function PlanTab({ record, onOpenHistory, onOpenWork }: Pick<WorkPageProps, 'rec
 
 function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' | 'focusMilestoneId'>) {
   const focusRef = useRef<HTMLElement>(null);
-  // Scrolling to the linked check and opening it are DOM effects, not state.
+  // Scrolling to the linked check is a DOM effect, not state.
   useEffect(() => {
     const node = focusRef.current;
     if (!node) return;
     node.scrollIntoView?.({ block: 'start' });
-    const evidence = node.querySelector<HTMLDetailsElement>('details.ar-evidence');
-    if (evidence) evidence.open = true;
   }, [focusMilestoneId]);
   const checked = record.milestones.filter((milestone) => milestone.evidence);
   if (checked.length === 0) return <p className="wk-line">No checks are recorded yet.</p>;
@@ -128,7 +113,7 @@ function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' 
       {checked.map((milestone) => (
         <section key={milestone.id} ref={milestone.id === focusMilestoneId ? focusRef : undefined} data-milestone={milestone.id}>
           <h3 className="wk-h">{milestone.title}</h3>
-          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
+          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} milestoneId={milestone.id} />}
         </section>
       ))}
     </div>
@@ -136,8 +121,7 @@ function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' 
 }
 
 /**
- * The work behind the overview: what runs now, the full plan, the research and
- * the checks. The overview stays short because everything long lives here.
+ * The work behind the board: the full plan, the research and the checks. The overview stays short because everything long lives here.
  */
 export function WorkPage({ record, actions, runtimeRunning, tab, focusMilestoneId, onTab, onOpenEvidence, onBack, onProject, onOpenHistory }: WorkPageProps) {
   const researched = record.research.length > 0 || (record.pendingResearch ?? []).length > 0;
@@ -152,7 +136,6 @@ export function WorkPage({ record, actions, runtimeRunning, tab, focusMilestoneI
             ))}
           </div>
           <div role="tabpanel" id="wk-panel" aria-labelledby={`wk-tab-${tab}`}>
-            {tab === 'live' && <LiveTab record={record} actions={actions} runtimeRunning={runtimeRunning} />}
             {tab === 'plan' && <PlanTab record={record} onOpenHistory={onOpenHistory} onOpenWork={(next, milestoneId) => (next === 'evidence' ? onOpenEvidence(milestoneId) : onTab(next))} />}
             {tab === 'research' && (researched ? <ProjectResearch record={record} /> : <p className="wk-line">No research is recorded.</p>)}
             {tab === 'evidence' && <EvidenceTab record={record} focusMilestoneId={focusMilestoneId} />}

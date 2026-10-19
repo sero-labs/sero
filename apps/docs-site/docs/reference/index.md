@@ -20,6 +20,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 - [Orchestrator](/reference/orchestrator) — mode comparison, compatibility terms, and permission boundary.
 - [Workflows](/reference/workflows) — commands, plan rules, recovery, triggers, limits, library, and storage.
 - [Rooms](/reference/rooms) — statuses, member access, limits, actions, recovery, and storage.
+- [Architect](/reference/architect) — owner tool, direct work, waits, stall recovery, records, and storage.
 
 ## Configuration facts
 

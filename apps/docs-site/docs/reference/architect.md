@@ -42,7 +42,7 @@ every write from the record's flags and is never set by hand.
 
 | Status | Meaning |
 | --- | --- |
-| `planned` | on the charter, no plan approved yet |
+| `planned` | added to the plan, no plan approved yet |
 | `approved` | the plan is approved; the owner may dispatch it |
 | `running` | a Workflow, a Room or the owner is running it |
 | `verifying` | the work reported completion; the runtime is checking the evidence |
@@ -88,7 +88,7 @@ project id and is refused for any session that is not that project's owner.
 | `decide` | raises a decision and parks the milestones it names |
 | `research` | asks the runtime to run a structured research subagent |
 | `dispatch` | asks the runtime to create a Workflow or a Room for a milestone |
-| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, `--operation report --executionId <id> --text "..." [--destination workspace-files]`, or `--operation wait --source child --target <id> [--deadlineMinutes <n>]`; see Direct work and Waits |
+| `work` | does a milestone itself: `--operation begin --milestoneId <id>`, `--operation continue`, `--operation report --executionId <id> --text "..." [--destination workspace-files]`, or `--operation wait --source child|process|ci --target <id> [--deadlineMinutes <n>]`; see Direct work and Waits |
 | `evidence` | asks the runtime to run the checks; the owner cannot attach results itself |
 | `status` | reads the record |
 | `reply` | answers the open directive |
@@ -127,10 +127,15 @@ The owner can do a milestone itself instead of dispatching it. The `work`
 action refuses the request unless all of these hold:
 
 - the project was made under an agreement, not the deprecated charter flow;
-- the project runs in **Workspace** execution mode;
 - the milestone is not linked to an OpenSpec change;
 - the project is in `build`, `release` or `maintain` and has no overlay;
-- no Workflow or Room is writing the project folder.
+- no other direct execution is active;
+- in **Workspace** execution mode, no Workflow or Room is writing the project
+  folder.
+
+In **Worktree** execution mode, `begin` opens a checkout and branch for the
+milestone at `.sero/worktrees/`, and the owner works only there. `report`
+commits the work to that branch.
 
 | Operation | Effect |
 | --- | --- |
@@ -154,28 +159,30 @@ with `continue`.
 A report is a claim and leaves the milestone at `reported`. Evidence,
 acceptance and delivery follow the same rules as for dispatched work. The
 owner's own test runs are a self-check, not an independent review. With
-`--destination workspace-files`, the project folder is the delivery receipt and
-the milestone is `delivered` once it is accepted. Any other destination is
-refused: dispatch the delivery. With no destination, the milestone can be
-accepted and not delivered.
+`--destination workspace-files`, the delivery receipt is the project folder in
+Workspace mode and the milestone's branch in Worktree mode, and the milestone
+is `delivered` once it is accepted. Any other destination is refused: dispatch
+the delivery. With no destination, the milestone can be accepted and not
+delivered.
 
-On the project page, the milestone list shows `architect` as the kind. The link
-reads **Watch work** while the work runs and **Evidence** after the report.
+On the Work view's Plan tab, the milestone list shows `architect` as the kind.
+After the report, the row links to **Evidence**.
 
 ## Waits
 
-The owner can end a wake by waiting for work it started. It runs
-`work --operation wait --source child --target <id>`, where `<id>` is the
-milestone or research id of a Workflow or Room that the project is linked to.
-Sero saves the wait, and wakes the owner once when the work completes, fails or
-is gone.
+The owner can end a wake by waiting for something to end. It runs
+`work --operation wait --source <kind> --target <id>`. Sero saves the wait, and
+wakes the owner once when the source ends, fails or is gone.
 
 | Part | Rule |
 | --- | --- |
-| Source | `child` only: a linked Workflow or Room. Name it by its milestone or research id |
-| Deadline | `--deadlineMinutes`, from 1 minute to 7 days. Without it the wait has no deadline |
+| `child` source | a linked Workflow or Room. Name it by its milestone or research id |
+| `process` source | a dev server Sero manages in the project's workspace, by the id `sero devserver list` shows. It must be running. Exit code 0 or a stop satisfies the wait; any other exit fails it |
+| `ci` source | the CI checks of a branch or commit in the project's repository, read through `gh`. Sero refuses the wait when `gh` cannot read them. All checks passing satisfies it; one failing fails it |
+| Milestone | a `process` or `ci` wait belongs to the milestone the owner does itself, or to `--milestoneId` |
+| Deadline | `--deadlineMinutes`, from 1 minute to 7 days. Without it a `child` or `process` wait has no deadline and a `ci` wait ends after 6 hours |
 | Wake | one per wait. The wake is saved before it is sent and marked used when its turn starts, so a restart does not send it twice |
-| Not available yet | `process` and `ci`. Sero refuses them. The owner ends the wake with `sleep` or `blocked` and says what you must check. You resume the project |
+| Anything else | Sero refuses it. The owner ends the wake with `sleep` or `blocked` and says what you must check. You resume the project |
 | Already finished | the call is refused and returns the result |
 
 An expired wait and a failed wait wake the owner with that fact. Neither is
@@ -185,8 +192,13 @@ cost cap or an approval that is not given prevents the wake. The ended wait
 stays on the record. **Stop** ends every open wait, and none of them wakes the
 owner afterwards, even if you resume the project.
 
-A wait does not poll. Sero reads the work's saved state when it changes, when
-the runtime starts and when a deadline passes.
+Sero reads a `child` source's saved state when it changes, and a `process`
+source when any dev server changes. It reads both when the runtime starts and
+when a deadline passes. A dev server that Sero no longer lists, for example
+after a restart, holds the project: Sero cannot tell how it ended and does not
+start it again. A `ci` source is read every two minutes while the wait is open.
+A read that fails changes nothing and is tried again. No read starts a turn by
+itself; only an ended wait does.
 
 ## Stall recovery and limits
 
@@ -224,11 +236,11 @@ adds no access. A project that already exists keeps its old approval and does
 not gain Code Mode.
 
 A new project asks, in its start approval, for the skills that are enabled in
-its workspace. The session starts with no skill loaded and finds them with
-`tool_search`. A project that already exists keeps exactly the access it had.
-To give it more, the host amends the grant and you approve the addition. See
-[Rooms reference](/reference/rooms#change-a-running-room) for how a grant
-amendment works.
+its workspace. They are listed to the session by name and description, and it
+reads one when the work needs it. `tool_search` finds tools, not skills. A
+project that already exists keeps exactly the access it had. The host can amend
+a grant, as it does for a [running Room](/reference/rooms#change-a-running-room),
+but no Architect action or control asks it to widen an existing owner yet.
 
 ## Forced escalations
 
@@ -237,7 +249,7 @@ owner tries to change an approved charter, deliver to a destination outside
 the workspace (`email-send`, `chat-post`, `webhook-post`), or spend over the
 remaining cap. The proposal is applied only when you pick `apply`.
 
-![Architect decision card with a recommended option and parked milestone](../assets/images/architect-decision.png)
+![Architect board asking a two-option question, with the step it holds waiting for your answer](../assets/images/architect-decision.png)
 
 ## Delivery
 
@@ -253,7 +265,7 @@ On entering `maintain`, the runtime creates one Workflow subscribed to
 (Mondays at 08:00 UTC). Each run wakes the owner to triage. A fix is a
 milestone and moves through the same four verification states.
 
-![Architect maintenance phase showing a delivered release and a fix under verification](../assets/images/architect-maintain.png)
+![Architect board after delivery: the result with Open preview and See the checks, and proof for each step](../assets/images/architect-maintain.png)
 
 ## Runs and telemetry
 

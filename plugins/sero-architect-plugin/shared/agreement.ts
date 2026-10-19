@@ -57,6 +57,17 @@ export interface AcceptanceCriterion {
   gap?: string;
 }
 
+/** A choice the Architect made without asking, and why. */
+export interface Assumption {
+  text: string;
+  why?: string;
+}
+
+/** One shape for both: a plain string is an assumption with no reason. */
+export function assumptionOf(entry: string | Assumption): Assumption {
+  return typeof entry === 'string' ? { text: entry } : entry;
+}
+
 export interface WorkingInterpretation {
   /**
    * Increments when a requirement, criterion or check changes. Evidence names
@@ -65,7 +76,8 @@ export interface WorkingInterpretation {
   revision: number;
   objective: string;
   approach: string;
-  assumptions: string[];
+  /** A record saved before reasons existed holds plain strings. */
+  assumptions: Array<string | Assumption>;
   criteria: AcceptanceCriterion[];
   /** Why it last changed. Null on the first version. */
   reason: string | null;

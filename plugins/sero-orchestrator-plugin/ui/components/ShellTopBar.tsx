@@ -114,7 +114,8 @@ export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needs
             )}
           >
             <Icon className="size-4 @min-[900px]/panel:hidden" />
-            <span className="hidden @min-[900px]/panel:inline">{label}</span>
+            {/* Read out in a narrow panel too, so the tab's name is its label and count, never the count alone. */}
+            <span className="sr-only @min-[900px]/panel:not-sr-only">{label}</span>
             {badgeFor(tab)}
             {tab === active && <span className="absolute inset-x-3.5 -bottom-px h-0.5 bg-brand-primary" />}
           </button>

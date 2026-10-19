@@ -258,8 +258,11 @@ export function projectActivity(
 
   if (record.paused) {
     const armed = maint?.dispatch;
-    // A pause lets the turns in flight finish. Until they do, the line says so.
-    const finishing = runtimeRunning ? feedback?.activeCount ?? 0 : 0;
+    // A pause lets the turns in flight finish, the Architect's own included.
+    // Until they do, the line says so.
+    const turnSince = record.session.workingSince;
+    const ownerTurn = runtimeRunning && turnSince != null && turnSince >= sessionStartedAt ? 1 : 0;
+    const finishing = runtimeRunning ? (feedback?.activeCount ?? 0) + ownerTurn : 0;
     return {
       state: 'paused',
       headline: 'Paused by you',

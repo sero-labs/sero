@@ -93,7 +93,11 @@ async function resolveContainerPathForGuard(
 
 // ── Bash ────────────────────────────────────────────────────
 
-export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessionId?: string): ToolDefinition {
+/**
+ * `maxTimeoutSeconds` caps every command. A run that stops a stalled call passes
+ * a cap under its stall limit, so the command ends first and the agent carries on.
+ */
+export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessionId?: string, maxTimeoutSeconds?: number): ToolDefinition {
   const cwd = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'bash',
@@ -124,7 +128,8 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         throw new Error(getProtectedMemoryAccessError('bash'));
       }
 
-      const timeoutMs = params.timeout ? params.timeout * 1000 : undefined;
+      const seconds = maxTimeoutSeconds ? Math.min(params.timeout ?? maxTimeoutSeconds, maxTimeoutSeconds) : params.timeout;
+      const timeoutMs = seconds ? seconds * 1000 : undefined;
       const capture = new OutputCapture({
         producerSessionId: sessionId ?? 'unknown-session',
         toRuntimePath: (hostPath) => (
@@ -150,7 +155,7 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
       let outputText = truncation.content || '(no output)';
 
       if (timeoutMs !== undefined && result.exitCode === 124) {
-        outputText += `\n\nCommand timed out after ${Math.round(timeoutMs / 1000)}s.`;
+        outputText += `\n\nCommand timed out after ${Math.round(timeoutMs / 1000)}s. Start a server or other long-lived process in the background with nohup, its output sent to a file.`;
       }
 
       if (truncation.truncated) {

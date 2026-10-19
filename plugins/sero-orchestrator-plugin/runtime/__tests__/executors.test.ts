@@ -383,6 +383,8 @@ describe('backgroundAgentExecutor', () => {
     expect(host.modelCalls).toHaveLength(1); // one session, repaired in-session
     expect(host.modelResponses).toHaveLength(0); // the repair consumed the 2nd reply
     expect(attempt.outcome?.status).toBe('succeeded');
+    // The broken first reply is a protocol failure the strategy baseline counts.
+    expect(attempt.repairs).toBe(1);
   });
 });
 

@@ -79,7 +79,9 @@ sessions capability. The Room side is `runtime/rooms/room-amend-plan.ts`
 
 Members and Workflow workers share one tool rule. A session registers every
 tool its approval allows, loads a small set, and uses Pi's `tool_search` to
-load another. A tool outside the approval is never registered. A Workflow
+load another. A tool outside the approval is never registered. A tool the host
+provides, such as `ls`, names no plugin package in the tool catalogue, so
+approving it never loads the app as an extension. A Workflow
 worker whose step lists tools treats that list as its starting set
 (`toolsAreLoadout`). A member has Code Mode only when its tool list names `codemode`. It starts
 loaded, and a script can call only the tools the member was approved for.
@@ -183,16 +185,20 @@ complete**. The verification gate, deterministic criteria and background-drain
 awareness are phase 2.
 
 A `goal_wait` with a reason only stays manual: it promises no wake and the user
-restarts the goal. A `goal_wait` with `source: child` and a Workflow id in
-`target`, and an optional `deadlineMinutes`, registers a wait
-(`shared/goal-waits.ts`). `runtime/goals/goal-wait-watcher.ts` reads the
-Workflow's saved state on a change, at startup and on one deadline timer. It
-does not poll. On `satisfied`, `failed` or `expired` it reserves one wake and
+restarts the goal. A `goal_wait` with a `source` and `target`, and an optional
+`deadlineMinutes`, registers a wait (`shared/goal-waits.ts`): `child` and a
+Workflow id, `process` and the id of a dev server the host manages here, or
+`ci` and a branch or commit. `runtime/goals/goal-wait-watcher.ts` reads the
+source on a change (the loop state or any dev server), at startup and on one
+deadline timer. The CI source alone reads GitHub again every two minutes while a
+waiting goal has a `ci` wait, and a `ci` wait with no deadline gets six hours.
+The host methods are optional (`listDevServers`, `onDevServerChange`,
+`refChecks`); without them a `process` or `ci` wait is refused. A dev server the
+host no longer lists blocks the goal. On `satisfied`, `failed` or `expired` it reserves one wake and
 signals the Goal loop through `goal-wake.ts`. The loop is the only thing that
 starts a Goal turn. The wake goes through the same limit check and
 one-driver claim as a user resume, and a stop moves the Goal's control revision
-past every earlier wait. `process` and `ci` are refused. A failed or expired wait
-is never completion.
+past every earlier wait. A failed or expired wait is never completion.
 
 An agent cannot raise or remove a Goal limit the user set. `changeGoalLimits`
 in `runtime/goals/goal-limits.ts` refuses it and allows a lower value or a limit

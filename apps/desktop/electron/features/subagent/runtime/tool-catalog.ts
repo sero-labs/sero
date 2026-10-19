@@ -78,6 +78,34 @@ function persist(): void {
   }
 }
 
+const declaresExtensions = new Map<string, boolean>();
+
+/** True when the package lists Pi extensions, so a session can load it as one. */
+function declaresPiExtensions(packageRoot: string): boolean {
+  const known = declaresExtensions.get(packageRoot);
+  if (known !== undefined) return known;
+  let declared = false;
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as { pi?: { extensions?: unknown } };
+    declared = Array.isArray(pkg.pi?.extensions) && pkg.pi.extensions.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+  } catch {
+    // An unreadable package cannot be loaded as an extension either.
+  }
+  declaresExtensions.set(packageRoot, declared);
+  return declared;
+}
+
+/**
+ * The plugin package a tool comes from, or null for a host tool. A host tool's
+ * source sits inside the desktop app, whose package root is the app itself;
+ * recording that would make a member approved for the tool load the whole app
+ * as an extension.
+ */
+function pluginPackageOf(resourcePath: string): string | null {
+  const packagePath = packageRootForResourcePath(resourcePath);
+  return packagePath && declaresPiExtensions(packagePath) ? packagePath : null;
+}
+
 function loadPersisted(): void {
   try {
     const parsed = JSON.parse(readFileSync(cachePath(), 'utf8')) as { version?: number; tools?: PersistedTool[] };
@@ -87,7 +115,8 @@ function loadPersisted(): void {
       // A plugin that was uninstalled leaves a tool no session can load. Drop it.
       if (tool.packagePath && !existsSync(path.join(tool.packagePath, 'package.json'))) continue;
       catalog.set(tool.name, { name: tool.name, description: tool.description });
-      if (tool.packagePath && !PLATFORM_TOOL_NAMES.has(tool.name)) toolPackages.set(tool.name, tool.packagePath);
+      const packagePath = tool.packagePath ? pluginPackageOf(path.join(tool.packagePath, 'package.json')) : null;
+      if (packagePath && !PLATFORM_TOOL_NAMES.has(tool.name)) toolPackages.set(tool.name, packagePath);
     }
   } catch {
     // No cache yet — the baseline + startup enumeration fill it in.
@@ -143,8 +172,9 @@ export function recordRunToolCatalog(tools: ToolInfo[]): void {
   for (const tool of tools) {
     seenThisProcess.add(tool.name);
     if (PLATFORM_TOOL_NAMES.has(tool.name)) continue;
-    const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
+    const packagePath = pluginPackageOf(tool.sourceInfo.path);
     if (packagePath) toolPackages.set(tool.name, packagePath);
+    else toolPackages.delete(tool.name);
   }
   if (merge(tools.map((tool) => ({ name: tool.name, description: tool.description })))) persist();
 }

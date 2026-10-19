@@ -1,0 +1,41 @@
+[
+  {
+    "scenario": "collaborative-research",
+    "replicate": 1,
+    "architectRunId": "2026-10-19T02-21-18-521Z:collaborative-research:r1:architect",
+    "singleAgentRunId": "2026-10-19T02-21-18-521Z:collaborative-research:r1:persistent-single-agent",
+    "comparison": {
+      "objective": "collaborative-research",
+      "comparable": true,
+      "mismatches": [],
+      "outcomes": {
+        "before": "accepted",
+        "after": "incomplete"
+      },
+      "deltas": {
+        "attributableUsd": -0.10996911599999998,
+        "elapsedMs": 615515,
+        "activeMs": 703835,
+        "waitMs": 1404,
+        "requests": 83,
+        "retries": 0,
+        "interventions": 0,
+        "repeatedWork": 0,
+        "protocolFailures": 0
+      },
+      "unknowns": [
+        "At least one run did not finish with a checked outcome.",
+        "At least one operation has no recorded model or effort, so a controlled strategy effect cannot be claimed."
+      ]
+    },
+    "unobserved": {
+      "architect": [
+        "repeatedWork (delegated sessions are not readable)"
+      ],
+      "persistent-single-agent": [
+        "protocolFailures (a chat agent has no result contract to break)",
+        "repeatedWork (no signal for a repeated investigation)"
+      ]
+    }
+  }
+]

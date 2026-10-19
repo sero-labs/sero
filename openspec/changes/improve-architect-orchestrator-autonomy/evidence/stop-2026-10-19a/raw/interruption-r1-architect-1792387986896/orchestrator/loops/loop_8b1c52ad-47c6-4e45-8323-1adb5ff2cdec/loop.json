@@ -1,0 +1,131 @@
+{
+  "id": "loop_8b1c52ad-47c6-4e45-8323-1adb5ff2cdec",
+  "workspaceId": "interruption-r1-architect-1792387986896",
+  "title": "interruption-r1-architect-1792387986896: maintenance",
+  "prompt": "Maintenance triage for the project \"interruption-r1-architect-1792387986896\" in /Users/danielcarter/.sero-e2e-architect-baseline/interruption-r1-architect-1792387986896. This Workflow runs when a GitHub issue is opened, when CI fails, and once a week. On each run: read the event that fired it (or, for the weekly run, the open issues and the latest CI results), reproduce or confirm the problem where you can without changing the code, and write a short triage note to .sero/apps/architect/triage/<date>-<slug>.md with: what happened, where in the code it likely is, a severity, and a suggested fix. Do not change the project code and do not open a pull request; the project owner decides what to dispatch. Finish by reporting the triage note path in your completion.",
+  "summary": "",
+  "status": "draft",
+  "project": {
+    "projectId": "proj_35do3bga",
+    "runId": "run-initial-proj_35do3bga",
+    "projectName": "interruption-r1-architect-1792387986896",
+    "configRevision": 0,
+    "modelSnapshot": {
+      "LOW": {
+        "provider": "deepseek",
+        "modelId": "deepseek-flash",
+        "thinkingLevel": "low",
+        "source": "inherited global rev 0"
+      },
+      "MED": {
+        "provider": "openai-codex",
+        "modelId": "gpt-5.6-terra",
+        "thinkingLevel": "medium",
+        "source": "inherited global rev 0"
+      },
+      "HIGH": {
+        "provider": "openai-codex",
+        "modelId": "gpt-5.6-terra",
+        "thinkingLevel": "high",
+        "source": "inherited global rev 0"
+      }
+    }
+  },
+  "workspace": {
+    "useManagedWorktree": false,
+    "reuseExistingWorktree": true,
+    "dirtyWorkspacePromptTimeoutMs": 60000,
+    "dirtyWorkspaceDefaultAction": "create-managed-worktree",
+    "allowDirtyWorkspaceRoot": true
+  },
+  "delivery": {
+    "destination": "workspace-files"
+  },
+  "plan": {
+    "schemaVersion": 1,
+    "revision": 0,
+    "objective": "",
+    "steps": []
+  },
+  "runtime": {
+    "parentSessionId": "orchestrator:interruption-r1-architect-1792387986896:loop_8b1c52ad-47c6-4e45-8323-1adb5ff2cdec",
+    "variables": {},
+    "stepStates": {},
+    "workspace": {},
+    "liveCall": {
+      "kind": "planner",
+      "runId": "45d9255f-50c7-45db-97bc-ef8ac0344759"
+    }
+  },
+  "triggers": [
+    {
+      "id": "trigger_1304171a-bacd-48d1-bb00-779c738c5e36",
+      "loopId": "loop_8b1c52ad-47c6-4e45-8323-1adb5ff2cdec",
+      "workspaceId": "interruption-r1-architect-1792387986896",
+      "type": "event",
+      "eventSource": "github:issue-opened",
+      "fireCount": 0
+    },
+    {
+      "id": "trigger_68a20636-258b-4da2-a4b2-e1b64ca2d994",
+      "loopId": "loop_8b1c52ad-47c6-4e45-8323-1adb5ff2cdec",
+      "workspaceId": "interruption-r1-architect-1792387986896",
+      "type": "event",
+      "eventSource": "github:ci-failed",
+      "fireCount": 0
+    },
+    {
+      "id": "trigger_4fe3cd1b-5fda-4b35-b650-acae2b08700b",
+      "loopId": "loop_8b1c52ad-47c6-4e45-8323-1adb5ff2cdec",
+      "workspaceId": "interruption-r1-architect-1792387986896",
+      "type": "cron",
+      "schedule": "0 8 * * 1",
+      "fireCount": 0,
+      "nextFireAt": "2026-10-19T08:00:00.000Z"
+    }
+  ],
+  "limits": {
+    "maxAttemptsPerStep": 3,
+    "maxAttemptsTotal": 50,
+    "maxConcurrentSteps": 3,
+    "maxWallClockMs": 1800000,
+    "maxCostUsd": 0.989077816
+  },
+  "logPolicy": {
+    "retainRuns": 20,
+    "retainArtifacts": true,
+    "maxInlineOutputBytes": 8000,
+    "retainDigests": 50
+  },
+  "warnings": [],
+  "runs": [],
+  "revisions": [],
+  "insights": [],
+  "suggestions": [],
+  "answeredInputs": [],
+  "createdAt": "2026-10-19T05:34:56.916Z",
+  "updatedAt": "2026-10-19T05:34:56.916Z",
+  "creation": {
+    "requestId": "proj_35do3bga:maintenance",
+    "attempts": 1,
+    "complete": false,
+    "triggerIntent": "supplied",
+    "triggers": [
+      {
+        "type": "event",
+        "eventSource": "github:issue-opened"
+      },
+      {
+        "type": "event",
+        "eventSource": "github:ci-failed"
+      },
+      {
+        "type": "cron",
+        "schedule": "0 8 * * 1"
+      }
+    ]
+  },
+  "planningUsage": {
+    "startedCalls": 1
+  }
+}

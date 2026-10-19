@@ -202,6 +202,8 @@ export interface RuntimeDevServer {
   status?: RuntimeDevServerStatusValue;
   pid?: number;
   diagnosticCode?: RuntimeDevServerDiagnosticCode;
+  /** How the process ended, when it exited on its own. */
+  exit?: { exitCode: number | null; signal?: string };
 }
 
 export interface RuntimeDevServerChangeEvent {

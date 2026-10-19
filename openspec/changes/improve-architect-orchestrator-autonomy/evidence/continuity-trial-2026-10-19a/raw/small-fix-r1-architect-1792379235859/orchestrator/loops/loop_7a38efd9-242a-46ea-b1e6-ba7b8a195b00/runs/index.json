@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "run_598f0f1b-6592-4719-83ab-8afb8141e47c",
+      "runNumber": 1,
+      "status": "running",
+      "startedAt": "2026-10-19T03:08:57.755Z",
+      "steps": [
+        {
+          "stepId": "investigate-and-write-triage",
+          "title": "Investigate one maintenance signal and record triage",
+          "visitNumber": 1,
+          "activationId": "run_598f0f1b-6592-4719-83ab-8afb8141e47c:investigate-and-write-triage:1",
+          "attemptNumber": 1,
+          "executionType": "background-agent",
+          "status": "running",
+          "planIndex": 0
+        }
+      ],
+      "recoveries": [],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 7673,
+        "outputTokens": 297,
+        "totalTokens": 14626,
+        "costUsd": 0.0202412
+      }
+    }
+  ]
+}

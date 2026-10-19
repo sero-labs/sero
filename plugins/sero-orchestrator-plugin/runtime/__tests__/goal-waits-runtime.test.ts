@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
+import type { AppRuntimeDevServer, AppRuntimeDevServerChange, AppRuntimeRefChecks } from '@sero-ai/common';
 import type { Goal } from '../../shared/goal-types';
 import { buildGoalContinuation } from '../../shared/goal-contract';
 import { GoalRuntime } from '../goals/goal-runtime';
@@ -47,12 +48,15 @@ function setup(files = new Map<string, unknown>(), host: FakeHost = createFakeHo
 }
 
 describe('registering a Goal wait', () => {
-  it('parks the goal on a Workflow, and refuses process, CI, free text and an unknown Workflow without parking it', async () => {
+  it('parks the goal on a Workflow, and refuses free text, an unknown Workflow and an unobservable process or CI without parking it', async () => {
     const { runtime, started, park } = setup();
     const goal = await started();
-    for (const kind of ['process', 'ci', 'when the tests look fine']) {
+    for (const kind of ['when the tests look fine', 'the deploy']) {
       expect(await park(goal, { source: { kind, id: 'x' } })).toMatchObject({ ok: false, text: expect.stringMatching(/Manual resume is required/) });
     }
+    // This host reports no dev servers and reads no CI.
+    expect(await park(goal, { source: { kind: 'process', id: 'x' } })).toMatchObject({ ok: false, text: expect.stringContaining('cannot report its dev servers') });
+    expect(await park(goal, { source: { kind: 'ci', id: 'main' } })).toMatchObject({ ok: false, text: expect.stringContaining('cannot read CI checks') });
     expect(await park(goal, { source: { kind: 'child', id: 'no-such-loop' } })).toMatchObject({ ok: false });
     expect((await runtime.forSession(SESSION))?.status).toBe('active');
 
@@ -296,5 +300,72 @@ describe('failed and expired Goal waits', () => {
     await runtime.observeState(host.state);
     expect(woken).toHaveLength(1);
     expect(buildGoalContinuation((await runtime.forSession(SESSION)) as Goal)).toContain('failed');
+  });
+});
+
+describe('Goal waits on a dev server and on CI', () => {
+  const SERVER = 'ws-1:workspace:root:5173';
+  const server = (status: AppRuntimeDevServer['status'], exit?: AppRuntimeDevServer['exit']): AppRuntimeDevServer => ({
+    id: SERVER, workspaceId: 'ws-1', name: 'web', port: 5173, url: 'http://127.0.0.1:5173', command: 'pnpm dev',
+    cwd: '/work', scope: 'workspace', status, registeredAt: T0, ...(exit ? { exit } : {}),
+  });
+
+  function observable() {
+    const host = createFakeHost();
+    let servers: AppRuntimeDevServer[] = [];
+    const listeners = new Set<(change: AppRuntimeDevServerChange) => void>();
+    const checks: Record<string, AppRuntimeRefChecks> = {};
+    host.listDevServers = () => servers;
+    host.onDevServerChange = (listener) => { listeners.add(listener); return () => listeners.delete(listener); };
+    host.refChecks = async (ref) => checks[ref] ?? { state: 'none', checks: [] };
+    const change = (next: AppRuntimeDevServer[]) => {
+      servers = next;
+      for (const listener of listeners) listener({ workspaceId: 'ws-1', serverId: SERVER });
+    };
+    return { host, checks, change, setServers: (next: AppRuntimeDevServer[]) => { servers = next; } };
+  }
+
+  it('wakes once when the dev server exits, and not while it runs', async () => {
+    const { host, change, setServers } = observable();
+    const { runtime, started, park } = setup(new Map(), host);
+    const goal = await started();
+    setServers([server('running')]);
+    expect(await park(goal, { source: { kind: 'process', id: SERVER } })).toMatchObject({ ok: true });
+    change([server('running')]);
+    await runtime.waits.reconcile();
+    expect(woken).toHaveLength(0);
+    change([server('failed', { exitCode: 2 })]);
+    change([server('failed', { exitCode: 2 })]);
+    await runtime.waits.reconcile();
+    expect(woken).toHaveLength(1);
+    expect((await runtime.forSession(SESSION))?.waits?.[0].outcome).toMatchObject({ kind: 'failed', detail: expect.stringContaining('code 2') });
+    runtime.dispose();
+  });
+
+  it('blocks the goal when the dev server vanished, and wakes nothing', async () => {
+    const { host, change, setServers } = observable();
+    const { runtime, started, park } = setup(new Map(), host);
+    const goal = await started();
+    setServers([server('running')]);
+    await park(goal, { source: { kind: 'process', id: SERVER } });
+    change([]);
+    await runtime.waits.reconcile();
+    expect(woken).toHaveLength(0);
+    expect(await runtime.forSession(SESSION)).toMatchObject({ status: 'blocked', block: { reason: expect.stringContaining('how it ended is unknown') } });
+    runtime.dispose();
+  });
+
+  it('wakes for CI checks that concluded before the wait, and refuses a ref it cannot read', async () => {
+    const { host, checks } = observable();
+    const { runtime, started, park } = setup(new Map(), host);
+    const goal = await started();
+    checks['feat/x'] = { state: 'unknown', checks: [], reason: 'gh is not signed in' };
+    expect(await park(goal, { source: { kind: 'ci', id: 'feat/x' } })).toMatchObject({ ok: false, text: expect.stringContaining('gh is not signed in') });
+    checks['feat/x'] = { state: 'passed', sha: 'abc', checks: [{ name: 'test', state: 'passed' }] };
+    await park(goal, { source: { kind: 'ci', id: 'feat/x' } });
+    await runtime.waits.reconcile();
+    expect(woken).toHaveLength(1);
+    expect((await runtime.forSession(SESSION))?.waits?.[0]).toMatchObject({ outcome: { kind: 'satisfied' }, deadline: expect.any(String) });
+    runtime.dispose();
   });
 });

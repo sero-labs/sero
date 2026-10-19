@@ -6,7 +6,7 @@
  * can carry on from the record alone.
  */
 
-import { hasAgreement } from './agreement';
+import { assumptionOf, hasAgreement } from './agreement';
 import { activeDirectMilestone, worktreeWorkRule } from './direct-execution';
 import { outstandingUsd } from './budget';
 import { provenBy } from './evidence-binding';
@@ -41,7 +41,7 @@ const DIRECT_WORK_HELP = [
   'You may do a milestone yourself instead of dispatching it. Choose by the work: do it yourself when one agent can finish it, and dispatch when it needs specialists, parallel work or an independent reviewer.',
   'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. In a Worktree project, begin makes a checkout for the milestone and names it: work only there. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. In a Worktree project the report commits your work to the branch of that checkout, and --destination workspace-files records that branch as the receipt. Your report is a claim and your own tests are a self-check, never an independent review.',
   'Work marked interrupted was stopped part-way. Its files are kept. Inspect them and go on with work --operation continue; do not begin it again and do not repeat an outside action whose result you cannot confirm.',
-  'To wait for a Room or Workflow you started: work --operation wait --source child --target <milestone or research id> [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. A process or CI result cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
+  'To wait for something to end: work --operation wait --source child --target <milestone or research id> for a Room or Workflow you started; --source process --target <dev server id> for the dev server that preview evidence left running (its id is on the milestone line); --source ci --target <branch or commit> for its CI checks. A process or ci wait belongs to the milestone you do yourself, or name it with --milestoneId. Add [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. Anything else cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
 ];
 
 /** Where the owner must work while a worktree execution is active. Short: it travels in every wake. */
@@ -64,6 +64,7 @@ function milestoneLine(milestone: Milestone): string {
   }
   if (milestone.parkedBy) parts.push(`parked by ${milestone.parkedBy}`);
   if (milestone.preview) parts.push(`preview ${milestone.preview.route}`);
+  if (milestone.evidence?.preview?.serverId) parts.push(`preview dev server ${milestone.evidence.preview.serverId}`);
   return parts.join(', ');
 }
 
@@ -180,7 +181,10 @@ function agreementBlock(record: ProjectRecord): string[] {
     `Working interpretation (yours, revision ${working.revision}; it grants nothing):`,
     `  Objective: ${quote(working.objective)}`,
     ...(working.approach ? [`  Approach: <approach>${quote(working.approach)}</approach>`] : []),
-    ...working.assumptions.map((assumption) => `  Assumption: ${quote(assumption)}`),
+    ...working.assumptions.map((entry) => {
+      const { text, why } = assumptionOf(entry);
+      return `  Assumption: ${quote(text)}${why ? ` because ${quote(why)}` : ''}`;
+    }),
     ...working.criteria.map((criterion) => {
       const proof = provenBy(record, criterion.id);
       const state = proof ? `proved by ${proof.id}` : criterion.gap ? `gap stated: ${quote(criterion.gap)}` : 'not proved yet';
@@ -329,8 +333,9 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     '',
     ...behaviourBlock(record, wake),
     '',
-    'You can find more of your approved tools and skills with tool_search. It lists only what you are already allowed to use.',
+    'You can find more of your approved tools with tool_search. It lists only what you are already allowed to use. Your approved skills are listed in this prompt; read one when the work needs it.',
     'If your approval includes Code Mode, codemode is already loaded. A script can call only the tools you were approved for.',
+    'If your approval includes automation_browser, load it with tool_search to look at a page the way the user will see it.',
     `Every architect action takes --projectId ${record.id}. A call with another id is refused.`,
     'End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project.',
   ].join('\n');

@@ -34,6 +34,8 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Manage Workflows](/guide/workflows-advanced) — schedules, recovery, step settings, Library, and Catalog.
 - [Rooms](/guide/rooms) — create and supervise a temporary team for one problem.
 - [Manage a Room](/guide/rooms-advanced) — file coordination, access requests, and team changes.
+- [Goals](/guide/goals) — keep the current session working until a result is reached.
+- [Architect](/guide/architect) — have Sero build, release, and maintain a product inside a start cap.
 - [Running Evals](/guide/running-evals) — run snapshot or live-provider evals and inspect results.
 
 ## App and integration tasks

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "loops": [
+    {
+      "id": "loop_7a38efd9-242a-46ea-b1e6-ba7b8a195b00",
+      "title": "small-fix-r1-architect-1792379235859: maintenance",
+      "status": "active",
+      "liveRun": {
+        "runId": "run_598f0f1b-6592-4719-83ab-8afb8141e47c",
+        "startedAt": "2026-10-19T03:08:57.755Z",
+        "reportedAt": "2026-10-19T03:09:09.606Z"
+      },
+      "summary": "Handle one triggering issue or CI failure, or select one actionable item during the weekly run; investigate without altering project code, write an in-workspace triage note, and report its path.",
+      "prompt": "Maintenance triage for the project \"small-fix-r1-architect-1792379235859\" in /Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792379235859. This Workflow runs when a GitHub issue is opened, when CI fails, and once a week. On each run: read the event that fired it (or, for the weekly run, the open issues and the latest CI results), reproduce or confirm the problem where you can without changing the code, and write a short triage note to .sero/apps/architect/triage/<date>-<slug>.md with: what happened, where in the code it likely is, a severity, and a suggested fix. Do not change the project code and do not open a pull request; the project owner decides what to dispatch. Finish by reporting the triage note path in your completion.",
+      "progress": {
+        "total": 1,
+        "done": 0,
+        "running": true
+      },
+      "schedules": [
+        {
+          "triggerId": "trigger_c007b340-4c3d-43e6-9db8-f1075dfeda40",
+          "type": "cron",
+          "schedule": "0 8 * * 1",
+          "nextFireAt": "2026-10-19T08:00:00.000Z"
+        }
+      ],
+      "armedEventSources": [
+        "github:issue-opened",
+        "github:ci-failed"
+      ],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 16521,
+        "outputTokens": 819,
+        "totalTokens": 23996,
+        "costUsd": 0.0442012
+      },
+      "activeStepTitles": [
+        "Investigate one maintenance signal and record triage"
+      ],
+      "maxCostUsd": 0.97873306,
+      "checkoutPath": "/Users/danielcarter/.sero-e2e-architect-baseline/small-fix-r1-architect-1792379235859",
+      "lastRunId": "run_598f0f1b-6592-4719-83ab-8afb8141e47c",
+      "lastRunAt": "2026-10-19T03:08:57.755Z",
+      "createdAt": "2026-10-19T03:08:42.221Z",
+      "updatedAt": "2026-10-19T03:08:57.747Z"
+    }
+  ]
+}

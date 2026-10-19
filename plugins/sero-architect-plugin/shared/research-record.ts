@@ -58,6 +58,8 @@ export interface PendingEvidence {
 export interface ResearchResult {
   openSpecChange?: string;
   roomId?: string;
+  /** The Room's name when it finished, so the project page can name what it agreed. */
+  title?: string;
   workflowId?: string;
   models?: { name: string; model: string; thinking: string }[];
   id: string;

@@ -125,6 +125,10 @@ describe('a document with more than one line', () => {
     expect((await store.read('proj_1'))!.brief).toBe(MARKDOWN.trim());
   });
 
+  it('decodes a dispatch prompt sent as one JSON string', () => {
+    expect(buildOwnerActionInput({ action: 'dispatch', projectId: 'proj_1', promptJson: JSON.stringify(MARKDOWN) })).toMatchObject({ prompt: MARKDOWN });
+  });
+
   it('refuses a value that is not one JSON string, or both forms at once', () => {
     expect(buildOwnerActionInput({ action: 'brief', projectId: 'proj_1', textJson: '{"a":1}' })).toHaveProperty('error');
     expect(buildOwnerActionInput({ action: 'brief', projectId: 'proj_1', textJson: 'not json' })).toHaveProperty('error');

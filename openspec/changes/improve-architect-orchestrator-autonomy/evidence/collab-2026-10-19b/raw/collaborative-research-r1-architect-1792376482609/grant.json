@@ -1,0 +1,69 @@
+{
+  "grantId": "grant_y6a7e0jh",
+  "appId": "architect",
+  "owner": "architect:proj_x97rlwxq",
+  "scope": "project-owner",
+  "workspaceId": "collaborative-research-r1-architect-1792376482609",
+  "sessionDir": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-baseline-home/profiles/testharness/agent/sessions/architect/grant_y6a7e0jh",
+  "subjects": {
+    "owner": {
+      "allowedCwds": [
+        "/Users/danielcarter/.sero-e2e-architect-baseline/collaborative-research-r1-architect-1792376482609"
+      ],
+      "allowedModels": [
+        "deepseek/deepseek-flash"
+      ],
+      "allowedTools": [
+        "read",
+        "bash",
+        "write",
+        "edit",
+        "sero-cli",
+        "codemode",
+        "automation_browser"
+      ],
+      "allowedSkills": [
+        "chrome-cdp",
+        "context7",
+        "frontend-design",
+        "pi-docs",
+        "sero-browser",
+        "sero-dashboard-ui",
+        "sero-plugin",
+        "skill-creator",
+        "brandkit",
+        "industrial-brutalist-ui",
+        "gpt-taste",
+        "image-to-code",
+        "imagegen-frontend-mobile",
+        "imagegen-frontend-web",
+        "minimalist-ui",
+        "full-output-enforcement",
+        "redesign-existing-projects",
+        "high-end-visual-design",
+        "stitch-design-taste",
+        "design-taste-frontend"
+      ],
+      "allowedThinkingLevels": [
+        "low"
+      ],
+      "permissionProfile": {
+        "filesystem": "write",
+        "commands": "all",
+        "network": "fetch",
+        "vcs": "commit"
+      },
+      "maxSystemPromptAdditionBytes": 6067
+    }
+  },
+  "maxLiveSessions": 1,
+  "maxTotalSessions": 1,
+  "approvalId": "approval_mvemoj3g",
+  "status": "active",
+  "issuedAt": "2026-10-19T02:21:25.036Z",
+  "sessionPaths": {
+    "owner": "/Users/danielcarter/Documents/Dev/projects/sero/sero/apps/desktop/.sero-baseline-home/profiles/testharness/agent/sessions/architect/grant_y6a7e0jh/2026-10-19T02-21-25-065Z_01a151f6-b4c9-71a2-83b8-a0db02e750b9.jsonl"
+  },
+  "createdSessions": 1,
+  "pending": {}
+}

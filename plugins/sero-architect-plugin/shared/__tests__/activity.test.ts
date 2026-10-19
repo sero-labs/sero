@@ -215,6 +215,9 @@ describe('projectActivity', () => {
     expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(1) }).owner).toBe('1 turn is still finishing');
     expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(3) }).owner).toBe('3 turns are still finishing');
     expect(projectActivity(paused, RUNNING_SESSION).owner).toBe('Nothing runs until you resume');
+    // The Architect's own turn is in flight too, and the pause lets it finish.
+    const inTurn = { ...paused, session: { ...paused.session, workingSince: '2026-09-19T10:05:00.000Z' } };
+    expect(projectActivity(inTurn, RUNNING_SESSION).owner).toBe('1 turn is still finishing');
   });
 
   it('reads an agreement whose start is not approved as not started, with Review access', () => {

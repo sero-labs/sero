@@ -200,6 +200,17 @@ describe('a completion report is a claim', () => {
     expect(saved.dispatch).toBeNull();
   });
 
+  it('tells the owner what is still unproved when a receipt lands, not that maintain starts', async () => {
+    const working = { revision: 1, objective: 'x', approach: '', assumptions: [], criteria: [{ id: 'c1', text: 'Tags filter the list', userStated: true }], reason: null, updatedAt: T0 };
+    const { work, actions, store, executionId } = await begun({ working });
+    await work('report', { executionId, text: 'Fixed it.', destination: 'workspace-files' });
+    await store.update('proj_1', (fresh) => ({ ...fresh, milestones: fresh.milestones.map((item) => (item.id === 'm1' ? { ...item, evidence: passed, verification: 'verified' as const } : item)) }));
+    const closed = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
+    expect(closed.text).toContain('criterion c1');
+    expect(closed.text).not.toContain('maintain starts');
+    expect((await store.read('proj_1'))!.phase).toBe('build');
+  });
+
   it('sends a delivery outside the workspace through dispatch and its user decision', async () => {
     const { work, m1, executionId } = await begun();
     expect((await work('report', { executionId, text: 'Fixed it.', destination: 'email-send' })).ok).toBe(false);

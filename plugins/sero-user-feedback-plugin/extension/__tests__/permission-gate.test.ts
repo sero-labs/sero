@@ -24,6 +24,7 @@ interface ToolCallEvent {
 interface ToolCallContext {
   cwd?: string;
   hasUI?: boolean;
+  signal?: AbortSignal;
 }
 
 type ToolCallHandler = (
@@ -90,34 +91,30 @@ describe('registerPermissionGate', () => {
     expect(result).toEqual({ block: true, reason: 'Blocked by user — dangerous command rejected' });
   });
 
-  it('blocks dangerous commands when Sero approval times out', async () => {
+  it('waits for the answer, and blocks only when the agent that asked is stopped', async () => {
     vi.useFakeTimers();
     mocks.hasSeroIPCBridge.mockReturnValue(true);
     mocks.askQuestion.mockImplementation(
       (_payload: unknown, signal: AbortSignal) =>
         new Promise((resolve) => {
-          signal.addEventListener(
-            'abort',
-            () => resolve({ answers: [], cancelled: true }),
-            { once: true },
-          );
+          signal.addEventListener('abort', () => resolve({ answers: [], cancelled: true }), { once: true });
         }),
     );
-
+    const agent = new AbortController();
+    let settled = false;
     const pendingResult = handler?.(
-      {
-        toolName: 'bash',
-        toolCallId: 'call-2',
-        input: { command: 'sudo rm -rf /tmp/outside-workspace' },
-      },
-      { cwd: '/workspace/project' },
+      { toolName: 'bash', toolCallId: 'call-2', input: { command: 'sudo rm -rf /tmp/outside-workspace' } },
+      { cwd: '/workspace/project', signal: agent.signal },
     );
+    void pendingResult?.then(() => { settled = true; });
 
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(settled).toBe(false);
 
+    agent.abort();
     await expect(pendingResult).resolves.toEqual({
       block: true,
-      reason: 'Dangerous command blocked — approval timed out after 30s',
+      reason: 'Dangerous command blocked: the agent was stopped before you answered',
     });
   });
 });

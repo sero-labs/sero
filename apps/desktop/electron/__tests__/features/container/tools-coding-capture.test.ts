@@ -207,3 +207,17 @@ describe('bash tool complete-output capture', () => {
     expect(textBlocks(result).some((text) => text.includes('Complete output unavailable'))).toBe(true);
   });
 });
+
+describe('bash tool under a stall limit', () => {
+  it('ends a command before the limit, so the agent sees a time-out instead of losing its run', async () => {
+    const harness = runtimeHarness({ exitCode: 124 });
+    const bash = createBash(harness.runtime, undefined, SESSION, 110);
+
+    const result = await bash.execute('call-1', { command: 'node hangs.mjs' }, undefined, undefined, undefined as never);
+    await bash.execute('call-2', { command: 'node hangs.mjs', timeout: 600 }, undefined, undefined, undefined as never);
+
+    const commands = harness.inputs.filter((input) => input.command === 'node hangs.mjs');
+    expect(commands.map((input) => input.timeoutMs)).toEqual([110_000, 110_000]);
+    expect(textBlocks(result)[0]).toContain('Command timed out after 110s.');
+  });
+});

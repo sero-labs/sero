@@ -30,6 +30,7 @@ import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';
 import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
 import { useAgentStore } from '@/stores/agent';
+import { useBrowserStore } from '@/stores/browser';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { GlobalQuestionPrompt } from '@/components/layout/shell/GlobalQuestionPrompt';
@@ -132,6 +133,12 @@ export function App() {
   // Initialize app control bridge (window.__appControl) for agent interaction
   useEffect(() => {
     return initAppControlBridge();
+  }, []);
+
+  // An agent can open a browser tab while Explorer is closed, so the tab list
+  // follows the main process for the whole life of the app.
+  useEffect(() => {
+    return window.sero.browser.onEvent((event) => useBrowserStore.getState().applyEvent(event));
   }, []);
 
   // Keep agent event subscriptions alive even when the ChatPanel is hidden.

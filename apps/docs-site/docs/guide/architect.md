@@ -30,9 +30,11 @@ member. The session can access only the project folder and the tools you
 approve.
 
 For a new project, the same approval also asks for the skills that are enabled
-in the workspace, and for Code Mode when Sero offers it. The session finds a tool or skill it needs by searching for
-it, and it can load only what you approved. A project that already exists keeps
-the access it had, without Code Mode. To give it more, you approve an addition.
+in the workspace, and for Code Mode when Sero offers it. The session finds an
+approved tool by searching for it. The approved skills are listed in its prompt,
+and it reads one when the work needs it. It can use only what you approved. A
+project that already exists keeps the access it had, without Code Mode, and the
+project page has no control to add more. Start a new project to get them.
 
 ## Create a project
 
@@ -70,21 +72,22 @@ maintenance, use **Enable OpenSpec changes** in the project controls menu.
 
 Architect creates the folder, runs `git init`, registers the folder as a Sero
 workspace, and then asks you to allow the owner session. The project stays in
-`intake` until you allow it. After that, discovery starts.
+`intake` until you allow it. After that, work starts in `build`.
 
 ## Phases
 
-Every project moves through six phases in this order. Architect never skips a
-phase and never moves back.
+A project under an agreement goes from `intake` straight to `build`, then on
+through `release` and `maintain`. It never moves back.
 
 | Phase | What happens | What you do |
 | --- | --- | --- |
 | `intake` | The folder, repository and workspace are created. | Allow the owner session. |
-| `discovery` | The owner reads your idea and runs research. | Nothing, unless you send a directive. |
-| `charter` | The owner proposes a brief, milestones, a cost cap and an autonomy setting. | Approve the charter, or ask for a change. |
-| `build` | Milestones run one at a time. Each closes only on evidence. | Approve milestone plans and answer decisions. |
+| `build` | The Architect researches, plans milestones and does or dispatches them. Each closes only on evidence. | Answer decisions. |
 | `release` | The last milestone is delivered, for example as a pull request. | Approve delivery outside the workspace. |
 | `maintain` | A maintenance Workflow listens to issues, CI failures and a weekly review. | Answer the decisions it raises. |
+
+A charter flow project also has `discovery` and `charter` between `intake` and
+`build`, where you approve its charter.
 
 ### Request later changes with OpenSpec
 
@@ -123,44 +126,41 @@ An overlay describes a stop or wait during a phase. It does not add a phase:
 
 ## The project page
 
-The project page is short on purpose. It has:
+The project page is a board of tiles. The top tile says where the project is,
+with steps done, spend against the start cap and elapsed time. If Sero cannot
+confirm that work is live in this session, it says "Last known". The tiles below
+it show only what applies now:
 
-1. **The goal**, in one sentence.
-2. **What is happening now**: the state, the work in progress, and when the
-   work last reported. A model request that is slow shows as "waiting for the
-   model" with its time, so a quiet project does not look stopped. If Sero
-   cannot confirm that work is live in this session, the page says "Last known"
-   and never "Working".
-3. **The controls for this state**: for example **Review access**, a new cap,
-   or **Retry step**. Beside them are **Open preview**, **Watch work** and
-   **Evidence**.
-4. **Spend** against the start cap.
-5. **Decisions that need you.** Each card shows the question, the reason, the
-   options with their effects, and the recommended option already selected.
-   Select **Answer** to submit your choice.
-6. **A note box** at the foot of the page. Send Architect a short note at any
-   time. Its answer shows above the box. Current work continues.
+- **Needs you** lists each question with its options and their effects. The
+  option the Architect suggests is marked. Pressing an option sends your answer.
+- **Not started** or **Stopped** carries the control that fixes it, for example
+  **Review access**.
+- A wait card shows what the Architect waits for and until when. See
+  [Waiting for work](#waiting-for-work).
+- **Live** lists each agent that works now, grouped by its Room or Workflow,
+  with the tool it runs. Select a row to read what that agent writes at this
+  moment. The text is sent only while the row is open. **Open the Room** and
+  **Open the Workflow** open the same work in Orchestrator. While the Architect
+  does a milestone itself, its group is headed with that milestone's name.
+- **Result** has **Open preview** and **See the checks**.
+
+The side column holds the **Plan** and **Decisions made**. The note box at the
+foot sends the Architect a short note at any time. Current work continues.
 
 ## The Work view
 
-**Watch work** opens the work behind the project page. It has four tabs:
+**Full plan** and **Research** in the Plan tile, and **See the checks** in the
+Result tile, open the work behind the board. It has three tabs:
 
-- **Live** lists each agent that works now, grouped by its Room or Workflow,
-  with the tool it runs or the model request it waits for. Select the eye
-  button on a row to read what that agent writes at this moment. The text is
-  sent only while the row is open. **Open Room** and **Open Workflow** open the
-  same work in Orchestrator. While the Architect does a milestone itself, its
-  group is headed with that milestone's name.
 - **Plan** shows your request as written, the working plan and its acceptance
-  criteria, each step with its state, Architect's last report and every note
-  you sent with its answer.
+  criteria, each step with its state, Architect's last report, and under
+  **Your notes** every note you sent with its answer.
 - **Research** shows each research question and its findings.
 - **Evidence** shows the checks that ran for each step.
 
-History is its own view, opened from the project controls menu (⋯). Older
-directives stay behind a disclosure in the side column. The page never shows an
-event log and never streams agent output. To read the owner's session, select
-**Open session**.
+History is its own view, opened from the project controls menu (⋯). The page
+never shows an event log. To read the owner's session, select **Open session**
+in the top bar.
 
 ## Work the Architect does itself
 
@@ -170,10 +170,13 @@ and work that needs specialists, parallel effort or an independent reviewer is
 dispatched. A small task needs no Workflow, Room or planning step. Workflows and
 Rooms work as before.
 
-- **Available when.** The project was made under an agreement, it runs in
-  **Workspace** execution mode, and the milestone is not linked to an OpenSpec
-  change. A Worktree project, a charter flow project and an OpenSpec change
-  always dispatch.
+- **Available when.** The project was made under an agreement and the
+  milestone is not linked to an OpenSpec change. A charter flow project and an
+  OpenSpec change always dispatch.
+- **Where it works.** In a **Workspace** project the Architect works in the
+  project folder. In a **Worktree** project Sero makes a checkout and branch
+  for the milestone, the Architect works only there, and reporting commits the
+  work to that branch.
 - **Saved identity.** Before any file changes, Sero records the work with an
   execution id, its run, the owner session, the folder, the starting commit and
   the requirement revision it answers. Starting the same work again returns the
@@ -193,31 +196,34 @@ Rooms work as before.
   test runs are a self-check, never an independent review. If you require an
   independent review, a reviewer that did not do the work still runs.
 - **Delivery.** Work reported with the destination `workspace-files` is
-  delivered once it is accepted. Any other destination goes through a dispatch
-  and its user decision. With no destination, the milestone can be accepted
-  without being delivered.
+  delivered once it is accepted. The receipt is the project folder in a
+  Workspace project and the milestone's branch in a Worktree project. Any other
+  destination goes through a dispatch and its user decision. With no
+  destination, the milestone can be accepted without being delivered.
 
-In the project's milestone list, such a milestone shows `architect` as its kind.
-It links to **Watch work** while it runs and to **Evidence** after it reports.
+In the milestone list on the Plan tab, such a milestone shows `architect` as its
+kind. Once it has reported, it links to **Evidence**.
 
 ## Waiting for work
 
-When the Architect has started a Workflow or a Room and has nothing else to do,
-it can wait for that work. Sero wakes it once when the work completes, fails or
-passes a deadline that the Architect set. You do not need to resume it.
+When the Architect has nothing else to do until something ends, it can wait.
+It can wait for a Workflow or Room it started, for a dev server that Sero
+manages, or for the CI checks of a branch or commit. Sero wakes it once when
+that thing ends, fails or passes a deadline that the Architect set. You do not
+need to resume it.
 
 - A wait that ends in a failure or a deadline is not completion. The Architect
   sees the fact and decides what to do next. A milestone still closes only on
   evidence.
-- Sero can wait for a linked Workflow or Room. It cannot yet wait for a managed
-  process or for CI checks, and it refuses such a wait. In that case the
-  Architect ends its turn and says what you should check. You resume the
-  project.
+- Sero refuses a wait on anything else. In that case the Architect ends its
+  turn and says what you should check. You resume the project.
 - If Sero cannot confirm how the work ended, it holds the project and says why.
+  A dev server that is gone after a restart is held this way. Sero does not
+  start it again.
 - **Pause**, **Stop** and the cost cap still apply. A paused or stopped project
   is not woken, and **Stop** cancels every open wait.
 
-[Goals](/guide/goals#how-a-goal-ends) wait for a Workflow in the same way.
+[Goals](/guide/goals#how-a-goal-ends) wait in the same way.
 
 ## When a turn goes quiet
 
@@ -244,7 +250,7 @@ is recorded on the milestone as one of four states:
 | `accepted` | the owner accepted the verified result |
 | `delivered` | the result was delivered, for example a merged pull request |
 
-![Architect build phase showing milestone status and verification evidence](../assets/images/architect-build.png)
+![Architect board while it works: the live browser view, the plan with proof for the finished step, and the decisions made](../assets/images/architect-build.png)
 
 A lower state never stands in for a higher one. If files change after the
 evidence was taken, the evidence is marked stale and the checks run again.
@@ -253,17 +259,20 @@ evidence was taken, the evidence is marked stale and the checks run again.
 
 Architect asks for your approval before it:
 
-- changes an approved charter;
 - delivers anything outside the workspace, such as an email or webhook;
 - spends beyond the cap.
 
-Other decisions depend on the autonomy setting you chose at the charter:
+A project under an agreement continues on its own otherwise. **Autonomy** in the
+controls menu (⋯) changes what else you approve:
 
 | Setting | What you approve |
 | --- | --- |
-| `milestones` (default) | the charter and each milestone plan |
-| `charter-only` | the charter only |
-| `model-judged` | the charter; the Architect decides what else to raise |
+| `charter-only` (default for a new project) | nothing beyond the list above |
+| `milestones` | each milestone plan as well |
+| `model-judged` | what the Architect decides to raise |
+
+A charter flow project also asks before it changes its approved charter. Its
+default is `milestones`.
 
 A decision has no timeout and no default. Work that depends on your answer
 waits. Other milestones keep running.
@@ -287,7 +296,8 @@ to you as a decision instead of stopping the project:
 
 ## Cost
 
-Every project has a cost cap set at the charter. Spend includes the owner
+Every project has a cost cap: the start cap you set when you created it. Spend
+includes the owner
 session, research runs and every dispatched Workflow and Room. When the project
 reaches the cap, Architect stops starting new work. Work already in progress
 can continue and add cost before the next budget check. Raise the cap from the

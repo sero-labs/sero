@@ -42,6 +42,7 @@ export async function requestChoice(
         id: 'q0',
         label: options.title,
         prompt: options.body,
+        ...(options.detail ? { detail: options.detail } : {}),
         options: options.choices.map((choice) => ({
           value: choice.id,
           label: choice.label,

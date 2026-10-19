@@ -9,7 +9,7 @@ import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabi
 
 const fakes = vi.hoisted(() => ({
   backend: 'host' as string,
-  choices: [] as { body: string }[],
+  choices: [] as { body: string; detail?: string }[],
   catalogFor: vi.fn(() => [
     { name: 'read' },
     { name: 'bash' },
@@ -28,11 +28,14 @@ vi.mock('@electron/shared/infra/ai-infra', () => ({
 }));
 
 vi.mock('@electron/platform/desktop/request-choice', () => ({
-  requestChoice: async (input: { body: string }) => {
+  requestChoice: async (input: { body: string; detail?: string }) => {
     fakes.choices.push(input);
     return { choiceId: 'allow', timedOut: false };
   },
 }));
+
+/** What the first prompt shows: its body and, one press away, its details. */
+const shown = () => `${fakes.choices[0].body}\n${fakes.choices[0].detail ?? ''}`;
 
 vi.mock('@electron/features/workspace/manager', () => ({
   workspaceManager: {
@@ -230,9 +233,9 @@ describe('persistent session wiring', () => {
 
     expect(decision?.approved.subjects.implementer.allowedSkills).toEqual(['sero-plugin']);
     expect(fakes.choices).toHaveLength(1);
-    expect(fakes.choices[0].body).toContain('Read and edit files in this workspace');
-    expect(fakes.choices[0].body).toContain('Run commands');
-    expect(fakes.choices[0].body).toContain('normal-disabled');
+    expect(shown()).toContain('Read and edit files in this workspace');
+    expect(shown()).toContain('Run commands');
+    expect(shown()).toContain('normal-disabled');
   });
 
   it('refuses a proposal whose workspace id is not registered, before any prompt', async () => {
@@ -247,7 +250,7 @@ describe('persistent session wiring', () => {
     const decision = await clampAndApprove('ws-1', proposal);
 
     expect(decision?.approved.subjects.implementer.allowedCwds).toEqual(['/workspace/app']);
-    expect(fakes.choices[0].body).toContain('/other-workspace/app');
+    expect(shown()).toContain('/other-workspace/app');
   });
 
   it('offers a member only the tools in the member catalogue', async () => {
@@ -260,9 +263,10 @@ describe('persistent session wiring', () => {
     expect(decision?.approved.subjects.implementer.allowedTools).toEqual(['read']);
   });
 
-  it('removes tools the approved permission profile cannot provide', async () => {
+  it('removes tools the approved permission profile cannot provide, without calling them missing', async () => {
     const proposal = skillBearingProposal();
     proposal.subjects.implementer.allowedTools = ['read', 'bash', 'gh', 'git_manager', 'sero-cli'];
+    proposal.subjects.implementer.allowedSkills = ['sero-plugin'];
     proposal.subjects.implementer.permissionProfile = {
       filesystem: 'read',
       commands: 'readOnly',
@@ -273,9 +277,10 @@ describe('persistent session wiring', () => {
     const decision = await clampAndApprove('ws-1', proposal);
 
     expect(decision?.approved.subjects.implementer.allowedTools).toEqual(['read', 'sero-cli']);
-    expect(fakes.choices[0].body).toContain('Tools: read, sero-cli');
-    expect(fakes.choices[0].body).not.toContain('Run commands');
-    expect(fakes.choices[0].body).toContain('Not available under this approval, so removed: bash, gh, git_manager');
+    expect(shown()).toContain('Tools: read, sero-cli');
+    expect(shown()).not.toContain('Run commands');
+    // The profile narrowing what was asked for is not reported as missing access.
+    expect(shown()).not.toContain('removed');
   });
 });
 

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "run_79cf0454-78b4-470d-8585-ad6d9a87c342",
+      "runNumber": 1,
+      "status": "running",
+      "startedAt": "2026-10-19T05:46:28.444Z",
+      "steps": [
+        {
+          "stepId": "implement-csv-parser",
+          "title": "Implement CSV behavior and tests",
+          "visitNumber": 1,
+          "activationId": "run_79cf0454-78b4-470d-8585-ad6d9a87c342:implement-csv-parser:1",
+          "attemptNumber": 1,
+          "executionType": "background-agent",
+          "status": "running",
+          "planIndex": 0
+        }
+      ],
+      "recoveries": [],
+      "usage": {
+        "incomplete": true,
+        "inputTokens": 9084,
+        "outputTokens": 301,
+        "totalTokens": 15017,
+        "costUsd": 0.0229064
+      }
+    }
+  ]
+}

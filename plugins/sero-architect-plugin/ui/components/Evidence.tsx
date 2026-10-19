@@ -10,6 +10,7 @@
  * have no duration in the record, and one is never invented to fill the column.
  */
 
+import { useProjectPicture } from '../lib/use-project-picture';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@sero-ai/ui';
 
@@ -57,8 +58,31 @@ function CheckRow({ check, projectId }: { check: EvidenceCheck; projectId: strin
   );
 }
 
-export function Evidence({ evidence, projectId }: { evidence: EvidenceRecord; projectId: string }) {
+/** The screenshot a check saved, at a size that can be read. */
+function Capture({ projectId, milestoneId, evidence }: { projectId: string; milestoneId: string; evidence: EvidenceRecord }) {
+  const picture = useProjectPicture(projectId, milestoneId, evidence.checkedAt, Boolean(evidence.preview?.capturePath));
+  if (!picture) return null;
+  return <img className="ar-capture" src={picture.dataUrl} alt="Screenshot the check saved" />;
+}
+
+/**
+ * The checks of one step. On the evidence page they are laid open, with the
+ * screenshot first: a user who asked for the proof is shown it. Elsewhere they
+ * stay folded under one line.
+ */
+export function Evidence({ evidence, projectId, milestoneId }: { evidence: EvidenceRecord; projectId: string; milestoneId?: string }) {
   const checks = evidenceLines(evidence);
+  if (milestoneId) {
+    return (
+      <div className="ar-evidence">
+        <Capture projectId={projectId} milestoneId={milestoneId} evidence={evidence} />
+        <p className="wk-line">Checked at {evidence.commit.slice(0, 7)}{evidence.stale ? '. The work changed after this check.' : ''}</p>
+        <ul className="ar-checks">
+          {checks.map((check) => <li key={check.key}><CheckRow check={check} projectId={projectId} /></li>)}
+        </ul>
+      </div>
+    );
+  }
   return (
     <details className="ar-evidence">
       <summary>

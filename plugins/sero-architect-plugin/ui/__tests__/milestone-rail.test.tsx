@@ -140,21 +140,21 @@ describe('the milestone rail', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
   });
 
-  it('links work the Architect does itself to the Work view, and keeps Workflow rows on the Orchestrator', () => {
+  it('links finished work the Architect does itself to its evidence, and keeps Workflow rows on the Orchestrator', () => {
     const record = FIXTURES.direct!;
     const onOpenWork = vi.fn();
     const onOpenDispatch = vi.fn();
     act(() => root.render(<MilestoneRail record={record} onOpenDispatch={onOpenDispatch} onOpenWork={onOpenWork} />));
     const click = (id: string) => act(() => container.querySelector<HTMLButtonElement>(`[data-testid="open-${id}"]`)!.click());
     click('m1'); // direct, accepted
-    click('m2'); // direct, running
-    expect(onOpenWork.mock.calls).toEqual([['evidence', 'm1'], ['live', 'm2']]);
+    expect(onOpenWork.mock.calls).toEqual([['evidence', 'm1']]);
     expect(container.querySelector('[data-testid="open-m1"]')?.textContent).toContain('Evidence');
-    expect(container.querySelector('[data-testid="open-m2"]')?.textContent).toContain('Watch work');
+    // Work the Architect is doing now is watched on the board, so its row links nowhere.
+    expect(container.querySelector('[data-testid="open-m2"]')).toBeNull();
     expect(container.querySelector('[data-testid="open-m4"]')).toBeNull();
     expect(onOpenDispatch).not.toHaveBeenCalled();
     click('m3'); // delegated
     expect(onOpenDispatch).toHaveBeenCalledWith({ kind: 'room', id: 'room-m3', workspaceId: 'ws-hollow' });
-    expect(onOpenWork).toHaveBeenCalledTimes(2);
+    expect(onOpenWork).toHaveBeenCalledTimes(1);
   });
 });

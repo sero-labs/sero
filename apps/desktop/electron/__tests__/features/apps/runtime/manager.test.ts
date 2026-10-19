@@ -96,6 +96,7 @@ function createHostStub(
       mergePr: vi.fn(async () => ({ success: true as const, state: 'merged' as const })),
       getPrMergeState: vi.fn(async () => 'unknown' as const),
       getPrMergeError: vi.fn(async () => null),
+      getRefChecks: vi.fn(async () => ({ state: 'none' as const, checks: [] })),
     },
     devServers: {
       startManaged: vi.fn(async () => ({ reason: 'not-used' })),
@@ -103,6 +104,7 @@ function createHostStub(
       stop: vi.fn(async () => false),
       restart: vi.fn(async () => false),
       unregister: vi.fn(() => false),
+      onChange: vi.fn(() => () => undefined),
     },
     notifications: {
       notify: vi.fn(),

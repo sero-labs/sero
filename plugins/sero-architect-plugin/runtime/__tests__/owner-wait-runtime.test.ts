@@ -58,11 +58,11 @@ describe('registering a wait', () => {
     }
   });
 
-  it('refuses process, CI and free text, saves nothing and promises no wake', async () => {
+  it('refuses free text, saves nothing and promises no wake', async () => {
     const { runtime, act, read } = await started();
     try {
       await runtime.start();
-      for (const source of ['process', 'ci', 'when the tests look fine']) {
+      for (const source of ['when the tests look fine', 'the deploy']) {
         expect(await act({ source, target: 'm1' })).toMatchObject({ ok: false, text: expect.stringMatching(/Manual resume is required/) });
       }
       expect((await read()).waits).toBeUndefined();
@@ -259,7 +259,7 @@ describe('a reservation taken while the project may not start work', () => {
   it('stays pending and starts no turn when the project was paused after it was reserved', async () => {
     const reserved = open({ outcome: { kind: 'satisfied', at: T0 }, wake: { reservedAt: T0, consumedAt: null } });
     const { host, store } = await started({ paused: true, overlay: 'paused', waits: [reserved] });
-    const reconciler = createWaitReconciler({ store, now: () => T0, wake: () => undefined, log: () => undefined, readSources: async () => null });
+    const reconciler = createWaitReconciler({ store, now: () => T0, wake: () => undefined, log: () => undefined, readSources: async () => null, listDevServers: () => [], refChecks: async () => ({ state: 'none', checks: [] }) });
     expect(await reconciler.consume('proj_1')).toHaveLength(0);
     expect(reservedWakes((await store.read('proj_1'))!)).toHaveLength(1);
     expect(host.sessions.prompts).toHaveLength(0);
@@ -296,8 +296,8 @@ describe('failed, expired and uncertain waits', () => {
     const store = await storeFor(host);
     await store.write(agreedProject({ milestones: [running()], waits: [open({ source: { kind: 'process', id: 'pid-7' }, condition: 'exited' })] }));
     const wakes: string[] = [];
-    const waits = createWaitReconciler({ store, now: () => T0, wake: (_id, wake) => { wakes.push(wake.kind); }, log: () => undefined, readSources: async () => null });
-    await waits.holdUncertain('proj_1', 'wait_a', 'the process could not be identified after restart');
+    // After a restart the host no longer lists the server, so how it ended is unknown.
+    const waits = createWaitReconciler({ store, now: () => T0, wake: (_id, wake) => { wakes.push(wake.kind); }, log: () => undefined, readSources: async () => null, listDevServers: () => [], refChecks: async () => ({ state: 'none', checks: [] }) });
     await waits.reconcile('proj_1');
     const record = await store.read('proj_1');
     expect(record?.waits?.[0].outcome).toMatchObject({ kind: 'uncertain' });

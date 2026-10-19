@@ -28,25 +28,19 @@ export function WaitCard({ record, actions }: { record: ProjectRecord; actions: 
     setRefusal(result.ok ? null : result.text);
   };
   return (
-    <section className="ar-stateline ar-waitcard" aria-label="Project state" data-wait={card.kind}>
-      <div className="ar-stateline-main">
-        <h2 className="ar-sentence">{record.name}</h2>
-        <div className="ar-activity-state ar-wait-word">
-          <span className="ar-gchip" data-tone={tone} aria-hidden="true"><Icon className="ar-gi" /></span>
-          <span>{card.word}</span>
+    <section className="bd-tile bd-main" aria-label="Wait" data-wait={card.kind}>
+      <h2 className="bd-label"><span className="ar-gchip" data-tone={tone} aria-hidden="true"><Icon className="ar-gi" /></span>{card.word}</h2>
+      <dl className="ar-facts bd-facts">
+        {card.rows.map((row) => (
+          <div className="ar-fact" key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>
+        ))}
+      </dl>
+      {card.canResume && (
+        <div className="bd-btns">
+          <Button type="button" className="ar-btn ar-btn-solid" onClick={() => void resume()}>Resume work</Button>
         </div>
-        <dl className="ar-facts">
-          {card.rows.map((row) => (
-            <div className="ar-fact" key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>
-          ))}
-        </dl>
-        {card.canResume && (
-          <div className="ar-act-row">
-            <Button type="button" className="ar-btn ar-btn-solid" onClick={() => void resume()}>Resume work</Button>
-          </div>
-        )}
-        {refusal && <p className="ar-error" role="alert">{refusal}</p>}
-      </div>
+      )}
+      {refusal && <p className="bd-error" role="alert">{refusal}</p>}
     </section>
   );
 }

@@ -80,7 +80,7 @@ async function startProposal(host: ArchitectHost, record: ProjectRecord, choice:
   return {
     ...proposal,
     delegation: await delegationProposal(host, record),
-    reason: `Start the Architect project "${record.name}" in ${record.folder} with a $${record.agreement.capUsd} start cap. The Architect runs on ${choice.model}. It may start agents with the access below without asking again.`,
+    reason: `Start "${record.name}" with a $${record.agreement.capUsd} start cap? Architect works in ${record.folder} on ${choice.model}, and starts agents without asking again.`,
   };
 }
 

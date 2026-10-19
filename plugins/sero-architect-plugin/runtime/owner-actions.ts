@@ -202,12 +202,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const own = applyDelivery(next, accepted, now);
         const delivery = own.items.length > 0 ? own : settleDelivery(own.record, now);
         next = delivery.record;
-        if (delivery.items.length > 0) note = ' The release receipt is already recorded, so the release is delivered and maintain starts.';
+        // The items say what the receipt settled; a delivery still waiting on proof is not reported as done.
+        if (delivery.items.length > 0) note = ` ${delivery.items.join('. ').replace(/^./, (first) => first.toUpperCase())}.`;
         if (next.phase === 'build' && planIsFinished(next)) {
           const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
           if (released.ok) {
             next = released.record;
-            note = ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
+            note += ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
           }
         }
         return { record: next };

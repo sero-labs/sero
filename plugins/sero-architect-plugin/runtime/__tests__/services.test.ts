@@ -378,9 +378,39 @@ describe('runtime services', () => {
     expect(started).toEqual([{ workspacePath: '/home/dan/projects/hollow', cwdPath: dir }]);
   });
 
-  it('rejects an HTTP error preview without shutting down the shared preview server', async () => {
+  describe('a preview server earlier evidence left running', () => {
+    const earlier = (serverId: string) => ({ commit: 'abc', checkedAt: T0, commands: [], diffSummary: null, filesChanged: true, preview: { route: '/', smokePassed: true, capturePath: '/x.png', serverId }, passed: true, stale: true });
+    const listed = (id: string) => ({ id, workspaceId: 'ws-1', name: id, port: 1, url: 'http://127.0.0.1:1', command: 'node server.js', cwd: '/', scope: 'workspace' as const, status: 'running' as const, registeredAt: T0 });
+
+    async function check(project: ReturnType<typeof buildingProject>, running: string[]) {
+      const { host, store, services, wakes } = await setup(project);
+      const calls: string[] = [];
+      host.devServers.push(...running.map(listed));
+      host.detectDevServerCommand = async () => 'node server.js';
+      host.stopDevServer = async (serverId) => { calls.push(`stop ${serverId}`); return true; };
+      host.startDevServer = async () => { calls.push('start'); return { reason: 'stopped here' }; };
+      await services.evidence(project, project.milestones[0]!, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+      return { calls, preview: (await store.read(project.id))?.milestones[0]?.evidence?.preview };
+    }
+
+    it('is stopped before a new one starts, so the check never serves old code', async () => {
+      const project = buildingProject({ milestones: [milestone('m1', { status: 'verifying', preview: { route: '/' }, evidence: earlier('srv-old') })] });
+      expect((await check(project, ['srv-old'])).calls).toEqual(['stop srv-old', 'start']);
+    });
+
+    it('is not stopped while the owner waits on it, and the check is refused instead of reusing it', async () => {
+      const wait = { id: 'wait_1', owner: { milestoneId: 'm1', executionId: null }, source: { kind: 'process' as const, id: 'srv-waited' }, condition: 'exited', deadline: null, controlRevision: 0, registeredAt: T0, outcome: null, wake: null };
+      const project = buildingProject({ milestones: [milestone('m1', { status: 'verifying', preview: { route: '/' }, evidence: earlier('srv-waited') })], waits: [wait] as never });
+      const { calls, preview } = await check(project, ['srv-waited']);
+      expect(calls).toEqual([]);
+      expect(preview).toMatchObject({ smokePassed: false, failure: expect.stringContaining('which you are waiting on'), serverId: 'srv-waited' });
+    });
+  });
+
+  it('rejects an HTTP error preview, keeps the shared preview server running and names it for a wait', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
-    const { host, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
+    const { host, store, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
     const server = createServer((_request, response) => { response.statusCode = 404; response.end('missing'); });
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
     const port = (server.address() as AddressInfo).port;
@@ -396,6 +426,9 @@ describe('runtime services', () => {
     }
     expect(stopped).toBe(false);
     expect(wakes[0]?.items[0]).toContain('returned HTTP 404');
+    // The owner has no dev server command, so the id it may wait on is on the record.
+    const saved = await store.read(buildingProject().id);
+    expect(saved?.milestones[0]?.evidence?.preview?.serverId).toBe('srv-1');
   });
 
   it.each(['throw', 'result'] as const)('records the capture failure (%s) and accounts for reported usage', async (mode) => {
@@ -421,7 +454,7 @@ describe('runtime services', () => {
     expect(wakes[0]).toMatchObject({ kind: 'dispatch-complete', items: [expect.stringContaining('the subagent seam is unavailable')] });
     const failed = (await store.read('proj_1'))?.milestones[0];
     expect(failed).toMatchObject({ status: 'verifying', verification: 'reported' });
-    expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 0 }], preview: { smokePassed: false, failure: expect.stringContaining('the subagent seam is unavailable') } });
+    expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 0 }], preview: { smokePassed: false, failure: expect.stringContaining('the subagent seam is unavailable'), serverId: 'srv-1' } });
     // The failed evidence is what keeps the milestone from closing.
     expect(missingEvidence(failed!)).toContain('the dev-server smoke check failed');
     expect((await store.read('proj_1'))?.budget.sources.dispatched).toBe(mode === 'result' ? 0.02 : 0);

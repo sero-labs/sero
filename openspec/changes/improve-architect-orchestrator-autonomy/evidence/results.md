@@ -1,8 +1,273 @@
 # Results and evidence
 
-Recorded on 2026-10-06. Raw records are in `pilot-phase0/`, `replay-phase1/` and `replay-worktree/`.
+The bounded pilot, its replays, a Room amendment run, a tool-discovery probe and a pause run ran on 2026-10-19. Their records are in `pilot-2026-10-19/`, `rerun-2026-10-19/`, `room-amend-2026-10-19/`, `probe-2026-10-19/` and `pause-2026-10-19/`, and the rendered views in `ui-2026-10-19/`. Earlier runs, from 2026-10-06, are kept below with their records in `pilot-phase0/`, `replay-phase1/` and `replay-worktree/`.
 
-## Paid runs
+## Pilot, 2026-10-19
+
+Both candidates ran on the global LOW tier of the disposable `testharness` profile: `deepseek/deepseek-flash` at low thinking. Each run started from a throwaway workspace seeded with the scenario's files, and a hidden test or file check decided acceptance. The bounds were $1 and 10 minutes per run and $6 for the batch.
+
+- **Candidate revision.** Every pilot record names fd903a5d8. The Architect and Orchestrator plugin source the runs loaded is that revision's. Commits made while the batch ran changed docs, tests and the runner only.
+- **Spend and time.** The 20 runs cost $0.86 and took 24 minutes. The two replays below cost $0.43.
+- **Repeats.** Two per strategy per scenario. That is too few to claim that either strategy is better, and no such claim is made.
+
+| Scenario | Run | Strategy | Outcome | Elapsed | Active | Cost | Owner turns | Context per turn, tokens |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| small-fix | 1 | Architect | accepted | 80 s | 70 s | $0.016 | 29 | 5,441 to 20,759 |
+| small-fix | 2 | Architect | accepted | 69 s | 63 s | $0.013 | 24 | 5,338 to 16,223 |
+| small-fix | 1 | Single agent | accepted | 16 s | 11 s | $0.005 | 5 | 10,540 to 12,101 |
+| small-fix | 2 | Single agent | accepted | 19 s | 13 s | $0.004 | 7 | 10,541 to 12,543 |
+| debugging | 1 | Architect | accepted | 99 s | 79 s | $0.127 | 33 | 5,352 to 22,948 |
+| debugging | 2 | Architect | accepted | 69 s | 56 s | $0.012 | 21 | 5,402 to 14,392 |
+| debugging | 1 | Single agent | accepted | 32 s | 27 s | $0.007 | 7 | 10,623 to 16,096 |
+| debugging | 2 | Single agent | accepted | 27 s | 21 s | $0.006 | 8 | 10,587 to 14,694 |
+| substantial-feature | 1 | Architect | rejected (runner fault, replayed) | 84 s | 60 s | $0.124 | 25 | 5,526 to 22,954 |
+| substantial-feature | 2 | Architect | accepted | 225 s | 200 s | $0.340 | 63 | 5,517 to 56,000 |
+| substantial-feature | 1 | Single agent | accepted | 95 s | 89 s | $0.007 | 9 | 10,765 to 16,314 |
+| substantial-feature | 2 | Single agent | accepted | 182 s | 176 s | $0.009 | 9 | 10,740 to 17,683 |
+| collaborative-research | 1 | Architect | accepted | 99 s | 83 s | $0.020 | 21 | 5,398 to 22,322 |
+| collaborative-research | 2 | Architect | accepted | 84 s | 77 s | $0.018 | 21 | 5,694 to 20,580 |
+| collaborative-research | 1 | Single agent | accepted | 24 s | 17 s | $0.005 | 6 | 10,689 to 14,564 |
+| collaborative-research | 2 | Single agent | accepted | 19 s | 14 s | $0.004 | 5 | 10,705 to 13,488 |
+| interruption | 1 | Architect | accepted, not interrupted (runner fault, replayed) | 69 s | 52 s | $0.012 | 19 | 5,413 to 14,310 |
+| interruption | 2 | Architect | accepted, not interrupted (runner fault, replayed) | 94 s | 83 s | $0.121 | 33 | 5,411 to 24,004 |
+| interruption | 1 | Single agent | accepted after a restart, one "Continue." | 25 s | 15 s | $0.005 | 4 | 10,641 to 13,179 |
+| interruption | 2 | Single agent | accepted after a restart, one "Continue." | 27 s | 17 s | $0.006 | 6 | 10,633 to 14,412 |
+
+Architect cost is partial: part of a Workflow's spend is known only as a project total, and the table adds both parts. Single-agent cost is per call. Architect runs over $0.10 include a Workflow: an independent review, a release step or a review Room.
+
+### Replays on the corrected runner
+
+The pilot exposed three faults in the runner, not in the product. Each is fixed in its own commit, and the affected Architect runs were run again on the same plugin source.
+
+1. The runner scored a run as soon as every worked milestone was done. Substantial-feature run 1 closed m1 while its review milestone m2 was still planned, so it was scored before the review and rejected for a missing `REVIEW.md`. Fixed in 191cbd78b: the project must also have left `build`.
+2. The interruption scenario restarted Sero only once a milestone was dispatched. An owner doing the work itself dispatches nothing, so neither Architect interruption run was interrupted. Fixed in 2ee1ca7f8: direct work in progress also triggers the restart.
+3. After the restart the runner always pressed Resume. Interrupted direct work continues by itself, and Resume refuses a project that is neither paused nor blocked, so the first replay recorded a failed recovery while the project was carrying on. Fixed in 49f0323e9.
+
+| Batch | Scenario | Run | Outcome | Elapsed | Worker time | Cost | Owner turns | Context per turn, tokens | Recovery |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| rerun | substantial-feature | 1 | accepted | 130 s | 18 s | $0.197 | 42 | 5,536 to 38,961 | |
+| rerun | substantial-feature | 2 | accepted | 190 s | 72 s | $0.184 | 42 | 5,530 to 36,711 | |
+| rerun | interruption | 1 | incomplete (fault 3) | 18 s | 0 s | $0.005 | 5 | 5,435 to 7,296 | recorded as failed |
+| rerun | interruption | 2 | incomplete (fault 3) | 23 s | 0 s | $0.007 | 8 | 5,417 to 9,798 | recorded as failed |
+| rerun2 | interruption | 1 | accepted | 78 s | 0 s | $0.014 | 22 | 5,445 to 20,109 | recovered, no intervention |
+| rerun2 | interruption | 2 | accepted | 118 s | 1 s | $0.025 | 39 | 5,416 to 30,342 | recovered, no intervention |
+
+The records name revisions 2ee1ca7f8 and 49f0323e9 with `+dirty`. The extra commits and the dirty files are the runner and evidence files; the plugins were unchanged from fd903a5d8. The second replay overwrote the first replay's manifest, but each record keeps its own controlled inputs.
+
+### What the runs show
+
+- **Direct work without delegation (2.9).** In all 16 kept Architect runs the owner did m1 itself: `work begin`, its own edits, `work report`, then evidence. A Workflow or Room was dispatched only for an independent review, a release step or maintenance.
+- **Interruption keeps the execution (2.9, 5.8).** In both rerun2 runs Sero restarted during `work begin`'s turn. The restart marked the work `interrupted` with the reason "Sero restarted while this work was in progress". The owner was woken without a user action, continued the same execution id with `work --operation continue`, and reported on that id. Each run has one `begin`, no superseded execution and no intervention. The single agent needed a typed "Continue." after its restart, recorded as an intervention.
+- **No duplicate work (5.8).** Across the 16 kept Architect project records, every dispatch id is unique and every milestone has one `begin`.
+- **A durable wait, live (5.8).** Substantial-feature replay 1 registered `work --operation wait` on its review Workflow. The wait ended `satisfied` and its one wake was reserved and consumed.
+- **Owner context per turn (2.9).** With direct work, owner context grew from about 5,400 tokens to between 14,000 and 24,000 on the small scenarios, and to about 56,000 over 63 turns on the longest run. Before direct work it grew from about 4,200 to 24,800 over 21 turns (the 2026-10-06 runs below). The single agent starts near 10,600 because it carries the full chat prompt.
+- **Code Mode in a paid run (3.x).** Owners called `codemode` 8 times. In collaborative-research run 1 a script checked the findings against the code and called `sero-cli evidence` from inside the script. The tool was approved at start and was loaded, so no restart or second approval was needed.
+- **No `tool_search` call.** No owner called `tool_search` in 16 runs. No scenario needed a tool outside the initial loadout. See 3.7 below.
+
+### What the runs do not show
+
+- No comparison of the strategies is claimed. The single agent was faster and cheaper on every scenario at this size, and every scenario is small enough for one agent.
+- The `collaborative-research` scenario did not produce a Room. Both Architect runs answered it with direct work. The scenario does not test collaboration.
+- The `substantial-feature` acceptance check proves `REVIEW.md` exists, not who wrote it. The single agent wrote its own review, once through its subagent tool. The check cannot tell an independent review from a self-review.
+- No pilot run exercised a process wait, a CI wait, a stall recovery or a multi-hour run. The later process-wait, CI-wait and multi-hour runs below did, apart from stall recovery.
+
+## Owner protocol failures (6.1, 6.2)
+
+The runner counts Workflow repair passes as protocol failures (f983a0641). It also keeps the owner's session, so the owner's refused commands can be counted too.
+
+- **Workflow in-session repair: 0 passes.** Every Architect run that saved a Workflow run file counted 0 repair passes, across review, release and maintenance Workflows.
+- **Owner commands: 64 of 254 refused (25%).** Across 16 Architect sessions the owner sent 254 `sero-cli` commands:
+  - 38 refusals were JSON quoting errors in `--textJson`, `--planJson`, `--approachJson`, `--criteriaJson` and `--commandsJson`;
+  - 7 were `working` calls without `--objective`;
+  - 4 were dispatches whose `--promptJson` the tool dropped, because no such flag existed;
+  - 15 were other state refusals, such as closing a milestone with stale evidence.
+- **One misleading answer.** Accepting a milestone with a recorded receipt answered "the release is delivered and maintain starts" even when the delivery was still waiting on proof for a user-stated criterion. The project stayed in `build`.
+
+Fixed in d194f5a97, after every run above:
+
+- the owner tool accepts `--promptJson`;
+- acceptance reports what the delivery actually settled;
+- the owner contract no longer says `tool_search` finds skills.
+
+**Recommendation, as an experiment, not shipped:** keep Workflow in-session repair. It needed no pass in these runs, so a structured reporting action has nothing to replace there. The measured cost is in the owner's command line: a quarter of its commands are refused, and most of those are JSON quoting of multi-line text inside a shell command. A separate bounded change could let the owner pass long text without shell quoting, for example from a file it wrote or as a Code Mode argument. That needs its own proposal, because it changes the owner's command contract.
+
+**Prompt procedures (6.2): no change.** No procedure in the owner contract was shown to be redundant. Owners followed the begin, report, evidence and sleep sequence in every run, and the refusals above are formatting faults, not procedure faults. No procedure was removed.
+
+## Room amendment across a restart (4.8)
+
+One bounded Room run on 2026-10-19, `deepseek/deepseek-flash` at low thinking for every member, on a seeded throwaway profile. The record and screenshots are in `room-amend-2026-10-19/`. Cost $0.033.
+
+1. The Room started with a Conductor and a reviewer, on grant `grant_aw8sykae`.
+2. The Conductor asked to add a tester. The change adds a member, a working folder, a model, tools and write, command and commit permission, so the host answered `needs-approval` and the Room held it.
+3. Sero was closed and opened again. The change was still held, with the same revision id and the same 13 additions.
+4. The change was approved through the `rooms` tool and the host's Allow card. It was applied, and the Room's roster grew by one revision.
+5. The grant id was `grant_aw8sykae` before the change, straight after the restart and at the end. The Conductor kept its session file and grew from 92 to 105 lines; the reviewer kept its file at 25 lines.
+
+Two earlier attempts on the same day are not counted as results:
+
+- One reached step 3, and the Conductor then finished the Room. Approving afterwards was refused with "The Room finished before this change could be applied." The spec had read the grant after the end, when a finished Room has released it, and read member histories from the wrong field. Both are fixed in b05fca605.
+- One reached step 3, but approving opened the host's Allow card and nothing pressed it, so the 120-second timeout declined the change. The spec now presses Allow, as a user would.
+
+**Found:** in the counted run the Conductor had also called `request-attention` after its change was held. That paused the Room for the user. Approving the change applied it but did not resume the Room or wake the Conductor, so the tester never ran. A typed message would have resumed it. Filed as issue 640, because whether an approval should count as the answer is a product decision.
+
+### An in-policy change, live
+
+Room scenario 6, run on 2026-10-19 with the same model and settings. The record and screenshots are in `room-inpolicy-2026-10-19/`. Cost $0.028, 85 s.
+
+1. The Room started with a Conductor, a reviewer the brief gave `read` and `write`, and a fixer, on grant `grant_gwaipcx9`. The runner did not save the reviewer's starting tools. The Room refuses a setup change that changes nothing, so the applied change shows they were not already `read` alone.
+2. Once REVIEW.md existed, the Conductor proposed a `change-configuration` that left the reviewer only `read`.
+3. Taking a tool away adds no authority. The host amended the grant to revision 1 with nothing added, and the change was `applied`. No dialog opened and nothing waited for the user.
+4. The grant id was `grant_gwaipcx9` before and after. The reviewer's tools read `["read"]`. Its session file stayed the same file at 18 lines, and the Conductor and fixer kept theirs (31 to 62 and 9 to 38 lines).
+
+An earlier scenario 6 asked the Conductor to retire the reviewer. Retiring a member is a Room revision that does not touch the grant, so it could never show an amendment. That run was also vacuous because the Conductor proposed nothing, and the spec let that pass. The spec now asks for the narrowing and fails when no change is proposed.
+
+### The collaborative scenario with a Room
+
+The pilot's `collaborative-research` runs never formed a Room. This is a probe batch: the same scenario for both strategies, with one sentence added to the request by the runner's `SERO_BASELINE_PROBE`: "Research this as a team: start a research Room of two agents who each test a different reading of the code and check each other's findings, and do not do the research yourself." Both strategies got the same sentence in every pair. Model `deepseek/deepseek-flash` at low thinking, $1 and 15 minutes per run.
+
+| Pair | Strategy | Outcome | Elapsed | Cost | What happened |
+| --- | --- | --- | --- | --- | --- |
+| A | Architect | incomplete | 903 s | $0.083 + $0.039 project-only | A Room of two researchers agreed on the answer and published FINDINGS.md as a Room report. Research Rooms cannot write files, so the Conductor asked the user for write access. The Room paused and the project blocked behind it. |
+| A | Single agent | incomplete | 901 s | $0.081 | `sero rooms prepare` timed out after 30 s while the planner worked, twice. The chat then read Sero's source, deleted a Room it had made, and tried to click the app window, and never got a Room. |
+| B | Architect | accepted | 286 s | $0.170 + $0.111 project-only | A Room of two researchers, one reading direct calls and one checking indirect paths, completed for $0.069. The owner wrote FINDINGS.md from its findings, and evidence passed. |
+| C | Single agent | accepted | 629 s | $0.013 for the chat | `rooms prepare` returned a Room of two members. The runner answered its start card, and the Room ran from 02:43 to 02:52. The chat polled it with `sleep` and `watch`, then wrote FINDINGS.md from the Room's result. The Room's own spend is not in the record. |
+
+Pair A found two defects, fixed before pairs B and C:
+
+- d14d97d88: a research Room's brief now says its answer is its findings, and that Architect writes any file the request names.
+- cadaed077: the `rooms` CLI command now has 5 minutes, enough for the Room planner.
+
+A third fault was in the runner. A single-agent turn held the page until it ended, so a start card the chat raised waited and was declined by its own timeout. bc0ca2de3 answers cards during the turn, as the runner already did for Architect. B's single-agent run was made before that fix and failed on it, so it is replaced by run C. The records are in `collab-2026-10-19a/`, `collab-2026-10-19b/` and `collab-2026-10-19c/`.
+
+One pair per strategy shows each can form and use a Room on this request. It is too small to compare them.
+
+## Tool discovery probe (3.7)
+
+This is a probe, not a matched replay. It is the `small-fix` scenario with one sentence added to the request (the runner's `SERO_BASELINE_PROBE`): "Before you finish, look at https://example.com the way a user would see it, using Sero's browser automation tool, and write its main heading to NOTES.md." No pilot scenario needed a tool outside the owner's first loadout, and that is why the 16 pilot runs made no `tool_search` call. The record and the owner's session and grant are in `probe-2026-10-19/`.
+
+- **Revision** dec68164d. The `+dirty` files are the task list, the design note and evidence. Model `deepseek/deepseek-flash` at low thinking.
+- **Outcome** accepted. 175 s, $0.029, 41 owner turns, context 5,585 to 30,944 tokens. No intervention.
+- **The start approval** listed `automation_browser` with `read`, `bash`, `write`, `edit`, `sero-cli` and `codemode`. It was the only approval the run asked for.
+- **Discovery.** The browser tool was approved but not loaded. The owner called `tool_search` with "browser automation open page navigate screenshot accessibility snapshot". The answer was "Loaded 1 tool" with `loaded: ["automation_browser"]`. Its next call, `automation_browser launch https://example.com`, returned the title "Example Domain", and NOTES.md got the heading. There was no restart, no second approval and no new session.
+- **Authority.** The search could only load a tool the grant already allowed. A tool outside the approval is never registered (desktop tests on a real Pi session). The Room run above shows that an addition is held for the user. The tool-catalogue fix 0c539db70 stops an approved host tool from being dropped.
+- **Cost of the probe.** 3 of 18 owner commands were refused. The owner also read the extra sentence as a preview requirement: it set a preview route on the milestone and added a dev server before the evidence passed. Those steps account for many of the extra turns against the pilot's 24 to 29.
+
+## Pause across a restart (5.8)
+
+One run of the `interruption` scenario, Architect only, with the runner's `SERO_BASELINE_PAUSE_BEFORE_RESTART=1` (d22b84dd5): the project is paused as soon as work is in flight, Sero restarts, the runner watches for a minute, then presses Resume. Revision dec68164d, `deepseek/deepseek-flash` at low thinking. The record, session, grant and log are in `pause-2026-10-19/`.
+
+- **Outcome** accepted. 140 s, $0.016, 22 owner turns, context 5,617 to 19,833 tokens. No intervention beyond the pause and Resume the run itself made.
+- **The pause held.** The owner began m1 at 01:13:11 and the project was paused at 01:13:12. After the restart the record read paused at the start and the end of the watched minute. Execution `exec_dzlol32n` was marked interrupted with "Sero restarted while this work was in progress".
+- **Nothing ran while paused.** No file changed and nothing was dispatched until Resume at 01:14:15. After Resume the owner called `work --operation continue` on the same execution id, finished the work, and m1 was accepted on evidence. There is one `begin` and no second execution.
+- **One turn did start while paused,** at 01:13:15, so the runner recorded the paused check as failed. The turn's contract said the project was paused, and the owner slept without acting. The restart had replayed the start approval as a `decision` wake, which may run on a paused project, because the interrupted first turn never stamped its wake time. That breaks the promise that a paused owner is not woken. Filed as issue 641.
+
+### A stop across a restart
+
+The same scenario with `SERO_BASELINE_STOP_BEFORE_RESTART=1`: the runner presses Stop as soon as work is in flight, Sero restarts, the runner watches for a minute, then presses Resume. Revision d9ff2c3b2. The record, session and log are in `stop-2026-10-19b/`.
+
+- **Outcome** accepted, hidden check passed. 145 s, $0.056 plus $0.049 known only as a project total, 22 owner turns, context 5,614 to 19,744 tokens. No intervention beyond the Stop and Resume the run itself made.
+- **The stop held.** The owner began m1 at 05:44:38 as execution `exec_el9rekfp`, and the project was stopped at 05:44:42 with "stopped by the user". After the restart it read stopped at the start and the end of the watched minute.
+- **Nothing ran while stopped.** The owner's session has no entry between the `begin` result and Resume at 05:45:45. No turn started, and `src/csv.js` still read "not implemented" when the owner looked after Resume.
+- **Resume continued the same execution.** The owner wrote the code, ran the tests and reported m1 on `exec_el9rekfp` at 05:46:00. m1 was accepted on evidence at 05:46:07 and release sent its one Workflow. There is one `begin`, no second execution and one dispatch.
+
+A first stop run, in `stop-2026-10-19a/`, showed the same hold. Its runner counted the stopped run as the end of the project and stopped waiting at Resume; the owner happened to finish inside the runner's 30-second settle wait. Review round 6 found this, d9ff2c3b2 fixed the runner, and the run above replaces it.
+
+The multi-hour trial is below.
+
+### The multi-hour continuity trial
+
+`small-fix`, Architect only, bounded before it started: $1 cap, 160 minutes, `deepseek/deepseek-flash` at low thinking. `SERO_BASELINE_SERVER_MINUTES=125` seeds a dev server that exits with code 0 after 125 minutes. The probe asks the owner to give m1 the preview route `/`, wait for that server to exit once m1's evidence has passed, and accept m1 when woken. The owner must not stop or check the server itself.
+
+- **First attempt: the trial never waited.** Evidence for m1 started the server through Sero and left it running, as Workspace mode does. The owner then changed `server.js` and asked for fresh evidence. Evidence reused the running server, which still served the old page. The capture subagent stopped the managed server and started its own copy from its shell. The owner's wait was refused with "already stopped", and m1 was accepted after 2 minutes. Two fixes followed: evidence now stops a preview server earlier evidence left running (f3fad6411), and the seeded server serves the project README, so the owner has no reason to edit it (3a706ca2e). The capture subagent's reach is issue 642. Its own server also outlived the app. The record is in `continuity-trial-2026-10-19a/`.
+- **Second attempt: the trial ran.** Revision fe15569dc. The owner did m1, its evidence passed, and at 03:14:12 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792379620883:workspace:root:49506`, with a 180-minute deadline.
+- **Nothing ran during the wait.** For 2 hours 5 minutes the owner's session got no entry after the registering turn's own tail, which ended 1.5 s after registration. No owner turn started, no file changed and nothing was dispatched.
+- **The wait ended on its own.** At 05:19:06 the server exited with code 0 and the wait ended `satisfied`. Its one wake was reserved and consumed 8 ms apart. Nothing outside Sero intervened.
+- **Resumption stayed within approval.** The owner accepted m1 on its passed evidence at 05:19:11, under the start approval and the grant it began with. The result summary says the server "exited on its own with code 0 (no intervention)". Release then started its one Workflow.
+- **No duplicate.** One `begin`, one wait, one release dispatch, one orchestrator loop.
+- **Outcome** accepted, hidden check passed. 7,564 s elapsed, 45 s active, $0.014 plus $0.002 known only as a project total. The record, session, grant, log and `wait-report.txt` are in `continuity-trial-2026-10-19b/`.
+- **Measurement gap.** The baseline record reports `waitMs: 0` for this run, as it does for every Architect run in this file. It counts only journalled waits for approval, queue, pause and backoff, and the Architect runtime records none of them. Elapsed minus active time is the honest waiting figure here. Issue 643.
+
+The pause, stop and interruption parts of 5.8 are the pause run above and the interruption replays in the pilot section.
+
+## Wait sources (5.3)
+
+Each check 5.3 names, and the test that makes it. The files are under `plugins/sero-architect-plugin/runtime/__tests__/` unless another plugin is named. All of them passed in the 865-test Architect run and the 1,849-test Orchestrator run at f2a7b50c3.
+
+| Check | Test |
+| --- | --- |
+| Polling an unmet condition starts no owner turn | `owner-wait-runtime.test.ts` "gives one wake for duplicate notifications and none while the condition is unmet"; `process-ci-waits.test.ts` "starts no turn while the server runs, and one when it exits with its code" and "reads again every two minutes while checks run, and starts no turn until they conclude"; Orchestrator `goal-waits-runtime.test.ts` "stays waiting while the condition is unmet, however many notifications arrive" |
+| Completion before the subscription is not lost | `owner-wait-runtime.test.ts` "observes a completion that happened before the subscription, with one continuation"; `process-ci-waits.test.ts` "observes checks that concluded before the wait, with one turn" |
+| Restart cannot lose a matched condition | `owner-wait-runtime.test.ts` "re-reads on restart, and a wake reserved but never started is delivered once"; Orchestrator `goal-waits-runtime.test.ts` "is found on restart when the Workflow ended while Sero was closed" |
+| A dropped notification (queue overflow) cannot lose it | `owner-wait-runtime.test.ts` "is not lost when a notification is dropped: a later push re-reads every open wait" |
+| An unknown process outcome holds | `owner-wait-runtime.test.ts` "holds the project when a process outcome cannot be confirmed, and starts no turn"; `process-ci-waits.test.ts` "holds the project and starts nothing when the server vanished, as after a restart" |
+
+Live, a child wait ended `satisfied` with one wake in substantial-feature replay 1 (above).
+
+### A process wait, live
+
+`small-fix`, Architect only, with two runner switches:
+
+- `SERO_BASELINE_SERVER_MINUTES=6` seeds a dev script whose server exits with code 0 after 6 minutes.
+- `SERO_BASELINE_PROBE` adds a soak check to the request. The owner gives m1 the preview route `/` and waits for that server to exit once m1's evidence has passed. When it is woken, it accepts m1.
+
+Model `deepseek/deepseek-flash` at low thinking, $1 and 25 minutes.
+
+- **First rehearsal: the wait was unreachable.** The owner contract, and the refusal for an unknown target, both told the owner to find the server's id with `sero devserver list`. A managed session has no host commands, so the owner got "Unknown command" for every variant it tried. It then accepted m1 without waiting. A process wait could never have worked for an owner. Fixed in 9ecf18f49: evidence saves the id of the preview server it leaves running, and the milestone line shows it. The record is in `continuity-rehearsal-2026-10-19a/`.
+- **Second rehearsal: the wait worked.** At 03:00:00 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792378755548:workspace:root:49316`. The turn that set up the wait ended at 03:00:01. The owner's session then got no entry until the wake. At 03:05:46 the wait ended `satisfied` with "exited with code 0", and its one wake was reserved and consumed in the same 10 ms. The owner accepted m1 at 03:05:48 and wrote in the result summary that the server "exited on its own with code 0". There was one `begin` and one dispatch, the release Workflow. Accepted, 426 s, $0.044 plus $0.030 known only as a project total. The record and `wait-report.txt` are in `continuity-rehearsal-2026-10-19b/`.
+
+### A CI wait, live
+
+`small-fix`, Architect only, revision 631c9423c. `SERO_BASELINE_ORIGIN=https://github.com/sero-labs/sero.git` gives the seeded repository that `origin`, so `gh` reads checks there. Its push URL is a missing local path, so the run cannot push. The probe asks the owner to wait for the CI checks of commit 631c9423c once m1's evidence has passed, and accept m1 when woken. Just before the run, `test.yml` was dispatched once on this branch at that commit (run 39204027316). Model `deepseek/deepseek-flash` at low thinking, $1 and 40 minutes.
+
+- **Registered while checks ran.** At 05:21:27 the owner waited on the commit with a 40-minute deadline. Typecheck, Build and Tests were still running.
+- **Nothing ran during the wait.** For 10 minutes the owner's session got no entry after the registering turn's own tail, which ended 2.6 s after registration.
+- **The wait ended on a later read.** The last check finished at 05:30:11. At 05:31:32 the next two-minute read saw it, and the wait ended `satisfied` with "All 12 CI checks passed on 631c9423c36f7dd1864ecf59d3024f4d73f48d21". Twelve counts 11 check runs and one commit status. Its one wake was reserved and consumed 4 ms apart.
+- **Then the owner acted once.** It accepted m1 at 05:31:36 and its result summary names the passed checks. One `begin`, one wait, then release.
+- **Outcome** accepted, hidden check passed. 672 s elapsed, 44 s active, $0.010 plus $0.002 known only as a project total. The record, `wait-report.txt` and `check-runs.json` with every check's times are in `ci-wait-2026-10-19/`.
+
+## Overview and Work views (6.3)
+
+Rendered from the Architect UI preview on 2026-10-19, with the host tokens and the plugin style scope, at 1100 px. The images are in `ui-2026-10-19/`.
+
+| View | State | Image |
+| --- | --- | --- |
+| Board, asking | a two-option question, its step waiting for the answer | `board-ask.png` |
+| Board, working | the live browser view, the plan with proof for the done step | `board-working.png` |
+| Board, waiting | the wait card: what it waits for, the deadline, active and waiting time | `board-waiting.png` |
+| Board, done | the result with Open preview and See the checks | `board-done.png` |
+| Board, direct work | a milestone the owner is doing itself (charter-flow fixture) | `direct-work.png` |
+| Work, Plan | request, working plan, milestones with their verification states | `work-plan.png` |
+| Work, Research | the research question, its stopping condition, folded findings and Open Room | `work-research.png` |
+| Work, Evidence | the checks and screenshots per milestone | `work-evidence.png` |
+
+Progress reads as steps done, a status line and the plan. No view needs an executable graph. No overview control was added. The docs screenshots in `guide/architect.md` and `reference/architect.md` were replaced with the asking, working and done boards. The existing Architect UI tests passed in the 865-test plugin run at d194f5a97.
+
+Two preview-fixture faults, not product faults: the Sudoku fixture borrows a synth "Working plan", and its wait names a child id that no fixture Room resolves.
+
+## Requirement to evidence
+
+Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source unchanged from fd903a5d8); Room amendment b05fca605 plus the spec fix before it was committed; in-policy Room run, collaborative pairs, process-wait, CI-wait, stop and multi-hour runs on the commits named in their sections; probe and pause runs as stated in their sections.
+
+| Area | Built | Evidence | Not met or not shown |
+| --- | --- | --- | --- |
+| Baseline (1.x) | Comparison record, runner, restriction map, limit provenance, protocol-failure counts | Architect plugin tests; pilot of 20 runs and 6 replays above | No strategy comparison is claimed |
+| Direct work (2.x) | Execution identity saved first, begin/continue/report, interruption, Worktree mode, UI row | All 16 kept Architect runs did m1 directly; both rerun2 interruption runs kept their execution id and needed no intervention | |
+| Tool discovery and Code Mode (3.x) | Approved tools registered deferred, `tool_search`, reopen restore, owner skills, Code Mode for managed sessions | Desktop tests on a real Pi session; 8 live `codemode` calls; the probe above loaded an approved, unloaded tool with `tool_search` and used it with no restart or second approval; the tool-catalogue fix 0c539db70 with its test | One probe, not a matched replay |
+| Grant amendments (4.x) | Host amendment, Room revisions through it, restart reconcile, Team view | Desktop and Orchestrator tests; a held change survived a restart, was approved, kept the grant id and member histories; an in-policy change amended the grant with no question and kept every history; the collaborative probe formed a Room under both strategies and both were accepted | One collaborative pair per strategy, too few to compare; issue 640 |
+| Durable waits and continuity (5.x) | Child, process and CI sources, reserved and consumed wakes, stall recovery, limit origins, wait card | Architect, Orchestrator and desktop tests; live child, process and CI waits each ended `satisfied` with one wake and a quiet owner; a 2-hour-5-minute process wait in the bounded multi-hour trial resumed within approval with no duplicate; interruption replays resumed on their execution id with no duplicate; the pause and stop runs each held across a restart and resumed the same execution | Stall recovery is shown by tests only. The baseline record's `waitMs` misses durable waits (issue 643). Issues 641, 642 |
+| Reporting and guidance (6.x) | Protocol-failure counts, three owner protocol fixes, docs pass, README and `ARCHITECTURE.md` reconcile | The counts above; d194f5a97; docs commits | The reporting action is a recommendation for a separate change, labelled as an experiment |
+
+**Design deviation.** The CI source is one host primitive, `getRefChecks`, read every 120 seconds while a CI wait is open, not the existing GitHub poller the design named. `design.md` records it.
+
+**Rollback.** Each part adds an optional path. A project whose owner never calls `work` delegates as before, a Room that never amends keeps its one grant, and an owner that never registers a wait sleeps and wakes as before. No record is migrated. Reading records written by this change on a revision without it was not tested.
+
+**Package.** `@sero-ai/common` is 0.24.0 on this branch and is the only published package changed. It is not yet published.
+
+**Open issues found by this work:** 623, 625, 638 (a desktop projection test that fails on this branch and without its changes), 639 (Room scenarios 1 to 4 drive the old start UI), 640 (an approved Room change leaves the Room paused for the user), 641 (a restart replays the start approval as a wake on a paused project), 642 (the evidence capture subagent can stop the managed preview server and leave its own running), 643 (baseline records miss durable wait time).
+
+## Earlier runs, 2026-10-06
+
+These ran before the pilot, on the revisions named in the table. They are kept for comparison.
 
 All runs used the global LOW tier of a disposable profile, on throwaway workspaces seeded with the same committed files. The scenario is `small-fix`: one function returns a string longer than its limit. Acceptance is one hidden test.
 
@@ -39,21 +304,6 @@ Bounds: $1 and 8 minutes per run, $6 in total for the pilot and $2 for each repl
 - Repeated work and protocol failures are not counted by the runner.
 - No run exercised a Room amendment, a durable wait, tool discovery through `tool_search`, a Code Mode script, a preview check in a worktree, or stall recovery. Their evidence is unit and integration tests only.
 
-## Requirement to evidence
-
-| Area | Built | Evidence | Not met |
-|---|---|---|---|
-| Baseline and restriction map (1.x) | Comparison record, runner, restriction map, limit provenance | Tests in the Architect plugin, contract spec, the runs above | Full pilot matrix (1.5) |
-| Direct work (2.x) | Execution identity saved first, begin/continue/report, interruption, UI row | Architect tests, the last Workspace run and the last Worktree run above | Matched replay beyond one scenario (2.9) |
-| Tool discovery (3.x) | Approved tools registered deferred, `tool_search`, reopen restore, owner skills | Desktop tests on a real Pi session, the last run above for skills | No paid run called Code Mode: its evidence is desktop tests on a real Pi session. A member has no user-disabled list, so "disabled" is reported for workers only. Replay (3.7) |
-| Grant amendments (4.x) | Host amendment, Room revisions through it, restart reconcile, Team view | Desktop and Orchestrator tests | An Architect action that asks to widen an existing owner. Interrupted amendment replay (4.8) |
-| Durable waits (5.x) | Wait on linked child work with a deadline, reserved and consumed wakes, stall recovery, limit origins, wait card and limits list | Architect and Orchestrator tests | Process and CI sources (5.3): no existing seam reports them by identity. Multi-hour continuity trial (5.8) |
-| Reporting and guidance (6.x) | Docs pass | Docs changes | Reporting comparison (6.1) and prompt removals (6.2) need recorded protocol failures the runner does not count. Rendered UI check (6.3) |
-
-## Reporting action (6.1) and prompt procedures (6.2)
-
-No recommendation is made. The decision needs counted protocol failures across matched runs, and the runner records none. The one protocol failure seen here was not a reporting-format fault: the owner had no tool to report with. No prompt procedure was removed.
-
 ## Review
 
-Routed rounds on gpt-6-astra at high effort are on the pull request. Rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80. Round 5 checked those fixes and raised four follow-on points, all fixed in cec47f6ea, including a check that a checkout is still on its saved branch.
+Routed rounds on gpt-6-astra at high effort are on the pull requests. On #624, rounds 1 to 3 cover the original change: 17 findings, then two delta checks of the fixes. One finding is tracked as issue 623. Round 4 covers direct work in Worktree mode and Code Mode for managed sessions: no finding on Code Mode, six on Worktree work, five fixed in bd13f6d80. Round 5 checked those fixes and raised four follow-on points, all fixed in cec47f6ea, including a check that a checkout is still on its saved branch. On #627, rounds 1 to 3 cover the project board, its fixes, and the board changes after the real run. Round 4 covers the owner protocol fixes and the tool-catalogue fix: three findings, all fixed. Round 5 covers the defects the live runs found: seven findings, four fixed in 526926566 and acd4ed332, three skipped as rare. Round 6 checks those fixes and the runner switches: four findings, three fixed in 884318eb7 and d9ff2c3b2, and one skipped as rare.

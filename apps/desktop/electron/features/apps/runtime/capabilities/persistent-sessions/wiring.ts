@@ -135,17 +135,22 @@ export async function clampAndApprove(
     `Up to ${delegation.maxLiveSessions} of them at once, ${delegation.maxTotalSessions} in total.`,
   ] : [];
   const memberCount = Object.keys(clamped.subjects).length;
+  // The strongest access anyone under this approval holds, as kinds of access only.
+  const everyAccess = describeGrantAuthority({ subjects: { ...(delegation?.delegateAppIds.length ? delegation.roles : {}), ...clamped.subjects } })
+    .filter((line) => !line.startsWith('Tools:') && !line.startsWith('Working in:'))
+    .map((line) => line.charAt(0).toLowerCase() + line.slice(1));
   const droppedNote = notes.length > 0
     ? `\n\nNot available under this approval, so removed: ${notes.map((note) => note.dropped.join(', ')).join('; ')}`
     : '';
 
   const choice = await requestChoice({
-    title: 'Allow persistent agent sessions?',
+    title: 'Allow agents to work here?',
     // The user must see the AUTHORITY, not just a count. A dialog that says
     // "3 agents" is consent to a number, not to a capability.
-    body: [
-      clamped.reason,
-      '',
+    // The short form names every kind of access, for these agents and for the
+    // ones they may start. Tools, folders and counts are one press away.
+    body: [clamped.reason, '', `This allows: ${everyAccess.join(', ')}.`, ...(notes.length > 0 ? ['', 'Some of what was asked for is not available and was removed.'] : [])].join('\n'),
+    detail: [
       `${memberCount} agent${memberCount === 1 ? '' : 's'}, up to ${clamped.maxLiveSessions} running at once.`,
       '',
       'They will be able to:',

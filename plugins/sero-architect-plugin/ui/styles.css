@@ -1,5 +1,6 @@
 @import "@sero-ai/ui/styles/plugin.css";
 @import "@sero-ai/ui/styles/ai-elements.css";
+@import "./board.css";
 
 /* REQUIRED: scan plugin-local UI files so external remotes emit the utility
    classes they use instead of accidentally depending on host CSS. */
@@ -250,6 +251,7 @@
 .ar-ladder span[data-on="2"] { border-color: var(--status-success-border); background: var(--status-success-muted); color: var(--ar-ok); }
 .ar-ladder i { width: 8px; height: 1px; background: var(--ar-line-strong); }
 .ar-evidence { margin-top: 8px; }
+.ar-capture { display: block; max-width: min(100%, 760px); max-height: 60vh; margin: 4px 0 12px; border-radius: 8px; border: 1px solid var(--ar-line); }
 .ar-evidence summary { list-style: none; cursor: pointer; font-size: 11px; color: var(--ar-text-3); display: inline-flex; align-items: center; gap: 5px; }
 .ar-evidence summary::-webkit-details-marker { display: none; }
 .ar-evidence[open] summary svg { transform: rotate(90deg); }
@@ -702,8 +704,6 @@
 }
 
 /* wait card and limits list */
-.ar-waitcard { margin-bottom: 18px; }
-.ar-wait-word { margin-top: 14px; }
 .ar-facts { margin: 14px 0 0; border-top: 1px solid var(--ar-line); }
 .ar-fact { display: grid; grid-template-columns: 130px minmax(0, 1fr); column-gap: 16px; padding: 8px 0; font-size: 12.5px; }
 .ar-fact + .ar-fact { border-top: 1px solid var(--ar-line); }

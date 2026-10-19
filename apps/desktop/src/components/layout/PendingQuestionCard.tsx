@@ -241,7 +241,13 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
             </span>
           )}
         </div>
-        <p className="text-base text-[var(--text-primary)]">{q.prompt}</p>
+        <p className="text-sm whitespace-pre-line text-[var(--text-primary)]">{q.prompt}</p>
+        {q.detail && (
+          <details className="mt-1.5 text-xs text-[var(--text-secondary)]">
+            <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)]">Details</summary>
+            <p className="mt-1 whitespace-pre-line">{q.detail}</p>
+          </details>
+        )}
       </div>
 
       {/* Options */}

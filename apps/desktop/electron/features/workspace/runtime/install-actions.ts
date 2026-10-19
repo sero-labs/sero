@@ -1,5 +1,5 @@
 import { createBrowserPackInstaller } from './browser-pack/installer';
-import type { BrowserPackProgressEvent, BrowserPackStatus } from './browser-pack/types';
+import type { BrowserPackInstallReason, BrowserPackProgressEvent, BrowserPackStatus } from './browser-pack/types';
 import { ToolchainManager } from './toolchains/manager';
 import { loadBundledToolchainManifest } from './toolchains/manifest';
 import type { ToolInstallReason, ToolStatus, ToolchainProgressEvent } from './toolchains/types';
@@ -19,7 +19,7 @@ type CoreToolName = (typeof CORE_TOOLS)[number];
 type ToolchainManagerLike = Pick<ToolchainManager, 'status' | 'ensureCore' | 'subscribe'>;
 type BrowserPackInstallerLike = {
   status(): Promise<BrowserPackStatus>;
-  ensure(reason: { kind: 'settings'; detail?: string }): Promise<BrowserPackStatus>;
+  ensure(reason: BrowserPackInstallReason): Promise<BrowserPackStatus>;
   uninstall(): Promise<BrowserPackStatus>;
   subscribe(listener: (event: BrowserPackProgressEvent) => void): () => void;
 };
@@ -55,6 +55,19 @@ export async function ensureBrowserPack(reason = 'settings'): Promise<BrowserPac
   } catch {
     return getBrowserPackStatus();
   }
+}
+
+/** The pack's state, from the one installer Settings also reports on. */
+export function browserPackStatus(): Promise<BrowserPackStatus> {
+  return getBrowserInstaller().status();
+}
+
+/**
+ * Installs the pack the first time an agent needs it. It is the installer
+ * Settings shows progress for, so a download already running is joined.
+ */
+export function ensureBrowserPackForAgent(workspaceId: string): Promise<BrowserPackStatus> {
+  return getBrowserInstaller().ensure({ kind: 'agent-tool', workspaceId });
 }
 
 export async function uninstallBrowserPack(): Promise<BrowserPackStatusIPC> {

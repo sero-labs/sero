@@ -12,8 +12,8 @@
  * If the bus has listeners for 'question-request', we use the IPC bridge.
  * Otherwise we fall back to the TUI prompt.
  *
- * Sero permission prompts auto-timeout and block so background subagents
- * do not hang forever waiting for an answer.
+ * A Sero permission prompt waits for the user's answer. It closes, and the
+ * command is blocked, only when the agent that asked is stopped.
  */
 
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
@@ -32,7 +32,6 @@ const DANGEROUS_PATTERNS = [
   /\b(shutdown|reboot|halt|poweroff)\b/i,
 ];
 
-const PERMISSION_PROMPT_TIMEOUT_MS = 30_000;
 const SHELL_CONTROL_CHARS = /[;&|`$<>()\n]/;
 const GLOB_CHARS = /[*?[\]{}]/;
 const GENERATED_DIRECTORIES = new Set(['build', 'dist', 'coverage', 'node_modules', '.cache', '.vite', '.verification']);
@@ -51,7 +50,7 @@ export function registerPermissionGate(pi: ExtensionAPI) {
     if (!isDangerous) return undefined;
 
     if (hasSeroIPCBridge()) {
-      return askPermissionViaSero(event.toolCallId, command);
+      return askPermissionViaSero(event.toolCallId, command, ctx.signal);
     }
 
     return askPermissionViaTUI(ctx, command);
@@ -63,14 +62,8 @@ export function registerPermissionGate(pi: ExtensionAPI) {
 async function askPermissionViaSero(
   toolCallId: string,
   command: string,
+  signal: AbortSignal | undefined,
 ): Promise<{ block: true; reason: string } | undefined> {
-  const controller = new AbortController();
-  let timedOut = false;
-  const timeoutId = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, PERMISSION_PROMPT_TIMEOUT_MS);
-
   const id = nextQuestionId();
   const response = await askQuestion(
     {
@@ -91,17 +84,13 @@ async function askPermissionViaSero(
       ],
       timestamp: new Date().toISOString(),
     },
-    controller.signal,
-  ).finally(() => {
-    clearTimeout(timeoutId);
-  });
+    signal,
+  );
 
   if (response.cancelled || response.answers.length === 0) {
     return {
       block: true,
-      reason: timedOut
-        ? `Dangerous command blocked — approval timed out after ${Math.round(PERMISSION_PROMPT_TIMEOUT_MS / 1000)}s`
-        : 'Blocked by user — cancelled',
+      reason: signal?.aborted ? 'Dangerous command blocked: the agent was stopped before you answered' : 'Blocked by user — cancelled',
     };
   }
 

@@ -38,6 +38,8 @@ export interface UserFeedbackQuestionItem {
   id: string;
   label: string;
   prompt: string;
+  /** The long form of the prompt. Shown only when the user opens it. */
+  detail?: string;
   options: UserFeedbackQuestionOption[];
   allowOther: boolean;
   multiSelect?: boolean;
