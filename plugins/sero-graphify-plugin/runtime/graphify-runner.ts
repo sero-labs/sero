@@ -219,6 +219,9 @@ export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOpti
     if (await pathExists(options.workspaceDir)) {
       await rename(options.workspaceDir, backupDir);
       movedCurrent = true;
+    } else {
+      // A profile's first build: graphs/ does not exist yet.
+      await mkdir(path.dirname(options.workspaceDir), { recursive: true });
     }
     try {
       await rename(stagingDir, options.workspaceDir);

@@ -173,6 +173,25 @@ describe('rebuildWorkspaceGraph', () => {
     expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
   });
 
+  it('builds the first graph of a profile that has no graphs folder yet', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-first-'));
+    const workspaceDir = path.join(parent, 'graphs', 'ws1');
+    const exec = vi.fn().mockImplementation(async (_cmd, args, options) => {
+      if (args[0] === 'extract') {
+        await mkdir(path.join(options.cwd, 'graphify-out'), { recursive: true });
+        await writeFile(path.join(options.cwd, 'graphify-out', 'graph.json'), 'first');
+      }
+      return ok(EXTRACT_STDOUT);
+    });
+
+    await rebuildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({ workspaceDir, rebuildsDir: path.join(parent, 'graph-rebuilds') }),
+    );
+
+    expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('first');
+  });
+
   it('keeps the active graph when clean extraction fails', async () => {
     const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-fail-'));
     const workspaceDir = path.join(parent, 'graphs', 'ws1');
