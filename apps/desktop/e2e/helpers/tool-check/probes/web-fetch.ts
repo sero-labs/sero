@@ -15,8 +15,29 @@ function entryFor(entries: WebStateEntry[], urls: string[]): WebStateEntry | und
     && urls.every((url, index) => entry.urls?.[index]?.url === url));
 }
 
+/** Two pages at once: a list and a responseId, with the content stored for get_search_content. */
+const fetchTwoPages: ScenarioStep = {
+  action: null,
+  params: (ctx) => ({ urls: [urlOf(ctx, ARTICLE), urlOf(ctx, NOTES)] }),
+  async expect(result, ctx) {
+    // Several URLs return a list and a responseId; the content itself is stored.
+    expectText(result, '## Fetched URLs');
+    for (const page of [ARTICLE, NOTES]) {
+      const line = new RegExp(`- ${page.title} \\((\\d+) chars\\)`).exec(result.text);
+      if (!line || Number(line[1]) <= 500) throw new Error(`no fetched line for ${page.title}: ${result.text}`);
+    }
+    const responseId = /responseId: "([^"]+)"/.exec(result.text)?.[1];
+    if (!responseId) throw new Error(`no responseId in: ${result.text}`);
+    const urls = [urlOf(ctx, ARTICLE), urlOf(ctx, NOTES)];
+    const state = await waitForWebState(ctx, `the two-page fetch ${responseId}`, (s) => entryFor(s.entries, urls)?.id === responseId);
+    if (!state.entries.some((entry) => entry.id === responseId)) throw new Error('history lost the fetch');
+  },
+};
+
 export const fetchContentProbe: ToolProbe = {
   tool: 'fetch_content',
+  // web_bookmark clears the history after the action pass, and get_search_content reads this fetch.
+  siteStep: fetchTwoPages,
   steps: [
     {
       action: null,
@@ -30,23 +51,7 @@ export const fetchContentProbe: ToolProbe = {
         if (!(entry.urls![0]!.charCount > 500) || entry.urls![0]!.error) throw new Error(`history holds a bad fetch: ${JSON.stringify(entry)}`);
       },
     },
-    {
-      action: null,
-      params: (ctx) => ({ urls: [urlOf(ctx, ARTICLE), urlOf(ctx, NOTES)] }),
-      async expect(result, ctx) {
-        // Several URLs return a list and a responseId; the content itself is stored.
-        expectText(result, '## Fetched URLs');
-        for (const page of [ARTICLE, NOTES]) {
-          const line = new RegExp(`- ${page.title} \\((\\d+) chars\\)`).exec(result.text);
-          if (!line || Number(line[1]) <= 500) throw new Error(`no fetched line for ${page.title}: ${result.text}`);
-        }
-        const responseId = /responseId: "([^"]+)"/.exec(result.text)?.[1];
-        if (!responseId) throw new Error(`no responseId in: ${result.text}`);
-        const urls = [urlOf(ctx, ARTICLE), urlOf(ctx, NOTES)];
-        const state = await waitForWebState(ctx, `the two-page fetch ${responseId}`, (s) => entryFor(s.entries, urls)?.id === responseId);
-        if (!state.entries.some((entry) => entry.id === responseId)) throw new Error('history lost the fetch');
-      },
-    },
+    fetchTwoPages,
   ],
 };
 

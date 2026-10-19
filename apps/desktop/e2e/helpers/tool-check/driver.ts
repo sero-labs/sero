@@ -8,7 +8,7 @@
  * ledger, so the ledger comparison names them as not run.
  */
 import type { StubReply, StubRequest } from '../stub-model';
-import { callScript, unwrapScriptResult } from './codemode-call';
+import { callScript, rejectionScript, unwrapScriptResult } from './codemode-call';
 import { cliCommandFor, isCoreCommand } from './command-line';
 import type { LedgerWriter } from './ledger';
 import type { ScenarioStep, StepContext, ToolCallResult } from './types';
@@ -16,8 +16,12 @@ import type { ScenarioStep, StepContext, ToolCallResult } from './types';
 /** How a step reaches its tool: called directly, through `sero-cli`, or from a `codemode` script. */
 export type StepRoute = 'direct' | 'cli' | 'codemode' | 'codemode-cli';
 
-/** A step, and for a run that mixes tools (a site pass), the tool and route it uses. */
-export type RunStep = ScenarioStep & { tool?: string; via?: StepRoute };
+/**
+ * A step, and for a run that mixes tools (a site pass), the tool and route it
+ * uses. `rejects` makes a script step call the tool, then a line that must
+ * not run: the call has to fail the script.
+ */
+export type RunStep = ScenarioStep & { tool?: string; via?: StepRoute; rejects?: boolean };
 
 export interface ScenarioRun {
   /** The first user message of the session. The driver tells sessions apart by it. */
@@ -164,7 +168,7 @@ export class ScenarioDriver {
     const callId = `tc-${state.number}-${state.index}`;
     state.callId = callId;
     state.startedAt = Date.now();
-    return { toolCalls: [callFor(callId, step.tool ?? run.tool, routeOf(run, step), params)] };
+    return { toolCalls: [callFor(callId, step.tool ?? run.tool, routeOf(run, step), params, step.rejects === true)] };
   }
 
   private stop(state: RunState, step: RunStep, ms: number, error: string): Promise<StubReply> | StubReply {
@@ -190,11 +194,12 @@ function routeOf(run: ScenarioRun, step: RunStep): StepRoute {
   return route.startsWith('codemode') ? 'codemode-cli' : 'cli';
 }
 
-function callFor(id: string, tool: string, route: StepRoute, params: Record<string, unknown>): { id: string; name: string; arguments: Record<string, unknown> } {
+function callFor(id: string, tool: string, route: StepRoute, params: Record<string, unknown>, rejects: boolean): { id: string; name: string; arguments: Record<string, unknown> } {
+  const script = rejects ? rejectionScript : callScript;
   switch (route) {
     case 'direct': return { id, name: tool, arguments: params };
     case 'cli': return { id, name: 'sero-cli', arguments: { command: cliCommandFor(tool, params) } };
-    case 'codemode': return { id, name: 'codemode', arguments: { code: callScript(tool, params) } };
-    case 'codemode-cli': return { id, name: 'codemode', arguments: { code: callScript('sero-cli', { command: cliCommandFor(tool, params) }) } };
+    case 'codemode': return { id, name: 'codemode', arguments: { code: script(tool, params) } };
+    case 'codemode-cli': return { id, name: 'codemode', arguments: { code: script('sero-cli', { command: cliCommandFor(tool, params) }) } };
   }
 }

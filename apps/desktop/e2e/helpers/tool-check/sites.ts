@@ -7,8 +7,34 @@ import { chatResultReader, type ToolCheckApp } from './app';
 import type { RunOutcome, RunStep, StepRoute } from './driver';
 import type { StepContext, ToolCheckFixtures, ToolCheckSite } from './types';
 
+const installed = new WeakMap<StepContext, Set<() => void>>();
+
+/**
+ * A run's step context. The responders its steps install are removed when the
+ * run ends (`releaseResponders`), even after a failed step, so one probe's stub
+ * never answers the next probe's model calls.
+ */
 export function stepContext(check: ToolCheckApp, site: ToolCheckSite, fixtures: ToolCheckFixtures): StepContext {
-  return { workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page, respondWith: check.respondWith };
+  const removers = new Set<() => void>();
+  const ctx: StepContext = {
+    workspaceId: check.workspaceId, workspacePath: check.workspaceDir, runtime: check.runtime, site, fixtures, state: {}, page: check.page,
+    respondWith(responder) {
+      const remove = check.respondWith(responder);
+      const removeOnce = () => {
+        removers.delete(removeOnce);
+        remove();
+      };
+      removers.add(removeOnce);
+      return removeOnce;
+    },
+  };
+  installed.set(ctx, removers);
+  return ctx;
+}
+
+/** Removes every responder the run's steps installed and left in place. */
+export function releaseResponders(ctx: StepContext): void {
+  for (const remove of [...(installed.get(ctx) ?? [])]) remove();
 }
 
 /**
@@ -44,16 +70,21 @@ export interface ChatRun {
 /** Runs the steps in a new chat, one turn per step, and returns how far they got. */
 export async function runInChat(check: ToolCheckApp, run: ChatRun, site: ToolCheckSite = 'chat'): Promise<RunOutcome> {
   const prompt = `tool-check ${run.tool} ${run.via}${site === 'chat' ? '' : ` ${site}`}${run.label ? ` ${run.label}` : ''}`;
+  const ctx = stepContext(check, site, run.fixtures);
   const outcome = check.driver.add({
     prompt,
     tool: run.tool,
     steps: run.steps,
     via: run.via,
     continueOnFailure: run.continueOnFailure,
-    ctx: stepContext(check, site, run.fixtures),
+    ctx,
     readResult: chatResultReader(check.page),
   });
-  const sessionId = await openChat(check);
-  await promptAndCollectEvents(check.page, sessionId, prompt, run.timeoutMs ?? 120_000);
-  return outcome;
+  try {
+    const sessionId = await openChat(check);
+    await promptAndCollectEvents(check.page, sessionId, prompt, run.timeoutMs ?? 120_000);
+    return await outcome;
+  } finally {
+    releaseResponders(ctx);
+  }
 }

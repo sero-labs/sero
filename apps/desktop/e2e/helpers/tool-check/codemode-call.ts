@@ -24,6 +24,17 @@ export function callScript(tool: string, args: Record<string, unknown>): string 
   ].join('\n');
 }
 
+/** Printed by the line after a call that must fail. Seeing it means the script went on. */
+export const AFTER_FAILED_CALL = 'tc: the line after the failing call ran';
+
+/** A script whose one call must reject, followed by a line that must not run. */
+export function rejectionScript(tool: string, args: Record<string, unknown>): string {
+  return [
+    `await tools.${codemodeIdentifier(tool)}(${JSON.stringify(args)});`,
+    `text(${JSON.stringify(AFTER_FAILED_CALL)});`,
+  ].join('\n');
+}
+
 const HEADER = /^Script (completed|failed)\nWall time [\d.]+ seconds\nOutput:\n\n?/;
 const SCRIPT_ERROR = /\n?Script error:\n([\s\S]*)$/;
 

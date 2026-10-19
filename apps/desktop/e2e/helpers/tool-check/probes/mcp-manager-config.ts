@@ -8,6 +8,7 @@ import { expectText } from '../expect';
 import type { ScenarioStep, StepContext } from '../types';
 import {
   detailsOf,
+  ensurePaths,
   expectMatch,
   FIXTURE_PATH,
   readConfigFile,
@@ -29,10 +30,12 @@ export const configSteps: ScenarioStep[] = [
   {
     action: 'bootstrap',
     params: { action: 'bootstrap' },
-    expect(result, ctx) {
+    async expect(result, ctx) {
       expectText(result, 'Initialized MCP app state for');
-      rememberPaths(ctx, detailsOf(result));
-      const state = readJson<{ initialized: boolean }>(stringDetail(result, 'statePath'));
+      // Only the chat sees a result's details. Elsewhere the paths come through the app bridge.
+      if (ctx.site === 'chat') rememberPaths(ctx, detailsOf(result));
+      else await ensurePaths(ctx);
+      const state = readJson<{ initialized: boolean }>(String(ctx.state.statePath));
       if (state.initialized !== true) throw new Error('state.json was not written as initialized');
       if (typeof readConfigFile(ctx).mcpServers !== 'object') throw new Error('config.json has no mcpServers object');
     },

@@ -160,12 +160,13 @@ export const designLibraryAssetsProbe: ToolProbe = {
       async expect(result, ctx) {
         expectText(result, 'Frames queued.');
         const dir = path.join(await libraryHome(ctx), 'items', itemId(ctx));
-        await poll(ctx, 'the poster to be attached', async () => fs.existsSync(path.join(dir, 'poster.webp')));
+        // The runtime writes the files, then the record that names them, so the preview changing is the last effect.
+        const poster = saved<Buffer>(ctx, 'poster').toString('base64');
+        await poll(ctx, 'the item preview to become the poster', async () =>
+          (await invoke(ctx, TOOL, { action: 'preview', itemId: itemId(ctx) })).images[0]?.data === poster);
         if (!fs.readFileSync(path.join(dir, 'poster.webp')).equals(saved<Buffer>(ctx, 'poster'))) throw new Error('poster.webp is not the preview chunk');
         if (!fs.readFileSync(path.join(dir, 'frames.webp')).equals(saved<Buffer>(ctx, 'strip'))) throw new Error('frames.webp is not the frames chunk');
-        // The item now shows the poster, and the reference is looked at again.
-        const shown = await invoke(ctx, TOOL, { action: 'preview', itemId: itemId(ctx) });
-        if (shown.images[0]?.data !== saved<Buffer>(ctx, 'poster').toString('base64')) throw new Error('the item preview is not the poster');
+        // The reference is looked at again.
         await poll(ctx, 'the reanalysis to start', async () => !(await itemText(ctx, itemId(ctx))).includes('Analysis: ready'), 10_000).catch(() => undefined);
         await waitForAnalysis(ctx, itemId(ctx), 'ready');
         removeModelStub(ctx);

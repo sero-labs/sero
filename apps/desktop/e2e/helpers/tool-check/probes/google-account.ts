@@ -13,6 +13,8 @@ import { expectText } from '../expect';
  */
 export const googleAccountProbe: ToolProbe = {
   tool: 'google-account',
+  // The command ignores its arguments, so no call to it can fail.
+  failingCall: null,
   steps: [{
     action: null,
     params: {},

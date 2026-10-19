@@ -41,7 +41,8 @@ function gitOk(cwd: string, ...args: string[]): boolean {
 function commitFile(cwd: string, file: string, content: string, subject: string): string {
   fs.writeFileSync(path.join(cwd, file), content);
   git(cwd, 'add', '--', file);
-  git(cwd, 'commit', '-q', '-m', subject);
+  // A later run of the probe commits the same content again.
+  git(cwd, 'commit', '-q', '--allow-empty', '-m', subject);
   return git(cwd, 'rev-parse', 'HEAD');
 }
 

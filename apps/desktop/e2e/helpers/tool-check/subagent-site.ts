@@ -7,7 +7,7 @@ import { promptAndCollectEvents } from '../agent';
 import type { StubRequest } from '../stub-model';
 import { chatResultReader, type ToolCheckApp } from './app';
 import { firstUserText, type RunOutcome } from './driver';
-import { openChat, stepContext, type ChatRun } from './sites';
+import { openChat, releaseResponders, stepContext, type ChatRun } from './sites';
 import { surfaceOf, type SessionSurface } from './surface';
 import type { ToolCheckSite } from './types';
 
@@ -41,6 +41,7 @@ export async function runInSubagent(check: ToolCheckApp, run: ChatRun, site: Too
     };
   });
 
+  const ctx = stepContext(check, site, run.fixtures);
   try {
     const outcome = check.driver.add({
       prompt: goal,
@@ -49,7 +50,7 @@ export async function runInSubagent(check: ToolCheckApp, run: ChatRun, site: Too
       steps: run.steps,
       via: run.via,
       continueOnFailure: run.continueOnFailure,
-      ctx: stepContext(check, site, run.fixtures),
+      ctx,
     });
     const sessionId = await openChat(check);
     await promptAndCollectEvents(check.page, sessionId, launch, timeoutMs + 30_000);
@@ -59,5 +60,6 @@ export async function runInSubagent(check: ToolCheckApp, run: ChatRun, site: Too
     return { ...(await outcome), surface, subagentResult: returned?.text ?? '' };
   } finally {
     remove();
+    releaseResponders(ctx);
   }
 }

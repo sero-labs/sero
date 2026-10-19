@@ -33,8 +33,25 @@ async function userFile(ctx: StepContext): Promise<string | null> {
   return fs.readFile(path.join(await profileDir(ctx), 'workspaces', 'global', 'USER.md'), 'utf8').catch(() => null);
 }
 
+let siteFacts = 0;
+
 export const memoryProbe: ToolProbe = {
   tool: 'memory',
+  // A call the schema accepts and the tool refuses.
+  failingCall: { action: 'remove', id: 'mem-00000000' },
+  // A fact close to one already saved is refused, so each site saves its own, marked distinct.
+  siteStep: {
+    action: 'save',
+    params: (ctx) => {
+      siteFacts += 1;
+      ctx.state.siteFact = `tc-memory site fact ${siteFacts}: the ${ctx.site} site saves memories`;
+      return {
+        action: 'save', content: ctx.state.siteFact, behaviour: 'Check tc-memory site facts', type: 'preference',
+        scope: 'workspace', delivery: 'on-match', terms: 'tc-memory-site', distinct: true,
+      };
+    },
+    expect: (result, ctx) => expectText(result, `Saved: ${String(ctx.state.siteFact)} [`),
+  },
   steps: [
     {
       action: 'save',

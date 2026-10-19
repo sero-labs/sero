@@ -9,7 +9,7 @@ import type { StubRequest } from '../stub-model';
 import { chatResultReader, type ToolCheckApp } from './app';
 import { cliCommandFor } from './command-line';
 import { firstUserText, type RunOutcome } from './driver';
-import { openChat, stepContext, type ChatRun } from './sites';
+import { openChat, releaseResponders, stepContext, type ChatRun } from './sites';
 import { surfaceOf, type SessionSurface } from './surface';
 
 // Markers in the Orchestrator's system prompts (plugins/sero-orchestrator-plugin/runtime).
@@ -75,6 +75,7 @@ export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Pr
     return undefined;
   });
 
+  const ctx = stepContext(check, 'workflow-worker', run.fixtures);
   try {
     const outcome = check.driver.add({
       prompt: goal,
@@ -84,7 +85,7 @@ export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Pr
       steps: run.steps,
       via: run.via,
       continueOnFailure: run.continueOnFailure,
-      ctx: stepContext(check, 'workflow-worker', run.fixtures),
+      ctx,
     });
     const sessionId = await openChat(check);
     // `create` with `activate` returns once the loop has run, so the chat's turn ends after the step.
@@ -95,5 +96,6 @@ export async function runInWorkflowWorker(check: ToolCheckApp, run: ChatRun): Pr
     return { ...(await outcome), surface, createResult: created?.text ?? '' };
   } finally {
     remove();
+    releaseResponders(ctx);
   }
 }

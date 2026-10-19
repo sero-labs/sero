@@ -112,4 +112,15 @@ export interface ToolProbe {
   /** The longest the whole session may take, where a first-use install or a background run makes it slow. */
   timeoutMs?: number;
   exemptions?: Exemption[];
+  /**
+   * Parameters a Code Mode site's failing call uses, where the default (a
+   * missing argument, or an action or subcommand that does not exist) would
+   * not fail. Null for a tool that takes no input it could refuse.
+   */
+  failingCall?: StepParams | null;
+  /**
+   * The step the site pass runs, where the first step cannot run again in a
+   * workspace the action pass has changed (a name taken once, a fact saved once).
+   */
+  siteStep?: ScenarioStep;
 }

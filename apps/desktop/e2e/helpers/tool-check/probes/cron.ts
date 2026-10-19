@@ -6,6 +6,8 @@ import { cronState, expectContains, expectLacks, must, profileDir, waitFor } fro
 
 export const currentTimeProbe: ToolProbe = {
   tool: 'current_time',
+  // It takes no parameters, so no call to it can fail.
+  failingCall: null,
   steps: [{
     action: null,
     params: {},
@@ -34,10 +36,26 @@ async function requireJob(ctx: StepContext) {
   return job;
 }
 
+let siteJobs = 0;
+
 export const cronProbe: ToolProbe = {
   tool: 'cron',
   // `run` waits for the job's background session.
   timeoutMs: 240_000,
+  // A job name can be taken once, so each site adds a job of its own.
+  siteStep: {
+    action: 'add',
+    params: (ctx) => {
+      siteJobs += 1;
+      ctx.state.siteJob = `${JOB}-${ctx.site}-${siteJobs}`;
+      return { action: 'add', name: ctx.state.siteJob, schedule: FIRST_SCHEDULE, prompt: 'tc-cron site check: reply with one sentence' };
+    },
+    async expect(result, ctx) {
+      const name = String(ctx.state.siteJob);
+      expectText(result, `✓ Added cron job "${name}" (${FIRST_SCHEDULE})`);
+      must((await cronState(ctx)).jobs.some((entry) => entry.name === name), `${name} is not in the cron state file`);
+    },
+  },
   steps: [
     {
       action: 'add',

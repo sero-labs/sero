@@ -106,9 +106,14 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
       try {
         await stub.server.close();
       } finally {
-        home?.cleanup();
-        fs.rmSync(path.dirname(shortHome), { recursive: true, force: true });
-        if (workspaceDir) fs.rmSync(workspaceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+        // SERO_TOOL_CHECK_KEEP_HOME=1 keeps the profile and workspace to look at after a run.
+        if (process.env.SERO_TOOL_CHECK_KEEP_HOME === '1') {
+          console.log(`kept the profile at ${home?.path} and the workspace at ${workspaceDir}`);
+        } else {
+          home?.cleanup();
+          fs.rmSync(path.dirname(shortHome), { recursive: true, force: true });
+          if (workspaceDir) fs.rmSync(workspaceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+        }
       }
     }
   };

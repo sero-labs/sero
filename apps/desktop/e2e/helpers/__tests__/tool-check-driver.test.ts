@@ -191,6 +191,21 @@ describe('tool check ledger', () => {
     ]);
   });
 
+  it('needs every Code Mode site tool to reject a failing call, apart from its passing call', () => {
+    const passes = [
+      { runtime: 'docker' as const, site: 'chat' as const, tool: 'notes', action: 'add', result: 'pass' as const, ms: 5 },
+      { runtime: 'docker' as const, site: 'chat' as const, tool: 'notes', action: 'remove', result: 'pass' as const, ms: 5 },
+      { runtime: 'docker' as const, site: 'codemode-chat' as const, tool: 'notes', action: 'add', result: 'pass' as const, ms: 5 },
+    ];
+    expect(ledgerProblems(ledger({ siteTools: { 'codemode-chat': ['notes'] }, rows: passes }), probes))
+      .toEqual(['not run: notes (rejects) at codemode-chat on docker']);
+    // A passing rejection does not stand in for the tool's own call.
+    expect(ledgerProblems(ledger({
+      siteTools: { 'codemode-chat': ['notes'] },
+      rows: [...passes.slice(0, 2), { runtime: 'docker', site: 'codemode-chat', tool: 'notes', action: '(rejects)', result: 'pass', ms: 5 }],
+    }), probes)).toEqual(['not run: notes at codemode-chat on docker, which the site was given']);
+  });
+
   it('fails an action whose session failed after its step passed', () => {
     const problems = ledgerProblems(ledger({
       rows: [

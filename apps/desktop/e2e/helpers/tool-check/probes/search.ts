@@ -96,11 +96,6 @@ export const multiGrepProbe: ToolProbe = {
   steps: [
     {
       action: null,
-      params: { patterns: [] },
-      expect: (result) => expectError(result, 'multi_grep needs at least one non-empty pattern.'),
-    },
-    {
-      action: null,
       setup: seedFixtures,
       params: { patterns: ['TcFffNeedle', 'TC_FFF_NEEDLE'], path: 'tc-fff/' },
       async expect(result, ctx) {
@@ -114,6 +109,12 @@ export const multiGrepProbe: ToolProbe = {
           await removeFixtures(ctx);
         }
       },
+    },
+    // Second: only the chat sees a result's error flag, and a site pass runs the first step everywhere.
+    {
+      action: null,
+      params: { patterns: [] },
+      expect: (result) => expectError(result, 'multi_grep needs at least one non-empty pattern.'),
     },
   ],
 };

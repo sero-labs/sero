@@ -68,6 +68,8 @@ export const graphifyExplainProbe: ToolProbe = {
 
 export const graphifyStatusProbe: ToolProbe = {
   tool: 'graphify_status',
+  // It takes no parameters, so no call to it can fail.
+  failingCall: null,
   steps: [
     {
       action: null,
@@ -93,6 +95,8 @@ const DEFAULT_EXCLUDES = ['node_modules', 'dist', 'build', 'out', '.git', '*.loc
 
 export const graphifyConfigureProbe: ToolProbe = {
   tool: 'graphify_configure',
+  // Every parameter is optional, so the failing call gives one the wrong type. Pi wraps a lone string in a list, so not `exclude`.
+  failingCall: { paused: 'tc-not-a-boolean' },
   steps: [
     {
       action: null,

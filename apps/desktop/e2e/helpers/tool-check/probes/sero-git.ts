@@ -35,7 +35,8 @@ function gitProbe(tool: 'sero git' | 'sero vcs'): ToolProbe {
     steps: [
       {
         action: 'status',
-        setup: (ctx) => putFile(ctx, file, `changed by the ${name} probe\n`),
+        // The site pass runs this again after a checkpoint, so each run changes the file anew.
+        setup: (ctx) => putFile(ctx, file, `changed by the ${name} probe at ${ctx.site}, ${Date.now()}\n`),
         params: { argv: ['status'] },
         expect: (result) => expectText(result, file),
       },

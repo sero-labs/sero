@@ -10,6 +10,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ToolCheckRuntime, ToolCheckSite, ToolProbe } from './types';
 
+/** The action a Code Mode site records for a tool's failing call. */
+export const REJECTS = '(rejects)';
+
+const CODEMODE_SITES: ReadonlySet<ToolCheckSite> = new Set(['codemode-chat', 'codemode-subagent']);
+
 export interface LedgerRow {
   runtime: ToolCheckRuntime;
   site: ToolCheckSite;
@@ -121,15 +126,26 @@ export function ledgerProblems(ledger: Ledger, probes: ToolProbe[]): string[] {
   }
 
   const exempt = fullyExemptTools(probes);
+  const cannotFail = new Set(probes.filter((probe) => probe.failingCall === null).map((probe) => probe.tool));
   for (const [site, tools] of Object.entries(ledger.siteTools) as Array<[ToolCheckSite, string[]]>) {
     for (const tool of tools) {
       if (exempt.has(tool)) continue;
       const rows = ledger.rows.filter((row) => row.site === site && row.tool === tool);
-      if (rows.some((row) => row.result === 'pass')) continue;
-      const failed = rows.find((row) => row.result === 'fail');
+      const calls = rows.filter((row) => row.action !== REJECTS);
+      if (!calls.some((row) => row.result === 'pass')) {
+        const failed = calls.find((row) => row.result === 'fail');
+        problems.push(failed
+          ? `failed: ${tool} at ${site} on ${runtime}: ${failed.error ?? 'no detail'}`
+          : `not run: ${tool} at ${site} on ${runtime}, which the site was given`);
+      }
+      // A script's failing call must reject and stop the script (design decision 4).
+      if (!CODEMODE_SITES.has(site) || cannotFail.has(tool)) continue;
+      const rejections = rows.filter((row) => row.action === REJECTS);
+      if (rejections.some((row) => row.result === 'pass')) continue;
+      const failed = rejections.find((row) => row.result === 'fail');
       problems.push(failed
-        ? `failed: ${tool} at ${site} on ${runtime}: ${failed.error ?? 'no detail'}`
-        : `not run: ${tool} at ${site} on ${runtime}, which the site was given`);
+        ? `failed: ${tool} ${REJECTS} at ${site} on ${runtime}: ${failed.error ?? 'no detail'}`
+        : `not run: ${tool} ${REJECTS} at ${site} on ${runtime}`);
     }
   }
   return problems;
@@ -137,6 +153,8 @@ export function ledgerProblems(ledger: Ledger, probes: ToolProbe[]): string[] {
 
 /** The run report's list of what it did not prove on purpose. */
 export function exemptionReport(probes: ToolProbe[]): string[] {
-  return probes.flatMap((probe) => (probe.exemptions ?? []).map((exemption) =>
-    `${label(probe.tool, exemption.action)}: ${exemption.reason}. ${exemption.detail}`));
+  return probes.flatMap((probe) => [
+    ...(probe.exemptions ?? []).map((exemption) => `${label(probe.tool, exemption.action)}: ${exemption.reason}. ${exemption.detail}`),
+    ...(probe.failingCall === null ? [`${probe.tool} ${REJECTS}: takes no input it could refuse.`] : []),
+  ]);
 }

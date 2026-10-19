@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 import { startToolCheckApp, type ToolCheckApp } from './helpers/tool-check/app';
 import { startFixtures, type RunningFixtures } from './helpers/tool-check/fixtures';
 import { exemptionReport, ledgerProblems, requiredActions } from './helpers/tool-check/ledger';
-import { readCodemodeSurface, runAt, sessionSurface, sitePassSteps, type SiteSurface } from './helpers/tool-check/site-pass';
+import { readCodemodeSurface, rejectionSteps, runAt, sessionSurface, sitePassSteps, type SiteSurface } from './helpers/tool-check/site-pass';
 import { runInChat } from './helpers/tool-check/sites';
 import { runInSubagent } from './helpers/tool-check/subagent-site';
 import { surfaceOf, type SessionSurface } from './helpers/tool-check/surface';
@@ -104,6 +104,7 @@ test.describe.serial('action pass', () => {
       const tools = ONLY.size ? surface.tools.filter((tool) => ONLY.has(tool)) : surface.tools;
       check.ledger.siteTools(site, tools);
       const { steps, missing } = sitePassSteps({ ...surface, tools }, TOOL_PROBES);
+      if (site.startsWith('codemode')) steps.push(...rejectionSteps({ ...surface, tools }, TOOL_PROBES));
       if (missing.length) console.log(`${site} was given tools with no step to run: ${missing.join(', ')}`);
       await report(site, 'site pass', runAt(check, site, { tool: 'site pass', label: 'site pass', steps, via: 'direct', fixtures: fixtures.values, continueOnFailure: true, timeoutMs: 1_700_000 }));
     });

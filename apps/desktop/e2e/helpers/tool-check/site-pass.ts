@@ -4,12 +4,13 @@
  * differs between sites is wiring, so one call per tool is enough to catch it.
  */
 import type { ToolCheckApp } from './app';
-import { codemodeIdentifier, unwrapScriptResult } from './codemode-call';
+import { AFTER_FAILED_CALL, codemodeIdentifier, unwrapScriptResult } from './codemode-call';
 import type { RunOutcome, RunStep, StepRoute } from './driver';
 import { runInChat, type ChatRun } from './sites';
 import { runInSubagent } from './subagent-site';
 import { routeTo, siteToolNames, type SessionSurface } from './surface';
-import type { ToolCheckFixtures, ToolCheckSite, ToolProbe } from './types';
+import { REJECTS } from './ledger';
+import type { StepParams, ToolCallResult, ToolCheckFixtures, ToolCheckSite, ToolProbe } from './types';
 import { runInWorkflowWorker } from './workflow-worker';
 
 /** Where a site's tools came from: the session's own list, and for a script the session that runs it. */
@@ -102,14 +103,17 @@ export async function readCodemodeSurface(
   };
 }
 
-/** One step per tool the site was given: the tool's first scenario step that is not exempt. */
+/** One step per tool the site was given: its site step, or else its first scenario step that is not exempt. */
 export function sitePassSteps(surface: SiteSurface, probes: ToolProbe[]): { steps: RunStep[]; missing: string[] } {
   const steps: RunStep[] = [];
   const missing: string[] = [];
-  for (const tool of surface.tools) {
+  // In table order, so a tool that reads what another left (get_search_content after fetch_content) runs after it.
+  const known = new Set(probes.map((probe) => probe.tool));
+  const ordered = [...probes.map((probe) => probe.tool).filter((tool) => surface.tools.includes(tool)), ...surface.tools.filter((tool) => !known.has(tool))];
+  for (const tool of ordered) {
     const probe = probes.find((entry) => entry.tool === tool);
     const exempt = new Set((probe?.exemptions ?? []).map((exemption) => exemption.action));
-    const step = probe?.steps.find((candidate) => !exempt.has(candidate.action));
+    const step = probe?.siteStep ?? probe?.steps.find((candidate) => !exempt.has(candidate.action));
     const via = surface.route(tool);
     // A fully exempt tool has no step to run; the ledger check allows for it.
     if (!step && probe?.exemptions?.length) continue;
@@ -120,4 +124,29 @@ export function sitePassSteps(surface: SiteSurface, probes: ToolProbe[]): { step
     steps.push({ ...step, tool, via });
   }
   return { steps, missing };
+}
+
+/** A call that must fail: a missing argument, or an action or subcommand that does not exist. */
+function failingParams(probe: ToolProbe): StepParams | null {
+  if (probe.failingCall !== undefined) return probe.failingCall;
+  const hasActions = probe.steps.some((step) => step.action !== null);
+  if (probe.tool.startsWith('sero ')) return { argv: hasActions ? ['tc-no-such-subcommand'] : [] };
+  return hasActions ? { action: 'tc-no-such-action' } : {};
+}
+
+function expectRejected(result: ToolCallResult): void {
+  if (result.isError !== true || result.text.includes(AFTER_FAILED_CALL)) {
+    throw new Error(`the failing call resolved and the script went on: ${result.text.slice(0, 300)}`);
+  }
+}
+
+/** At a Code Mode site, one failing call per tool, which must reject and stop the script. */
+export function rejectionSteps(surface: SiteSurface, probes: ToolProbe[]): RunStep[] {
+  return surface.tools.flatMap((tool) => {
+    const probe = probes.find((entry) => entry.tool === tool);
+    const via = surface.route(tool);
+    const params = probe ? failingParams(probe) : null;
+    if (!probe || !via || !params) return [];
+    return [{ tool, via, rejects: true, action: REJECTS, params, expect: expectRejected }];
+  });
 }
