@@ -34,6 +34,79 @@ workflow does not call that root command. The separate **E2E Contract** and
 **E2E Agent** workflows run each day and by manual dispatch. **E2E Workflow** is
 manual-only. No workflow runs `pnpm eval` or `pnpm eval:snapshot`.
 
+The **Test** workflow also runs the tool coverage check on every pull request,
+outside turbo, so a change to a plugin's tools alone still runs it. **Tool
+Check** runs the full tool check and is manual-only.
+
+## Agent tool check
+
+The tool check proves that every action of every agent tool works, at every
+place an agent runs. It has two parts.
+
+### Coverage check
+
+```bash
+pnpm --filter @sero/desktop exec vitest run electron/__tests__/tool-check/coverage.test.ts
+```
+
+It loads every agent tool and Sero CLI command from the code, then fails when an
+action has neither a scenario nor an exemption, or when a scenario names an
+action that no longer exists. It makes no model calls and takes seconds.
+
+When you add a tool or an action, the coverage check fails until you add it to
+the tool check:
+
+1. Add a step for the action to the tool's probe module in
+   `apps/desktop/e2e/helpers/tool-check/probes/`. A new tool gets its own module,
+   listed in `apps/desktop/e2e/helpers/tool-check/table.ts`. Run mutating actions
+   in order: create, show, change, delete.
+2. Make the step's `expect` check the action's effect, such as a file, a record
+   or a state change, not only that the call returned.
+3. Build what the step needs in its `setup`. An exemption is allowed only for a
+   paid outside service or a real outside account, with a sentence saying which.
+
+### Full run
+
+```bash
+pnpm --filter @sero/desktop e2e:tools
+```
+
+It starts Sero on a fresh profile and workspace. A local stub model drives
+every action, so the run needs no API key and costs nothing. The run does these
+things:
+
+- It runs each action at the first place an agent is given its tool: chat,
+  subagent, Workflow worker, Architect owner or Room member.
+- It runs each tool once at every one of those places, and in Code Mode scripts
+  from a chat and from a subagent.
+- In each Code Mode site, it checks that a failing call rejects and stops the
+  script.
+- It cancels a long command at every place and checks that the session takes
+  its next prompt.
+
+It writes `apps/desktop/test-results/tool-check/ledger-<runtime>.json`. The
+last test compares that ledger with the actions the run should have proved and
+lists every failure. A host run takes about four minutes.
+
+| Variable | Effect |
+| --- | --- |
+| `SERO_E2E_RUNTIME` | Workspace runtime: unset for host, `docker` on Linux, `apple-container` on a Mac. |
+| `SERO_TOOL_CHECK_ONLY` | A comma list of tools, such as `bash,sero git`, to check one fix. The ledger comparison then fails, because the other tools did not run. |
+| `SERO_TOOL_CHECK_KEEP_HOME` | `1` keeps the profile, the workspace and `test-results/tool-check/main-process.log` after the run. |
+
+### In CI
+
+**Tool Check** (`.github/workflows/tool-check.yml`) never runs on a pull
+request or a schedule. Start it from the Actions tab, or:
+
+```bash
+gh workflow run tool-check.yml --ref <branch> -f target=linux-host
+```
+
+The `target` is `all`, `linux-host`, `linux-docker`, `macos-host` or
+`windows-host`. Each target uploads its ledger and Playwright report as an
+artifact.
+
 ## Evals command reference
 
 | Command | Source script | When to use | Cost/auth |
