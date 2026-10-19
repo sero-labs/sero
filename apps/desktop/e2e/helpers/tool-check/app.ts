@@ -1,0 +1,185 @@
+/**
+ * Starts Sero for a tool check run: a fresh onboarded profile whose every
+ * model is the stub, and a fresh git workspace on the runtime under test.
+ */
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { closeSeroApp, launchSeroApp } from '../electron-app';
+import { currentRuntimeFromEnv } from '../runtime';
+import { createTempSeroHome, type TempSeroHome } from '../seroHome';
+import { startProbeStub, type ProbeStub } from '../session-probe';
+import { seedStubProvider, STUB_MODEL_ID, STUB_PROVIDER_ID, type StubReply, type StubRequest } from '../stub-model';
+import { seedWorkflowProfile, waitForShell } from '../workflow';
+import { ScenarioDriver } from './driver';
+import { LedgerWriter, ledgerPath } from './ledger';
+import type { ToolCallResult, ToolCheckRuntime } from './types';
+
+const DESKTOP_ROOT = path.resolve(__dirname, '../../..');
+export const LEDGER_DIR = path.join(DESKTOP_ROOT, 'test-results', 'tool-check');
+
+/**
+ * One host-artifacts folder for every app a run starts, so the host browser
+ * pack installs once. CI caches it by pack version.
+ */
+export function toolCheckArtifactsDir(): string {
+  return process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE ?? path.join(os.tmpdir(), 'sero-tool-check-artifacts');
+}
+
+export interface ToolCheckApp {
+  runtime: ToolCheckRuntime;
+  app: ElectronApplication;
+  page: Page;
+  stub: ProbeStub;
+  driver: ScenarioDriver;
+  ledger: LedgerWriter;
+  workspaceId: string;
+  workspaceDir: string;
+  homePath: string;
+  /** Everything Electron main printed so far. */
+  mainLog(): string;
+  close(): Promise<void>;
+}
+
+export interface StartOptions {
+  /** Answers a request no scenario claims, such as a Room planner's. */
+  override?: (request: StubRequest) => StubReply | undefined;
+}
+
+function initWorkspace(dir: string): void {
+  // A Room gives each member a worktree, and git tools need a repository.
+  fs.writeFileSync(path.join(dir, '.gitignore'), '.sero/\n');
+  fs.writeFileSync(path.join(dir, 'README.md'), '# Tool check workspace\n');
+  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=probe@example.com', '-c', 'user.name=Probe', ...args], { cwd: dir, stdio: 'ignore' });
+  git('init', '-b', 'main');
+  git('add', '-A');
+  git('commit', '-m', 'initial');
+}
+
+export async function startToolCheckApp(options: StartOptions = {}): Promise<ToolCheckApp> {
+  const runtime = currentRuntimeFromEnv() ?? 'host';
+  const ledger = new LedgerWriter(ledgerPath(LEDGER_DIR, runtime), runtime);
+  const driver = new ScenarioDriver(ledger);
+  const stub = await startProbeStub({}, options.override, driver);
+  let home: TempSeroHome | undefined;
+  let workspaceDir = '';
+  let app: ElectronApplication | undefined;
+  let log = '';
+
+  const close = async () => {
+    try {
+      if (app) await closeSeroApp(app);
+    } finally {
+      try {
+        await stub.server.close();
+      } finally {
+        home?.cleanup();
+        if (workspaceDir) fs.rmSync(workspaceDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      }
+    }
+  };
+
+  try {
+    home = createTempSeroHome();
+    // Outside the repository, so the repository's AGENTS.md and skills stay out of every prompt.
+    workspaceDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sero-tool-check-')));
+    initWorkspace(workspaceDir);
+    // The profile sits where the app keeps managed profiles, or the app moves it and the seeds are lost.
+    const profile = seedWorkflowProfile(home, { profilePath: path.join(home.path, '.sero-ui', 'profiles', 'tool-check') });
+    const stubModel = `${STUB_PROVIDER_ID}/${STUB_MODEL_ID}`;
+    const launched = await launchSeroApp({
+      seroHome: profile.path,
+      runtime,
+      env: {
+        HOME: home.path,
+        USERPROFILE: home.path,
+        SERO_FIXED_ROOT_OVERRIDE: path.join(home.path, '.sero-ui'),
+        SERO_HOST_ARTIFACTS_ROOT_OVERRIDE: toolCheckArtifactsDir(),
+        // The temp HOME has no git identity.
+        GIT_AUTHOR_NAME: 'Probe',
+        GIT_AUTHOR_EMAIL: 'probe@example.com',
+        GIT_COMMITTER_NAME: 'Probe',
+        GIT_COMMITTER_EMAIL: 'probe@example.com',
+        SERO_ARCHITECT_MODEL: stubModel,
+        SERO_ROOM_MODELS: stubModel,
+      },
+      seed: (seroHome) => {
+        seedStubProvider(seroHome, stub.server.baseUrl, { images: true });
+        const tier = { provider: STUB_PROVIDER_ID, modelId: STUB_MODEL_ID };
+        fs.writeFileSync(
+          path.join(seroHome, 'agent', 'settings.json'),
+          JSON.stringify({ sero: { modelTiers: { LOW: tier, MED: tier, HIGH: tier } } }, null, 2),
+        );
+      },
+    });
+    app = launched.app;
+    for (const stream of [app.process().stdout, app.process().stderr]) stream?.on('data', (chunk: Buffer) => { log += chunk.toString(); });
+    await waitForShell(launched.page);
+    const workspace = await launched.page.evaluate(
+      ({ folder }) => window.sero.workspace.addFolder(folder, 'Tool Check'),
+      { folder: workspaceDir },
+    );
+    if (runtime !== 'host') {
+      await launched.page.evaluate(({ id, backend }) => window.sero.workspace.setRuntimeBackend(id, backend), { id: workspace.id, backend: runtime });
+    }
+    await installToolEndBuffer(launched.page);
+    return {
+      runtime, app, page: launched.page, stub, driver, ledger,
+      workspaceId: workspace.id, workspaceDir, homePath: home.path,
+      mainLog: () => log,
+      close,
+    };
+  } catch (error) {
+    await close();
+    throw error;
+  }
+}
+
+interface ToolEndBuffer {
+  results: Record<string, ToolCallResult>;
+  waiting: Record<string, (result: ToolCallResult) => void>;
+}
+
+declare global {
+  interface Window {
+    __toolCheckResults?: ToolEndBuffer;
+  }
+}
+
+/** Keeps every chat tool result the renderer receives, by call id, for the driver to read. */
+async function installToolEndBuffer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const buffer: ToolEndBuffer = { results: {}, waiting: {} };
+    window.__toolCheckResults = buffer;
+    window.sero.agent.onEvent((event) => {
+      if (event.type !== 'tool_end') return;
+      const result: ToolCallResult = {
+        isError: event.isError,
+        text: event.output ?? '',
+        images: (event.images ?? []).map((image) => ({ mimeType: image.mimeType, data: image.data })),
+        details: event.details ?? undefined,
+      };
+      buffer.results[event.toolCallId] = result;
+      buffer.waiting[event.toolCallId]?.(result);
+    });
+  });
+}
+
+/**
+ * Reads a chat call's full result. The renderer can receive it a moment after
+ * the next model request starts, so a missing one is waited for, up to 5 seconds.
+ */
+export function chatResultReader(page: Page): (callId: string) => Promise<ToolCallResult | undefined> {
+  return (callId) => page.evaluate((id) => new Promise<ToolCallResult | undefined>((resolve) => {
+    const buffer = window.__toolCheckResults!;
+    const ready = buffer.results[id];
+    if (ready) return resolve(ready);
+    const timer = window.setTimeout(() => resolve(undefined), 5_000);
+    buffer.waiting[id] = (result) => {
+      window.clearTimeout(timer);
+      resolve(result);
+    };
+  }), callId);
+}
