@@ -175,13 +175,22 @@ function members(roomId: string): MemberFile[] {
  * work lands on a member branch and the shared tree is deliberately untouched
  * until the user merges. Reading only the shared tree would score the Room on
  * something it is designed not to do.
+ *
+ * A finished Room has released its checkouts, so a member's copy is read from
+ * the branch it kept, and `root` names that branch. `matches` picks the files:
+ * the brief names no path for a new test, so a pattern finds it wherever it went.
  */
-function roomCopiesOf(roomId: string, relativePath: string): { root: string; content: string }[] {
-  const roots = [wsDir, ...members(roomId).map((member) => member.worktreePath).filter((root): root is string => !!root)];
-  return roots
-    .map((root) => ({ root, file: path.join(root, relativePath) }))
-    .filter((entry) => fs.existsSync(entry.file))
-    .map((entry) => ({ root: entry.root, content: fs.readFileSync(entry.file, 'utf8') }));
+function roomCopiesOf(roomId: string, matches: string | RegExp): { root: string; content: string }[] {
+  const wanted = (file: string) => typeof matches === 'string' ? file === matches : matches.test(file);
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: wsDir, encoding: 'utf8' });
+  const copies = git('ls-files').split('\n').filter(wanted)
+    .map((file) => ({ root: wsDir, content: fs.readFileSync(path.join(wsDir, file), 'utf8') }));
+  const branches = new Set(members(roomId).map((member) => member.worktreeBranch).filter((branch): branch is string => !!branch));
+  for (const branch of branches) {
+    const files = (() => { try { return git('ls-tree', '-r', '--name-only', branch).split('\n'); } catch { return []; } })();
+    for (const file of files.filter(wanted)) copies.push({ root: branch, content: git('show', `${branch}:${file}`) });
+  }
+  return copies;
 }
 
 interface RevisionAmendment {
@@ -286,13 +295,32 @@ async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<voi
 }
 
 /**
+ * Opens the Room brief the way a user does: the Room start action on the Home
+ * tab. A narrow panel folds the start actions into its More actions menu.
+ */
+async function openRoomBrief(): Promise<void> {
+  await panel().locator('nav button[title="Home"]').click();
+  const action = panel().getByRole('button', { name: 'Room', exact: true });
+  const more = panel().getByRole('button', { name: 'More actions' });
+  // Both stay in the page and the width hides one, so wait for whichever shows.
+  await expect(action.or(more).filter({ visible: true })).toBeVisible({ timeout: 10_000 });
+  if (await action.isVisible()) {
+    await action.click();
+  } else {
+    await more.click();
+    await page.getByRole('menuitem', { name: 'Room', exact: true }).click();
+  }
+  await expect(panel().getByPlaceholder(/session-fixation/)).toBeVisible({ timeout: 10_000 });
+}
+
+/**
  * Drives the panel the way a user does: describe the problem, read the team
  * Sero proposes, start it, allow the sessions. Returns the Room id.
  */
 async function startRoom(brief: string, name: string): Promise<string> {
   await openRooms();
   const before = new Set((roomIndex()?.rooms ?? []).map((room) => room.id));
-  await panel().getByRole('button', { name: 'New', exact: true }).click();
+  await openRoomBrief();
   await panel().getByPlaceholder(/session-fixation/).fill(brief);
   await shot(`${name}-01-brief.png`);
   await panel().getByRole('button', { name: 'Design the team' }).click();
@@ -442,6 +470,8 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '1', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
+    // The one scenario that starts through the form. The rest start through the
+    // tool the form calls, so a change to the form fails here and only here.
     const roomId = await startRoom(BRIEFS.delivery, 'delivery');
     const roster = members(roomId);
     // Staffed for THIS problem: a Conductor plus specialists, not a fixed cast.
@@ -450,7 +480,7 @@ test.describe('the Room evaluation gate', () => {
 
     const room = await settle(roomId, 'delivery');
     const greet = roomCopiesOf(roomId, 'src/greet.ts');
-    const tests = roomCopiesOf(roomId, 'src/greet.test.ts');
+    const tests = roomCopiesOf(roomId, /greet[^/]*\.test\.[cm]?[jt]sx?$/);
     record('1-delivery', room, members(roomId), {
       workItems: room.work.length,
       artifacts: room.artifacts.length,
@@ -471,7 +501,7 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '2', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
-    const roomId = await startRoom(BRIEFS.adversarial, 'adversarial');
+    const roomId = await startRoomByTool(BRIEFS.adversarial, 'adversarial');
     const room = await settle(roomId, 'adversarial');
     const roster = members(roomId);
     const decision = roomCopiesOf(roomId, 'DECISION.md');
@@ -492,10 +522,11 @@ test.describe('the Room evaluation gate', () => {
     test.skip(ONLY !== 'all' && ONLY !== '3', 'not the selected scenario');
     test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
 
-    const roomId = await startRoom(BRIEFS.parallel, 'parallel');
+    const roomId = await startRoomByTool(BRIEFS.parallel, 'parallel');
     const room = await settle(roomId, 'parallel');
     const roster = members(roomId);
-    const worktrees = roster.filter((member) => member.worktreePath !== null);
+    // A finished Room has released its checkouts and kept their branches.
+    const worktrees = roster.filter((member) => member.worktreeBranch !== null);
     record('3-parallel', room, roster, {
       worktrees: worktrees.map((member) => member.worktreeBranch),
       claims: room.claims.map((claim) => `${claim.memberId}:${claim.pattern}`),
@@ -505,7 +536,7 @@ test.describe('the Room evaluation gate', () => {
     // Separate checkouts are the real safety boundary; claims are the warning
     // that two people are heading for the same file.
     expect(worktrees.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(worktrees.map((member) => member.worktreePath)).size).toBe(worktrees.length);
+    expect(new Set(worktrees.map((member) => member.worktreeBranch)).size).toBe(worktrees.length);
     expect(room.claims.length).toBeGreaterThan(0);
   });
 
