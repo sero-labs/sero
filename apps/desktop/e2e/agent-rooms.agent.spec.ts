@@ -13,6 +13,8 @@
  *   4  a Room asked for in a chat returns its result to that chat (FR-029);
  *   5  a running Room changes its team, Sero restarts mid-change, and the grant
  *      and every member's history survive (amendment replay, task 4.8).
+ *   6  a change inside the approval (narrowing a member's tools) amends the
+ *      grant with no question, and the member keeps its history.
  *
  * Each scenario costs real money and takes minutes, so they are opt-in:
  *
@@ -71,6 +73,16 @@ const BRIEFS = {
     'who finds the cause and writes it to REVIEW.md, and nothing else. When REVIEW.md exists, the',
     'Conductor must propose a revision that adds one more member, a tester, who fixes src/greet.ts',
     'and leaves a test that fails on the old code. Work in the workspace files; do not open a pull request.',
+  ].join(' '),
+  narrow: [
+    'The greeting in src/greet.ts is wrong for an empty name: it says "Hello, !" instead of',
+    'greeting the world. Start this Room with exactly two members besides the Conductor. The first',
+    'has the key reviewer and exactly the tools read and write; it finds the cause and writes it to',
+    'REVIEW.md, and nothing else. The second has the key fixer; it waits for REVIEW.md, then fixes',
+    'src/greet.ts and leaves a test that fails on the old code. When REVIEW.md exists, the Conductor',
+    'must take write away from the reviewer, because its review is done, by running exactly:',
+    `sero room propose-revision --proposalJson '{"kind":"change-configuration","memberId":"reviewer","configuration":{"tools":["read"]}}' --reason "the review is written"`,
+    'Propose no other revision. Work in the workspace files; do not open a pull request.',
   ].join(' '),
   parallel: [
     'Two independent jobs, and they must not wait for each other: add input validation to',
@@ -132,8 +144,9 @@ interface MemberFile {
   id: string;
   displayName: string;
   isConductor: boolean;
+  status: string;
   mandate: { role: string };
-  configuration: { model: string; thinking: string };
+  configuration: { model: string; thinking: string; tools: string[] };
   worktreePath: string | null;
   worktreeBranch: string | null;
   usage: { costUsd: number; turns: number };
@@ -612,5 +625,51 @@ test.describe('the Room evaluation gate', () => {
       expect(entry.linesAfter, `member ${entry.memberId} kept its history`).toBeGreaterThanOrEqual(entry.linesBefore);
     }
     expect(after.every((change) => change.state !== 'pending')).toBe(true);
+  });
+
+  test('6 — a change inside the approval applies with no question', async () => {
+    test.skip(ONLY !== 'all' && ONLY !== '6', 'not the selected scenario');
+    test.setTimeout(SCENARIO_TIMEOUT_MS + 120_000);
+
+    const roomId = await startRoomByTool(BRIEFS.narrow, 'narrow');
+    const grantBefore = roomGrant(roomId);
+    // Wait for the Room's change to settle, or for the Room to end without one.
+    await expect
+      .poll(() => {
+        const asked = amendments(roomId);
+        if (asked.length > 0 && asked.every((change) => change.state !== 'pending')) return 'settled';
+        return /completed|failed|cancelled|paused/.test(roomFile(roomId)?.runtime.status ?? '') ? 'ended' : '';
+      }, { timeout: SCENARIO_TIMEOUT_MS, intervals: [3_000] })
+      .toMatch(/settled|ended/);
+    // Read before the Room ends: a finished Room releases its grant.
+    const grantAtChange = roomGrant(roomId);
+    const asked = amendments(roomId);
+    const historiesAtChange = sessionHistories(roomId);
+    const reviewerAtChange = members(roomId).find((member) => member.id === 'reviewer');
+    await shot('narrow-02-change.png');
+
+    const room = await settle(roomId, 'narrow', true);
+    const roster = members(roomId);
+    const historiesAtEnd = sessionHistories(roomId);
+    record('6-narrow-in-policy', room, roster, {
+      grantBefore,
+      grantAtChange,
+      amendments: asked.map(({ id, state, adds, reason, grantRevision }) => ({ id, state, adds, reason, grantRevision })),
+      reviewerToolsAtChange: reviewerAtChange?.configuration.tools ?? null,
+      historiesAtChange,
+      historiesAtEnd,
+    });
+    expect(asked.length, 'the Conductor proposed the change').toBeGreaterThan(0);
+    // Taking a tool away adds no authority, so the host applied it without asking the user.
+    for (const change of asked) {
+      expect(change.state, `change ${change.id}: ${change.reason ?? ''}`).toBe('applied');
+      expect(change.adds).toEqual([]);
+    }
+    expect(grantAtChange).toBe(grantBefore);
+    expect(reviewerAtChange?.configuration.tools).not.toContain('write');
+    // The reviewer's session was reopened on the same history, not started again.
+    expect(historiesAtChange.reviewer?.lines ?? 0).toBeGreaterThan(0);
+    expect(historiesAtEnd.reviewer?.sessionPath).toBe(historiesAtChange.reviewer?.sessionPath);
+    expect(historiesAtEnd.reviewer?.lines ?? 0).toBeGreaterThanOrEqual(historiesAtChange.reviewer?.lines ?? 0);
   });
 });

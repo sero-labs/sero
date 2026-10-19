@@ -37,6 +37,8 @@
  * SERO_BASELINE_PROBE appends one sentence to every request, to probe one
  * behaviour such as finding a deferred tool. The request is a controlled input,
  * so a probe run never matches an unprobed run in a comparison.
+ * SERO_BASELINE_SERVER_MINUTES seeds a dev script whose server exits with code 0
+ * by itself after that many minutes, for a probe that waits on a managed process.
  * Results go to e2e/screenshots/architect-baseline/pilot/. The earlier baseline.json
  * and its images beside it are historical evidence and are never touched.
  */
@@ -76,6 +78,9 @@ const PROBE = process.env.SERO_BASELINE_PROBE?.trim();
 // The interruption scenario pauses the project before the restart, as a user
 // would, to show the pause outlives the restart and nothing runs until Resume.
 const PAUSE_BEFORE_RESTART = process.env.SERO_BASELINE_PAUSE_BEFORE_RESTART === '1';
+// Seeds a dev server that exits with code 0 by itself after this many minutes,
+// so a probe can make the owner wait on a managed process (continuity trial).
+const SERVER_MINUTES = Number(process.env.SERO_BASELINE_SERVER_MINUTES ?? '0');
 const RUN_SCENARIOS = PROBE ? SCENARIOS.map((scenario) => ({ ...scenario, request: `${scenario.request} ${PROBE}` })) : SCENARIOS;
 const PILOT = path.join(SHOTS, 'pilot');
 const RECORDS = path.join(PILOT, 'records.json');
@@ -252,10 +257,25 @@ async function approvePrompts(label: string): Promise<number> {
  */
 function seedWorkspace(scenario: ScenarioDefinition, folder: string): void {
   scenario.seed(folder);
+  if (SERVER_MINUTES > 0) seedSelfEndingServer(folder);
   const git = (...args: string[]): void => { execFileSync('git', ['-c', 'user.name=Baseline', '-c', 'user.email=baseline@example.invalid', ...args], { cwd: folder, stdio: 'ignore' }); };
   git('init', '-q');
   git('add', '-A');
   git('commit', '-q', '-m', 'Starting files');
+}
+
+function seedSelfEndingServer(folder: string): void {
+  fs.writeFileSync(path.join(folder, 'server.js'), [
+    "import http from 'node:http';",
+    "const server = http.createServer((request, response) => { response.writeHead(200, { 'content-type': 'text/html' }); response.end('<h1>soak</h1>'); });",
+    "server.listen(0, () => console.log('Listening on http://localhost:' + server.address().port));",
+    `setTimeout(() => { console.log('soak finished'); process.exit(0); }, ${SERVER_MINUTES * 60_000});`,
+    '',
+  ].join('\n'));
+  const packagePath = path.join(folder, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8')) as { scripts?: Record<string, string> };
+  pkg.scripts = { ...pkg.scripts, dev: 'node server.js' };
+  fs.writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
 // ── Architect candidate ──────────────────────────────────────────────
@@ -631,6 +651,21 @@ function chatTurn(sessionId: string, prompt: string, limits: TurnLimits): Promis
   }, { id: sessionId, text: prompt, timeoutMs: limits.timeoutMs, capUsd: limits.capUsd, interruptAfter: limits.interruptAfterToolCalls });
 }
 
+/**
+ * A chat turn with its permission cards answered while it runs, as the Architect
+ * run's are. A card the chat raises, such as starting a Room, otherwise waits
+ * until the turn ends and is declined by its own timeout.
+ */
+async function answeredChatTurn(label: string, sessionId: string, prompt: string, limits: TurnLimits): Promise<TurnResult> {
+  let settled = false;
+  const turn = chatTurn(sessionId, prompt, limits).finally(() => { settled = true; });
+  while (!settled) {
+    await approvePrompts(label);
+    await Promise.race([turn, sleep(2_000)]);
+  }
+  return turn;
+}
+
 /** Pins a session to the resolved tier and returns the model state it reports. */
 async function pinSession(sessionId: string): Promise<ConfigurationProvenance> {
   const state = await page.evaluate(async ({ id, provider, modelId, thinking }) => {
@@ -656,7 +691,7 @@ async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folde
 
   const interventions: BaselineIntervention[] = [];
   const recoveries: BaselineRecovery[] = [];
-  const turns: TurnResult[] = [await chatTurn(session.id, scenario.request, limits(scenario.id === 'interruption' ? 2 : null))];
+  const turns: TurnResult[] = [await answeredChatTurn(scenario.id, session.id, scenario.request, limits(scenario.id === 'interruption' ? 2 : null))];
   let restarted = false;
 
   if (turns[0]?.end === 'interrupted') {
@@ -667,7 +702,7 @@ async function runSingleAgent(scenario: ScenarioDefinition, plan: RunPlan, folde
     // A chat session has no resume action, so a user would type a nudge. That
     // is coaching the Architect's project does not need, and it is recorded.
     interventions.push({ kind: 'coaching', note: 'sent "Continue." after the restart because a chat session has no resume action', at: new Date().toISOString() });
-    turns.push(await chatTurn(session.id, 'Continue.', limits(null)));
+    turns.push(await answeredChatTurn(scenario.id, session.id, 'Continue.', limits(null)));
   }
   if (!restarted && scenario.id === 'interruption') console.log('[baseline] the run settled before the restart point, so nothing was interrupted');
 
