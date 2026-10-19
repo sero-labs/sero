@@ -42,6 +42,7 @@
 
 - [ ] 7.1 Run the action and site passes with `SERO_E2E_RUNTIME=docker` on Linux, building the image locally when the branch changes `Dockerfile.sero-node`; verify the Docker ledger comparison passes, and fix each container-only fault in its owning code
 - [ ] 7.2 Run both passes with `SERO_E2E_RUNTIME=apple-container` on a Mac; verify the Apple Container ledger comparison passes
+  - Open: the fixtures now work in a container and the run gets through, but it fails in ways the host run does not: turn undo never snapshots (#662), and cancels, git status freshness, one `git_manager refresh` and one browser click fail without a proven cause (#663).
 
 ## 8. Real-model pass
 
