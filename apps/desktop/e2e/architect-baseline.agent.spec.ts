@@ -73,6 +73,9 @@ const REPEATS = Number(process.env.SERO_BASELINE_REPEATS ?? '2');
 const BATCH_ID = process.env.SERO_BASELINE_BATCH ?? new Date().toISOString().replace(/[:.]/g, '-');
 const SHOTS = path.resolve(__dirname, 'screenshots', 'architect-baseline');
 const PROBE = process.env.SERO_BASELINE_PROBE?.trim();
+// The interruption scenario pauses the project before the restart, as a user
+// would, to show the pause outlives the restart and nothing runs until Resume.
+const PAUSE_BEFORE_RESTART = process.env.SERO_BASELINE_PAUSE_BEFORE_RESTART === '1';
 const RUN_SCENARIOS = PROBE ? SCENARIOS.map((scenario) => ({ ...scenario, request: `${scenario.request} ${PROBE}` })) : SCENARIOS;
 const PILOT = path.join(SHOTS, 'pilot');
 const RECORDS = path.join(PILOT, 'records.json');
@@ -469,6 +472,22 @@ async function observeArchitect(projectId: string, finished: boolean, elapsedMs:
   };
 }
 
+/** Lines in a session file, or 0 when there is none yet. */
+function sessionLines(sessionPath: string | null | undefined): number {
+  return sessionPath && fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8').split('\n').filter(Boolean).length : 0;
+}
+
+/** True when the project is still paused after a restart and its owner wrote nothing for a minute. */
+async function stayedPaused(projectId: string): Promise<boolean> {
+  const before = await show(projectId);
+  const lines = sessionLines(before?.session.sessionPath);
+  await sleep(60_000);
+  const after = await show(projectId);
+  const quiet = sessionLines(after?.session.sessionPath) === lines;
+  console.log(`[baseline] after the restart: paused ${String(before?.paused)} then ${String(after?.paused)}, owner session ${lines} lines, quiet ${String(quiet)}`);
+  return Boolean(before?.paused && after?.paused && quiet);
+}
+
 async function runArchitect(scenario: ScenarioDefinition, folder: string, deadline: number): Promise<Observed> {
   const startedAt = Date.now();
   // The project starts on a workspace that already holds the seeded files. A new
@@ -494,7 +513,12 @@ async function runArchitect(scenario: ScenarioDefinition, folder: string, deadli
   let end = await drive(projectId, scenario.id, deadline, scenario.id === 'interruption' ? midRun : undefined);
   if (end === 'interrupt') {
     restarted = true;
+    if (PAUSE_BEFORE_RESTART) {
+      const paused = await projects<{ ok: boolean; text: string }>('pause', projectId);
+      expect(paused.ok, paused.text).toBe(true);
+    }
     await restartApp();
+    if (PAUSE_BEFORE_RESTART) recoveries.push({ cause: 'restart while paused', result: await stayedPaused(projectId) ? 'held' : 'failed' });
     // Resuming is the action the app offers after a restart, so it is what a
     // user does when the project is held. Interrupted direct work continues on
     // its own, and Resume refuses a project that is neither paused nor blocked.
