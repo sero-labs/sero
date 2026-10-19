@@ -156,7 +156,7 @@ button.bd-row:hover { background: var(--bd-raised); }
 .bd-say .ar-composer .ar-btn { height: 32px; border-radius: 9px; border: 1px solid var(--bd-line); background: var(--bd-raised); color: var(--text-primary); }
 @keyframes bd-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .bd-dot, .bd-stream p span::after { animation: none !important; } }
-@container bd (max-width: 980px) {
+@container bd (max-width: 1100px) {
   .bd-board { grid-template-columns: minmax(0, 1fr); }
   .bd-hero { grid-template-columns: 44px minmax(0, 1fr); }
   .bd-nums { grid-column: 2; }
