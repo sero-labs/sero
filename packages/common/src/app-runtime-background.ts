@@ -25,6 +25,7 @@ export type {
   AppRuntimeStartManagedDevServerOptions,
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeDevServersApi,
+  AppRuntimePageCapture,
 } from './app-runtime-dev-servers';
 
 // Split into app-runtime-ui.ts (500-LOC limit); re-exported for existing imports.

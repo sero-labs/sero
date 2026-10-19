@@ -7,6 +7,7 @@ import { assertWorkspaceCreateDeclared, createWorkspaceForApp } from '@electron/
 import { workspaceCreateDeps } from '@electron/ipc/workspace/workspace';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
+import { captureUrlHeadless } from '@electron/features/apps/app-control/headless-capture';
 import { focusMainWindow } from '@electron/platform/desktop/notifications';
 import { notify } from '@electron/features/notifications/feed';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
@@ -247,6 +248,12 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
         const runtime = await runtimeFromServerId(serverId);
         await runtime.restartDevServer({ serverId });
         return true;
+      },
+      capture: async (url) => {
+        const capture = await captureUrlHeadless(url);
+        return capture.ok && capture.base64
+          ? { ok: true, base64: capture.base64 }
+          : { ok: false, error: capture.error ?? 'no image was returned' };
       },
       unregister: (serverId) => {
         void runtimeFromServerId(serverId)
