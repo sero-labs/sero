@@ -172,6 +172,7 @@ Sero bridges selected extension tools and commands into `sero-cli` so agents use
 - A plugin bridges all its tools by default. `sero.plugin.bridgeTools` narrows that to a list of tool names, or turns it off with `false`.
 - A bridged tool is a `sero` command and not a direct tool, so its schema does not load at the start of every session. `design_library_assets`, `design_library_settings` and `mcp_manager` work this way. In chat, `automation_browser` does too. Run `sero help <command>` for its arguments.
 - A tool declares which kinds of session may have it with `sero.plugin.toolSessionKinds`, for example `{ "goal": ["chat"], "room": ["member"] }`. The kinds are `chat`, `subagent` and `member` (Architect and Room members). A tool with no entry is for every kind. The host does not load a tool into a session of another kind.
+- A tool that only the plugin's own UI calls, through `appAgent.invokeTool`, goes in `sero.plugin.uiOnlyTools`, for example `["goals"]`. Register it with `exposure: 'hidden'` and leave it out of `bridgeTools`. The host hides every listed tool from the model and never bridges it, so no model can call it as a tool or as a `sero` command. The UI still reaches it. Use this for a tool whose actions count as the user's own, such as changing a limit the user set.
 - The goal tools `goal_complete`, `goal_blocked` and `goal_wait` are active only while a goal runs.
 - `research` is explicitly not bridged.
 - Admin tooling is intentionally not agent-accessible through this bridge.
