@@ -41,7 +41,7 @@ const DIRECT_WORK_HELP = [
   'You may do a milestone yourself instead of dispatching it. Choose by the work: do it yourself when one agent can finish it, and dispatch when it needs specialists, parallel work or an independent reviewer.',
   'To do it yourself: work --operation begin --milestoneId <id>, then use your own tools in the project folder. In a Worktree project, begin makes a checkout for the milestone and names it: work only there. If the work needs another turn, end the wake with work --operation continue. When it is complete: work --operation report --executionId <id> --text "<what you completed>" [--destination workspace-files], then ask for evidence. In a Worktree project the report commits your work to the branch of that checkout, and --destination workspace-files records that branch as the receipt. Your report is a claim and your own tests are a self-check, never an independent review.',
   'Work marked interrupted was stopped part-way. Its files are kept. Inspect them and go on with work --operation continue; do not begin it again and do not repeat an outside action whose result you cannot confirm.',
-  'To wait for something to end: work --operation wait --source child --target <milestone or research id> for a Room or Workflow you started; --source process --target <dev server id> for a dev server Sero manages; --source ci --target <branch or commit> for its CI checks. A process or ci wait belongs to the milestone you do yourself, or name it with --milestoneId. Add [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. Anything else cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
+  'To wait for something to end: work --operation wait --source child --target <milestone or research id> for a Room or Workflow you started; --source process --target <dev server id> for the dev server that preview evidence left running (its id is on the milestone line); --source ci --target <branch or commit> for its CI checks. A process or ci wait belongs to the milestone you do yourself, or name it with --milestoneId. Add [--deadlineMinutes <n>]. That ends the wake, and you are woken once when it ends. A failed or expired wait is not completion. Anything else cannot be monitored: end the wake with sleep or blocked and say what the user should check.',
 ];
 
 /** Where the owner must work while a worktree execution is active. Short: it travels in every wake. */
@@ -64,6 +64,7 @@ function milestoneLine(milestone: Milestone): string {
   }
   if (milestone.parkedBy) parts.push(`parked by ${milestone.parkedBy}`);
   if (milestone.preview) parts.push(`preview ${milestone.preview.route}`);
+  if (milestone.evidence?.preview?.serverId) parts.push(`preview dev server ${milestone.evidence.preview.serverId}`);
   return parts.join(', ');
 }
 

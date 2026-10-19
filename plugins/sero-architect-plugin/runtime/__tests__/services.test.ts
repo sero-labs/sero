@@ -378,9 +378,9 @@ describe('runtime services', () => {
     expect(started).toEqual([{ workspacePath: '/home/dan/projects/hollow', cwdPath: dir }]);
   });
 
-  it('rejects an HTTP error preview without shutting down the shared preview server', async () => {
+  it('rejects an HTTP error preview, keeps the shared preview server running and names it for a wait', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
-    const { host, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
+    const { host, store, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
     const server = createServer((_request, response) => { response.statusCode = 404; response.end('missing'); });
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
     const port = (server.address() as AddressInfo).port;
@@ -396,6 +396,9 @@ describe('runtime services', () => {
     }
     expect(stopped).toBe(false);
     expect(wakes[0]?.items[0]).toContain('returned HTTP 404');
+    // The owner has no dev server command, so the id it may wait on is on the record.
+    const saved = await store.read(buildingProject().id);
+    expect(saved?.milestones[0]?.evidence?.preview?.serverId).toBe('srv-1');
   });
 
   it.each(['throw', 'result'] as const)('records the capture failure (%s) and accounts for reported usage', async (mode) => {

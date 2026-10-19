@@ -152,7 +152,9 @@ export async function runPreviewCapture(
         throw new Error(`Preview capture failed: ${capture.error}.${file}`);
       }
     }
-    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}) };
+    // In the project folder the server keeps running, so the owner can wait on it.
+    const running = checkout === record.folder && server.serverId ? { serverId: server.serverId } : {};
+    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}), ...running };
   } finally {
     // A checkout is released and restored later. A server left running would be reused
     // by command and directory, and could serve the code it loaded before.

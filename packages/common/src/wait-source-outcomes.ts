@@ -17,7 +17,7 @@ export interface WaitSourceOutcome {
 
 /** Why a process wait cannot be registered on this server, or null when it can. */
 export function processWaitRefusal(serverId: string, server: AppRuntimeDevServer | undefined): string | null {
-  if (!server) return `No dev server "${serverId}" in this workspace. Wait on the id \`sero devserver list\` shows for a running server.`;
+  if (!server) return `No dev server "${serverId}" in this workspace. Wait on the id of a dev server Sero is running.`;
   if (server.status !== 'running' && server.status !== 'starting') return `Dev server "${serverId}" is already ${server.status}.`;
   return null;
 }
