@@ -1,18 +1,5 @@
 import type { LoadExtensionsResult, ToolDefinition } from '@earendil-works/pi-coding-agent';
-import {
-  registerAppControlCliCommands,
-  registerAppStateCliCommands,
-  registerArtifactCliCommands,
-} from './commands/apps';
-import {
-  registerDevServerCliCommands,
-  registerTerminalCliCommands,
-} from './commands/container';
-import { registerEditorCliCommands } from './commands/editor';
-import { registerBrowserCliCommands } from './commands/browser';
-import { registerSessionCliCommands } from './commands/agent';
-import { registerVcsCliCommands } from './commands/git';
-import { registerWorkspaceCliCommands } from './commands/workspace';
+import { registerCoreCommands } from './commands/core';
 import {
   registerHelpCliCommand,
   CliRegistry,
@@ -45,20 +32,6 @@ export function resetCliRegistryForTests(): void {
   registry = null;
   clearPluginBridgePolicyCache();
   clearBridgedExtensionSessionItems();
-}
-
-function registerCoreCommands(target: CliRegistry): void {
-  registerAppControlCliCommands(target);
-  registerWorkspaceCliCommands(target);
-  registerSessionCliCommands(target);
-  registerVcsCliCommands(target);
-  registerDevServerCliCommands(target);
-  registerArtifactCliCommands(target);
-  registerEditorCliCommands(target);
-  registerAppStateCliCommands(target);
-  registerTerminalCliCommands(target);
-  registerBrowserCliCommands(target);
-  registerHelpCliCommand(target);
 }
 
 export function getCliRegistry(): CliRegistry {
