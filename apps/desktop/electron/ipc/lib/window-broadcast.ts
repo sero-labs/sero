@@ -19,7 +19,9 @@ function getSendableTarget(window: BrowserWindow): IpcSendTarget | null {
 
     const contents = window.webContents as MaybeWebContents;
     if (contents.isDestroyed?.() || contents.isCrashed?.()) return null;
-    if (contents.isLoading?.() || contents.isLoadingMainFrame?.()) return null;
+    // Only the main frame: `isLoading()` is also true while an iframe loads,
+    // such as a dev server preview, and every event sent then was lost.
+    if (contents.isLoadingMainFrame?.()) return null;
     if (contents.getURL && !contents.getURL()) return null;
 
     const frame = contents.mainFrame as MaybeFrame | undefined;
