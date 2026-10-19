@@ -4,6 +4,7 @@ import { gitGraphifyProbes } from './probes/group-git-graphify';
 import { mcpProbes } from './probes/group-mcp';
 import { webFeedbackProbes } from './probes/group-web-feedback';
 import type { ToolProbe } from './types';
+import { codemodeProbe, createAgentProbe, subagentProbe } from './probes/agents';
 import { automationBrowserProbe } from './probes/automation-browser';
 import { bashProbe } from './probes/bash';
 import { editProbe } from './probes/edit';
@@ -44,6 +45,9 @@ export const TOOL_PROBES: ToolProbe[] = [
   seroBrowserProbe,
   seroAppProbe,
   automationBrowserProbe,
+  codemodeProbe,
+  createAgentProbe,
+  subagentProbe,
   ...cronMemoryProbes,
   ...webFeedbackProbes,
   ...gitGraphifyProbes,
