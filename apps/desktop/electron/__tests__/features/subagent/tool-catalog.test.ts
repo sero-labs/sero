@@ -21,7 +21,9 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
 }));
 vi.mock('@electron/features/plugins/resource-compatibility', () => ({
-  packageRootForResourcePath: (resourcePath: string) => resourcePath.split('/extension/')[0] ?? null,
+  // A relative path resolves against the working directory, here inside a plugin package.
+  packageRootForResourcePath: (resourcePath: string) =>
+    resourcePath.startsWith('/') ? resourcePath.split('/extension/')[0] ?? null : '/plugins/launch-dir',
 }));
 const policy = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
 vi.mock('@electron/features/plugins/bridge-policy', () => ({
@@ -123,6 +125,16 @@ describe('subagent tool catalog', () => {
 
     expect(getToolPackagePath('ls')).toBeUndefined();
     expect(getToolCatalogFor('member').map((tool) => tool.name)).toContain('ls');
+  });
+
+  it('names no package for a built-in or inline tool, wherever Sero was started', () => {
+    recordRunToolCatalog([
+      { name: 'ls', description: 'List files', sourceInfo: { path: 'builtin:ls' } },
+      { name: 'inline_tool', description: 'Inline', sourceInfo: { path: '<inline:1>' } },
+    ] as never);
+
+    expect(getToolPackagePath('ls')).toBeUndefined();
+    expect(getToolPackagePath('inline_tool')).toBeUndefined();
   });
 
   it('keeps a platform tool for a managed session when a run reports it from inside a package', () => {

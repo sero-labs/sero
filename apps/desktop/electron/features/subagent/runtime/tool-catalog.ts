@@ -100,8 +100,13 @@ function declaresPiExtensions(packageRoot: string): boolean {
  * source sits inside the desktop app, whose package root is the app itself;
  * recording that would make a member approved for the tool load the whole app
  * as an extension.
+ *
+ * Pi gives built-in and inline tools a synthetic path (`builtin:ls`,
+ * `<inline:1>`). Resolved, it would name whatever package holds the process's
+ * working directory, so it names no package at all.
  */
 function pluginPackageOf(resourcePath: string): string | null {
+  if (!path.isAbsolute(resourcePath)) return null;
   const packagePath = packageRootForResourcePath(resourcePath);
   return packagePath && declaresPiExtensions(packagePath) ? packagePath : null;
 }
