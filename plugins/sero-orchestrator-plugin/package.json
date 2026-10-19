@@ -58,7 +58,8 @@
       "runtimeAbi": 3,
       "preBuilt": false,
       "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
-      "bridgeTools": ["orchestrator", "goal", "goals", "room", "rooms"],
+      "bridgeTools": ["orchestrator", "goal", "room", "rooms"],
+      "uiOnlyTools": ["goals"],
       "toolSessionKinds": {
         "orchestrator": ["chat", "subagent"],
         "goal": ["chat"],

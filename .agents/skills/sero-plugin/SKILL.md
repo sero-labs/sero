@@ -59,6 +59,7 @@ App tools are bridged into the single `sero-cli` tool — always use `pi.registe
 
 - Plugins bridge all tools to `sero <tool> ...` by default
 - `sero.plugin.bridgeTools`: omit/`true` = bridge all, `false` = none, `string[]` = selected tool names
+- `sero.plugin.uiOnlyTools`: `string[]` of tools only your UI calls through `appAgent.invokeTool`. Leave a UI-only tool out of `bridgeTools` and register it with `exposure: 'hidden'`; the host enforces the same for every declared name. Its actions count as the user's, so a model that could call it would be able to raise a limit the user set
 - Custom CLI help / summary / raw-args parsing goes on the tool's `cli` field
 - `cli.overrideBuiltin: true` only when intentionally replacing a builtin command
 - Never register app tools as `customTools` in `createAgentSession()`
