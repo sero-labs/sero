@@ -4,6 +4,10 @@
  *
  * Read-only git commands (status, log, diff, show, blame, etc.) pass through.
  * Context-dependent commands (remote, branch, config) are inspected argument-by-argument.
+ *
+ * A git invocation may be written with a path (`/usr/bin/git`) and with global
+ * options before the subcommand (`git --no-pager diff`). Both forms are parsed
+ * so the subcommand, not an option, decides the classification.
  */
 
 /** Mutating git commands that the agent should not run directly. */
@@ -21,9 +25,106 @@ const READ_ONLY_GIT_SUBCOMMANDS = new Set([
   'cat-file', 'reflog', 'fetch',
 ]);
 
+/**
+ * Global options that only change how git reads or presents a command, so the
+ * subcommand keeps deciding whether the invocation mutates anything.
+ */
+const HARMLESS_GLOBAL_FLAGS = new Set([
+  '-P', '--no-pager', '-p', '--paginate',
+  '--no-replace-objects', '--no-optional-locks', '--bare',
+  '--literal-pathspecs', '--glob-pathspecs', '--noglob-pathspecs', '--icase-pathspecs',
+  '--version', '--help',
+]);
+
+/** Harmless global options that consume the next token as their value. */
+const HARMLESS_GLOBAL_VALUE_FLAGS = new Set(['-C']);
+
+/** Harmless global options in glued (`-C/path`) or `--x=y` form. */
+const HARMLESS_GLOBAL_PREFIXES = [
+  /^-C\S+$/,
+  /^--git-dir=/,
+  /^--work-tree=/,
+  /^--namespace=/,
+  /^--super-prefix=/,
+];
+
+/**
+ * Global options that can change what a command runs or how it behaves: a
+ * config override can install a pager, external diff driver or alias that
+ * spawns a process, so a read-only-looking subcommand is not trusted with one.
+ */
+const BEHAVIOUR_CHANGING_GLOBAL_PREFIXES = [/^-c/, /^--config-env/, /^--exec-path/, /^--list-cmds/, /^--attr-source/];
+
 /** Strip shell redirections (2>&1, >/dev/null, etc.) so they don't pollute arg matching. */
 function stripRedirections(s: string): string {
   return s.replace(/\d*>\s*&?\d+/g, '').replace(/\d*>+\s*\S+/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Split a segment into tokens, keeping quoted arguments together. */
+function tokenize(input: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | null = null;
+  let started = false;
+  for (const ch of input) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else current += ch;
+      started = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      started = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (started) tokens.push(current);
+      current = '';
+      started = false;
+      continue;
+    }
+    current += ch;
+    started = true;
+  }
+  if (started) tokens.push(current);
+  return tokens;
+}
+
+function basename(token: string): string {
+  const slash = token.lastIndexOf('/');
+  return slash === -1 ? token : token.slice(slash + 1);
+}
+
+type ParsedGitInvocation =
+  | { kind: 'classified'; subcommand: string | null; args: string[] }
+  | { kind: 'behaviour-changing' };
+
+/**
+ * Read the global options at `tokens[start]` (the `git` word) and return the
+ * subcommand with its arguments.
+ */
+function parseGitInvocation(tokens: string[], start: number): ParsedGitInvocation {
+  let i = start + 1;
+  while (i < tokens.length) {
+    const token = tokens[i] as string;
+    if (HARMLESS_GLOBAL_FLAGS.has(token)) {
+      i += 1;
+      continue;
+    }
+    if (HARMLESS_GLOBAL_VALUE_FLAGS.has(token)) {
+      i += 2;
+      continue;
+    }
+    if (!token.startsWith('-')) break;
+    if (HARMLESS_GLOBAL_PREFIXES.some((pattern) => pattern.test(token))) {
+      i += 1;
+      continue;
+    }
+    // `-c`, `--config-env`, `--exec-path` and anything unrecognised.
+    return { kind: 'behaviour-changing' };
+  }
+  return { kind: 'classified', subcommand: tokens[i] ?? null, args: tokens.slice(i + 1) };
 }
 
 const BRANCH_MUTATING_FLAGS = /(?:^|\s)-[dDmMCuf]\b|--delete|--move|--copy|--force|--set-upstream|--unset-upstream|--edit-description/;
@@ -38,27 +139,23 @@ const CONFIG_MUTATING_FLAGS = /--unset\b|--unset-all\b|--remove-section\b|--rena
 
 /**
  * Commands that are read-only in some forms and mutating in others.
- * Returns true if the git invocation is safe (read-only).
+ * Returns true if the invocation with these arguments is safe (read-only).
  */
-function isContextuallyReadOnly(rawSegment: string): boolean {
-  const segment = stripRedirections(rawSegment);
-
+function isContextuallyReadOnly(subcommand: string, args: string[]): boolean {
   // git remote — read-only: (no args), -v, show, get-url
-  const remoteMatch = segment.match(/git\s+remote(?:\s+(.*))?$/s);
-  if (remoteMatch) {
-    const rest = (remoteMatch[1] ?? '').trim();
-    return !rest || rest === '-v' || rest === '--verbose' || rest.startsWith('show') || rest.startsWith('get-url');
+  if (subcommand === 'remote') {
+    const [first, ...rest] = args;
+    if (!first) return true;
+    if (first === '-v' || first === '--verbose') return rest.length === 0;
+    return first === 'show' || first === 'get-url';
   }
 
   // git branch — read-only if only listing/filter flags, no positional branch names
-  const branchMatch = segment.match(/git\s+branch(?:\s+(.*))?$/s);
-  if (branchMatch) {
-    const rest = (branchMatch[1] ?? '').trim();
-    if (!rest) return true;
-    if (BRANCH_MUTATING_FLAGS.test(rest)) return false;
-    const tokens = rest.split(/\s+/).filter(Boolean);
+  if (subcommand === 'branch') {
+    if (args.length === 0) return true;
+    if (BRANCH_MUTATING_FLAGS.test(args.join(' '))) return false;
     let expectValue = false;
-    for (const t of tokens) {
+    for (const t of args) {
       if (expectValue) { expectValue = false; continue; }
       if (BRANCH_LISTING_FLAGS.has(t)) continue;
       if (t.startsWith('--sort=') || t.startsWith('--format=')) continue;
@@ -70,19 +167,20 @@ function isContextuallyReadOnly(rawSegment: string): boolean {
 
   // git config — read if ≤1 non-flag positional (reading a key), write if 2+ (setting value).
   // Certain flags are inherently mutating regardless of positional count.
-  const configMatch = segment.match(/git\s+config(?:\s+(.*))?$/s);
-  if (configMatch) {
-    const rest = (configMatch[1] ?? '').trim();
-    if (!rest || rest === '--list' || rest === '-l' || rest === '--global --list' || rest === '--global -l') {
-      return true;
-    }
-    // These flags modify config even with a single positional arg
-    if (CONFIG_MUTATING_FLAGS.test(rest)) return false;
-    const tokens = rest.split(/\s+/).filter((t) => !t.startsWith('-'));
-    return tokens.length <= 1;
+  if (subcommand === 'config') {
+    if (args.length === 0) return true;
+    if (CONFIG_MUTATING_FLAGS.test(args.join(' '))) return false;
+    const positionals = args.filter((t) => !t.startsWith('-'));
+    return positionals.length <= 1;
   }
 
   return false;
+}
+
+function isMutatingGitSubcommand(subcommand: string, args: string[]): boolean {
+  if (MUTATING_GIT_SUBCOMMANDS.has(subcommand)) return true;
+  if (READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return false;
+  return !isContextuallyReadOnly(subcommand, args);
 }
 
 /**
@@ -107,14 +205,15 @@ export function hasMutatingGit(command: string): boolean {
     .filter(Boolean);
 
   for (const segment of segments) {
-    const match = segment.match(/(?:^|\s)git\s+([a-zA-Z-]+)/);
-    if (!match?.[1]) continue;
-    const sub = match[1];
+    const tokens = tokenize(stripRedirections(segment));
 
-    if (MUTATING_GIT_SUBCOMMANDS.has(sub)) return true;
-    if (READ_ONLY_GIT_SUBCOMMANDS.has(sub)) continue;
-    if (isContextuallyReadOnly(segment)) continue;
-    return true; // unknown subcommand → treat as mutating
+    for (let i = 0; i < tokens.length; i += 1) {
+      if (basename(tokens[i] as string) !== 'git') continue;
+      const invocation = parseGitInvocation(tokens, i);
+      if (invocation.kind === 'behaviour-changing') return true;
+      if (invocation.subcommand === null) continue;
+      if (isMutatingGitSubcommand(invocation.subcommand, invocation.args)) return true;
+    }
   }
   return false;
 }
@@ -135,7 +234,7 @@ function isLikelyReadOnlySegment(segment: string): boolean {
   if (!withoutEnv) return true;
 
   const tokens = withoutEnv.split(/\s+/);
-  const cmd = tokens[0] ?? '';
+  const cmd = basename(tokens[0] ?? '');
   if (!cmd) return true;
   if (cmd === 'git') return !hasMutatingGit(withoutEnv);
   if (cmd === 'sed') {
