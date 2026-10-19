@@ -3,7 +3,7 @@ import { Button } from '@sero-ai/ui';
 
 import { sessionStartedAt, type FeedbackSummary } from '@sero-ai/common';
 import { useProjectFeedback, useProjectWork } from './lib/use-project-feedback';
-import { projectActivity } from '../shared/activity';
+import { projectActivity, type ProjectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { boardOf, liveRows, liveSummary, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
@@ -21,7 +21,7 @@ import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { TopBar, type ProjectControls } from './components/TopBar';
 import { WaitCard } from './components/WaitCard';
-import { waitCard } from './lib/wait-status';
+import { waitCard, type WaitCard as WaitCardFacts } from './lib/wait-status';
 
 /** A control a stop offers. At most one is the action the state is really asking for. */
 interface HeaderAction {
@@ -261,6 +261,72 @@ function StoppedTile({ record, activity, form, headerActions, asking }: { record
   );
 }
 
+/** One large tile. The board says which tiles apply, so the page only draws them in order. */
+function Tile({ when, children }: { when: boolean; children: ReactNode }) {
+  return when ? <>{children}</> : null;
+}
+
+/** Whether the project's start approval is behind it. */
+function hasStarted(record: ProjectRecord): boolean {
+  return hasAgreement(record) ? agreementApproved(record) : record.phase !== 'intake';
+}
+
+/** The sentence a refused start left on screen, until a later action says something newer. */
+function pageNotice(record: ProjectRecord, notice: string | null, startRefusal: string | null): string | null {
+  if (notice !== null) return notice;
+  return hasAgreement(record) && !agreementApproved(record) ? startRefusal : null;
+}
+
+/** What a waiting project waits for, as the wait card names it. */
+function waitingFor(wait: WaitCardFacts | null): string | undefined {
+  return wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined;
+}
+
+/** The wait card is drawn unless work is in hand: that is the Live tile's to say. */
+function showsWait(wait: WaitCardFacts | null): boolean {
+  return wait !== null && wait.kind !== 'working';
+}
+
+/** The Plan tile exists when there are steps, a written plan or research to open. */
+function planOnBoard(board: Board): boolean {
+  return board.steps.length > 0 || board.planNote !== null || board.researched;
+}
+
+/** Change on the record is offered at maintain, when the spec is open. */
+function changeRequest(id: string, record: ProjectRecord, actions: ArchitectActions): ((text: string) => Promise<ActionOutcome>) | undefined {
+  return record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined;
+}
+
+/**
+ * The state a stop tile reports, with the open questions set aside: a failed
+ * Workflow keeps its fix on screen while a question waits.
+ */
+function beneathQuestions(record: ProjectRecord, activity: ProjectActivity, context: Parameters<typeof projectActivity>[1]): ProjectActivity {
+  if (record.decisions.every((decision) => decision.answer !== null)) return activity;
+  return projectActivity({ ...record, decisions: record.decisions.filter((decision) => decision.answer !== null) }, context);
+}
+
+/** The newest proof picture a step saved: the one checked last that has one. */
+function newestProof(steps: readonly BoardStep[]): BoardStep | null {
+  return steps.reduce<BoardStep | null>((newest, step) => (step.proofKey !== null && (!newest?.proofKey || step.proofKey > newest.proofKey) ? step : newest), null);
+}
+
+/** The result's own sentence, unless the top tile already says it. */
+function resultSentence(record: ProjectRecord, board: Board): string | null {
+  const result = record.overview?.result;
+  return result !== undefined && result.text !== board.sentence ? result.text : null;
+}
+
+/** A delegated step stopped without reporting, so the card that repairs it is on the board. */
+function needsRepair(record: ProjectRecord): boolean {
+  return record.blockedReason !== null && record.milestones.some((item) => item.pendingDispatch);
+}
+
+/** Beside a plan, what was decided is listed under it, so live work never pushes it off the screen. */
+function madeBelowPlan(hasPlan: boolean, board: Board): boolean {
+  return !hasPlan && board.made.length > 0;
+}
+
 interface BoardColumnProps {
   record: ProjectRecord;
   actions: ArchitectActions;
@@ -268,7 +334,7 @@ interface BoardColumnProps {
   board: Board;
   /** The state a stop tile reports: the project's state with open questions set aside. */
   activity: ReturnType<typeof projectActivity>;
-  /** The project waits on a check or on the user. Work in hand is the Live tile's to show. */
+  /** True when the page has a wait card that says why nothing runs. Work in hand is the Live tile's to show. */
   wait: boolean;
   rows: readonly LiveRow[];
   notice: string | null;
@@ -281,40 +347,57 @@ interface BoardColumnProps {
   asking: boolean;
 }
 
-/** The large tiles that apply now, in their fixed order, then the decisions made. */
+/**
+ * The large tiles that apply now, in their fixed order, then the decisions made.
+ *
+ * Which tiles apply is the board's answer, not this component's: each rule is a
+ * named question below, so the markup reads in page order.
+ */
 function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision, hasPlan, asking }: BoardColumnProps) {
   const id = record.id;
   const preview = useProjectPreview(id);
   // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
   const hasPreview = usePreviewAvailable(id, record.milestones.map((milestone) => milestone.status).join(','));
-  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+  const started = hasStarted(record);
   const checked = record.milestones.some((milestone) => milestone.evidence);
   // The result shows the newest proof picture: the step checked last that has one.
-  const proof = board.steps.reduce<BoardStep | null>((newest, step) => (step.proofKey !== null && (!newest?.proofKey || step.proofKey > newest.proofKey) ? step : newest), null);
+  const proof = newestProof(board.steps);
   // The top tile already says the newest sentence. It is not said twice.
-  const resultText = record.overview?.result && record.overview.result.text !== board.sentence ? record.overview.result.text : null;
+  const resultText = resultSentence(record, board);
   return (
     <div className="bd-col">
       <PageNotice record={record} actions={actions} notice={notice} page={page} />
-      {board.main.includes('ask') && <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
-      {board.main.includes('stopped') && <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} asking={asking} />}
+      <Tile when={board.main.includes('ask')}>
+        <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />
+      </Tile>
+      <Tile when={board.main.includes('stopped')}>
+        <StoppedTile record={record} activity={activity} form={recoveryForm(record, actions, page.setNotice)} headerActions={headerActions} asking={asking} />
+      </Tile>
       {/* A stop or a question already says why nothing runs, and holds its own control. */}
-      {started && wait && !board.main.includes('stopped') && !board.main.includes('ask') && <WaitCard record={record} actions={actions} />}
-      {board.main.includes('live') && <BoardLive record={record} rows={rows} onOpenSession={page.controls.openSession} />}
-      {board.main.includes('result') && (
+      <Tile when={started && wait && !board.main.includes('stopped') && !board.main.includes('ask')}>
+        <WaitCard record={record} actions={actions} />
+      </Tile>
+      <Tile when={board.main.includes('live')}>
+        <BoardLive record={record} rows={rows} onOpenSession={page.controls.openSession} />
+      </Tile>
+      <Tile when={board.main.includes('result')}>
         <BoardResult
           headline={activity.headline}
           text={resultText}
           preview={hasPreview ? { busy: preview.busy, open: () => void preview.open() } : null}
           onOpenChecks={checked ? () => onOpenWork('evidence') : null}
-          picture={proof && <ProofPicture projectId={id} step={proof} className="bd-picture" />}
+          picture={proof === null ? undefined : <ProofPicture projectId={id} step={proof} className="bd-picture" />}
         />
-      )}
+      </Tile>
       {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
       {preview.url && <PreviewFrame url={preview.url} />}
-      {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
+      <Tile when={needsRepair(record)}>
+        <RepairCard projectId={id} />
+      </Tile>
       {/* Beside a plan, what was decided is listed under it, so live work does not push it off the screen. */}
-      {!hasPlan && board.made.length > 0 && <BoardMade rows={board.made} onChange={onChangeDecision} />}
+      <Tile when={madeBelowPlan(hasPlan, board)}>
+        <BoardMade rows={board.made} onChange={onChangeDecision} />
+      </Tile>
     </div>
   );
 }
@@ -330,25 +413,24 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
   const { epoch, work } = useProjectWork(record, actions);
   const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
   // A refused start is shown until the project starts or a later action says something newer.
-  const notice = page.notice ?? (hasAgreement(record) && !agreementApproved(record) ? startRefusal : null);
-  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+  const notice = pageNotice(record, page.notice, startRefusal);
+  const started = hasStarted(record);
 
-  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
+  const context = { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback };
+  const activity = projectActivity(record, context);
   const rows = liveRows(record, work, epoch, runtimeRunning);
   const wait = waitCard(record, Date.parse(record.updatedAt));
   // The state with the open questions set aside. A failed Workflow keeps its fix on screen while a question waits.
-  const open = record.decisions.some((decision) => decision.answer === null);
-  const beneath = open ? projectActivity({ ...record, decisions: record.decisions.filter((decision) => decision.answer !== null) }, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback }) : activity;
+  const beneath = beneathQuestions(record, activity, context);
   const board = boardOf(record, activity, {
     beneath,
     live: rows.length > 0,
     action: liveSummary(rows),
     asking: permissionPending,
-    waitingFor: wait?.kind === 'waiting' ? wait.rows.find((row) => row.label === 'Waiting for')?.value : undefined,
+    waitingFor: waitingFor(wait),
   });
-  // The Plan tile exists when there are steps, a written plan or research to open.
+  const hasPlan = planOnBoard(board);
   const changeDecision = (row: MadeRow): void => setSeed((was) => ({ count: was.count + 1, text: `Change this decision: "${row.text}". ` }));
-  const hasPlan = board.steps.length > 0 || board.planNote !== null || board.researched;
 
   return (
     <div className="bd-canvas">
@@ -361,7 +443,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
           page={page}
           board={board}
           activity={beneath}
-          wait={wait !== null && wait.kind !== 'working'}
+          wait={showsWait(wait)}
           rows={rows}
           notice={notice}
           headerActions={headerActions}
@@ -385,7 +467,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
           disabled={!started}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
-          onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}
+          onRequestChange={changeRequest(id, record, actions)}
         />
       </div>
       <SessionHistoryDialog
