@@ -44,7 +44,7 @@ Phase 0 acceptance: reproducible distinct-candidate comparisons exist, task acce
 - [x] 4.5 Reconcile pending amendments after crash, failed reopen or ambiguous response before affected work starts; verify a host-commit/Room-save interruption completes or holds the same revision with preserved accounting, worktree ownership and mailbox delivery, never a replacement grant or silent partial configuration.
 - [x] 4.6 Prototype pending/applied/denied amendment status with `sero-prototype`, then expose it through existing Room/Architect projections and update affected renderer/store, preload, main-process and Pi contracts; verify concrete pending and effective member configuration states and run React Doctor for changed React source.
 - [x] 4.7 Update `apps/docs-site/docs/guide/rooms-advanced.md` and `apps/docs-site/docs/reference/rooms.md` for running-Room adaptation, preserved history, safe boundaries and approval only for actual expansion; update the Orchestrator README and architecture authority section, verified against both standalone and Architect-linked Room behavior.
-- [ ] 4.8 Run focused host/Room checks and root `pnpm typecheck`, then a bounded interrupted amendment replay and matched collaborative scenario; retain evidence of safe in-policy adaptation, out-of-policy approval holds and unchanged histories across restart.
+- [x] 4.8 Run focused host/Room checks and root `pnpm typecheck`, then a bounded interrupted amendment replay and matched collaborative scenario; retain evidence of safe in-policy adaptation, out-of-policy approval holds and unchanged histories across restart.
 
 ## 5. Phase 4: Durable waits and long-running continuity
 
@@ -55,7 +55,7 @@ Phase 0 acceptance: reproducible distinct-candidate comparisons exist, task acce
 - [x] 5.5 Replace fixed internal interruption behavior with bounded stall/checkpoint recovery within the approved envelope, reusing Goal settled-boundary and steering behavior where appropriate; verify progressing work can cross internal watchdog intervals but explicit duration/turn/cost limits and repeated no-progress holds still stop work.
 - [x] 5.6 Prototype wait and limit-provenance status with `sero-prototype`, then project wait causes, deadlines, failure/expiry and limit provenance through existing UI/store/IPC/Pi contracts, preserving active versus waiting time; verify late events never imply completion and run React Doctor for changed React source.
 - [x] 5.7 Update `apps/docs-site/docs/guide/goals.md`, Architect guide/reference and relevant Rooms reference sections to distinguish observable automatic waits from manual waits, user limits from watchdogs, and restart/stop behavior; update the Orchestrator README, verified by documented commands and one rendered page per affected navigation/example slice.
-- [ ] 5.8 Run focused lifecycle/source checks and root `pnpm typecheck`, then a pre-bounded multi-hour continuity trial plus matched interruption replay; deliver evidence of safe automatic resumption within approval, no duplicate dispatch/action and retained user pause/stop intent, with unproved or uncertain effects explicitly held.
+- [x] 5.8 Run focused lifecycle/source checks and root `pnpm typecheck`, then a pre-bounded multi-hour continuity trial plus matched interruption replay; deliver evidence of safe automatic resumption within approval, no duplicate dispatch/action and retained user pause/stop intent, with unproved or uncertain effects explicitly held.
 
 ## 6. Phase 5: Reporting, guidance and a stable user experience
 

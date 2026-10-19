@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "loops": [
+    {
+      "id": "loop_36f0eaf2-7d3c-4746-9a02-da273198780b",
+      "title": "Deliver the truncate() fix",
+      "status": "draft",
+      "summary": "",
+      "prompt": "APPROVED ARCHITECT SCOPE. This brief and milestone govern the task. Earlier research artifacts are recommendations, not approvals; do not replace these requirements with them.\n\nProject brief: In src/text.js, truncate(text, max) is meant to return a string of at most max characters, ending in \"...\" when it had to cut the text. It sometimes returns something longer than max. Fix it and leave the other behaviour alone. This fix ships after a CI run on GitHub. Do m1 yourself. Once m1's evidence has passed, and before you accept m1, wait for the CI checks of commit 631c9423c36f7dd1864ecf59d3024f4d73f48d21 with work --operation wait --source ci --target 631c9423c36f7dd1864ecf59d3024f4d73f48d21 --milestoneId m1 --deadlineMinutes 40. Do not check CI yourself. When you are woken, accept m1 and say in the result summary how CI ended.\n\nMilestone: Deliver the truncate() fix\nThe accepted fix is already in the workspace: src/text.js truncate() returns at most max characters (ending in ... when cut, dots for max <= 3, empty for max <= 0), capitalize untouched, tests in test/text.test.js pass 6/6. CI on commit 631c9423c36f7dd1864ecf59d3024f4d73f48d21 passed all 12 checks. Delivery is a workspace-files receipt of these files.\n\nTask from the owner:\nDeliver the accepted fix for textkit. Objective: produce a workspace-files receipt of the accepted change to src/text.js (truncate must always return at most max characters, ending in ... when the text was cut, and leave capitalize and all other behaviour unchanged) together with the tests in test/text.test.js. Constraints: do not change behaviour beyond what is already accepted; do not add features. Acceptance criteria: the delivered files contain the accepted truncate implementation, the tests cover the over-length, exact-length and small-max cases, and npm test exits 0.",
+      "usage": {
+        "incomplete": true
+      },
+      "maxCostUsd": 0.9902725,
+      "createdAt": "2026-10-19T05:31:43.782Z",
+      "updatedAt": "2026-10-19T05:31:43.782Z"
+    }
+  ]
+}

@@ -69,7 +69,7 @@ The records name revisions 2ee1ca7f8 and 49f0323e9 with `+dirty`. The extra comm
 - No comparison of the strategies is claimed. The single agent was faster and cheaper on every scenario at this size, and every scenario is small enough for one agent.
 - The `collaborative-research` scenario did not produce a Room. Both Architect runs answered it with direct work. The scenario does not test collaboration.
 - The `substantial-feature` acceptance check proves `REVIEW.md` exists, not who wrote it. The single agent wrote its own review, once through its subagent tool. The check cannot tell an independent review from a self-review.
-- No run exercised a process wait, a CI wait, a stall recovery or a multi-hour run.
+- No pilot run exercised a process wait, a CI wait, a stall recovery or a multi-hour run. The later process-wait, CI-wait and multi-hour runs below did, apart from stall recovery.
 
 ## Owner protocol failures (6.1, 6.2)
 
@@ -160,7 +160,32 @@ One run of the `interruption` scenario, Architect only, with the runner's `SERO_
 - **The pause held.** The owner began m1 at 01:13:11 and the project was paused at 01:13:12. After the restart the record read paused at the start and the end of the watched minute. Execution `exec_dzlol32n` was marked interrupted with "Sero restarted while this work was in progress".
 - **Nothing ran while paused.** No file changed and nothing was dispatched until Resume at 01:14:15. After Resume the owner called `work --operation continue` on the same execution id, finished the work, and m1 was accepted on evidence. There is one `begin` and no second execution.
 - **One turn did start while paused,** at 01:13:15, so the runner recorded the paused check as failed. The turn's contract said the project was paused, and the owner slept without acting. The restart had replayed the start approval as a `decision` wake, which may run on a paused project, because the interrupted first turn never stamped its wake time. That breaks the promise that a paused owner is not woken. Filed as issue 641.
-- **Not shown:** a stop across a restart (unit tests only), and a multi-hour continuity trial. The multi-hour trial was not run and stays unproved.
+
+### A stop across a restart
+
+The same scenario with `SERO_BASELINE_STOP_BEFORE_RESTART=1`: the runner presses Stop as soon as work is in flight, Sero restarts, the runner watches for a minute, then presses Resume. Product source as at 631c9423c; only the runner switch was uncommitted. The record, session and log are in `stop-2026-10-19/`.
+
+- **Outcome** accepted, hidden check passed. 114 s, $0.010 plus $0.003 known only as a project total, 18 owner turns, context 5,635 to 16,522 tokens. No intervention beyond the Stop and Resume the run itself made.
+- **The stop held.** The owner began m1 at 05:33:25 as execution `exec_xrgvkyj0`, and the project was stopped at 05:33:26 with "stopped by the user". After the restart it read stopped at the start and the end of the watched minute.
+- **Nothing ran while stopped.** The owner's session has no entry between the `begin` result and Resume at 05:34:29. No turn started, and `src/csv.js` still read "not implemented" when the owner looked after Resume.
+- **Resume continued the same execution.** The owner called `work --operation continue` on m1, finished it, and m1 was accepted on evidence and delivered. There is one `begin` and no second execution.
+
+The multi-hour trial is below.
+
+### The multi-hour continuity trial
+
+`small-fix`, Architect only, bounded before it started: $1 cap, 160 minutes, `deepseek/deepseek-flash` at low thinking. `SERO_BASELINE_SERVER_MINUTES=125` seeds a dev server that exits with code 0 after 125 minutes. The probe asks the owner to give m1 the preview route `/`, wait for that server to exit once m1's evidence has passed, and accept m1 when woken. The owner must not stop or check the server itself.
+
+- **First attempt: the trial never waited.** Evidence for m1 started the server through Sero and left it running, as Workspace mode does. The owner then changed `server.js` and asked for fresh evidence. Evidence reused the running server, which still served the old page. The capture subagent stopped the managed server and started its own copy from its shell. The owner's wait was refused with "already stopped", and m1 was accepted after 2 minutes. Two fixes followed: evidence now stops a preview server earlier evidence left running (f3fad6411), and the seeded server serves the project README, so the owner has no reason to edit it (3a706ca2e). The capture subagent's reach is issue 642. Its own server also outlived the app. The record is in `continuity-trial-2026-10-19a/`.
+- **Second attempt: the trial ran.** Revision fe15569dc. The owner did m1, its evidence passed, and at 03:14:12 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792379620883:workspace:root:49506`, with a 180-minute deadline.
+- **Nothing ran during the wait.** For 2 hours 5 minutes the owner's session got no entry after the registering turn's own tail, which ended 1.5 s after registration. No owner turn started, no file changed and nothing was dispatched.
+- **The wait ended on its own.** At 05:19:06 the server exited with code 0 and the wait ended `satisfied`. Its one wake was reserved and consumed 8 ms apart. Nothing outside Sero intervened.
+- **Resumption stayed within approval.** The owner accepted m1 on its passed evidence at 05:19:11, under the start approval and the grant it began with. The result summary says the server "exited on its own with code 0 (no intervention)". Release then started its one Workflow.
+- **No duplicate.** One `begin`, one wait, one release dispatch, one orchestrator loop.
+- **Outcome** accepted, hidden check passed. 7,564 s elapsed, 45 s active, $0.014 plus $0.002 known only as a project total. The record, session, grant, log and `wait-report.txt` are in `continuity-trial-2026-10-19b/`.
+- **Measurement gap.** The baseline record reports `waitMs: 0` for this run, as it does for every Architect run in this file. It counts only journalled waits for approval, queue, pause and backoff, and the Architect runtime records none of them. Elapsed minus active time is the honest waiting figure here. Issue 643.
+
+The pause, stop and interruption parts of 5.8 are the pause run above and the interruption replays in the pilot section.
 
 ## Wait sources (5.3)
 
@@ -186,7 +211,17 @@ Live, a child wait ended `satisfied` with one wake in substantial-feature replay
 Model `deepseek/deepseek-flash` at low thinking, $1 and 25 minutes.
 
 - **First rehearsal: the wait was unreachable.** The owner contract, and the refusal for an unknown target, both told the owner to find the server's id with `sero devserver list`. A managed session has no host commands, so the owner got "Unknown command" for every variant it tried. It then accepted m1 without waiting. A process wait could never have worked for an owner. Fixed in 9ecf18f49: evidence saves the id of the preview server it leaves running, and the milestone line shows it. The record is in `continuity-rehearsal-2026-10-19a/`.
-- **Second rehearsal: the wait worked.** At 03:00:00 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792378755548:workspace:root:49316`. The turn that set up the wait ended at 03:00:01. The owner's session then got no entry until the wake. At 03:05:46 the wait ended `satisfied` with "exited with code 0", and its one wake was reserved and consumed in the same 10 ms. The owner accepted m1 at 03:05:48 and wrote in the result summary that the server "exited on its own with code 0". There was one `begin` and one dispatch, the release Workflow. Accepted, 426 s, $0.044 plus $0.030 known only as a project total. The record and `wait-report.txt` are in `continuity-rehearsal-2026-10-19b/`. No CI wait ran live: the scenarios have no remote repository with checks. The CI source is covered by the tests above only.
+- **Second rehearsal: the wait worked.** At 03:00:00 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792378755548:workspace:root:49316`. The turn that set up the wait ended at 03:00:01. The owner's session then got no entry until the wake. At 03:05:46 the wait ended `satisfied` with "exited with code 0", and its one wake was reserved and consumed in the same 10 ms. The owner accepted m1 at 03:05:48 and wrote in the result summary that the server "exited on its own with code 0". There was one `begin` and one dispatch, the release Workflow. Accepted, 426 s, $0.044 plus $0.030 known only as a project total. The record and `wait-report.txt` are in `continuity-rehearsal-2026-10-19b/`.
+
+### A CI wait, live
+
+`small-fix`, Architect only, revision 631c9423c. `SERO_BASELINE_ORIGIN=https://github.com/sero-labs/sero.git` gives the seeded repository that `origin`, so `gh` reads checks there. Its push URL is a missing local path, so the run cannot push. The probe asks the owner to wait for the CI checks of commit 631c9423c once m1's evidence has passed, and accept m1 when woken. Just before the run, `test.yml` was dispatched once on this branch at that commit (run 39204027316). Model `deepseek/deepseek-flash` at low thinking, $1 and 40 minutes.
+
+- **Registered while checks ran.** At 05:21:27 the owner waited on the commit with a 40-minute deadline. Typecheck, Build and Tests were still running.
+- **Nothing ran during the wait.** For 10 minutes the owner's session got no entry after the registering turn's own tail, which ended 2.6 s after registration.
+- **The wait ended on a later read.** The last check finished at 05:30:11. At 05:31:32 the next two-minute read saw it, and the wait ended `satisfied` with "All 12 CI checks passed on 631c9423c36f7dd1864ecf59d3024f4d73f48d21". Twelve counts 11 check runs and one commit status. Its one wake was reserved and consumed 4 ms apart.
+- **Then the owner acted once.** It accepted m1 at 05:31:36 and its result summary names the passed checks. One `begin`, one wait, then release.
+- **Outcome** accepted, hidden check passed. 672 s elapsed, 44 s active, $0.010 plus $0.002 known only as a project total. The record, `wait-report.txt` and `check-runs.json` with every check's times are in `ci-wait-2026-10-19/`.
 
 ## Overview and Work views (6.3)
 
@@ -209,7 +244,7 @@ Two preview-fixture faults, not product faults: the Sudoku fixture borrows a syn
 
 ## Requirement to evidence
 
-Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source unchanged from fd903a5d8); Room amendment b05fca605 plus the spec fix before it was committed; in-policy Room run, collaborative pairs and process-wait runs on the commits named in their sections; probe and pause runs as stated in their sections.
+Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source unchanged from fd903a5d8); Room amendment b05fca605 plus the spec fix before it was committed; in-policy Room run, collaborative pairs, process-wait, CI-wait, stop and multi-hour runs on the commits named in their sections; probe and pause runs as stated in their sections.
 
 | Area | Built | Evidence | Not met or not shown |
 | --- | --- | --- | --- |
@@ -217,7 +252,7 @@ Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source uncha
 | Direct work (2.x) | Execution identity saved first, begin/continue/report, interruption, Worktree mode, UI row | All 16 kept Architect runs did m1 directly; both rerun2 interruption runs kept their execution id and needed no intervention | |
 | Tool discovery and Code Mode (3.x) | Approved tools registered deferred, `tool_search`, reopen restore, owner skills, Code Mode for managed sessions | Desktop tests on a real Pi session; 8 live `codemode` calls; the probe above loaded an approved, unloaded tool with `tool_search` and used it with no restart or second approval; the tool-catalogue fix 0c539db70 with its test | One probe, not a matched replay |
 | Grant amendments (4.x) | Host amendment, Room revisions through it, restart reconcile, Team view | Desktop and Orchestrator tests; a held change survived a restart, was approved, kept the grant id and member histories; an in-policy change amended the grant with no question and kept every history; the collaborative probe formed a Room under both strategies and both were accepted | One collaborative pair per strategy, too few to compare; issue 640 |
-| Durable waits and continuity (5.x) | Child, process and CI sources, reserved and consumed wakes, stall recovery, limit origins, wait card | Architect, Orchestrator and desktop tests; a live child wait ended `satisfied` with one wake; interruption replays resumed on their execution id with no duplicate; the pause run kept the pause across a restart and resumed the same execution | No multi-hour trial was run. No live process or CI wait. Both stay held as unproved. Issue 641 |
+| Durable waits and continuity (5.x) | Child, process and CI sources, reserved and consumed wakes, stall recovery, limit origins, wait card | Architect, Orchestrator and desktop tests; live child, process and CI waits each ended `satisfied` with one wake and a quiet owner; a 2-hour-5-minute process wait in the bounded multi-hour trial resumed within approval with no duplicate; interruption replays resumed on their execution id with no duplicate; the pause and stop runs each held across a restart and resumed the same execution | Stall recovery is shown by tests only. The baseline record's `waitMs` misses durable waits (issue 643). Issues 641, 642 |
 | Reporting and guidance (6.x) | Protocol-failure counts, three owner protocol fixes, docs pass, README and `ARCHITECTURE.md` reconcile | The counts above; d194f5a97; docs commits | The reporting action is a recommendation for a separate change, labelled as an experiment |
 
 **Design deviation.** The CI source is one host primitive, `getRefChecks`, read every 120 seconds while a CI wait is open, not the existing GitHub poller the design named. `design.md` records it.
@@ -226,7 +261,7 @@ Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source uncha
 
 **Package.** `@sero-ai/common` is 0.24.0 on this branch and is the only published package changed. It is not yet published.
 
-**Open issues found by this work:** 623, 625, 638 (a desktop projection test that fails on this branch and without its changes), 639 (Room scenarios 1 to 4 drive the old start UI), 640 (an approved Room change leaves the Room paused for the user), 641 (a restart replays the start approval as a wake on a paused project).
+**Open issues found by this work:** 623, 625, 638 (a desktop projection test that fails on this branch and without its changes), 639 (Room scenarios 1 to 4 drive the old start UI), 640 (an approved Room change leaves the Room paused for the user), 641 (a restart replays the start approval as a wake on a paused project), 642 (the evidence capture subagent can stop the managed preview server and leave its own running), 643 (baseline records miss durable wait time).
 
 ## Earlier runs, 2026-10-06
 
