@@ -404,7 +404,7 @@ describe('runtime services', () => {
       const project = buildingProject({ milestones: [milestone('m1', { status: 'verifying', preview: { route: '/' }, evidence: earlier('srv-waited') })], waits: [wait] as never });
       const { calls, preview } = await check(project, ['srv-waited']);
       expect(calls).toEqual([]);
-      expect(preview).toMatchObject({ smokePassed: false, failure: expect.stringContaining('which you are waiting on') });
+      expect(preview).toMatchObject({ smokePassed: false, failure: expect.stringContaining('which you are waiting on'), serverId: 'srv-waited' });
     });
   });
 

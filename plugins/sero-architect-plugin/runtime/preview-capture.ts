@@ -86,8 +86,9 @@ export async function runPreviewCapture(
     if (!waitedOn.has(serverId)) {
       await host.stopDevServer(serverId).catch(() => false);
     } else if (checkout === record.folder) {
-      // The start would reuse it, and the check would see old code.
-      return { route, smokePassed: false, capturePath: null, failure: `The preview would reuse dev server ${serverId}, which you are waiting on, and check the code it loaded then. Let that wait end, then request evidence again.` };
+      // The start would reuse it, and the check would see old code. The id stays
+      // on the evidence so the next request still finds and protects it.
+      return { route, smokePassed: false, capturePath: null, failure: `The preview would reuse dev server ${serverId}, which you are waiting on, and check the code it loaded then. Let that wait end, then request evidence again.`, serverId };
     }
   }
   const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: checkout, command, name: `architect ${milestone.id}`, scope: 'workspace' });
