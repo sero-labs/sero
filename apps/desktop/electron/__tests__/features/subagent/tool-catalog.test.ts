@@ -3,10 +3,18 @@ import { describe, expect, it, vi } from 'vitest';
 // The catalog module reads/writes a cache file and pulls in infra/SDK at import
 // for its startup enumeration. None of that is needed to exercise the in-memory
 // store, so stub it all out.
-const fsFake = vi.hoisted(() => ({
-  readFileSync: vi.fn((): string => { throw new Error('no cache'); }),
-  existsSync: vi.fn((_path: string) => true),
-}));
+const fsFake = vi.hoisted(() => {
+  // A plugin package lists Pi extensions; the desktop app's package does not.
+  const readPackage = (file: string): string => {
+    if (file.endsWith('/package.json')) return file.startsWith('/plugins/') ? '{"pi":{"extensions":["./extension/index.ts"]}}' : '{}';
+    throw new Error('no cache');
+  };
+  return {
+    readPackage,
+    readFileSync: vi.fn(readPackage),
+    existsSync: vi.fn((_path: string) => true),
+  };
+});
 vi.mock('fs', () => ({
   readFileSync: fsFake.readFileSync,
   existsSync: fsFake.existsSync,
@@ -14,8 +22,6 @@ vi.mock('fs', () => ({
 }));
 vi.mock('@electron/features/plugins/resource-compatibility', () => ({
   packageRootForResourcePath: (resourcePath: string) => resourcePath.split('/extension/')[0] ?? null,
-  // A package with a plugin declaration lives under /plugins; the desktop app has none.
-  getPackageCompatibilityForResourcePath: (resourcePath: string) => (resourcePath.startsWith('/plugins/') ? { supported: true } : null),
 }));
 const policy = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
 vi.mock('@electron/features/plugins/bridge-policy', () => ({
@@ -140,9 +146,9 @@ describe('subagent tool catalog', () => {
   describe('the saved cache', () => {
     async function loadCatalogWith(cache: unknown) {
       vi.resetModules();
-      fsFake.readFileSync.mockImplementation(() => JSON.stringify(cache));
+      fsFake.readFileSync.mockImplementation((file) => (file.endsWith('/package.json') ? fsFake.readPackage(file) : JSON.stringify(cache)));
       const mod = await import('@electron/features/subagent/runtime/tool-catalog');
-      fsFake.readFileSync.mockImplementation(() => { throw new Error('no cache'); });
+      fsFake.readFileSync.mockImplementation(fsFake.readPackage);
       return mod.getToolCatalogFor('subagent').map((tool) => tool.name);
     }
 
@@ -162,12 +168,12 @@ describe('subagent tool catalog', () => {
     it('offers a member only the plugin tools a real session reported in this process', async () => {
       fsFake.existsSync.mockImplementation(() => true);
       vi.resetModules();
-      fsFake.readFileSync.mockImplementation(() => JSON.stringify({
+      fsFake.readFileSync.mockImplementation((file) => (file.endsWith('/package.json') ? fsFake.readPackage(file) : JSON.stringify({
         version: 2,
         tools: [{ name: 'renamed_away', description: 'Old name', packagePath: '/plugins/kept' }],
-      }));
+      })));
       const mod = await import('@electron/features/subagent/runtime/tool-catalog');
-      fsFake.readFileSync.mockImplementation(() => { throw new Error('no cache'); });
+      fsFake.readFileSync.mockImplementation(fsFake.readPackage);
       mod.recordRunToolCatalog([
         { name: 'new_name', description: 'Current', sourceInfo: { path: '/plugins/kept/extension/index.js' } },
       ] as never);

@@ -23,7 +23,7 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { isToolForSessionKind, onPluginBridgePolicyCleared, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
-import { getPackageCompatibilityForResourcePath, packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
+import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { createSubagentResourceLoader } from './resource-loader';
 
 /**
@@ -78,6 +78,23 @@ function persist(): void {
   }
 }
 
+const declaresExtensions = new Map<string, boolean>();
+
+/** True when the package lists Pi extensions, so a session can load it as one. */
+function declaresPiExtensions(packageRoot: string): boolean {
+  const known = declaresExtensions.get(packageRoot);
+  if (known !== undefined) return known;
+  let declared = false;
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as { pi?: { extensions?: unknown } };
+    declared = Array.isArray(pkg.pi?.extensions) && pkg.pi.extensions.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+  } catch {
+    // An unreadable package cannot be loaded as an extension either.
+  }
+  declaresExtensions.set(packageRoot, declared);
+  return declared;
+}
+
 /**
  * The plugin package a tool comes from, or null for a host tool. A host tool's
  * source sits inside the desktop app, whose package root is the app itself;
@@ -86,7 +103,7 @@ function persist(): void {
  */
 function pluginPackageOf(resourcePath: string): string | null {
   const packagePath = packageRootForResourcePath(resourcePath);
-  return packagePath && getPackageCompatibilityForResourcePath(resourcePath) !== null ? packagePath : null;
+  return packagePath && declaresPiExtensions(packagePath) ? packagePath : null;
 }
 
 function loadPersisted(): void {
