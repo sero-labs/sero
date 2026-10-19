@@ -61,9 +61,13 @@ async function execRenderer<T>(code: string): Promise<T> {
   return win.webContents.executeJavaScript(code) as Promise<T>;
 }
 
-function sendRealInput(input: AppRealInput): void {
+async function sendRealInput(input: AppRealInput): Promise<void> {
   const win = appWindow();
   if (!win) throw new Error('No main window available');
+  if (input.kind === 'insertText') {
+    await win.webContents.insertText(input.text);
+    return;
+  }
   const zoom = win.webContents.getZoomFactor();
   win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(input.x * zoom), y: Math.round(input.y * zoom) });
 }
@@ -251,7 +255,7 @@ export const appControlHostService = {
       const result = await execRenderer<AppInteractionResult>(
         `window.__appControl?.interact(${JSON.stringify(params)})`,
       );
-      if (result.success && result.realInput) sendRealInput(result.realInput);
+      if (result.success && result.realInput) await sendRealInput(result.realInput);
 
       if (params.action !== 'inspect' && params.captureAfter !== false && result.success) {
         await sleep(INTERACTION_SETTLE_MS);

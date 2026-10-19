@@ -98,8 +98,10 @@ export interface AppInteractionResult {
   realInput?: AppRealInput;
 }
 
-/** A mouse move to window coordinates, in CSS pixels. */
-export type AppRealInput = { kind: 'mouseMove'; x: number; y: number };
+/** A mouse move to window coordinates in CSS pixels, or text typed at the focused element's caret. */
+export type AppRealInput =
+  | { kind: 'mouseMove'; x: number; y: number }
+  | { kind: 'insertText'; text: string };
 
 /** Parameters for an app interaction command. */
 export interface AppInteractionParams {

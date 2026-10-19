@@ -124,12 +124,12 @@ export const seroAppProbe: ToolProbe = {
         await expectElementState(ctx, item(LAST), ':hover');
       },
     },
-    // Fails until app control sends real text input: Monaco ignores a synthetic input event.
+    // Monaco types through an EditContext, which only real text input reaches.
     { action: 'click', params: { argv: ['click', item('file-0.txt')] }, expect: (result) => expectText(result, 'Clicked: ') },
     {
       action: 'type',
       setup: (ctx) => pageOf(ctx).locator(EDITOR_TEXT, { hasText: 'tool check file 0' }).waitFor({ timeout: 15_000 }),
-      params: { argv: ['type', 'tc typed text', '--selector', '.monaco-editor textarea'] },
+      params: { argv: ['type', 'tc typed text', '--selector', '.monaco-editor .native-edit-context'] },
       async expect(result, ctx) {
         expectText(result, 'Typed "tc typed text"');
         const shown = await pageOf(ctx).locator(EDITOR_TEXT).innerText();

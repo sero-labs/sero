@@ -110,6 +110,11 @@ export function handleClick(panel: HTMLElement, params: AppInteractionParams): A
   return { success: false, message: 'Click requires selector or x,y coordinates' };
 }
 
+/** Monaco takes typing on an element with an EditContext, which is not contenteditable. */
+function hasEditContext(element: HTMLElement): boolean {
+  return (element as HTMLElement & { editContext?: object | null }).editContext != null;
+}
+
 export function handleType(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
   if (!params.text) return { success: false, message: 'Type action requires text' };
 
@@ -123,24 +128,17 @@ export function handleType(panel: HTMLElement, params: AppInteractionParams): Ap
     if (!target) return { success: false, message: 'No focused element. Use --selector.' };
   }
 
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(target), 'value')?.set;
-    if (setter) {
-      setter.call(target, target.value + params.text);
-      target.dispatchEvent(new Event('input', { bubbles: true }));
-      target.dispatchEvent(new Event('change', { bubbles: true }));
-    } else {
-      target.value += params.text;
-    }
-    return { success: true, message: `Typed "${params.text}" into ${targetLabel(params)}` };
-  }
-
-  if (target instanceof HTMLElement && target.isContentEditable) {
-    document.execCommand('insertText', false, params.text);
-    return { success: true, message: `Typed "${params.text}" into contenteditable` };
-  }
-
-  return { success: false, message: 'Target is not an input, textarea, or contenteditable' };
+  const editable = target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || (target instanceof HTMLElement && (target.isContentEditable || hasEditContext(target)));
+  if (!editable) return { success: false, message: 'Target is not an input, textarea, contenteditable, or EditContext element' };
+  // The main process types the text as real input at the caret, so editors
+  // such as Monaco and controlled React inputs see it as typing.
+  return {
+    success: true,
+    message: `Typed "${params.text}" into ${targetLabel(params)}`,
+    realInput: { kind: 'insertText', text: params.text },
+  };
 }
 
 export function handleScroll(panel: HTMLElement, params: AppInteractionParams): AppInteractionResult {
