@@ -262,6 +262,7 @@ describe('the scheduling pass', () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;
     api.mode = 'manual';
+    api.promptResolvesAtTurnEnd = true;
     await coordinator.startRoom(roomId);
     await waitFor(() => api.openTurns().includes('lead'), 'the Conductor turn');
 
