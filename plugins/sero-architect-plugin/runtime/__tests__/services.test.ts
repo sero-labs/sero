@@ -489,12 +489,14 @@ describe('runtime services', () => {
     const server = createServer((_request, response) => { response.end('ok'); });
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
     const tasks: string[] = [];
+    const surfaces: Array<{ platformTools?: string; tools?: string[] }> = [];
     try {
       host.detectDevServerCommand = async () => 'pnpm dev';
       host.startDevServer = async () => ({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, serverId: 'srv-1' });
       host.fileInfo = async () => ({ mtimeMs: Date.now(), size: 100, head: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
       host.runStructured = async (params) => {
         tasks.push(params.task ?? '');
+        surfaces.push({ platformTools: params.platformTools, tools: params.tools });
         return tasks.length === 1
           ? { response: '', error: 'Timed out after 180s' }
           : { response: JSON.stringify({ rendered, summary: rendered ? 'Game map and player visible' : 'Explorer file error, not the game' }) };
@@ -509,6 +511,9 @@ describe('runtime services', () => {
     expect(tasks).toHaveLength(2);
     expect(tasks[0]).toContain('sero app preview');
     expect(tasks[1]).not.toContain('sero app preview');
+    // No shell for either run: a capture must not stop Sero's server or start its own.
+    expect(surfaces[0]?.tools).toEqual(['sero-cli', 'read']);
+    expect(surfaces[1]?.platformTools).toBe('readOnly');
     const evidence = (await store.read(project.id))?.milestones[0]?.evidence;
     expect(evidence?.passed).toBe(rendered);
     if (rendered) expect(evidence?.preview?.capturePath).toMatch(/\.png$/);

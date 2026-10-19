@@ -36,7 +36,13 @@ const INSPECT_TIMEOUT_MS = 2 * 60_000;
 const RUN_TIME_LIMIT = /^Timed out after \d+s/;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-const CAPTURE_RULES = 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.';
+const CAPTURE_RULES = 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. Do not start, stop or restart a server or any other process: Sero manages the preview server. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app. If the page is stale or wrong, report rendered:false and say what you saw; do not try to fix it.';
+/**
+ * The capture needs the Sero CLI for the headless preview and `read` for the
+ * image, nothing more. Without a shell it cannot inspect or start processes,
+ * and anything it started would outlive Sero, which stops only its own servers.
+ */
+const CAPTURE_TOOLS = ['sero-cli', 'read'];
 const VERDICT_RULES = 'Reply only with JSON: {"rendered":true,"summary":"what you verified in the image"}. If the project is not rendered, use rendered:false and explain the failure in summary. Do not claim success based only on HTTP status or a saved file.';
 const INSPECT_RULES = 'Judge a screenshot that was already saved from a local project preview. Read the named image file. Do not load or navigate any URL, do not edit project files, and do not perform unrelated actions. A saved image alone is not success: reject error pages, blank pages, editor errors, or the wrong app.';
 
@@ -137,6 +143,7 @@ export async function runPreviewCapture(
         cwd: record.folder,
         timeoutMs: CAPTURE_TIMEOUT_MS,
         platformTools: 'all',
+        tools: CAPTURE_TOOLS,
       });
       const saved = await savedCapture(host, target, startedAt);
       if (!capture.error) {
@@ -162,7 +169,8 @@ export async function runPreviewCapture(
           workspaceId,
           cwd: record.folder,
           timeoutMs: INSPECT_TIMEOUT_MS,
-          platformTools: 'all',
+          // It only reads an image that is already saved.
+          platformTools: 'readOnly',
         });
         if (verdict.error) throw new Error(`Preview capture failed: ${capture.error}. The saved image could not be checked: ${verdict.error}`);
         if (!captureConfirmed(verdict.response)) throw new Error(`Preview could not be visually verified: ${verdict.response.slice(-1500)}`);
