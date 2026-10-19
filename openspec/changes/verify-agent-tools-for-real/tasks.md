@@ -35,7 +35,7 @@
 - [ ] 6.1 At each site (Chat panel, subagent, Workflow worker, Architect owner, Room member, Code Mode script from chat and from a subagent), read the live tool and command list and run each tool once; verify the ledger comparison passes per site on host
 - [ ] 6.2 In each Code Mode script site, run one failing call per tool and check that it rejects and that the next script line does not run; verify the ledger records each rejection
 - [ ] 6.3 Add the cancellation checks: cancel a long `bash` command and a Code Mode script waiting on a nested call, at each site; verify the session accepts the next prompt each time
-- [ ] 6.4 Add the `sero-cli` check for a quoted argument with line breaks, quotes and non-ASCII text; verify the command receives one unchanged argument
+- [x] 6.4 Add the `sero-cli` check for a quoted argument with line breaks, quotes and non-ASCII text; verify the command receives one unchanged argument
 
 ## 7. Container runtime
 
