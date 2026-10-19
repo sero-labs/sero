@@ -169,7 +169,8 @@ export class ScenarioDriver {
 
   private stop(state: RunState, step: RunStep, ms: number, error: string): Promise<StubReply> | StubReply {
     this.record(state, step, ms, 'fail', error);
-    const failure = `${step.tool ? `${step.tool} ` : ''}${step.action ?? state.run.tool}: ${error}`;
+    const name = step.tool ? [step.tool, step.action].filter(Boolean).join(' ') : step.action ?? state.run.tool;
+    const failure = `${name}: ${error}`;
     if (state.run.continueOnFailure) {
       state.firstFailure ??= failure;
       return this.next(state);

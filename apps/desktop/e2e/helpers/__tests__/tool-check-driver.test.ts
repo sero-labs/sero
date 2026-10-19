@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { splitCommandLines, tokenizeCliInput } from '../../../electron/cli/core/parser';
 import { startProbeStub, type ProbeStub } from '../session-probe';
 import { cliCommandFor, quoteArg } from '../tool-check/command-line';
-import { ScenarioDriver } from '../tool-check/driver';
+import { ScenarioDriver, type ScenarioRun, type StepRoute } from '../tool-check/driver';
 import { LedgerWriter, ledgerProblems, type Ledger } from '../tool-check/ledger';
 import type { StepContext, ToolProbe } from '../tool-check/types';
 
@@ -45,13 +45,13 @@ describe('tool check scenario driver', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  async function start(probe: ToolProbe, via: 'direct' | 'cli') {
+  async function start(probe: ToolProbe, via: StepRoute, options: Partial<ScenarioRun> = {}) {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-check-driver-'));
     const ledger = new LedgerWriter(path.join(dir, 'ledger-host.json'), 'host');
     const driver = new ScenarioDriver(ledger);
     stub = await startProbeStub({}, undefined, driver);
     const ctx: StepContext = { workspaceId: 'ws', workspacePath: dir, runtime: 'host', site: 'chat', fixtures: { pageServerUrl: '', gitRemotePath: '' }, state: {} };
-    const outcome = driver.add({ prompt: 'check notes', tool: probe.tool, steps: probe.steps, via, ctx });
+    const outcome = driver.add({ prompt: 'check notes', tool: probe.tool, steps: probe.steps, via, ctx, ...options });
     return { ledger, outcome };
   }
 
@@ -97,6 +97,36 @@ describe('tool check scenario driver', () => {
     expect(callsIn(reply)).toEqual([]);
     await expect(outcome).resolves.toMatchObject({ passed: 0, failure: expect.stringContaining('add: no id') });
     expect(ledger.ledger.rows).toEqual([expect.objectContaining({ action: 'add', result: 'fail', site: 'chat', runtime: 'host' })]);
+  });
+
+  it('goes on past a failed step in a site pass, recording each tool', async () => {
+    const { ledger, outcome } = await start(notes, 'direct', {
+      continueOnFailure: true,
+      steps: [
+        { tool: 'alpha', action: null, params: {}, expect: () => { throw new Error('alpha broke'); } },
+        { tool: 'beta', via: 'cli', action: null, params: { x: 1 }, expect: () => undefined },
+      ],
+    });
+    const [alpha] = callsIn(await post(stub!, [user]));
+    const [beta] = callsIn(await post(stub!, [user, ...answered(alpha!, 'done')]));
+    expect(beta).toMatchObject({ name: 'sero-cli', arguments: { command: "beta --x='1'" } });
+    await post(stub!, [user, ...answered(alpha!, 'done'), ...answered(beta!, 'done')]);
+
+    await expect(outcome).resolves.toEqual({ passed: 1, failure: 'alpha: alpha broke' });
+    expect(ledger.ledger.rows.map((row) => [row.tool, row.result])).toEqual([['alpha', 'fail'], ['beta', 'pass']]);
+  });
+
+  it('runs a step from a codemode script and checks the result of the call itself', async () => {
+    const { outcome } = await start(notes, 'codemode');
+    const [add] = callsIn(await post(stub!, [user]));
+    expect(add!.name).toBe('codemode');
+    expect(add!.arguments.code).toContain('await tools.notes({"action":"add","text":"first line\\nsecond"})');
+
+    const [remove] = callsIn(await post(stub!, [user, ...answered(add!, 'Script completed\nWall time 0.1 seconds\nOutput:\n\nadded id=n1')]));
+    expect(remove!.arguments.code).toContain('"id":"n1"');
+    // A rejected call fails the script; its error text is the step's result.
+    await post(stub!, [user, ...answered(add!, 'added id=n1'), ...answered(remove!, 'Script failed\nWall time 0.1 seconds\nOutput:\n\nScript error:\nlocked')]);
+    await expect(outcome).resolves.toMatchObject({ passed: 1, failure: 'remove: not removed: locked' });
   });
 
   it('runs a step through sero-cli as one command line', async () => {
