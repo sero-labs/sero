@@ -174,7 +174,19 @@ Each check 5.3 names, and the test that makes it. The files are under `plugins/s
 | A dropped notification (queue overflow) cannot lose it | `owner-wait-runtime.test.ts` "is not lost when a notification is dropped: a later push re-reads every open wait" |
 | An unknown process outcome holds | `owner-wait-runtime.test.ts` "holds the project when a process outcome cannot be confirmed, and starts no turn"; `process-ci-waits.test.ts` "holds the project and starts nothing when the server vanished, as after a restart" |
 
-Live, a child wait ended `satisfied` with one wake in substantial-feature replay 1 (above). No CI wait ran live: the scenarios have no remote repository with checks. The CI source is covered by the tests above only.
+Live, a child wait ended `satisfied` with one wake in substantial-feature replay 1 (above).
+
+### A process wait, live
+
+`small-fix`, Architect only, with two runner switches:
+
+- `SERO_BASELINE_SERVER_MINUTES=6` seeds a dev script whose server exits with code 0 after 6 minutes.
+- `SERO_BASELINE_PROBE` adds a soak check to the request. The owner gives m1 the preview route `/` and waits for that server to exit once m1's evidence has passed. When it is woken, it accepts m1.
+
+Model `deepseek/deepseek-flash` at low thinking, $1 and 25 minutes.
+
+- **First rehearsal: the wait was unreachable.** The owner contract, and the refusal for an unknown target, both told the owner to find the server's id with `sero devserver list`. A managed session has no host commands, so the owner got "Unknown command" for every variant it tried. It then accepted m1 without waiting. A process wait could never have worked for an owner. Fixed in 9ecf18f49: evidence saves the id of the preview server it leaves running, and the milestone line shows it. The record is in `continuity-rehearsal-2026-10-19a/`.
+- **Second rehearsal: the wait worked.** At 03:00:00 the owner waited on the server named on m1's line, `small-fix-r1-architect-1792378755548:workspace:root:49316`. The turn that set up the wait ended at 03:00:01. The owner's session then got no entry until the wake. At 03:05:46 the wait ended `satisfied` with "exited with code 0", and its one wake was reserved and consumed in the same 10 ms. The owner accepted m1 at 03:05:48 and wrote in the result summary that the server "exited on its own with code 0". There was one `begin` and one dispatch, the release Workflow. Accepted, 426 s, $0.044 plus $0.030 known only as a project total. The record and `wait-report.txt` are in `continuity-rehearsal-2026-10-19b/`. No CI wait ran live: the scenarios have no remote repository with checks. The CI source is covered by the tests above only.
 
 ## Overview and Work views (6.3)
 
@@ -197,14 +209,14 @@ Two preview-fixture faults, not product faults: the Sudoku fixture borrows a syn
 
 ## Requirement to evidence
 
-Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source unchanged from fd903a5d8); Room amendment b05fca605 plus the spec fix before it was committed; probe and pause runs as stated in their sections.
+Revisions: pilot fd903a5d8; replays 2ee1ca7f8 and 49f0323e9 (plugin source unchanged from fd903a5d8); Room amendment b05fca605 plus the spec fix before it was committed; in-policy Room run, collaborative pairs and process-wait runs on the commits named in their sections; probe and pause runs as stated in their sections.
 
 | Area | Built | Evidence | Not met or not shown |
 | --- | --- | --- | --- |
 | Baseline (1.x) | Comparison record, runner, restriction map, limit provenance, protocol-failure counts | Architect plugin tests; pilot of 20 runs and 6 replays above | No strategy comparison is claimed |
 | Direct work (2.x) | Execution identity saved first, begin/continue/report, interruption, Worktree mode, UI row | All 16 kept Architect runs did m1 directly; both rerun2 interruption runs kept their execution id and needed no intervention | |
 | Tool discovery and Code Mode (3.x) | Approved tools registered deferred, `tool_search`, reopen restore, owner skills, Code Mode for managed sessions | Desktop tests on a real Pi session; 8 live `codemode` calls; the probe above loaded an approved, unloaded tool with `tool_search` and used it with no restart or second approval; the tool-catalogue fix 0c539db70 with its test | One probe, not a matched replay |
-| Grant amendments (4.x) | Host amendment, Room revisions through it, restart reconcile, Team view | Desktop and Orchestrator tests; the Room run above: a held change survived a restart, was approved, kept the grant id and member histories | Live in-policy change; issue 640 |
+| Grant amendments (4.x) | Host amendment, Room revisions through it, restart reconcile, Team view | Desktop and Orchestrator tests; a held change survived a restart, was approved, kept the grant id and member histories; an in-policy change amended the grant with no question and kept every history; the collaborative probe formed a Room under both strategies and both were accepted | One collaborative pair per strategy, too few to compare; issue 640 |
 | Durable waits and continuity (5.x) | Child, process and CI sources, reserved and consumed wakes, stall recovery, limit origins, wait card | Architect, Orchestrator and desktop tests; a live child wait ended `satisfied` with one wake; interruption replays resumed on their execution id with no duplicate; the pause run kept the pause across a restart and resumed the same execution | No multi-hour trial was run. No live process or CI wait. Both stay held as unproved. Issue 641 |
 | Reporting and guidance (6.x) | Protocol-failure counts, three owner protocol fixes, docs pass, README and `ARCHITECTURE.md` reconcile | The counts above; d194f5a97; docs commits | The reporting action is a recommendation for a separate change, labelled as an experiment |
 
