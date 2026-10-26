@@ -71,7 +71,7 @@
     "linkedom": "^0.18.13",
     "p-limit": "^6.1.0",
     "turndown": "^7.2.4",
-    "unpdf": "^1.8.1"
+    "unpdf": "^1.9.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "catalog:peer",
