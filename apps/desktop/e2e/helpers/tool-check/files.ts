@@ -1,6 +1,6 @@
-import { watch } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { StepContext } from './types';
 
 /** Writes a file into the workspace from the test process. */
@@ -32,8 +32,8 @@ export function pageOf(ctx: StepContext) {
 }
 
 /**
- * Resolves with the first truthy value `check` returns, checking once now and
- * again whenever a file under `dir` changes. A check that throws rejects.
+ * Resolves with the first truthy value `check` returns. Polling also sees
+ * container writes and avoids Linux recursive-watch races on temporary locks.
  */
 export async function waitUntil<T>(
   dir: string,
@@ -42,40 +42,11 @@ export async function waitUntil<T>(
   timeoutMs = 60_000,
 ): Promise<T> {
   await fs.mkdir(dir, { recursive: true });
-  return new Promise<T>((resolve, reject) => {
-    let running = false;
-    let again = false;
-    let settled = false;
-    const finish = (error: unknown, value?: T) => {
-      if (settled) return;
-      settled = true;
-      watcher.close();
-      clearTimeout(timer);
-      if (error) reject(error);
-      else resolve(value as T);
-    };
-    const run = async (): Promise<void> => {
-      if (running) {
-        again = true;
-        return;
-      }
-      running = true;
-      try {
-        do {
-          again = false;
-          const value = await check();
-          if (value) return finish(null, value);
-        } while (again && !settled);
-      } catch (error) {
-        finish(error);
-      } finally {
-        running = false;
-      }
-      // A change that arrived as the last check ended.
-      if (again && !settled) void run();
-    };
-    const watcher = watch(dir, { recursive: true }, () => void run());
-    const timer = setTimeout(() => finish(new Error(`timed out after ${timeoutMs} ms waiting for ${what}`)), timeoutMs);
-    void run();
-  });
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const value = await check();
+    if (value) return value;
+    await delay(200);
+  } while (Date.now() < deadline);
+  throw new Error(`timed out after ${timeoutMs} ms waiting for ${what}`);
 }

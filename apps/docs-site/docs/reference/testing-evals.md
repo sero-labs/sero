@@ -108,9 +108,15 @@ cent. Each site prints its model, its tool calls and its cost.
 Room members and the Architect owner are not covered yet (#665). Their model is
 fixed when the app starts.
 
-To run only the real-model pass, name no tool:
-`SERO_TOOL_CHECK_ONLY=none SERO_TOOL_CHECK_REAL_MODEL=1`. The ledger comparison
-then fails, as with any narrowed run.
+To run only the real-model pass after building the desktop app:
+
+```bash
+SERO_TOOL_CHECK_REAL_MODEL=1 pnpm --filter @sero/desktop exec playwright test --project=tools --grep 'real-model pass'
+```
+
+This filtered run checks the five real-model tasks. It does not run the action
+pass or compare the coverage ledger. The tools project does not retry failed
+tests automatically.
 
 ### In CI
 
@@ -125,6 +131,14 @@ The `target` is `all`, `linux-host`, `linux-docker`, `macos-host` or
 `windows-host`. Add `-f real_model=true` for the real-model pass, which reads
 the `DEEPSEEK_API_KEY` repository secret. Each target uploads its ledger and
 Playwright report as an artifact.
+
+To run only the five real-model tasks on macOS:
+
+```bash
+gh workflow run tool-check.yml --ref <branch> -f target=macos-host -f real_model=true -f grep='real-model pass'
+```
+
+The optional `grep` input filters test titles. Leave it empty for a full run.
 
 ## Evals command reference
 

@@ -49,7 +49,8 @@ const REMOTE_DIR = '.tc-remote.git';
 
 export async function startFixtures(check: ToolCheckApp): Promise<RunningFixtures> {
   const address = hostAddress(check.runtime);
-  const pages = await startPageServer(address);
+  // The container bridge may not exist until the first runtime command boots it.
+  const pages = await startPageServer(check.runtime === 'host' ? address : '0.0.0.0');
   const { port } = pages.address() as AddressInfo;
   // Inside the workspace, the one host folder a container sees. The workspace ignores it.
   const remote = path.join(check.workspaceDir, REMOTE_DIR);

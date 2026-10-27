@@ -21,6 +21,10 @@ on:
         required: false
         default: false
         type: boolean
+      grep:
+        description: Optional test title filter (use real-model pass for only the paid check)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -64,6 +68,9 @@ jobs:
     env:
       SERO_E2E_RUNTIME: ${{ matrix.runtime }}
     steps:
+      - name: Enable long paths on Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -74,6 +81,14 @@ jobs:
       - name: Install Linux display dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Allow Chromium sandbox namespaces on the Linux runner
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -117,13 +132,19 @@ jobs:
       - name: Build plugin Vite helpers
         run: pnpm --filter @sero-ai/plugin-vite build
 
-      - name: Run the tool check
-        if: runner.os != 'Linux'
-        run: pnpm --filter @sero/desktop e2e:tools
+      - name: Build desktop
+        run: pnpm --filter @sero/desktop build
 
-      - name: Run the tool check (Linux/Xvfb)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a pnpm --filter @sero/desktop e2e:tools
+      - name: Run the tool check
+        shell: bash
+        env:
+          TOOL_CHECK_GREP: ${{ inputs.grep }}
+        run: |
+          args=(--project=tools)
+          if [ -n "$TOOL_CHECK_GREP" ]; then args+=(--grep "$TOOL_CHECK_GREP"); fi
+          runner=()
+          if [ "$RUNNER_OS" = 'Linux' ]; then runner=(xvfb-run -a); fi
+          "${runner[@]}" pnpm --filter @sero/desktop exec playwright test "${args[@]}"
 
       - name: Upload the ledger and Playwright artifacts
         if: always()

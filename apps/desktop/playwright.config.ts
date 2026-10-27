@@ -75,6 +75,7 @@ export default defineConfig({
     {
       name: 'tools',
       testMatch: '**/*.tools.spec.ts',
+      retries: 0,
       metadata: { layer: 'tools' },
     },
   ],

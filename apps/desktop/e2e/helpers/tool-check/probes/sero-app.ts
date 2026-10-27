@@ -45,7 +45,12 @@ export const seroAppProbe: ToolProbe = {
     },
     { action: 'active', params: { argv: ['active'] }, expect: (result) => expectText(result, 'Active app: explorer') },
     { action: 'screenshot', params: { argv: ['screenshot'] }, expect: (result) => expectImage(result) },
-    { action: 'click', params: { argv: ['click', item('tc-app')] }, expect: (result) => expectText(result, 'Clicked: ') },
+    {
+      action: 'click',
+      setup: (ctx) => pageOf(ctx).getByTestId('file-tree-item-tc-app').waitFor({ timeout: 15_000 }),
+      params: { argv: ['click', item('tc-app')] },
+      expect: (result) => expectText(result, 'Clicked: '),
+    },
     // The click opened the folder.
     { action: 'visible', params: { argv: ['visible', '--text', 'file-0.txt'] }, expect: (result) => expectText(result, 'Visible: file-0.txt') },
     { action: 'scroll-containers', params: { argv: ['scroll-containers'] }, expect: treeContainer },

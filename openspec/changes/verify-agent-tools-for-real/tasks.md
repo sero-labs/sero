@@ -42,7 +42,7 @@
 
 - [ ] 7.1 Run the action and site passes with `SERO_E2E_RUNTIME=docker` on Linux, building the image locally when the branch changes `Dockerfile.sero-node`; verify the Docker ledger comparison passes, and fix each container-only fault in its owning code
 - [ ] 7.2 Run both passes with `SERO_E2E_RUNTIME=apple-container` on a Mac; verify the Apple Container ledger comparison passes
-  - Open: the fixtures now work in a container and the run gets through, but it fails in ways the host run does not: turn undo never snapshots (#662), and cancels, git status freshness, one `git_manager refresh` and one browser click fail without a proven cause (#663).
+  - 2026-10-27: the container run captured pre-turn snapshots with the #662 fix. The run exposed a host path in the Room fixture, an invalid shell wrapper for environment-prefixed loops, a browser hang not triggering recovery, and Git state failures. Fixes are reviewed without another full run, per Dan's one-run limit. Git state failures remain on #663.
 
 ## 8. Real-model pass
 
@@ -58,7 +58,8 @@
 
 ## 10. Acceptance: the six #626 faults
 
-- [x] 10.1 Put back each of the six faults from #626 one at a time by reverting its fix, run the target that should catch it and restore the fix. Expected catches: failed `sero-cli` in Code Mode reported as success (6.2), quoted argument split at line breaks (6.4), host screenshot and host `stop_recording` path failures (5.3), 26 second launch and navigate (5.3), stuck page with no recovery (5.3). Verify each run fails and names the fault, and record the six results in the PR description
+- [ ] 10.1 Put back each of the six faults from #626 one at a time by reverting its fix, run the target that should catch it and restore the fix. Expected catches: failed `sero-cli` in Code Mode reported as success (6.2), quoted argument split at line breaks (6.4), host screenshot and host `stop_recording` path failures (5.3), 26 second launch and navigate (5.3), stuck page with no recovery (5.3). Verify each run fails and names the fault, and record the six results in the PR description
+  - Reopened 2026-10-27: the prior combined path-fault run stopped at screenshot and did not reach `stop_recording`. Independent fault injection for `stop_recording` remains unproved; no extra mutation run was started under Dan's one-run limit.
 
 ## 11. Follow-up issues
 

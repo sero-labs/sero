@@ -37,7 +37,7 @@ function linkSharedToolchains(home: string): void {
   const shared = toolCheckToolchainsDir();
   fs.mkdirSync(shared, { recursive: true });
   fs.mkdirSync(path.join(home, '.sero-ui'), { recursive: true });
-  fs.symlinkSync(shared, path.join(home, '.sero-ui', 'toolchains'), 'dir');
+  fs.symlinkSync(shared, path.join(home, '.sero-ui', 'toolchains'), process.platform === 'win32' ? 'junction' : 'dir');
 }
 
 export interface ToolCheckApp {
@@ -96,7 +96,7 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
   let workspaceDir = '';
   // A short HOME, as a user has: agent-browser keeps its socket in
   // ~/.agent-browser, and the path must fit in 103 bytes.
-  const shortHome = path.join(fs.mkdtempSync('/tmp/sero-tc-'), 'home');
+  const shortHome = path.join(fs.mkdtempSync(path.join(process.platform === 'win32' ? os.tmpdir() : '/tmp', 'sero-tc-')), 'home');
   let app: ElectronApplication | undefined;
   let log = '';
 
@@ -124,7 +124,7 @@ export async function startToolCheckApp(options: StartOptions = {}): Promise<Too
   try {
     home = createTempSeroHome();
     linkSharedToolchains(home.path);
-    fs.symlinkSync(home.path, shortHome, 'dir');
+    fs.symlinkSync(home.path, shortHome, process.platform === 'win32' ? 'junction' : 'dir');
     // Outside the repository, so the repository's AGENTS.md and skills stay out of every prompt.
     workspaceDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sero-tool-check-')));
     initWorkspace(workspaceDir);

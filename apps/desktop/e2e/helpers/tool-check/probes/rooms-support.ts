@@ -136,13 +136,14 @@ export const gateHoldingFile = (ctx: StepContext) => path.join(gateDir(ctx), 'ho
 
 /** The command the Conductor runs: it says it is holding, then exits when the gate opens. */
 export function holdCommand(ctx: StepContext): string {
+  const folder = ctx.runtime === 'host' ? gateDir(ctx) : '/workspace/.sero/tc-room-gate';
   const script = [
     "const fs=require('fs');",
-    `const open=${JSON.stringify(gateOpenFile(ctx))};`,
-    `const holding=${JSON.stringify(gateHoldingFile(ctx))};`,
+    `const open=${JSON.stringify(path.join(folder, 'open'))};`,
+    `const holding=${JSON.stringify(path.join(folder, 'holding'))};`,
     "const done=()=>{if(fs.existsSync(open))process.exit(0)};",
-    `fs.mkdirSync(${JSON.stringify(gateDir(ctx))},{recursive:true});`,
-    `fs.watch(${JSON.stringify(gateDir(ctx))},done);`,
+    `fs.mkdirSync(${JSON.stringify(folder)},{recursive:true});`,
+    `fs.watch(${JSON.stringify(folder)},done);`,
     "fs.writeFileSync(holding,'1');",
     'done();',
   ].join('');
