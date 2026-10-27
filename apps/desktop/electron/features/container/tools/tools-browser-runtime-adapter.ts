@@ -126,10 +126,14 @@ function createContainerBrowserRuntimeAdapter(backend: RuntimeBackendId): Browse
   const chromiumRevision = generatedArtifacts.pins.chromiumRevision;
   const ffmpegRevision = generatedArtifacts.pins.ffmpegRevision;
   const chromiumCandidates = [
+    `${browsersPath}/chromium-${chromiumRevision}/chrome-linux64/chrome`,
+    `${browsersPath}/chromium-${chromiumRevision}/chrome-linux-arm64/chrome`,
     `${browsersPath}/chromium-${chromiumRevision}/chrome-linux/chrome`,
     `$HOME/.cache/ms-playwright/chromium-${chromiumRevision}/chrome-linux/chrome`,
     `/root/.cache/ms-playwright/chromium-${chromiumRevision}/chrome-linux/chrome`,
     `${browsersPath}/chromium-*/chrome-linux/chrome`,
+    `${browsersPath}/chromium-*/chrome-linux64/chrome`,
+    `${browsersPath}/chromium-*/chrome-linux-arm64/chrome`,
     '$HOME/.cache/ms-playwright/chromium-*/chrome-linux/chrome',
     '/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome',
     '/usr/bin/chromium',
