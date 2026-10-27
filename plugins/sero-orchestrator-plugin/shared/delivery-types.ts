@@ -43,6 +43,13 @@ export interface DeliveryReceipt {
    * that token is consumed when the receipt is accepted.
    */
   approvalId?: string;
+  /** Current workflow invocation and plan; absent on legacy receipts. */
+  runId?: string;
+  planRevision?: number;
+  /** Delivered Git head SHA for PRs, SHA-256 of the saved file for artifacts. */
+  revision?: string;
+  /** Runtime-owned observation. Producer claims never populate this field. */
+  verifiedAt?: string;
 }
 
 /** Renderer-safe display metadata per destination (the planner/enforcement registry lives runtime-side). */

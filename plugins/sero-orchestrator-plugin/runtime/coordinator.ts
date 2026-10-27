@@ -435,7 +435,7 @@ export class Coordinator {
   async revise(loopId: string, prompt?: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const review = await requireExternalReview(this.host, loop, (next) => this.replaceLoop(next));
+    const review = await requireExternalReview(this.host, loop);
     if (review) return review;
     const outcome = await buildRevisedLoop(this.host, loop, prompt);
     if (outcome.error || !outcome.loop) {
@@ -460,7 +460,7 @@ export class Coordinator {
   async chooseRecovery(loopId: string, decision: RecoveryDecision): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const review = await requireExternalReview(this.host, loop, (next) => this.replaceLoop(next));
+    const review = await requireExternalReview(this.host, loop);
     if (review) return review;
     const applied = applyRecovery(this.host, loop, decision);
     if (applied.rejection) return { ok: false, error: applied.rejection };

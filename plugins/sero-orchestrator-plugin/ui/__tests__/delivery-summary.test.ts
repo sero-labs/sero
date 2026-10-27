@@ -27,7 +27,7 @@ describe('receiptDisplay', () => {
       destination: 'pr', ref: 'https://github.com/o/r/pull/7', summary: 'Opened the fix PR', deliveredAt: 't',
     });
     expect(display).toEqual({
-      label: 'Pull request',
+      label: 'Pull request (unverified)',
       href: 'https://github.com/o/r/pull/7',
       title: 'Opened the fix PR — https://github.com/o/r/pull/7',
     });
@@ -38,8 +38,12 @@ describe('receiptDisplay', () => {
       destination: 'saved-artifact', ref: 'reports/digest.md', summary: 'Saved the digest', deliveredAt: 't',
     });
     expect(display.href).toBeUndefined();
-    expect(display.label).toBe('Saved report');
+    expect(display.label).toBe('Saved report (unverified)');
     expect(display.title).toContain('reports/digest.md');
+  });
+
+  it('shows verification only for runtime-observed receipts', () => {
+    expect(receiptDisplay({ destination: 'pr', ref: 'https://github.com/o/r/pull/7', summary: 'done', deliveredAt: 't', verifiedAt: 't' }).label).toBe('Pull request (verified)');
   });
 
   it('does not treat a ref with a URL plus trailing detail as a link', () => {

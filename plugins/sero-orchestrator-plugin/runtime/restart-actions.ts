@@ -32,7 +32,7 @@ export async function runAgain(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  const review = await requireExternalReview(host, loop);
   if (review) return review;
   if (loop.status === 'draft') {
     return { ok: false, error: 'This loop has not started yet — use Activate.' };
@@ -63,7 +63,7 @@ export async function retryLoop(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  const review = await requireExternalReview(host, loop);
   if (review) return review;
   if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
     return { ok: false, error: 'A run is already in progress.' };
@@ -87,7 +87,7 @@ export async function retryStepAction(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  const review = await requireExternalReview(host, loop);
   if (review) return review;
   if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
     return { ok: false, error: 'A run is already in progress.' };

@@ -40,7 +40,7 @@ export function receiptDisplay(receipt: DeliveryReceipt): ReceiptDisplay {
   const ref = receipt.ref.trim();
   const url = /^https?:\/\/\S+$/.exec(ref)?.[0];
   return {
-    label: info.label,
+    label: `${info.label} (${receipt.verifiedAt ? 'verified' : 'unverified'})`,
     href: url,
     title: `${receipt.summary} — ${receipt.ref}`,
   };

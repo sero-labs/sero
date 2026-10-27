@@ -7,7 +7,7 @@ import { startActivations, recordActivationAttempt, settleActivation } from './a
 import { applyFeedbackTraversal, feedbackDecision, feedbackExhaustedOutcome } from './feedback-runtime';
 import { enforceRouteContract } from './route-contract';
 import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcomes';
-import { enforceDeliveryContract, uncertainExternalDelivery } from './delivery/delivery-contract';
+import { uncertainExternalDelivery } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { recordAgentWarning } from './run-warnings';
 import { blockLimit, blockRuntime, resetStepPending, replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
@@ -252,11 +252,19 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
           const acceptedRoute = routeFeedbackOutcome(
             loop,
             step,
-            enforceDeliveryContract(loop, step, enforceRouteContract(loop, step, decision.acceptedOutcome)),
+            await applyDeliveryContract(host, loop, step, enforceRouteContract(loop, step, decision.acceptedOutcome)),
           );
           outcome = acceptedRoute.outcome;
           route = acceptedRoute.route;
+          run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, { ...recorded, outcome }) };
           run = settleActivation(run, activationId, outcome, host.now());
+          if (outcome.deliveryReview) {
+            loop = applyStepOutcome(loop, step.id, recorded, outcome, host.now());
+            loop = applyRecovery(host, loop, { ...decision, decision: 'block-loop', reason: outcome.summary }).loop;
+            run = { ...run, status: 'blocked', block: loop.runtime.block };
+            loop = await commit(syncRun(loop, run));
+            return { loop, run, stop: true };
+          }
           const accepted = applyOutcome(host, loop, run, step.id, recorded, outcome);
           loop = accepted.loop;
           run = accepted.run;

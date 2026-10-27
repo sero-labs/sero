@@ -1,13 +1,15 @@
 import type { Loop, OrchestratorActionResult } from '../../shared/types';
 import type { OrchestratorHost } from '../host';
 import { uncertainExternalDeliveryInRun } from './delivery-contract';
+import { reconcileReceipt, sameReconciliationContext } from './reconcile-receipt';
 
 /** Direct actions also reach agents. A retry command alone is not a destination review. */
 export async function requireExternalReview(
   host: OrchestratorHost,
   loop: Loop,
-  replaceLoop: (next: Loop) => Promise<void>,
 ): Promise<OrchestratorActionResult | undefined> {
+  const reconciled = await reconcileReceipt(host, loop);
+  if (reconciled) return reconciled;
   const uncertain = [...loop.runs].reverse().map((run) => uncertainExternalDeliveryInRun(loop, run)).find(Boolean);
   if (!uncertain) return undefined;
   const existing = loop.runtime.pendingInput;
@@ -27,7 +29,16 @@ export async function requireExternalReview(
         ],
       }],
     } } };
-    await replaceLoop(next);
+    let saved = false;
+    let latest: Loop | undefined;
+    await host.updateState((state) => {
+      latest = state.loops.find((entry) => entry.id === loop.id);
+      if (!latest || !sameReconciliationContext(loop, latest)) return state;
+      saved = true;
+      return { ...state, loops: state.loops.map((entry) => entry.id === loop.id
+        ? { ...entry, runtime: { ...entry.runtime, pendingInput: next.runtime.pendingInput } } : entry) };
+    });
+    if (!saved) return { ok: false, error: 'Workflow changed during delivery review. Review its current state before retrying.', loop: latest };
     host.notify('Check the delivery destination before recovering this workflow.', 'info');
     return { ok: false, error: reason, loop: next };
   }

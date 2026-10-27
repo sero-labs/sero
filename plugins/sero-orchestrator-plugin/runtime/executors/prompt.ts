@@ -265,6 +265,9 @@ function parseReceipt(raw: unknown, errors: string[]): DeliveryReceipt | undefin
   }
   const receipt: DeliveryReceipt = { destination: raw.destination, ref: raw.ref.trim(), summary: raw.summary, deliveredAt: raw.deliveredAt };
   if (typeof raw.approvalId === 'string') receipt.approvalId = raw.approvalId.trim();
+  if (typeof raw.runId === 'string') receipt.runId = raw.runId;
+  if (typeof raw.planRevision === 'number') receipt.planRevision = raw.planRevision;
+  if (typeof raw.revision === 'string') receipt.revision = raw.revision;
   return receipt;
 }
 

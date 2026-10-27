@@ -1,3 +1,4 @@
+import type { ReceiptTools } from './delivery/receipt-tools';
 /**
  * OrchestratorHost — the seam the coordinator and runtime modules depend on.
  *
@@ -306,6 +307,7 @@ export interface OrchestratorHost {
    * only — the GitHub event source's `gh api` polls (spec 12) — never workflow
    * work; the same carve-out as the dirty preflight and `listPullRequests`.
    */
+  prepareReceiptObservation?(destination: 'pr' | 'saved-artifact'): Promise<ReceiptTools>;
   runCommand(command: string, timeoutMs?: number): Promise<AppRuntimeCommandResult>;
   /**
    * What a Goal wait observes: this workspace's managed dev servers, their

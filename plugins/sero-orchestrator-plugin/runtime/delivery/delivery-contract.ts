@@ -168,8 +168,9 @@ export function uncertainExternalDelivery(
   attempt: StepAttempt,
   outcome = attempt.outcome,
 ): UncertainExternalDelivery | undefined {
-  const delivery = receiptRequirement(loop, step);
-  if (!delivery || !isExternalDestination(delivery.destination) || attempt.modelUnavailable) return undefined;
+  const heldReceipt = outcome?.deliveryReview?.completion.receipt;
+  const delivery = outcome?.deliveryReview?.delivery ?? (heldReceipt ? { destination: heldReceipt.destination } : receiptRequirement(loop, step));
+  if (!delivery || (!isExternalDestination(delivery.destination) && delivery.destination !== 'pr' && !outcome?.deliveryReview) || attempt.modelUnavailable) return undefined;
   const reviewed = loop.answeredInputs?.some((input) => input.externalDeliveryAttemptId === attempt.id
     && input.answers.some((answer) => answer.questionId === 'destination-reviewed' && answer.choiceId === 'reviewed-safe'));
   if (reviewed) return undefined;
@@ -187,7 +188,7 @@ export function uncertainExternalDelivery(
     stepId: step.id,
     attemptId: attempt.id,
     destination: delivery.destination,
-    reason: `External delivery to "${delivery.destination}" may have happened during step "${step.id}", but attempt "${attempt.id}" has no confirmed receipt. Check the destination before retrying this step.`,
+    reason: outcome?.deliveryReview ? `${outcome.deliveryReview.reason} Check the existing result before retrying; do not repeat delivery while its outcome is uncertain.` : `External delivery to "${delivery.destination}" may have happened during step "${step.id}", but attempt "${attempt.id}" has no confirmed receipt. Check the destination before retrying this step.`,
   };
 }
 
@@ -205,7 +206,7 @@ export function uncertainExternalDeliveryInRun(loop: Loop, run: LoopRun): Uncert
 export function downgradeDelivery(delivery: LoopDeliverySettings, outcome: StepOutcome, problems: string[]): StepOutcome {
   return {
     status: 'needs-revision',
-    summary: `Claimed completion without valid proof of delivery to "${delivery.destination}": ${problems.join('; ')}. Deliver first, then complete with the real receipt.`,
+    summary: `Claimed completion without valid proof of delivery to "${delivery.destination}": ${problems.join('; ')}. Reconcile any existing delivery, then complete with its real receipt.`,
     variables: outcome.variables,
   };
 }
@@ -248,6 +249,7 @@ export function formatDeliveryContract(loop: Loop, delivery: LoopDeliverySetting
   const external = isExternalDestination(delivery.destination) ? ', "approvalId": "<the approval token id>"' : '';
   return `\nThis loop's declared delivery destination is "${spec.id}" (${spec.label}). Completion requires PROOF OF DELIVERY: when you emit the completion signal, the "completion" object MUST also carry a "receipt":
 "completion": { "status": "complete", "reason": ..., "receipt": { "destination": "${spec.id}", "ref": "<${spec.receiptHint}>", "summary": "one sentence on what was delivered", "deliveredAt": "<ISO 8601 timestamp>"${external} } }
+${receiptBindingPrompt(loop, delivery)}
 The "ref" must be the REAL value from the delivery step's actual result — never invent or approximate it. If nothing was actually delivered, do not claim completion; report the true status instead.${formatApprovalTokens(loop, delivery.destination)}`;
 }
 
@@ -268,4 +270,9 @@ export function formatDeliveryRepair(loop: Loop, delivery: LoopDeliverySettings,
     formatApprovalTokens(loop, delivery.destination),
     '\nDo NOT redo the work or run more tools. Reply with ONLY the corrected StepOutcome JSON in a ```json fence, and nothing after it.',
   ].filter(Boolean).join('\n');
+}
+
+function receiptBindingPrompt(loop: Loop, delivery: LoopDeliverySettings): string {
+  if (delivery.destination !== 'pr' && delivery.destination !== 'saved-artifact') return '';
+  return `The receipt must include "runId": ${JSON.stringify(loop.runtime.activeRunId)}, "planRevision": ${loop.plan.revision}, and "revision": "<${delivery.destination === 'pr' ? 'full Git commit SHA pushed to the PR' : 'SHA-256 of the saved file bytes'}>". Use the intended workspace/worktree. Keep these values from the actual delivery; do not reuse a prior run's receipt. If verification is unavailable, preserve the existing result for review instead of repeating delivery.`;
 }

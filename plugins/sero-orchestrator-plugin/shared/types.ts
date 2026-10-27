@@ -449,6 +449,7 @@ export interface StepOutcome {
   summary: string;
   variables?: Record<string, unknown>;
   completion?: StepCompletion;
+  deliveryReview?: { status: 'unknown' | 'mismatch'; reason: string; completion: StepCompletion; delivery?: LoopDeliverySettings };
   /**
    * The step needs the user to answer before it can finish. When present, the
    * loop parks (the step re-runs with the answer once the user responds) instead

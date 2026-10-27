@@ -66,3 +66,32 @@ describe('destination review before direct recovery', () => {
     expect(run).toHaveBeenCalledOnce();
   });
 });
+
+it('re-observes an uncertain PR before retry and accepts the existing delivery without another executor call', async () => {
+  const host = createFakeHost();
+  const loop = seedActiveLoop(host, oneStepPlan().plan);
+  loop.delivery = { destination: 'pr' };
+  const executor = fakeExecutor({ 'step-1': ({ run }) => ({
+    status: 'succeeded', summary: 'PR created', completion: { status: 'complete', reason: 'done', receipt: {
+      destination: 'pr', ref: 'https://github.com/o/r/pull/1', summary: 'delivered', deliveredAt: host.now(),
+      runId: run.id, planRevision: 0, revision: 'a'.repeat(40),
+    } },
+  }) });
+  host.commandResults.push({ stdout: '', stderr: 'offline', exitCode: 1 });
+  await new RunEngine(host, { executor, decider: fakeDecider({ decision: 'retry-step' }), locks: new LoopLocks() }).run(loop.id);
+  expect(host.state.loops[0].status).toBe('blocked');
+  expect(executor.calls).toHaveLength(1);
+  expect(host.state.loops[0].runtime.deliveries).toBeUndefined();
+  const coordinator = new Coordinator(host);
+  const run = vi.spyOn(coordinator, 'runNext').mockResolvedValue({ ok: true });
+  host.commandResults.push({ stdout: '{"ok":true}', stderr: '', exitCode: 0 });
+  expect((await coordinator.retryLoop(loop.id)).ok).toBe(true);
+  const completed = host.state.loops[0];
+  expect(completed.status).toBe('complete');
+  expect(completed.runs[0].status).toBe('completed');
+  expect(completed.runtime.deliveries?.[0].verifiedAt).toBeDefined();
+  expect(completed.runs[0].stepAttempts[0].outcome?.deliveryReview).toBeUndefined();
+  expect(run).not.toHaveBeenCalled();
+  expect(executor.calls).toHaveLength(1);
+  expect(host.modelCalls).toHaveLength(0);
+});
