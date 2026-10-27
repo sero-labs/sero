@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSampleRepairStore } from '@/stores/sample-repair';
 import { useAppStore } from '@/stores/app';
 import type { GlobalModelConfigInput, ModelTierSettings, OnboardingState } from '@/types/ipc';
 import {
@@ -85,6 +86,7 @@ export function useOnboardingLaunch(): OnboardingLaunchState {
   const finishOnboardingLaunch = useCallback(async () => {
     useAppStore.getState().setActiveApp('dashboard');
     await window.sero.profiles.markOnboardingDone();
+    void useSampleRepairStore.getState().load();
     continueInFlightRef.current = false;
     setIsContinuing(false);
     setUiPhase('done');

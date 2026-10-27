@@ -45,7 +45,7 @@ export interface ArchitectHost {
   indexFile: string;
   updateIndex(updater: (current: ArchitectIndex | null) => ArchitectIndex): Promise<void>;
   listWorkspaces(): Promise<AppRuntimeWorkspaceInfo[]>;
-  createWorkspace(name: string, parentPath: string): Promise<AppRuntimeWorkspaceInfo>;
+  createWorkspace(name: string, parentPath?: string, requireEmpty?: boolean): Promise<AppRuntimeWorkspaceInfo>;
   /** Present only when the built-in gate admitted this plugin. */
   persistentSessions: PersistentSessionsApi | null;
   modelTiers(): Promise<SharedModelTierSettings>;
@@ -91,7 +91,7 @@ export interface ArchitectHost {
 }
 
 export async function execLocal(file: string, args: string[], cwd: string, toolchains: Pick<AppRuntimeToolchainsApi, 'ensure'>): Promise<CommandRun> {
-  const executable = file === 'node' ? (await toolchains.ensure('node')).path : file;
+  const executable = (file === 'node' || file === 'git') ? (await toolchains.ensure(file)).path : file;
   return new Promise((resolve) => {
     execFile(executable, args, { cwd, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
       const code = error && typeof (error as { code?: unknown }).code === 'number' ? (error as { code: number }).code : error ? 1 : 0;
@@ -141,7 +141,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     indexFile: ctx.stateFilePath,
     updateIndex: (updater) => host.appState.update<ArchitectIndex>(ctx.stateFilePath, updater),
     listWorkspaces: () => host.workspace.list(),
-    createWorkspace: (name, parentPath) => host.workspace.create(name, parentPath, { requireEmpty: false }),
+    createWorkspace: (name, parentPath, requireEmpty = false) => host.workspace.create(name, parentPath, { requireEmpty }),
     persistentSessions: host.persistentSessions ?? null,
     modelTiers: () => host.models.tiers(),
     listModels: () => host.models.list(),

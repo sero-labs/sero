@@ -16,6 +16,7 @@ import './dashboard.css';
 import { useAppStore } from '@/stores/app';
 import { useDashboardStore, getAvailableWidgets } from '@/stores/dashboard';
 import type { AvailableWidget } from '@/types/dashboard';
+import { SampleRepairCard } from './SampleRepairCard';
 import { DashboardWidget } from './DashboardWidget';
 import { AddWidgetDialog } from './AddWidgetDialog';
 import { useGridWidth } from './useGridWidth';
@@ -149,6 +150,8 @@ export const Dashboard = memo(function Dashboard() {
         </h1>
         <AddWidgetDialog availableWidgets={availableWidgets} />
       </div>
+
+      <SampleRepairCard />
 
       {/* ── Grid ── */}
       {hasWidgets && width > 0 ? (

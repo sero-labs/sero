@@ -44,6 +44,30 @@ After the profile exists, onboarding checks whether Sero can use a model provide
 
 GitHub setup is optional during onboarding. Connect it if you want repository workflows such as clone, fetch, push, and pull-request-related actions.
 
+## Try a sample repair
+
+After onboarding, open **Dashboard** and choose **Try a sample repair**. Sero
+prepares a disposable repository with one broken text helper and an existing
+check. Your other projects are untouched.
+
+Review the selected providers and models before continuing. Model calls use
+your connected accounts and may incur charges. The $5 start cap is not a price
+estimate. Node.js and Git are required. Sero reuses verified installed tools or
+downloads shared tools automatically; your selected container runtime may also
+need its image. No sample package installation is needed. Sero keeps your
+selected workspace runtime.
+
+Choose **Prepare sample and approve access**, then answer the access request.
+Sero saves the faulty files in Git before the agent starts. The agent repairs
+`truncate.cjs` and runs `node --test repair.test.cjs`. On the result page, use
+**See the checks**, **Open Git changes**, and **Open result** to inspect the
+passing check and changed source.
+
+Use **Stop** on the work page to stop model work. If a provider fails, reconnect
+it and resume the same sample. If preparation fails, retry from Dashboard.
+Retries keep the same workspace and its files; reopening a stopped sample does
+not resume it automatically. The sample remains available for inspection.
+
 ## Custom profile locations
 
 When creating a profile, you can choose a custom storage folder. The profile name is independent from the folder name, and the selected folder becomes that profile's `<SERO_HOME>`.

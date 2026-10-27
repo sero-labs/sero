@@ -5,11 +5,13 @@
  */
 
 import type { OwnerActions } from './owner-actions';
+import type { SampleOutcome } from './sample-repair';
 import type { ProjectsActions } from './projects-actions';
 
 const KEY = 'sero-architect:runtime';
 
 export interface ArchitectRegistryEntry {
+  sampleRepair?: () => Promise<SampleOutcome>;
   owner: OwnerActions;
   projects: ProjectsActions;
 }

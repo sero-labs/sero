@@ -30,6 +30,7 @@ export const PROJECT_ACTIONS = [
   'watch_room',
   'unwatch_room',
   'create',
+  'sample_repair',
   'request_change',
   'enable_openspec',
   'pause',
@@ -55,7 +56,7 @@ export const PROJECT_ACTIONS = [
 
 const APPROVE_TARGETS = ['charter', 'milestone'] as const;
 
-export const PROJECTS_TOOL_DESCRIPTION = `Manage Sero Architect projects. Actions: ${PROJECT_ACTIONS.join(', ')}.`;
+export const PROJECTS_TOOL_DESCRIPTION = `Manage Sero Architect projects. sample_repair prepares one disposable sample repository using the selected workspace runtime; Node/Git or runtime images may be downloaded. It does not start model work. Resume asks for the normal access approval and runs on the connected provider with the existing $5 start cap; provider charges may apply. Actions: ${PROJECT_ACTIONS.join(', ')}.`;
 
 export const ProjectsToolParams = Type.Object({
   action: StringEnum(PROJECT_ACTIONS, { description: `One of: ${PROJECT_ACTIONS.join(', ')}` }),
@@ -254,6 +255,11 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
         linkedSharedUsd: answer.linkedSharedUsd,
       };
       return result(true, answer.summary.incomplete ? 'Trace summary. More history exists than this folded.' : 'Trace summary.', details);
+    }
+    case 'sample_repair': {
+      if (!runtime.sampleRepair) return result(false, 'Sample repair is unavailable in this runtime.');
+      const outcome = await runtime.sampleRepair();
+      return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId, needsStart: outcome.needsStart === true } : {});
     }
     case 'create': {
       const missing = need(params.idea, 'idea') ?? (params.workspaceId ? null : need(params.folder, 'folder'));
