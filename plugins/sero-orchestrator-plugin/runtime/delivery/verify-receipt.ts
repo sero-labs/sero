@@ -23,13 +23,13 @@ export async function verifyReceipt(host: OrchestratorHost, loop: Loop, receipt:
 
 /** Failed observation retains the reachable result, but never completes the request. */
 export async function applyDeliveryContract(host: OrchestratorHost, loop: Loop, step: LoopStepDefinition, outcome: StepOutcome): Promise<StepOutcome> {
+  const requirement = receiptRequirement(loop, step);
   const enforced = enforceDeliveryContract(loop, step, outcome);
   if (enforced !== outcome) {
     if (!outcome.completion?.receipt) return enforced;
     return { ...enforced, summary: `${enforced.summary} Review the existing result before repeating delivery.`,
-      deliveryReview: { status: 'mismatch', reason: enforced.summary, completion: outcome.completion } };
+      deliveryReview: { status: 'mismatch', reason: enforced.summary, completion: outcome.completion, delivery: requirement } };
   }
-  const requirement = receiptRequirement(loop, step);
   const completion = outcome.completion;
   const receipt = completion?.status === 'complete' ? completion.receipt : undefined;
   if (!requirement || !receipt || !completion) return outcome;
@@ -42,6 +42,6 @@ export async function applyDeliveryContract(host: OrchestratorHost, loop: Loop, 
   return {
     status: 'needs-revision', variables: outcome.variables,
     summary: `Delivery ${verified.status}: ${verified.reason} Existing result: ${receipt.ref}. Review the destination before retrying delivery.`,
-    deliveryReview: { status: verified.status, reason: verified.reason, completion },
+    deliveryReview: { status: verified.status, reason: verified.reason, completion, delivery: requirement },
   };
 }

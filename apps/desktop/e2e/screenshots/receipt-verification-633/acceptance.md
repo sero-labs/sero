@@ -45,3 +45,32 @@ open. These checks do not establish live provider delivery, real authenticated
 GitHub access, or a fresh-machine download. No public package/API changed; the
 new provisioning seam is private to Orchestrator. Changed source files remain
 at or below 500 lines (largest: `shared/types.ts`, 499).
+
+## Formal review round 1 delta
+
+Round 1 found two P2 reconciliation defects: changing delivery to workspace
+files could accept an old held receipt without verification, and a concurrent
+user edit during observation could be overwritten by a stale loop snapshot.
+
+Held candidates now record their destination and parameters. Acceptance requires
+the same current receipt requirement; missing legacy binding stays held for
+review. Destination changes still retain the candidate and require destination
+review before another write, including previously unapproved external sends.
+
+Reconciliation and review-question persistence compare the current run,
+candidate, plan, delivery, approvals and stopping state inside the serialized
+store update. Completion is applied to that latest state, preserving its
+accounting. A concurrent change refuses the stale action without accepting a
+receipt, clearing the newer hold, or starting another worker.
+
+Focused delta checks: 77 passed across `receipt-reconciliation`,
+`external-review`, `approval-gate`, `delivery-contract` and `coordinator-core`.
+Cases include a destination switch for PR and unapproved webhook candidates,
+changed report parameters, and deferred observation racing with disable or a
+delivery edit. Existing successful re-observation still runs the worker once.
+All five direct recovery callers use the same guarded review seam.
+
+Root typecheck and `git diff --check` passed after these fixes. Logs:
+`r1-focused.log` and `r1-typecheck.log` in the log directory above. No full
+package, app, paid-provider or live-external run was repeated. The earlier
+package sandbox result and the open 630/632 acceptance gaps remain unchanged.
