@@ -347,6 +347,21 @@ manual choice when Sero cannot confirm the result of the work it was waiting on.
 
 ## Controls
 
+The **Result** tile keeps the requested outcome beside Architect's account of
+what it delivered. It shows recorded checks, their commit and requirement
+revision, saved destinations, and requirements that still need review. Expand
+a check to read its full output. A report from an agent, a passing check,
+acceptance, and recorded delivery are separate facts. Missing or stale proof
+keeps the result marked for review.
+
+Use **Open result**, **Open Git changes**, or **Open preview** when available.
+Saved destinations and checks describe what was recorded; opening the output
+lets you assess its current state. Project totals show elapsed time through the
+last update and recorded cost, with an explicit label when accounting is
+incomplete. **Request changes / continue** focuses the existing message box;
+write and send your request there. OpenSpec projects also offer **Start OpenSpec
+change** when they are in maintenance.
+
 The controls menu on the project page offers:
 
 - **Pause** and **Resume**. Pause prevents Architect from starting or planning

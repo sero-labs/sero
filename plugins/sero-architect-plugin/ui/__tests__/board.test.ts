@@ -36,10 +36,10 @@ describe('which large tiles the board shows', () => {
     expect(board.detail).toBe('Running a command.');
   });
 
-  it('shows the result of a delivered project with nothing live', () => {
+  it('shows a saved result but requires review when its requirements have no bound proof', () => {
     const board = boardFor(DELIVERY_FIXTURES['board-done']!);
     expect(board.main).toEqual(['result']);
-    expect(board.tone).toBe('done');
+    expect(board.tone).toBe('quiet');
   });
 
   it('keeps a stopped Workflow and its fix on the board while a question is open', () => {

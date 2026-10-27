@@ -13,6 +13,7 @@ import type { ActionOutcome, ArchitectActions } from '../lib/actions';
 import type { WorkTab } from '../lib/navigation';
 import type { ProjectRecord } from '../../shared/record';
 import { ProjectPage } from '../ProjectPage';
+import { openSeroApp } from '@sero-ai/app-runtime';
 
 vi.mock('@sero-ai/ui', async () => {
   const pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
@@ -137,6 +138,21 @@ it('labels legacy cost as a lower bound without changing the shown spend', () =>
   show({ ...record, budget: { ...record.budget, incomplete: false } });
   expect(spend()).toBeDefined();
   expect(spend()?.getAttribute('title')).toBeNull();
+});
+
+it('opens the result workspace and focuses a change request without sending it', async () => {
+  const record = { ...DELIVERY_FIXTURES['board-done']!, budget: { ...DELIVERY_FIXTURES['board-done']!.budget, incomplete: true } };
+  const actions = stubActions();
+  renderPage(actions, vi.fn(), record);
+  await flush();
+  expect(container.querySelector('[aria-label="Result"]')?.textContent).toContain('Incomplete accounting');
+  act(() => button('Open result').click());
+  await flush();
+  expect(openSeroApp).toHaveBeenCalledWith('explorer', undefined, record.workspaceId);
+  act(() => button('Request changes / continue').click());
+  expect(document.activeElement).toBe(container.querySelector('[aria-label="Note to Architect"]'));
+  expect(actions.directive).not.toHaveBeenCalled();
+  expect(actions.requestChange).not.toHaveBeenCalled();
 });
 
 describe('a refused control', () => {

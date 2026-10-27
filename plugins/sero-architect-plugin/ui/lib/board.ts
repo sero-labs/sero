@@ -10,6 +10,7 @@ import { assumptionOf } from '../../shared/agreement';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
 import type { Milestone, ProjectRecord } from '../../shared/record';
 import { usd } from './format';
+import { evidenceProblem, hasResult, resultMilestones, resultNeedsReview } from './result';
 import { evidenceLines, needsYouItems } from './view-model';
 import { workGroups, type WorkGroup } from './work-groups';
 
@@ -138,12 +139,12 @@ const TONES: Partial<Record<ProjectActivity['state'], BoardTone>> = {
   complete: 'done',
 };
 
-function stepOf(milestone: Milestone): BoardStep {
+function stepOf(record: ProjectRecord, milestone: Milestone): BoardStep {
   const accepted = milestone.verification === 'accepted' || milestone.verification === 'delivered';
   const state = milestone.status === 'done' || accepted ? 'done' : milestone.status === 'running' || milestone.status === 'verifying' ? 'doing' : 'todo';
   const passed = milestone.evidence ? evidenceLines(milestone.evidence).filter((check) => check.state === 'ok').length : 0;
   let note = '';
-  if (state === 'done') note = passed > 0 ? `${passed} ${passed === 1 ? 'check passes' : 'checks pass'}.` : 'Done.';
+  if (state === 'done') note = evidenceProblem(record, milestone) ?? (passed > 0 ? `${passed} recorded ${passed === 1 ? 'check passed' : 'checks passed'}.` : 'Acceptance recorded.');
   else if (milestone.status === 'verifying') note = 'Being checked.';
   else if (state === 'doing') note = 'In progress.';
   else if (milestone.status === 'parked') note = milestone.parkedBy ? 'Waits for your answer.' : 'Set aside.';
@@ -199,7 +200,7 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
   if (asks) main.push('ask');
   if (stopped) main.push('stopped');
   if (context.live) main.push('live');
-  if (activity.state === 'complete' && main.length === 0) main.push('result');
+  if ((activity.state === 'complete' || (activity.state === 'idle' && hasResult(record))) && main.length === 0) main.push('result');
 
   let word = stop(activity.headline);
   let detail = stop(activity.owner);
@@ -222,15 +223,21 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
     detail = stop(`For ${context.waitingFor}`);
   }
 
+  const review = main.includes('result') && resultNeedsReview(record);
+  if (review) { word = 'Result needs review.'; detail = 'See the saved checks and unresolved requirements.'; }
+  else if (main.includes('result')) {
+    word = resultMilestones(record).some((milestone) => milestone.verification === 'delivered') ? 'Delivery recorded.' : 'Work accepted.';
+    detail = 'See the saved checks and output.';
+  }
   const counts = milestoneCounts(record);
   return {
     sentence: sentenceOf(record),
-    tone: asks || (!started && context.asking) ? 'waiting' : context.live && activity.state !== 'paused' ? 'working' : TONES[activity.state] ?? 'quiet',
+    tone: asks || (!started && context.asking) ? 'waiting' : context.live && activity.state !== 'paused' ? 'working' : review ? 'quiet' : TONES[activity.state] ?? 'quiet',
     word,
     detail,
     progress: counts.total > 0 ? { done: counts.accepted, total: counts.total } : null,
     main,
-    steps: started ? record.milestones.filter((milestone) => milestone.id !== MAINTENANCE_MILESTONE_ID).map(stepOf) : [],
+    steps: started ? record.milestones.filter((milestone) => milestone.id !== MAINTENANCE_MILESTONE_ID).map((milestone) => stepOf(record, milestone)) : [],
     planNote: started ? record.working?.objective ?? (record.brief ? 'A plan is written.' : null) : null,
     researched: started && (record.research.length > 0 || (record.pendingResearch ?? []).length > 0),
     made: started ? madeRows(record) : [],

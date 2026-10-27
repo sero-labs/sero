@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Button } from '@sero-ai/ui';
-import { Check, Compass, ExternalLink } from 'lucide-react';
+import { Check, Compass } from 'lucide-react';
 
 import { hasAgreement } from '../../shared/agreement';
 import type { Decision, ProjectRecord } from '../../shared/record';
@@ -110,28 +109,11 @@ export function BoardStopped({ label, tone = 'stopped', headline, what, reason, 
   );
 }
 
-export function BoardResult({ headline, text, preview, onOpenChecks, picture }: { headline: string; text: string | null; preview: { busy: boolean; open(): void } | null; onOpenChecks: (() => void) | null; picture?: ReactNode }) {
-  return (
-    <section className="bd-tile bd-main bd-result" aria-label="Result">
-      <h2 className="bd-label">Result</h2>
-      <div className="bd-result-text">
-        <h3>{headline}</h3>
-        {text && <p className="bd-why">{text}</p>}
-        <div className="bd-btns">
-          {preview && <Button size="sm" className="ar-btn ar-btn-solid" disabled={preview.busy} onClick={preview.open}><ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}</Button>}
-          {onOpenChecks && <Button size="sm" variant="outline" className="ar-btn" onClick={onOpenChecks}>See the checks</Button>}
-        </div>
-      </div>
-      {picture}
-    </section>
-  );
-}
-
 /** A step's proof picture. Nothing is drawn until the picture arrives. */
 export function ProofPicture({ projectId, step, className }: { projectId: string; step: BoardStep; className?: string }) {
   const picture = useProjectPicture(projectId, step.id, step.proofKey ?? '', step.proofKey !== null);
   if (!picture) return null;
-  return <img className={className} src={picture.dataUrl} alt={`Screenshot that proves: ${step.title}`} />;
+  return <img className={className} src={picture.dataUrl} alt={`Recorded screenshot: ${step.title}`} />;
 }
 
 function Step({ projectId, step, onOpenChecks }: { projectId: string; step: BoardStep; onOpenChecks(milestoneId: string): void }) {
@@ -144,7 +126,7 @@ function Step({ projectId, step, onOpenChecks }: { projectId: string; step: Boar
         {step.checked && (
           <button type="button" className="bd-thumb" onClick={() => onOpenChecks(step.id)}>
             <ProofPicture projectId={projectId} step={step} />
-            <span className="bd-link">See the proof</span>
+            <span className="bd-link">See recorded checks</span>
           </button>
         )}
       </div>
