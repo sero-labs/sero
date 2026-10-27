@@ -1,8 +1,10 @@
 import path from 'path';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { createBrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/adapter';
+import { createBrowserRuntimeAdapter, validateInstalledBrowserPack } from '@electron/features/workspace/runtime/browser-pack/adapter';
 import { getBrowserPackManifest } from '@electron/features/workspace/runtime/browser-pack/manifest';
 import type { BrowserPackManifest } from '@electron/features/workspace/runtime/browser-pack/types';
 
@@ -16,6 +18,29 @@ const manifest: BrowserPackManifest = {
 };
 
 describe('BrowserRuntimeAdapter', () => {
+  const roots: string[] = [];
+  afterEach(async () => {
+    await Promise.all(roots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
+  });
+
+  it.each(Object.values(manifest.artifacts))('makes the packaged recorder executable discoverable on $platform', async (selection) => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-browser-adapter-'));
+    roots.push(root);
+    for (const candidate of [...selection.chromiumExecutableCandidates, ...selection.agentBrowserCandidates, ...selection.ffmpegCandidates]) {
+      const file = path.join(root, candidate);
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, 'packaged executable', { mode: 0o755 });
+    }
+
+    await validateInstalledBrowserPack(root, selection);
+    const recorder = path.join(root, path.dirname(selection.ffmpegCandidates[0]), selection.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    await fs.access(recorder, fs.constants.X_OK);
+    expect(await fs.readFile(recorder, 'utf8')).toBe('packaged executable');
+    // Checking an already installed pack must preserve its usable alias.
+    await validateInstalledBrowserPack(root, selection);
+    await fs.access(recorder, fs.constants.X_OK);
+  });
+
   it('creates macOS candidates and PLAYWRIGHT_BROWSERS_PATH env', () => {
     const adapter = createBrowserRuntimeAdapter({ manifest, platform: 'darwin', arch: 'arm64', tempRoot: '/tmp/browser' });
 

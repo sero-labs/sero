@@ -85,9 +85,14 @@ export function must(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-/** Waits for an effect that is written after the tool call returned, rechecking when a Room file changes. */
+/** Waits for a committed effect, after the Room's split-file transaction finishes. */
 export function waitForRoom<T>(ctx: StepContext, what: string, read: () => Promise<T | undefined | null | false>, timeoutMs = 90_000): Promise<T> {
-  return waitUntil(roomsDir(ctx), what, read, timeoutMs);
+  return waitUntil(roomsDir(ctx), what, async () => {
+    const result = await read();
+    if (!result) return result;
+    const writing = await fs.access(path.join(roomsDir(ctx), 'transaction.json')).then(() => true, () => false);
+    return writing ? undefined : result;
+  }, timeoutMs);
 }
 
 export const waitForRoomStatus = (ctx: StepContext, roomId: string, status: string) =>
@@ -143,7 +148,7 @@ export function holdCommand(ctx: StepContext): string {
     `const holding=${JSON.stringify(path.join(folder, 'holding'))};`,
     "const done=()=>{if(fs.existsSync(open))process.exit(0)};",
     `fs.mkdirSync(${JSON.stringify(folder)},{recursive:true});`,
-    `fs.watch(${JSON.stringify(folder)},done);`,
+    'setInterval(done,100);',
     "fs.writeFileSync(holding,'1');",
     'done();',
   ].join('');

@@ -58,7 +58,15 @@ export async function validateInstalledBrowserPack(root: string, artifact: Brows
   await requireExecutable(root, artifact.chromiumExecutableCandidates, 'Chromium');
   await requireExecutable(root, artifact.agentBrowserCandidates, 'agent-browser');
   if (artifact.ffmpegCandidates.length > 0) {
-    await requireExecutable(root, artifact.ffmpegCandidates, 'ffmpeg');
+    const ffmpeg = await requireExecutable(root, artifact.ffmpegCandidates, 'ffmpeg');
+    // agent-browser spawns `ffmpeg`, while Playwright ships platform-named binaries.
+    // A hard link also repairs packs installed before this alias was required.
+    const alias = path.join(path.dirname(ffmpeg), artifact.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    if (alias !== ffmpeg) {
+      await fs.promises.link(ffmpeg, alias).catch((error: unknown) => {
+        if (typeof error !== 'object' || error === null || !('code' in error) || error.code !== 'EEXIST') throw error;
+      });
+    }
   }
 }
 
@@ -66,9 +74,10 @@ export function defaultBrowserTempRoot(): string {
   return path.join(os.tmpdir(), 'sero-browser-pack');
 }
 
-async function requireExecutable(root: string, candidates: string[], label: string): Promise<void> {
+async function requireExecutable(root: string, candidates: string[], label: string): Promise<string> {
   const absoluteCandidates = candidates.map((candidate) => path.join(root, candidate));
-  if (await firstExistingCandidate(absoluteCandidates)) return;
+  const executable = await firstExistingCandidate(absoluteCandidates);
+  if (executable) return executable;
   throw new Error(`${label} executable is missing or is not executable in Browser Pack.`);
 }
 
