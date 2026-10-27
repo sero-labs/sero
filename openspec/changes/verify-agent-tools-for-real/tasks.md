@@ -53,7 +53,8 @@
 ## 9. CI workflow and docs
 
 - [ ] 9.1 Add `.github/workflows/tool-check.yml` with `workflow_dispatch` only, the target and `real_model` inputs, one job per target, `xvfb` on Linux and a browser pack cache keyed by pack version; verify `linux-host`, `linux-docker`, `macos-host` and `windows-host` each pass from a manual dispatch on the branch
-- [ ] 9.2 Confirm the repository has the DeepSeek API key secret the real-model pass reads, or ask Dan to add it; verify a `real_model` dispatch reaches the model
+- [x] 9.2 Confirm the repository has the DeepSeek API key secret the real-model pass reads, or ask Dan to add it; verify a `real_model` dispatch reaches the model
+  - Done 2026-10-27: run 40544789609 passed all five agreed sites, with no skips, for $0.00876. No additional paid run is authorized.
 - [ ] 9.3 Document the coverage check, how to add a scenario or exemption for a new tool, and how to start the full run locally and in CI in `apps/docs-site/docs/reference/testing-evals.md`; verify each documented command runs as written
 
 ## 10. Acceptance: the six #626 faults
@@ -66,6 +67,8 @@
 - [x] 11.1 Open GitHub issues for the out-of-scope defects in the proposal: cron sessions use Pi built-in tools that bypass the workspace runtime, and `tools-host.ts` is used only by tests so those tests skip the production tools; verify both issues exist and link to this change
 
 ## Workflow follow-up
+
+- The test system shipped in #661. Under Dan's one-run-then-fix/review limit, the remaining unchecked runtime-evidence tasks above are not claims of green ledgers. Apple Container Git failures remain in #663, the two deferred model sites in #665, and the macOS recording/Room fixes in the follow-up to #667. Closing the broad delivery issue #626 does not certify those unchecked acceptance checks.
 
 - Run `pnpm typecheck` from the root before each commit, and once with `--force` before the final report.
 - Open the pull request as a draft.
