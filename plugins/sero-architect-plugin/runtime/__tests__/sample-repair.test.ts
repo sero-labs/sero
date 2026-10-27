@@ -55,15 +55,21 @@ describe('sample repair preparation', () => {
     expect(deps.host.sessions.proposals).toHaveLength(0);
   });
 
-  it('keeps the same baseline and destination after a runtime dependency failure', async () => {
+  it('retries Node provisioning after a failed download without replacing the baseline or destination', async () => {
     const deps = await setup();
     const run = deps.host.runCommand;
-    deps.host.runCommand = async () => ({ exitCode: 127, stdout: '', stderr: 'runtime unavailable' });
+    let installed = false;
+    let downloadAvailable = false;
+    deps.host.ensureNode = async () => {
+      if (!downloadAvailable) throw new Error('Node download failed');
+      installed = true;
+    };
+    deps.host.runCommand = async (...args) => installed ? run(...args) : { exitCode: 127, stdout: '', stderr: 'node: command not found' };
     expect(await deps.prepare()).toMatchObject({ ok: false });
     expect(deps.projects.create).not.toHaveBeenCalled();
     const folder = deps.host.workspaces[0]!.path;
     const baseline = (await deps.host.exec('git', ['rev-parse', 'HEAD'], folder)).stdout;
-    deps.host.runCommand = run;
+    downloadAvailable = true;
     expect(await createSampleRepair(deps)()).toMatchObject({ ok: true });
     expect(deps.host.createWorkspace).toHaveBeenCalledTimes(1);
     expect((await deps.host.exec('git', ['rev-parse', 'HEAD'], folder)).stdout).toBe(baseline);

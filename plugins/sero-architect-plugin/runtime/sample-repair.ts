@@ -65,6 +65,8 @@ export function createSampleRepair(deps: { host: ArchitectHost; store: RecordSto
       await git(['add', '--', ...Object.keys(SAMPLE_FILES)]);
       await git(['-c', 'user.name=Sero Sample', '-c', 'user.email=sample@sero.local', '-c', 'commit.gpgsign=false', 'commit', '-m', 'chore: seed faulty sample repair']);
     }
+    // A shell prepares Bash, not Node. Retry the shared installer before probing.
+    await host.ensureNode(workspace.id);
     // Run through the selected workspace runtime. Never silently switch to Host.
     const node = await host.runCommand(workspace.id, workspace.path, 'node --version', 120_000);
     if (node.exitCode !== 0) throw new Error(`The sample runtime is not ready: ${node.stderr || node.stdout}. Retry after checking runtime setup. Your files are kept.`);

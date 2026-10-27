@@ -20,6 +20,7 @@ import type {
   AppRuntimeSubagentRunParams,
   AppRuntimeToolchainsApi,
   AppRuntimeWorkspaceInfo,
+  AppRuntimeWorkspaceApi,
   PersistentSessionsApi,
   SharedAvailableModelGroup,
   SharedModelTierSettings,
@@ -53,6 +54,8 @@ export interface ArchitectHost {
   runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult>;
   /** The tool and skill names a delegated worker in this workspace can be given. */
   listWorkerCapabilities(workspaceId: string): Promise<{ tools: string[]; skills: string[] }>;
+  /** Provision Node only when the selected workspace executes on the host. */
+  ensureNode(workspaceId: string): Promise<void>;
   /** One shell command through the workspace runtime, with its real exit code. */
   runCommand(workspaceId: string, cwd: string, command: string, timeoutMs?: number): Promise<CommandRun>;
   /** A local binary (git) in a directory, outside any workspace runtime. */
@@ -88,6 +91,15 @@ export interface ArchitectHost {
   newId(prefix: string): string;
   log(message: string): void;
   env: NodeJS.ProcessEnv;
+}
+
+export async function ensureWorkspaceNode(
+  workspaceId: string,
+  resolveRuntime: AppRuntimeWorkspaceApi['resolveRuntime'],
+  ensure: AppRuntimeToolchainsApi['ensure'],
+): Promise<void> {
+  const runtime = await resolveRuntime(workspaceId);
+  if (runtime.actualRuntime === 'host') await ensure('node');
 }
 
 export async function execLocal(file: string, args: string[], cwd: string, toolchains: Pick<AppRuntimeToolchainsApi, 'ensure'>): Promise<CommandRun> {
@@ -150,6 +162,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
       const [tools, skills] = await Promise.all([host.subagents.listToolCatalog(workspaceId), host.subagents.listSkillCatalog(workspaceId)]);
       return { tools: tools.map((tool) => tool.name), skills: skills.map((skill) => skill.name) };
     },
+    ensureNode: (workspaceId) => ensureWorkspaceNode(workspaceId, host.workspace.resolveRuntime, host.toolchains.ensure),
     runCommand: async (workspaceId, cwd, command, timeoutMs) => {
       const result = await host.workspace.runCommand(workspaceId, cwd, command, timeoutMs);
       return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };

@@ -78,3 +78,27 @@ changed source file is `extension/projects-tool.ts` (441 lines).
 Do not mark #632 complete on this evidence. The integrated post-fix journey,
 clean packaged install and unfamiliar-person trials remain outstanding.
 #630's Room/restart integrated proof also remains outstanding and was not rerun.
+
+## Review round 1: provision Node before the sample probe
+
+The review found that a Host shell prepares Bash and exposes installed tool
+directories, but does not install Node. Onboarding permits continuing while its
+core-tool download is unfinished, so a sample could keep failing after a Node
+download failure even when connectivity returned.
+
+The sample now resolves its workspace runtime and calls the existing shared
+`host.toolchains.ensure('node')` when execution is on Host. Every preparation
+retry repeats that provisioning step before probing Node. Container execution
+keeps its own runtime and image; it does not install host Node or switch to
+Host. Git provisioning and the subsequent workspace commands are unchanged.
+
+The focused check passed 3 files / 57 tests: sample preparation, host adapter,
+and existing project actions. Coverage includes a failed Node download followed
+by a successful retry on the same Git baseline/workspace, plus the Host versus
+container provisioning boundary. Root typecheck passed 29/29 tasks. Layout,
+diff whitespace and source LOC checks passed; changed production files are
+`host.ts` (210 lines) and `sample-repair.ts` (82 lines).
+
+Logs: `review1-focused.log` and `review1-typecheck.log` under the same temporary
+log directory. No full suite, app journey or paid call was repeated. The
+integrated, packaged-install and human acceptance gaps above remain unchanged.
