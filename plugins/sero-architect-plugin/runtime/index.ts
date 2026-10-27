@@ -1,5 +1,6 @@
 import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/common';
 
+import { createSampleRepair } from './sample-repair';
 import { architectEnabled } from '../shared/kill-switch';
 import { mayWakeForWork } from '../shared/lifecycle';
 import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
@@ -154,7 +155,7 @@ export class ArchitectRuntime implements AppRuntime {
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services, waits });
     this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch, waits });
-    this.registered = { owner: this.owner, projects: this.projects };
+    this.registered = { owner: this.owner, projects: this.projects, sampleRepair: createSampleRepair({ host: this.host, store, projects: this.projects }) };
     registerArchitectRuntime(this.registered);
 
     // Reconcile before the gate opens, so no wake can run on unconfirmed state.

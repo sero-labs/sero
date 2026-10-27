@@ -177,10 +177,11 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     updateIndex: async (updater) => { index = updater(index); },
     listWorkspaces: async () => host.workspaces,
     createWorkspace: async (name, parentPath) => {
-      const ws = { id: `ws-${name}`, name, path: path.join(parentPath, name), open: true };
+      const ws = { id: `ws-${name}`, name, path: path.join(parentPath ?? path.join(homeDir, 'workspaces'), name), open: true };
       host.workspaces.push(ws);
       return ws;
     },
+    ensureNode: async () => undefined,
     persistentSessions: sessions,
     modelTiers: async () => ({ MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'medium' } }),
     listModels: async () => [{ provider: 'anthropic', displayName: 'Anthropic', logo: '', models: [

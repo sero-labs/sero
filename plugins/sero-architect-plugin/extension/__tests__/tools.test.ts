@@ -15,6 +15,7 @@ describe('the architect tools', () => {
     const calls: string[] = [];
     registered = {
       owner: { owns: async (signals) => (signals.sessionPath === '/s/owner.jsonl' ? ({ id: 'p1' } as never) : null), execute: async () => ({ ok: true, text: '' }) },
+      sampleRepair: async () => { calls.push('sample'); return { ok: true, text: 'Prepared; approve access before paid work', projectId: 'sample', needsStart: true }; },
       projects: { approve: async () => { calls.push('approve'); return { ok: true, text: 'approved' }; } } as unknown as ArchitectRegistryEntry['projects'],
     };
     registerArchitectRuntime(registered);
@@ -23,7 +24,9 @@ describe('the architect tools', () => {
     expect(refused.content[0]?.text).toContain('for the user');
     const allowed = await executeProjectsTool({ action: 'approve', projectId: 'p1', target: 'charter' }, ctxFor('/s/user-chat.jsonl'));
     expect(allowed.details.ok).toBe(true);
+    expect((await executeProjectsTool({ action: 'sample_repair' }, ctxFor('/s/owner.jsonl'))).details.ok).toBe(false);
     expect(calls).toEqual(['approve']);
+    expect((await executeProjectsTool({ action: 'sample_repair' }, ctxFor('/s/user-chat.jsonl'))).details).toMatchObject({ projectId: 'sample', needsStart: true });
   });
 
   it('asks for a trace summary without asking for record detail', async () => {

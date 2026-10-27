@@ -10,7 +10,14 @@ import { stepsOf } from './architect-story';
 export const architectProjectsProbe: ToolProbe = {
   tool: 'architect_projects',
   timeoutMs: 3_600_000,
-  steps: stepsOf('chat'),
+  steps: [...stepsOf('chat'), {
+    action: 'sample_repair',
+    params: { action: 'sample_repair' },
+    expect: (result) => {
+      succeeded(result);
+      must(typeof result.details === 'object' && result.details !== null && 'projectId' in result.details && typeof result.details.projectId === 'string', 'sample preparation did not return its saved project');
+    },
+  }],
   // The site pass only lists, so it makes no project at every site.
   siteStep: {
     action: 'list',
