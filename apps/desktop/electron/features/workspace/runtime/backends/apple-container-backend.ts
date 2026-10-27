@@ -153,7 +153,7 @@ export class AppleContainerBackend implements RuntimeBackend {
     else await this.ensureWithOptions({ isolated: input.isolated });
     return this.containerManager.exec(
       this.workspaceId,
-      envPrefix ? `${envPrefix} ${input.command}` : input.command,
+      envPrefix ? `${envPrefix} sh -c ${shellQuote(input.command)}` : input.command,
       input.cwd ?? this.runtimeWorkspacePath,
       input.timeoutMs,
       { injectGitAuth: input.injectGitAuth, outputSink: input.outputSink, signal: input.signal },

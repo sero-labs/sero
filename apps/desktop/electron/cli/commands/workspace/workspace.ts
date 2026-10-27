@@ -5,6 +5,7 @@ import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-va
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { askConfirm } from '@electron/cli/lib/ask-confirm';
 import { fail, ok, parseFlags, stringifyJson } from '@electron/cli/lib/utils';
@@ -144,86 +145,78 @@ async function handleMountPlugin(
   );
 }
 
+const WORKSPACE_SUBCOMMANDS: CliSubcommands = {
+  list: async (_rest, ctx) => {
+    const output = await formatWorkspaceList(ctx.workspaceId)();
+    return ok(output);
+  },
+  info: async (rest, ctx) => {
+    const targetId = rest[0] || ctx.workspaceId;
+    const config = await workspaceManager.getConfig(targetId);
+    const path = workspaceManager.getPath(targetId);
+    if (!config || !path) return fail(`Workspace not found: ${targetId}`);
+    const runtime = await workspaceManager.getRuntimeConfig(targetId);
+    const lines = [
+      `Workspace: ${config.name} (${targetId})`,
+      `Path: ${path}`,
+      `Runtime backend: ${runtime.backend}`,
+    ];
+    if (config.description) lines.push(`Description: ${config.description}`);
+    if (config.contextHints?.length) lines.push(`Context hints: ${config.contextHints.join(', ')}`);
+    if (config.tags?.length) lines.push(`Tags: ${config.tags.join(', ')}`);
+    return ok(lines.join('\n'));
+  },
+  'access-roots': async (rest, ctx) => {
+    const { positionals, flags } = parseFlags(rest);
+    const workspaceId = positionals[0] || ctx.workspaceId;
+    const result = await listWorkspaceAccessRoots(workspaceManager, workspaceId);
+    return ok(flags.get('json') === true ? stringifyJson(result) : formatAccessRoots(result));
+  },
+  create: async (rest) => {
+    const { positionals, flags } = parseFlags(rest);
+    const name = positionals.join(' ').trim();
+    if (!name) return fail('Usage: sero workspace create <name> [--parent <path>]');
+    const parentFlag = flags.get('parent');
+    const parentPath = typeof parentFlag === 'string' ? parentFlag : undefined;
+    const workspace = await workspaceManager.create(name, parentPath);
+    await reconcileAppRuntimes('workspace create');
+    notifyWorkspaceChanged();
+    return ok(`Created workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
+  },
+  'add-folder': async (rest, ctx) => {
+    const { positionals, flags } = parseFlags(rest);
+    const folderPath = positionals[0];
+    if (!folderPath) return fail('Usage: sero workspace add-folder <path> [--name <display-name>]');
+    const nameFlag = flags.get('name');
+    const name = typeof nameFlag === 'string' ? nameFlag : undefined;
+    const workspace = await workspaceManager.addFolder(path.resolve(ctx.cwd, folderPath), name);
+    await reconcileAppRuntimes('workspace add-folder');
+    notifyWorkspaceChanged();
+    return ok(`Added workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
+  },
+  open: async (rest) => {
+    if (!rest[0]) return fail('Usage: sero workspace open <id>');
+    await workspaceManager.open(rest[0]);
+    notifyWorkspaceChanged();
+    return ok(`Expanded workspace: ${rest[0]}`);
+  },
+  close: async (rest) => {
+    if (!rest[0]) return fail('Usage: sero workspace close <id>');
+    if (rest[0] === 'global') return fail('Cannot close the default workspace');
+    await workspaceManager.close(rest[0]);
+    await reconcileAppRuntimes('workspace close');
+    notifyWorkspaceChanged();
+    return ok(`Closed workspace: ${rest[0]} (re-add via add-folder to restore)`);
+  },
+  'mount-plugin': handleMountPlugin,
+};
+
 async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
-  const [action = 'info', ...rest] = args;
-  const targetId = rest[0] || ctx.workspaceId;
-
   try {
-    switch (action) {
-      case 'list': {
-        const output = await formatWorkspaceList(ctx.workspaceId)();
-        return ok(output);
-      }
-
-      case 'info': {
-        const config = await workspaceManager.getConfig(targetId);
-        const path = workspaceManager.getPath(targetId);
-        if (!config || !path) return fail(`Workspace not found: ${targetId}`);
-        const runtime = await workspaceManager.getRuntimeConfig(targetId);
-        const lines = [
-          `Workspace: ${config.name} (${targetId})`,
-          `Path: ${path}`,
-          `Runtime backend: ${runtime.backend}`,
-        ];
-        if (config.description) lines.push(`Description: ${config.description}`);
-        if (config.contextHints?.length) lines.push(`Context hints: ${config.contextHints.join(', ')}`);
-        if (config.tags?.length) lines.push(`Tags: ${config.tags.join(', ')}`);
-        return ok(lines.join('\n'));
-      }
-
-      case 'access-roots': {
-        const { positionals, flags } = parseFlags(rest);
-        const workspaceId = positionals[0] || ctx.workspaceId;
-        const result = await listWorkspaceAccessRoots(workspaceManager, workspaceId);
-        return ok(flags.get('json') === true ? stringifyJson(result) : formatAccessRoots(result));
-      }
-
-      case 'create': {
-        const { positionals, flags } = parseFlags(rest);
-        const name = positionals.join(' ').trim();
-        if (!name) return fail('Usage: sero workspace create <name> [--parent <path>]');
-        const parentFlag = flags.get('parent');
-        const parentPath = typeof parentFlag === 'string' ? parentFlag : undefined;
-        const workspace = await workspaceManager.create(name, parentPath);
-        await reconcileAppRuntimes('workspace create');
-        notifyWorkspaceChanged();
-        return ok(`Created workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
-      }
-
-      case 'add-folder': {
-        const { positionals, flags } = parseFlags(rest);
-        const folderPath = positionals[0];
-        if (!folderPath) return fail('Usage: sero workspace add-folder <path> [--name <display-name>]');
-        const nameFlag = flags.get('name');
-        const name = typeof nameFlag === 'string' ? nameFlag : undefined;
-        const workspace = await workspaceManager.addFolder(path.resolve(ctx.cwd, folderPath), name);
-        await reconcileAppRuntimes('workspace add-folder');
-        notifyWorkspaceChanged();
-        return ok(`Added workspace: ${workspace.name} (${workspace.id})\n  ${workspace.path}`);
-      }
-
-      case 'open': {
-        if (!rest[0]) return fail('Usage: sero workspace open <id>');
-        await workspaceManager.open(rest[0]);
-        notifyWorkspaceChanged();
-        return ok(`Expanded workspace: ${rest[0]}`);
-      }
-
-      case 'close': {
-        if (!rest[0]) return fail('Usage: sero workspace close <id>');
-        if (rest[0] === 'global') return fail('Cannot close the default workspace');
-        await workspaceManager.close(rest[0]);
-        await reconcileAppRuntimes('workspace close');
-        notifyWorkspaceChanged();
-        return ok(`Closed workspace: ${rest[0]} (re-add via add-folder to restore)`);
-      }
-
-      case 'mount-plugin':
-        return handleMountPlugin(rest, ctx);
-
-      default:
-        return fail(`Unknown workspace action: ${action}`);
-    }
+    return await runSubcommand(WORKSPACE_SUBCOMMANDS, args, ctx, undefined, {
+      fallback: 'info',
+      unknown: (action) => fail(`Unknown workspace action: ${action}`),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Workspace command failed';
     return fail(message);
@@ -256,6 +249,7 @@ export function registerWorkspaceCliCommands(registry: CliRegistry): void {
     // Confirmation prompt blocks on user input — disable batch / per-command
     // timeouts so the user has time to answer.
     interactive: true,
+    subcommands: WORKSPACE_SUBCOMMANDS,
     execute: handleWorkspaceCommand,
   });
 }

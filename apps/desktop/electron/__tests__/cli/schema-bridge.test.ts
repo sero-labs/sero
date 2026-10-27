@@ -20,7 +20,9 @@ function coerceValue(value: string | true, prop: SchemaProp): unknown {
     return Number.isFinite(n) ? n : value;
   }
   if (prop.type === 'boolean') {
-    return value === 'true' || value === '1';
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0') return false;
+    return value;
   }
   if (prop.type === 'array' || prop.type === 'object') {
     if (typeof value === 'string') {

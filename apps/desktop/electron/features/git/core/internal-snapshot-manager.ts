@@ -74,6 +74,20 @@ async function withTempIndex<T>(
   workspaceId: string,
   callback: (env: NodeJS.ProcessEnv) => Promise<T>,
 ): Promise<T> {
+  const runtime = await runner.runtime(workspaceId);
+  if (runtime.backend !== 'host') {
+    // Git runs inside the container, which cannot see the host's temp folder,
+    // so the index goes in the repo's own git folder there (#662).
+    const gitDir = await runner.run(workspaceId, ['rev-parse', '--absolute-git-dir']);
+    if (gitDir.exitCode !== 0) throw new Error(gitDir.stderr || 'Failed to find the git folder for a temporary index');
+    const indexFile = path.posix.join(gitDir.stdout.trim(), `sero-turn-undo-${randomUUID()}.index`);
+    try {
+      return await callback({ GIT_INDEX_FILE: indexFile });
+    } finally {
+      await runtime.delete({ path: indexFile }).catch(() => undefined);
+    }
+  }
+
   const tempDir = await mkdtemp(path.join(tmpdir(), 'sero-turn-undo-'));
   const env = { GIT_INDEX_FILE: path.join(tempDir, 'index') };
 

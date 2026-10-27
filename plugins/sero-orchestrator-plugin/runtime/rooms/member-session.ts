@@ -157,16 +157,22 @@ export async function runMemberTurn(
   const watch = watchTurn(api, handleId);
   const stopUsage = watchMemberUsage(api, handleId, deps.store, roomId, member.id, (message) => deps.host.log(message));
 
+  // Listening before the prompt matters: the host's `prompt()` resolves only
+  // when the turn ends. Cancelling still waits for `turn_end`, so the pool never
+  // closes a session that is still executing.
+  const abort = () => void api.abort(handleId);
+  request.signal?.addEventListener('abort', abort, { once: true });
   let outcome: TurnOutcome;
   try {
     const { turnId } = await api.prompt(handleId, content);
     await request.onAccepted?.(turnId);
-    outcome = await watch.settle(turnId, request.signal);
+    outcome = await watch.settle(turnId);
   } catch (error) {
     // A denied, revoked or failed turn is a real outcome, not a crash: it spends
     // the member's bounded failure budget and the Room carries on (spec §30).
     outcome = { turnId: null, status: 'error', detail: describeError(error) };
   } finally {
+    request.signal?.removeEventListener('abort', abort);
     watch.stop();
     await stopUsage();
   }

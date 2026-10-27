@@ -6,6 +6,7 @@
  */
 
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail } from '@electron/cli/lib/utils';
 import { handleActive, handleInfo, handleList, handleOpen, handlePreview } from './app-control-navigation';
@@ -26,31 +27,32 @@ import {
 import { handleRecord } from './app-control-recording';
 import { handleScreenshot } from './app-control-screenshot';
 
-async function handleApp(args: string[], ctx: CliCommandContext) {
-  const [action, ...rest] = args;
-  switch (action) {
-    case 'list': return handleList();
-    case 'open': return handleOpen(rest);
-    case 'active': return handleActive();
-    case 'info': return handleInfo(rest);
-    case 'screenshot': return handleScreenshot(rest, ctx);
-    case 'screenshot-around': return handleScreenshotAround(rest, ctx);
-    case 'click': return handleClick(rest);
-    case 'type': return handleType(rest);
-    case 'scroll': return handleScroll(rest);
-    case 'scroll-to': return handleScrollTo(rest);
-    case 'select': return handleSelect(rest);
-    case 'hover': return handleHover(rest);
-    case 'inspect': return handleInspect(rest);
-    case 'get-text': return handleGetText(rest);
-    case 'visible': return handleVisible(rest);
-    case 'snapshot': return handleSnapshot(rest);
-    case 'scroll-containers': return handleScrollContainers(rest);
-    case 'record': return handleRecord(rest, ctx);
-    case 'preview': return handlePreview(rest, ctx);
-    default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|screenshot-around|click|type|scroll|scroll-to|select|hover|inspect|get-text|visible|snapshot|scroll-containers|record|preview>');
-  }
+const APP_SUBCOMMANDS: CliSubcommands = {
+  list: handleList,
+  open: handleOpen,
+  active: handleActive,
+  info: handleInfo,
+  screenshot: handleScreenshot,
+  'screenshot-around': handleScreenshotAround,
+  click: handleClick,
+  type: handleType,
+  scroll: handleScroll,
+  'scroll-to': handleScrollTo,
+  select: handleSelect,
+  hover: handleHover,
+  inspect: handleInspect,
+  'get-text': handleGetText,
+  visible: handleVisible,
+  snapshot: handleSnapshot,
+  'scroll-containers': handleScrollContainers,
+  record: handleRecord,
+  preview: handlePreview,
+};
+
+function handleApp(args: string[], ctx: CliCommandContext) {
+  return runSubcommand(APP_SUBCOMMANDS, args, ctx, undefined, {
+    unknown: () => fail('Usage: sero app <list|open|active|info|screenshot|screenshot-around|click|type|scroll|scroll-to|select|hover|inspect|get-text|visible|snapshot|scroll-containers|record|preview>'),
+  });
 }
 
 export function registerAppControlCliCommands(registry: CliRegistry): void {
@@ -122,6 +124,7 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  app screenshot --selector <sel> --full for long containers.\n' +
       '- appstate is JSON state only, not UI automation.\n' +
       '- Use app click <selector> or app click --x <n> --y <n>; there is no app press.',
+    subcommands: APP_SUBCOMMANDS,
     execute: handleApp,
   });
 }

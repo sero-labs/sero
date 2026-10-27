@@ -56,6 +56,29 @@ describe('bridged JSON parameters', () => {
     expect(received).toEqual({ toolArguments: { repo: 'sero' }, view: { scope: 'all' } });
   });
 
+  it('refuses a boolean flag given a word it cannot read, instead of treating it as false', async () => {
+    const received: Array<Record<string, unknown>> = [];
+    const tool = defineTool({
+      name: 'flag_tool',
+      label: 'Flag',
+      description: 'Takes a boolean.',
+      parameters: Type.Object({ paused: Type.Optional(Type.Boolean()) }),
+      execute: async (_id, params) => {
+        received.push(params);
+        return { content: [{ type: 'text', text: 'ok' }], details: {} };
+      },
+    });
+    const command = bridgeTool('flag_tool', tool);
+    const run = (args: string[]) => command.execute(
+      args,
+      { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
+    );
+
+    expect((await run(['--paused', 'yes'])).exitCode).toBe(1);
+    expect((await run(['--paused', 'false'])).exitCode).toBe(0);
+    expect(received).toEqual([{ paused: false }]);
+  });
+
   it('rejects arguments that do not match the tool schema before execution', async () => {
     let called = false;
     const tool = defineTool({

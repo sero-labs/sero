@@ -78,6 +78,8 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   failNextCreate: string | null;
   /** Ends the turn before `prompt()` resolves, the race a naive watcher loses. */
   endBeforePromptResolves: boolean;
+  /** Resolves `prompt()` only when its turn ends, as the real host does: Pi's send awaits the whole run. */
+  promptResolvesAtTurnEnd: boolean;
   /** Fraction of the context window reported as used. */
   contextFill: number;
   /** Ends a held turn. Unknown subjects are ignored. */
@@ -92,6 +94,8 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
   const bySubject = new Map<string, FakeSession>();
   const byHandle = new Map<string, FakeSession>();
   const openTurnIds = new Map<string, string>();
+  /** Prompts waiting for their turn to end, by subject. */
+  const promptWaits = new Map<string, () => void>();
   const stored = new Map<string, PersistentSessionGrantAmendmentResult>();
   let grants = 0;
   let handles = 0;
@@ -133,6 +137,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     failNextCreate: null,
     failNextOpen: null,
     endBeforePromptResolves: false,
+    promptResolvesAtTurnEnd: false,
     contextFill: 0.1,
 
     async requestGrant(proposal): Promise<PersistentSessionGrantHandle> {
@@ -280,6 +285,9 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       // The normal path ends the turn after `prompt` resolves, so the early-end
       // race above is a distinct case rather than the only one covered.
       else if (api.mode === 'auto') queueMicrotask(() => api.endTurn(session.subject));
+      if (api.promptResolvesAtTurnEnd && openTurnIds.has(session.subject)) {
+        await new Promise<void>((resolve) => promptWaits.set(session.subject, resolve));
+      }
       return { turnId };
     },
 
@@ -342,6 +350,8 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       const turnId = openTurnIds.get(subject);
       if (!turnId) return;
       openTurnIds.delete(subject);
+      promptWaits.get(subject)?.();
+      promptWaits.delete(subject);
       const session = bySubject.get(subject);
       if (session && status === 'completed') {
         // Cumulative, like a real session: a caller must ASSIGN these totals

@@ -5,7 +5,7 @@
  * This manager handles:
  *   - Reading state from disk
  *   - Atomic writes (write to tmp, then fs.rename)
- *   - fs.watch() for change notifications (macOS uses FSEvents — reliable)
+ *   - fs.watch() on the file's folder for change notifications
  *   - Serialised write queue to prevent concurrent writes in this process
  *   - A cross-process lock (`<stateFile>.lock`) around every mutation, shared
  *     with plugin extensions via @sero-ai/extension-runtime — a writer in the
@@ -227,12 +227,7 @@ export class AppStateManager {
 
   // ── Watcher lifecycle ─────────────────────────────────────
 
-  /**
-   * Create (or re-create) an fs.watch for a file.
-   * On macOS, atomic writes (tmp → rename) invalidate the watcher
-   * because the inode changes. We detect 'rename' events and
-   * re-establish the watcher after a short delay.
-   */
+  /** Create the fs.watch for a file. */
   private async initializeWatcher(filePath: string, entry: WatcherEntry): Promise<void> {
     try {
       await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -274,44 +269,21 @@ export class AppStateManager {
     }
   }
 
+  /**
+   * Watches the file's folder, not the file. An atomic write (tmp → rename)
+   * replaces the file's inode, and a watch on the old inode goes silent; the
+   * folder stays the same. Re-attaching after each rename raced the next
+   * rename and could leave the watch on a replaced file for good.
+   */
   private startWatcher(filePath: string, entry: WatcherEntry): void {
     entry.watcher?.close();
-    entry.watcher = watch(filePath, { persistent: false }, (eventType) => {
+    const name = path.basename(filePath);
+    entry.watcher = watch(path.dirname(filePath), { persistent: false }, (_eventType, changed) => {
       const current = this.watchers.get(filePath);
       if (current !== entry || current.refCount <= 0) return;
-
-      if (eventType === 'rename') {
-        // Inode changed (atomic write) — re-establish watcher then notify.
-        // Retry up to 3 times in case the file is briefly absent.
-        this.reestablishWatcher(filePath, 0);
-      } else if (eventType === 'change') {
-        this.handleFileChange(filePath);
-      }
+      // Some platforms omit the name; a debounced read of our file is cheap.
+      if (changed === null || changed.toString() === name) this.handleFileChange(filePath);
     });
-  }
-
-  /**
-   * Re-establish a watcher after a rename event (atomic write).
-   * Retries up to 3 times with increasing delay if the file is
-   * briefly absent between unlink and rename.
-   */
-  private reestablishWatcher(filePath: string, attempt: number): void {
-    const delay = attempt === 0 ? 50 : 150;
-    setTimeout(() => {
-      const entry = this.watchers.get(filePath);
-      if (!entry || entry.refCount <= 0) return;
-
-      try {
-        this.startWatcher(filePath, entry);
-        this.handleFileChange(filePath);
-      } catch (err) {
-        if (attempt < 3) {
-          this.reestablishWatcher(filePath, attempt + 1);
-        } else {
-          console.error(`[AppStateManager] Failed to re-establish watcher for ${filePath}:`, err);
-        }
-      }
-    }, delay);
   }
 
   // ── Change notification ──────────────────────────────────

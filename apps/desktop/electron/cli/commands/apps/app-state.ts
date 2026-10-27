@@ -1,32 +1,31 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
 import type { CliRegistry } from '@electron/cli/core/registry';
+import { runSubcommand, type CliSubcommands } from '@electron/cli/core/subcommands';
 import type { CliCommandContext } from '@electron/cli/core/types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '@electron/cli/lib/utils';
 
-async function handleAppState(args: string[], _ctx: CliCommandContext) {
-  const [action, ...rest] = args;
+const APP_STATE_SUBCOMMANDS: CliSubcommands = {
+  read: async (rest) => {
+    const filePath = rest[0];
+    if (!filePath) return fail('Usage: sero appstate read <path>');
+    return ok(stringifyJson(await appStateManager.read(filePath)));
+  },
+  write: async (rest) => {
+    const filePath = rest[0];
+    if (!filePath) return fail('Usage: sero appstate write <path> --json <value>');
+    const { flags } = parseFlags(rest.slice(1));
+    const json = requireFlagString(flags, 'json');
+    if (!json) return fail('Missing --json payload');
+    await appStateManager.write(filePath, JSON.parse(json));
+    return ok(`Wrote app state: ${filePath}`);
+  },
+};
 
+async function handleAppState(args: string[], ctx: CliCommandContext) {
   try {
-    switch (action) {
-      case 'read': {
-        const filePath = rest[0];
-        if (!filePath) return fail('Usage: sero appstate read <path>');
-        return ok(stringifyJson(await appStateManager.read(filePath)));
-      }
-
-      case 'write': {
-        const filePath = rest[0];
-        if (!filePath) return fail('Usage: sero appstate write <path> --json <value>');
-        const { flags } = parseFlags(rest.slice(1));
-        const json = requireFlagString(flags, 'json');
-        if (!json) return fail('Missing --json payload');
-        await appStateManager.write(filePath, JSON.parse(json));
-        return ok(`Wrote app state: ${filePath}`);
-      }
-
-      default:
-        return fail('Usage: sero appstate <read|write> ...');
-    }
+    return await runSubcommand(APP_STATE_SUBCOMMANDS, args, ctx, undefined, {
+      unknown: () => fail('Usage: sero appstate <read|write> ...'),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'App state command failed';
     return fail(message);
@@ -45,6 +44,7 @@ export function registerAppStateCliCommands(registry: CliRegistry): void {
       '  write <path> --json <json>\n',
     source: 'ipc',
     group: 'App State',
+    subcommands: APP_STATE_SUBCOMMANDS,
     execute: handleAppState,
   });
 }

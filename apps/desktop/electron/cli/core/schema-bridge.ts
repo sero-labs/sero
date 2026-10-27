@@ -165,7 +165,10 @@ function coerceValue(value: string | true, prop: SchemaProp): CliArgValue {
     return Number.isFinite(n) ? n : value;
   }
   if (prop.type === 'boolean') {
-    return value === 'true' || value === '1';
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0') return false;
+    // Any other word stays a string, so validation refuses it instead of reading it as false.
+    return value;
   }
   // Array/object params: try JSON.parse so complex tools can pass structured data
   if (prop.type === 'array' || prop.type === 'object' || prop.untyped) {

@@ -27,6 +27,7 @@
     "e2e:contract": "pnpm run build && pnpm exec playwright test --project=contract",
     "e2e:workflow": "pnpm run build && pnpm exec playwright test --project=workflow",
     "e2e:agent": "pnpm run build && pnpm exec playwright test --project=agent --pass-with-no-tests",
+    "e2e:tools": "pnpm run build && pnpm exec playwright test --project=tools",
     "e2e:headed": "pnpm run build && pnpm exec playwright test --project=workflow --headed",
     "e2e:doctor": "bash scripts/e2e-doctor.sh",
     "container:nat": "sudo ./scripts/setup-container-nat.sh",

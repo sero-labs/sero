@@ -166,6 +166,7 @@ describe('createAgentBrowser', () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
       { stdout: '{"success":false,"error":"CDP command timed out: Page.navigate"}', stderr: '', exitCode: 1 },
+      { stdout: '{"success":true,"data":{"result":1}}', stderr: '', exitCode: 0 },
       { stdout: '{"success":true,"data":{"closed":true}}', stderr: '', exitCode: 0 },
       { stdout: '{"success":true,"data":{"url":"about:blank"}}', stderr: '', exitCode: 0 },
     ]);
@@ -173,8 +174,8 @@ describe('createAgentBrowser', () => {
     const result = await tool.execute('tc-launch-timeout', { action: 'launch', url: 'https://example.com' }, undefined, undefined, undefined as never);
 
     expect(exec.mock.calls[1][1]).toContain("'open' 'https://example.com'");
-    expect(exec.mock.calls[2][1]).toContain("'close' '--json'");
-    expect(exec.mock.calls[3][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[3][1]).toContain("'close' '--json'");
+    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
     expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
   });
 
@@ -190,7 +191,7 @@ describe('createAgentBrowser', () => {
     await expect(tool.execute('tc-hung', { action: 'evaluate', expression: 'spin()' }, undefined, undefined, undefined as never))
       .rejects.toThrow(/gave no answer in 60s[\s\S]*was reset/);
 
-    expect(exec.mock.calls[2][1]).toContain("'get' 'url'");
+    expect(exec.mock.calls[2][1]).toContain("'eval' '1'");
     expect(exec.mock.calls[3][1]).toContain('kill -9');
     expect(exec.mock.calls[3][1]).toContain('.agent-browser/sero-ws-1-docker');
   });

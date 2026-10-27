@@ -80,7 +80,8 @@ export interface RoomAppActions extends RoomLiveActions, RevisionActions {
    * interruption reaches a member before it does the next thing; a note waits
    * for its next turn and costs nothing.
    */
-  intervene(roomId: string, body: string, memberIds?: string[], wake?: boolean): Promise<SimpleOutcome>;
+  /** `interrupt` cancels a target's running turn first: the user's "now". A notice the Room sends only wakes. */
+  intervene(roomId: string, body: string, memberIds?: string[], wake?: boolean, interrupt?: boolean): Promise<SimpleOutcome>;
   /** Puts one member back to work now rather than at its next turn. */
   wake(roomId: string, memberId: string): Promise<SimpleOutcome>;
   /**
@@ -390,7 +391,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return outcome.ok ? { ok: true } : { ok: false, error: outcome.reason ?? 'That approval could not be answered.' };
     },
 
-    async intervene(roomId, body, memberIds, wake = true) {
+    async intervene(roomId, body, memberIds, wake = true, interrupt = false) {
       const said = body.trim();
       if (!said) return { ok: false, error: 'Write what you want to tell the Room.' };
       return withRoom(roomId, async (status) => {
@@ -420,7 +421,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
           createdAt: host.now(),
         }]);
         if (wake) {
-          for (const member of targets) await coordinator.wake(roomId, member.id, 'user-intervention');
+          for (const member of targets) await coordinator.wake(roomId, member.id, 'user-intervention', interrupt);
         }
         // The Room stopped BECAUSE it was waiting for this. A message that
         // leaves it paused would answer the question and change nothing, so the

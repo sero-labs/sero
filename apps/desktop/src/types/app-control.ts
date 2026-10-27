@@ -91,7 +91,17 @@ export interface AppInteractionResult {
   snapshot?: AppAccessibilitySnapshot;
   /** Scroll containers discovered in the app panel. */
   scrollContainers?: AppScrollInfo[];
+  /**
+   * Input the main process sends to the window after the renderer found the
+   * target, because CSS and pointer handlers ignore synthetic DOM events.
+   */
+  realInput?: AppRealInput;
 }
+
+/** A mouse move to window coordinates in CSS pixels, or text typed at the focused element's caret. */
+export type AppRealInput =
+  | { kind: 'mouseMove'; x: number; y: number }
+  | { kind: 'insertText'; text: string };
 
 /** Parameters for an app interaction command. */
 export interface AppInteractionParams {

@@ -13,6 +13,7 @@
 
 import { createHash } from 'node:crypto';
 import { STUB_MODEL_ID, STUB_PROVIDER_ID, startStubModel, type StubModelServer, type StubReply, type StubRequest } from './stub-model';
+import type { ScenarioDriver } from './tool-check/driver';
 
 /** A file the probes read and edit. The spec creates it in the workspace. */
 export const PROBE_FILE = 'probe-read.txt';
@@ -272,11 +273,14 @@ export async function startProbeStub(
   scripts: Record<string, ScriptedCall[]> = {},
   /** Answers a request itself, for a session that is not a probe target (a Room planner, for example). */
   override?: (request: StubRequest) => StubReply | undefined,
+  /** Scenario mode: a session whose first message names a driver run runs that probe's steps. */
+  scenarios?: ScenarioDriver,
 ): Promise<ProbeStub> {
   const sessions = new Map<string, ProbedSession>();
   const pending = new Map<string, PlannedCall[]>();
 
-  const server = await startStubModel((request): StubReply => {
+  const server = await startStubModel((request): StubReply | Promise<StubReply> => {
+    if (scenarios?.claims(request)) return scenarios.respond(request);
     const custom = override?.(request);
     if (custom) return custom;
     const key = firstUserText(request);

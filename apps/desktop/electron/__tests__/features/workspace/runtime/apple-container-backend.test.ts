@@ -183,10 +183,10 @@ describe('AppleContainerBackend', () => {
 
     expect(containerManager.exec).toHaveBeenCalledWith(
       'workspace-a',
-      "SAFE_KEY='has '\\'' quote' node -e \"console.log(process.env.SAFE_KEY)\"",
+      "SAFE_KEY='has '\\'' quote' sh -c 'node -e \"console.log(process.env.SAFE_KEY)\"'",
       '/workspace',
       undefined,
-      { injectGitAuth: undefined },
+      { injectGitAuth: undefined, outputSink: undefined, signal: undefined },
     );
   });
 

@@ -111,7 +111,9 @@ async function runAgent(
     command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, [...args, '--json'], env),
     timeoutMs: options.execTimeoutMs ?? 60_000,
   });
-  if (COMMAND_TIMED_OUT.test(result.stderr) && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+  const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
+  const timedOut = COMMAND_TIMED_OUT.test(result.stderr) || /^CDP command timed out:/.test(parsed.error ?? '');
+  if (timedOut && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
     await resetHungBrowserSession(runtime, workspaceId);
     throw new Error(
       `The automation browser gave no answer in ${Math.round((options.execTimeoutMs ?? 60_000) / 1000)}s. `
@@ -119,7 +121,6 @@ async function runAgent(
       + 'The browser was reset. Launch it again, and expect the same action to hang the page again until the page is fixed.',
     );
   }
-  const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';
     throw new Error(parsed.error || fallback);

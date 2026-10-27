@@ -86,6 +86,11 @@ export function registerSubagentTool(
 type ToolResult = AgentToolResult<undefined>;
 type OnUpdate = ((text: string) => void) | undefined;
 
+/** A refused call. `isError` is what makes a Code Mode script stop at it. */
+function refuse(text: string): ToolResult {
+  return { content: [{ type: 'text', text }], details: undefined, isError: true };
+}
+
 async function executeSingle(
   manager: SubagentManager,
   p: Record<string, unknown>,
@@ -99,10 +104,10 @@ async function executeSingle(
   const systemPrompt = p.systemPrompt as string | undefined;
 
   if (!task) {
-    return { content: [{ type: 'text', text: 'Error: "task" is required for single mode' }], details: undefined };
+    return refuse('Error: "task" is required for single mode');
   }
   if (!agent && !systemPrompt) {
-    return { content: [{ type: 'text', text: 'Error: either "agent" or "systemPrompt" is required' }], details: undefined };
+    return refuse('Error: either "agent" or "systemPrompt" is required');
   }
 
   const response = await manager.runSingle({
@@ -197,10 +202,7 @@ export function registerCreateAgentTool(pi: ExtensionAPI): void {
 
       // Validate name format
       if (!VALID_NAME_RE.test(name)) {
-        return {
-          content: [{ type: 'text', text: `Error: Invalid agent name '${name}'. Use only lowercase letters, numbers, and hyphens.` }],
-          details: undefined,
-        };
+        return refuse(`Error: Invalid agent name '${name}'. Use only lowercase letters, numbers, and hyphens.`);
       }
 
       // Check for collision
@@ -208,10 +210,7 @@ export function registerCreateAgentTool(pi: ExtensionAPI): void {
         await mkdir(AGENTS_DIR, { recursive: true });
         const existing = await readdir(AGENTS_DIR);
         if (existing.includes(`${name}.md`)) {
-          return {
-            content: [{ type: 'text', text: `Error: Agent '${name}' already exists at ${path.join(AGENTS_DIR, name + '.md')}` }],
-            details: undefined,
-          };
+          return refuse(`Error: Agent '${name}' already exists at ${path.join(AGENTS_DIR, name + '.md')}`);
         }
       } catch { /* directory will be created below */ }
 

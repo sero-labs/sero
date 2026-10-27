@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Tool check web article</title></head>
+<body>
+  <main>
+    <article>
+      <h1>Tool check web article</h1>
+      <p>This article exists so that the fetch tool has real, readable content to extract, and it is served by a local test server, never by the public internet. The marker for this page is TCWEBARTICLEMARKER, and a check that finds it knows the page was fetched and read.</p>
+      <p>A reader extraction needs enough running text before it trusts a page, because very short pages look like navigation or error screens. For that reason this paragraph keeps going, with several clauses, a few commas, and plain words, until the page is comfortably longer than the minimum the extractor accepts.</p>
+      <p>The second paragraph adds more of the same: sentences that describe nothing in particular, written in the ordinary way that articles are written, so that scoring by paragraph length and punctuation picks this block as the main content of the page and keeps it in the converted markdown.</p>
+      <p>A third paragraph follows, again with commas, again with plain words, and again with no links or menus around it, so that nothing competes with the text for the extractor's attention while it decides what the article is and what is only decoration.</p>
+      <p>The last paragraph closes the article, repeating that the text is stable, that it never changes between runs, and that a later step can ask the tool for the stored copy of this page and expect to see the marker TCWEBARTICLEMARKER once more.</p>
+    </article>
+  </main>
+</body>
+</html>

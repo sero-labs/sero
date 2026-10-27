@@ -137,6 +137,11 @@ export class GitRunner {
     return env;
   }
 
+  /** The runtime this workspace's git commands run in. */
+  async runtime(workspaceId: string): Promise<RuntimeBackend> {
+    return this.runtimeManager.getRuntime(workspaceId);
+  }
+
   async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<GitResult> {
     return this.runCommand(workspaceId, 'git', args, timeoutMs);
   }

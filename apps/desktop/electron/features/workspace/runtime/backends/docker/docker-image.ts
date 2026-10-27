@@ -35,7 +35,7 @@ const TOOLCHAIN_CHECK = [
   'command -v agent-browser >/dev/null',
   'test -d /ms-playwright',
   'test -r /ms-playwright',
-  'find /ms-playwright -path "*/chrome-linux/chrome" -type f -perm -111 -print -quit | grep -q .',
+  'find /ms-playwright -path "*/chrome-linux*/chrome" -type f -perm -111 -print -quit | grep -q .',
   'find /ms-playwright -path "*/ffmpeg-linux" -type f -perm -111 -print -quit | grep -q .',
 ].join(' && ');
 

@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -43,5 +43,19 @@ describe('git state I/O', () => {
 
     const loaded = await readState(statePath);
     expect(loaded.currentBranch).toBe('main');
+  });
+
+  it('keeps two writes in the same millisecond from sharing a temporary file', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_792_429_247_046);
+    try {
+      const first = createDefaultGitState();
+      first.currentBranch = 'one';
+      const second = createDefaultGitState();
+      second.currentBranch = 'two';
+      await Promise.all([writeState(statePath, first), writeState(statePath, second)]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(['one', 'two']).toContain((await readState(statePath)).currentBranch);
   });
 });

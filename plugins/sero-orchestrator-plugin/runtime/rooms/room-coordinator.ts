@@ -193,14 +193,14 @@ export class RoomCoordinator {
 
   /**
    * A targeted wake: a persisted reply, a direct message or a user
-   * intervention. This is the normal path a waiting member comes back on, and
-   * it advances the Room immediately (spec §16).
-   *
-   * A waiting member is not schedulable until its wait ends, so the wait is
-   * cleared here — the state change and the ready signal must be one step, or
-   * the scheduler drops the signal and the reply is lost.
+   * intervention, which advances the Room at once (spec §16). With `interrupt`
+   * (the user's "now") a running turn is cancelled first, so the next one
+   * carries the message. A waiting member is not schedulable until its wait
+   * ends, so the wait is cleared here — the state change and the ready signal
+   * must be one step, or the scheduler drops the signal and the reply is lost.
    */
-  async wake(roomId: string, memberId: string, reason: WakeReason): Promise<void> {
+  async wake(roomId: string, memberId: string, reason: WakeReason, interrupt = false): Promise<void> {
+    if (interrupt) this.turns.get(turnKey(roomId, memberId))?.abort();
     this.deps.telemetry?.markWake(roomId, memberId, this.host.now());
     const member = await this.deps.store.readMember(roomId, memberId);
     if (!member) return;

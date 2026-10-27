@@ -39,14 +39,14 @@ export const COMMAND_TIMED_OUT = /^Command timed out after/;
  * the next command starts a fresh one.
  */
 /**
- * Whether the session still answers a question that needs no work from the
- * page. A slow command on a healthy page is left alone: only a session that
- * cannot answer this is reset.
+ * Whether the page can still run JavaScript. Reading the cached URL can
+ * succeed even while an endless page script prevents every interaction.
+ * A slow command on a healthy page is left alone.
  */
 export async function browserSessionAnswers(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter, workspaceId: string, executablePath: string | null): Promise<boolean> {
-  const probe = await runtime.exec({ command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, ['get', 'url', '--json']), timeoutMs: 5_000 })
+  const probe = await runtime.exec({ command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, ['eval', '1', '--json']), timeoutMs: 5_000 })
     .catch(() => null);
-  return probe !== null && !COMMAND_TIMED_OUT.test(probe.stderr);
+  return probe !== null && probe.exitCode === 0;
 }
 
 export async function resetHungBrowserSession(runtime: RuntimeBackend, workspaceId: string): Promise<void> {
