@@ -114,3 +114,28 @@ No app run, full package suite, paid call or platform matrix was repeated. The
 single failed app pass and its repair/change-request evidence above are
 unchanged. Live worktree-output navigation remains explicitly unavailable;
 recorded-result navigation is covered by functional tests.
+
+## CI correction: active wait takes priority
+
+CI run `40569262858`, Tests job `122418892274`, failed the existing board wait
+contract: expected **Waiting.**, received **Result needs review.**; the other
+885 tests passed. An idle board with saved results added the result tile, then
+its result headline incorrectly replaced the current registered wait.
+
+The board now keeps the operational wait headline and target while retaining
+the historical result tile and its evidence assessment. The existing waiting
+test now explicitly removes running dispatch/session state and supplies stale
+historical check evidence. It asserts the wait, target, retained result and
+absence of success tone. Result-targeting and preview behavior are unchanged.
+
+Final checks used `PATH="/private/tmp/sero-v1-tools/bin:$PATH"`:
+
+- `pnpm --dir plugins/sero-architect-plugin exec vitest run ui/__tests__/board.test.ts ui/__tests__/result.test.ts`: 24/24 passed across two files, one batch. Log: `/private/tmp/sero-v1-tools/631-logs/ci-wait-tests.log`.
+- Root `pnpm typecheck`: 29/29 passed, 28 cached. Log: `/private/tmp/sero-v1-tools/631-logs/ci-wait-typecheck.log`.
+- `node scripts/check-repository-layout.mjs` and `git diff --check`: passed. Changed production file `ui/lib/board.ts`: 257 LOC.
+
+No React component, dependency, package version or runtime contract changed.
+No app pass, full suite or third formal review was run. The original app pass
+remains failed at its extra second-delivery assertion; the saved first-repair
+and subsequent change-request evidence and all eight acceptance mappings above
+remain unchanged. Final-head CI is still pending.

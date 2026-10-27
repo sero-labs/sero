@@ -204,6 +204,7 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
 
   let word = stop(activity.headline);
   let detail = stop(activity.owner);
+  const waiting = activity.state === 'idle' && Boolean(context.waitingFor);
   if (asks) {
     word = 'Waiting for you.';
     detail = context.live ? 'Other work continues.' : 'Nothing is running.';
@@ -217,15 +218,17 @@ export function boardOf(record: ProjectRecord, activity: ProjectActivity, contex
     // A paused project keeps its own line: it says the turns in flight are finishing.
     word = 'Working.';
     detail = stop(context.action ?? activity.owner);
-  } else if (activity.state === 'idle' && context.waitingFor) {
+  } else if (waiting) {
     // The Architect registered a wait. That is why nothing runs, so the line says so.
     word = 'Waiting.';
     detail = stop(`For ${context.waitingFor}`);
   }
 
-  const review = main.includes('result') && resultNeedsReview(record);
+  // A saved result can stay on the board while a current wait owns the status.
+  const resultLeads = main.includes('result') && !waiting;
+  const review = resultLeads && resultNeedsReview(record);
   if (review) { word = 'Result needs review.'; detail = 'See the saved checks and unresolved requirements.'; }
-  else if (main.includes('result')) {
+  else if (resultLeads) {
     word = resultMilestones(record).some((milestone) => milestone.verification === 'delivered') ? 'Delivery recorded.' : 'Work accepted.';
     detail = 'See the saved checks and output.';
   }

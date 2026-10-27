@@ -65,12 +65,26 @@ describe('which large tiles the board shows', () => {
     expect(board.tone).not.toBe('working');
   });
 
-  it('says the project waits when the Architect registered a wait and nothing runs', () => {
-    const record = DELIVERY_FIXTURES['board-waiting']!;
+  it('keeps the current wait status while historical evidence remains available', () => {
+    const base = DELIVERY_FIXTURES['board-waiting']!;
+    const record: ProjectRecord = {
+      ...base,
+      session: { ...base.session, workingSince: null },
+      milestones: base.milestones.map((milestone, index) => ({
+        ...milestone, dispatch: null,
+        ...(index === 0 ? { evidence: {
+          commit: 'abc1234', checkedAt: base.createdAt,
+          commands: [{ command: 'node --test', exitCode: 0, output: '1 passed', durationMs: 10 }],
+          filesChanged: true, diffSummary: 'repair.js | 2 +-', preview: null, passed: true, stale: true,
+        } } : {}),
+      })),
+    };
     const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning: true, feedback: null });
     const board = boardOf(record, activity, { live: false, waitingFor: 'the test Room' });
     expect(board.word).toBe('Waiting.');
     expect(board.detail).toContain('the test Room');
+    expect(board.main).toContain('result');
+    expect(board.tone).not.toBe('done');
   });
 
   it('keeps asking while other work continues', () => {
