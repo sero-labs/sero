@@ -26,6 +26,22 @@ finalisation stay after it. When its declared traversal limit is reached, the
 loop enters normal recovery instead of repeating again or silently continuing.
 Scheduled and event-driven runs receive a fresh traversal budget each run.
 
+## Receipt verification
+
+Workflow PR and saved-artifact receipts carry `runId`, `planRevision`, and
+`revision` (Git head SHA or file SHA-256). The runtime sets `verifiedAt` only
+after observing the intended workspace result. Missing observation/binding is
+unknown; conflicting identity, revision or artifact is a mismatch. Both retain
+the candidate on the step outcome and block automatic recovery.
+
+Direct recovery first re-observes the latest candidate. Verified results use
+normal completion recording without repeating the worker. Unresolved results
+use the existing destination-review question before permitting another write.
+External-send approval consumption remains unchanged. Other destinations still
+use their structural receipt contract and are displayed as unverified.
+Host observations resolve shared Node, Git and GitHub CLI through toolchains;
+container observations use the selected runtime's tools and workspace paths.
+
 ## Layout
 
 ```

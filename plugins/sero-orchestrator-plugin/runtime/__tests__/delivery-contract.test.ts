@@ -5,13 +5,12 @@ import type { EngineDeps } from '../engine-types';
 import type { Loop, StepAttempt, StepOutcome } from '../../shared/types';
 import type { DeliveryReceipt } from '../../shared/delivery-types';
 import { deliveryProblems, enforceDeliveryContract, formatDeliveryRepair, receiptRequirement } from '../delivery/delivery-contract';
-import { verifyReceipt } from '../delivery/verify-receipt';
 import { recordCompletion } from '../outcomes';
 import { toRunSummary } from '../store';
 import { outcomeNotification } from '../notify-outcome';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
-import { fakeDecider, fakeExecutor } from './engine-fakes';
+import { fakeDecider, fakeExecutor, type OutcomeSpec } from './engine-fakes';
 
 const RECEIPT: DeliveryReceipt = {
   destination: 'saved-artifact',
@@ -31,7 +30,7 @@ function seedDeliveryLoop(host: FakeHost, destination: DeliveryReceipt['destinat
   return loop;
 }
 
-function engine(host: FakeHost, outcomes: Record<string, StepOutcome>): Coordinator {
+function engine(host: FakeHost, outcomes: Record<string, OutcomeSpec>): Coordinator {
   const deps: EngineDeps = { executor: fakeExecutor(outcomes), decider: fakeDecider({ decision: 'wait' }), locks: new LoopLocks() };
   return new Coordinator(host, deps);
 }
@@ -101,57 +100,6 @@ describe('delivery contract (pure)', () => {
   });
 });
 
-describe('verifyReceipt', () => {
-  it('accepts a pr receipt matching an open PR and rejects an unknown one', async () => {
-    const host = createFakeHost();
-    const loop = seedDeliveryLoop(host, 'pr');
-    host.pullRequests = [{ number: 7, url: 'https://github.com/o/r/pull/7', title: 't', headRefName: 'orchestrator/loop-1', updatedAt: 'now' }];
-    expect(await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://github.com/o/r/pull/7' })).toEqual({ ok: true });
-    const missed = await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://github.com/o/r/pull/999' });
-    expect(missed.ok).toBe(false);
-  });
-
-  it('accepts an update to an existing open PR named by number even when the URL form differs (spec 15)', async () => {
-    const host = createFakeHost();
-    const loop = seedDeliveryLoop(host, 'pr');
-    host.pullRequests = [{ number: 12, url: 'https://github.com/o/r/pull/12', title: 't', headRefName: 'feat/someones-pr', updatedAt: 'now' }];
-    expect(await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://www.github.com/o/r/pull/12#issuecomment-1' })).toEqual({ ok: true });
-    const closed = await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://github.com/o/r/pull/13' });
-    expect(closed.ok).toBe(false); // a PR not in the open list still fails
-  });
-
-  it('fails soft when the PR list itself cannot be read', async () => {
-    const host = createFakeHost();
-    const loop = seedDeliveryLoop(host, 'pr');
-    host.listPullRequests = async () => { throw new Error('gh missing'); };
-    expect(await verifyReceipt(host, loop, { ...RECEIPT, destination: 'pr', ref: 'https://x' })).toEqual({ ok: true });
-  });
-
-  it('checks saved-artifact existence, resolving relative refs against the loop cwd', async () => {
-    const host = createFakeHost();
-    const loop = seedDeliveryLoop(host);
-    loop.runtime.workspace.resolved = {
-      id: 'ws', type: 'managed-worktree', workspaceRoot: host.workspacePath,
-      cwd: `${host.workspacePath}/.sero/worktrees/loop-1`, worktreePath: `${host.workspacePath}/.sero/worktrees/loop-1`,
-      branchName: 'orchestrator/loop-1', resolvedBy: 'create-option', createdAt: 't',
-    };
-    host.commandResults.push({ stdout: '', stderr: '', exitCode: 0 });
-    expect(await verifyReceipt(host, loop, RECEIPT)).toEqual({ ok: true });
-    expect(host.commands[0]).toBe(`test -f '${host.workspacePath}/.sero/worktrees/loop-1/reports/digest.md'`);
-
-    host.commandResults.push({ stdout: '', stderr: '', exitCode: 1 });
-    const missing = await verifyReceipt(host, loop, RECEIPT);
-    expect(missing.ok).toBe(false);
-    if (!missing.ok) expect(missing.reason).toContain('does not exist');
-  });
-
-  it('takes other destinations on the receipt contract alone in v1', async () => {
-    const host = createFakeHost();
-    const loop = seedDeliveryLoop(host, 'chat-post');
-    expect(await verifyReceipt(host, loop, { ...RECEIPT, destination: 'chat-post', ref: 'https://chat/permalink' })).toEqual({ ok: true });
-  });
-});
-
 describe('delivery enforcement through the engine', () => {
   it('refuses an unproven completion: the loop does not complete and recovery is consulted', async () => {
     const host = createFakeHost();
@@ -167,24 +115,25 @@ describe('delivery enforcement through the engine', () => {
   it('completes with a verified receipt and appends it to runtime.deliveries and the run summary', async () => {
     const host = createFakeHost();
     seedDeliveryLoop(host);
-    host.commandResults.push({ stdout: '', stderr: '', exitCode: 0 }); // verify-back: file exists
-    await engine(host, { 'step-1': completing(RECEIPT) }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
+    host.commandResults.push({ stdout: '{"ok":true}', stderr: '', exitCode: 0 });
+    await engine(host, { 'step-1': ({ run }) => completing({ ...RECEIPT, runId: run.id, planRevision: 0, revision: 'a'.repeat(64) }) }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
     const loop = host.state.loops[0];
     expect(loop.status).toBe('complete');
-    expect(loop.runtime.deliveries).toEqual([RECEIPT]);
-    expect(loop.runtime.completion?.receipt).toEqual(RECEIPT);
-    expect(toRunSummary(loop.runs[0]).delivery).toEqual(RECEIPT);
+    expect(loop.runtime.deliveries).toEqual([expect.objectContaining({ ...RECEIPT, verifiedAt: expect.any(String) })]);
+    expect(loop.runtime.completion?.receipt?.verifiedAt).toBeDefined();
+    expect(toRunSummary(loop.runs[0]).delivery?.verifiedAt).toBeDefined();
     const note = outcomeNotification(loop);
     expect(note?.message).toContain(RECEIPT.ref);
   });
 
-  it('treats a verify-back failure exactly like a missing receipt', async () => {
+  it('holds an unavailable observation without losing its candidate or asking recovery to write again', async () => {
     const host = createFakeHost();
     seedDeliveryLoop(host);
     host.commandResults.push({ stdout: '', stderr: '', exitCode: 1 }); // file does not exist
-    await engine(host, { 'step-1': completing(RECEIPT) }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
+    await engine(host, { 'step-1': ({ run }) => completing({ ...RECEIPT, runId: run.id, planRevision: 0, revision: 'a'.repeat(64) }) }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
     const loop = host.state.loops[0];
-    expect(loop.status).toBe('active');
+    expect(loop.status).toBe('blocked');
+    expect(loop.runtime.stepStates['step-1'].outcome?.deliveryReview?.completion.receipt?.ref).toBe(RECEIPT.ref);
     expect(loop.runtime.stepStates['step-1'].status).toBe('needs-revision');
     expect(loop.runtime.deliveries ?? []).toHaveLength(0);
   });

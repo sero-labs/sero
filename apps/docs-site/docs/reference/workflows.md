@@ -28,6 +28,20 @@ Actions: `create`, `list`, `show`, `activate`, `disable`, `enable`, `run_next`,
 `choose_suggestion`, `extract_skill`, `save_skill`, `discard_skill_draft`,
 `answer_input`, the `library_*` and `catalog_*` actions, and `delete`.
 
+## Delivery verification
+
+Pull request and saved report receipts are checked against the current workflow
+run and plan. A PR must belong to the workspace repository and contain the
+reported commit from its worktree. A report must be inside that worktree, match
+its reported SHA-256, and use the declared report path when one is configured.
+
+If observation fails, the workflow keeps the receipt and blocks for review.
+Restore access and choose **Retry** to check the existing result again. If it
+now verifies, the workflow finishes without repeating delivery. Otherwise,
+check the destination before confirming that another delivery is safe, or keep
+the workflow on hold. Older receipts without verification evidence remain
+visible as **unverified**.
+
 ## `/orchestrator` commands
 
 ```text

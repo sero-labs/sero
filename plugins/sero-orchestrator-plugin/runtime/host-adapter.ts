@@ -14,6 +14,7 @@ import type { OrchestratorHost } from './host';
 import type { LiveCallNotice, LiveCallUpdate } from '../shared/types';
 import { liveCallKey } from '../shared/live-call-types';
 import type { RoomMemberLiveNotice } from '../shared/room-live-types';
+import { prepareReceiptTools } from './delivery/receipt-tools';
 import { createCatalogStore } from './catalog-store';
 import { createLoopStore } from './loop-store';
 import { createLibraryStore } from './library-store';
@@ -153,6 +154,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     getWorkspaceStatus: () => ctx.host.git.getWorkspaceStatus(ctx.workspacePath),
     stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
     listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),
+    prepareReceiptObservation: (destination) => prepareReceiptTools(ctx.workspaceId, destination, ctx.host.workspace.resolveRuntime, ctx.host.toolchains.ensure),
     runCommand: (command, timeoutMs) => ctx.host.workspace.runCommand(ctx.workspaceId, ctx.workspacePath, command, timeoutMs),
     listDevServers: () => ctx.host.devServers.list(ctx.workspaceId),
     onDevServerChange: (listener) => ctx.host.devServers.onChange((change) => {

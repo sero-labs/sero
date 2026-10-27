@@ -1,6 +1,7 @@
 import type { Loop, OrchestratorActionResult } from '../../shared/types';
 import type { OrchestratorHost } from '../host';
 import { uncertainExternalDeliveryInRun } from './delivery-contract';
+import { reconcileReceipt } from './reconcile-receipt';
 
 /** Direct actions also reach agents. A retry command alone is not a destination review. */
 export async function requireExternalReview(
@@ -8,6 +9,8 @@ export async function requireExternalReview(
   loop: Loop,
   replaceLoop: (next: Loop) => Promise<void>,
 ): Promise<OrchestratorActionResult | undefined> {
+  const reconciled = await reconcileReceipt(host, loop, replaceLoop);
+  if (reconciled) return reconciled;
   const uncertain = [...loop.runs].reverse().map((run) => uncertainExternalDeliveryInRun(loop, run)).find(Boolean);
   if (!uncertain) return undefined;
   const existing = loop.runtime.pendingInput;
