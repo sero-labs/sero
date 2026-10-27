@@ -55,3 +55,4 @@ export { useWidgetRegistration } from './use-widget-registration';
 export { foldWorkFeedback, useWorkFeedback } from './use-work-feedback';
 export type { WorkFeedbackSource, WorkFeedbackView } from './use-work-feedback';
 export { useChildRuns } from './use-child-runs';
+export { usePendingQuestions } from './use-pending-questions';

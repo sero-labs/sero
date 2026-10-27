@@ -10,7 +10,7 @@ export interface WorkGroup {
   key: string;
   /** "Room · Build the synth". The Architect's own work has no heading link. */
   title: string;
-  link: { kind: 'room' | 'workflow'; id: string; workspaceId: string } | null;
+  link: { kind: 'room' | 'workflow'; id: string; workspaceId: string; runId?: string } | null;
   rows: WorkFeedback[];
 }
 
@@ -42,7 +42,7 @@ export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[],
     const group = groups.get(key) ?? {
       key,
       title: key === 'architect' ? architectTitle(record) : `${kind === 'room' ? 'Room' : 'Workflow'}${linkedTitle(record, id) ? ` · ${linkedTitle(record, id)}` : ''}`,
-      link: key === 'architect' || !record.workspaceId ? null : { kind, id, workspaceId: record.workspaceId },
+      link: key === 'architect' || !record.workspaceId ? null : { kind, id, workspaceId: record.workspaceId, ...(entry.scope.runId ? { runId: entry.scope.runId } : {}) },
       rows: [],
     };
     group.rows.push(entry);

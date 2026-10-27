@@ -13,6 +13,7 @@ import {
   USER_FEEDBACK_QUESTION_REQUEST_EVENT,
   USER_FEEDBACK_QUESTION_CANCEL_EVENT,
   getUserFeedbackAnswerEvent,
+  userFeedbackOrigin,
   type UserFeedbackCancelPayload,
 } from '@sero-ai/common';
 import type { PendingQuestion, QuestionResponse } from '../shared/types';
@@ -47,6 +48,7 @@ export function nextQuestionId(): string {
 export async function askQuestion(
   pending: PendingQuestion,
   signal?: AbortSignal,
+  sessionPath?: string,
 ): Promise<QuestionResponse> {
   const bus = getUserFeedbackBus();
 
@@ -83,6 +85,6 @@ export async function askQuestion(
     }
 
     // Send the question to the renderer via the IPC bridge
-    bus.emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, pending);
+    bus.emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, { ...pending, ...userFeedbackOrigin(sessionPath) });
   });
 }

@@ -11,7 +11,7 @@
  */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { PersistentSessionEvent, PersistentSessionLiveSnapshot } from '@sero-ai/common';
+import { removeUserFeedbackOrigin, type PersistentSessionEvent, type PersistentSessionLiveSnapshot } from '@sero-ai/common';
 
 export interface LiveSession {
   handleId: string;
@@ -230,6 +230,7 @@ export class LiveSessionRegistry {
     const entry = this.byHandle.get(handleId);
     if (!entry) return null;
     entry.detach();
+    removeUserFeedbackOrigin(entry.sessionPath);
     this.byHandle.delete(handleId);
     this.handleBySubject.delete(LiveSessionRegistry.subjectKey(entry.grantId, entry.subject));
     this.watchers.delete(handleId);

@@ -155,7 +155,7 @@ export function stopWaits(record: ProjectRecord, now: string): ProjectRecord {
 /** Outcomes that tell the owner something. `uncertain` holds the project instead. */
 const WAKING: readonly WaitOutcomeKind[] = ['satisfied', 'failed', 'expired'];
 
-const current = (record: ProjectRecord, wait: WaitRegistration): boolean => wait.controlRevision === revisionOf(record);
+export const isCurrentWait = (record: ProjectRecord, wait: WaitRegistration): boolean => wait.controlRevision === revisionOf(record);
 
 /** Whether the project may start a paid turn for a wait now: not paused, blocked, capped or unauthorised. */
 export function waitMayWake(record: ProjectRecord): boolean {
@@ -172,7 +172,7 @@ export function reserveWake(record: ProjectRecord, waitId: string, now: string):
   if (!wait) return { ok: false, reason: `No wait "${waitId}".` };
   if (!wait.outcome || !WAKING.includes(wait.outcome.kind)) return { ok: false, reason: 'The wait has no outcome to wake for.' };
   if (wait.wake) return { ok: false, reason: 'The wake is already reserved.' };
-  if (!current(record, wait)) return { ok: false, reason: 'The project was stopped after this wait was registered.' };
+  if (!isCurrentWait(record, wait)) return { ok: false, reason: 'The project was stopped after this wait was registered.' };
   if (!waitMayWake(record)) return { ok: false, reason: 'The project may not start work now. The outcome stays on the record.' };
   return { ok: true, record: replaceWait(record, { ...wait, wake: { reservedAt: now, consumedAt: null } }) };
 }
@@ -188,7 +188,7 @@ export function reserveWake(record: ProjectRecord, waitId: string, now: string):
 export function consumeWake(record: ProjectRecord, waitId: string, now: string): WakeResult {
   const wait = record.waits?.find((item) => item.id === waitId);
   if (!wait?.wake || wait.wake.consumedAt !== null) return { ok: false, reason: 'No reserved wake to consume.' };
-  if (!current(record, wait)) return { ok: false, reason: 'The project was stopped after this wait was registered.' };
+  if (!isCurrentWait(record, wait)) return { ok: false, reason: 'The project was stopped after this wait was registered.' };
   if (!waitMayWake(record)) return { ok: false, reason: 'The project may not start work now. The wake stays reserved.' };
   return { ok: true, record: replaceWait(record, { ...wait, wake: { ...wait.wake, consumedAt: now, awaitingTurn: true } }) };
 }
@@ -213,12 +213,12 @@ export function requeueUndelivered(record: ProjectRecord): ProjectRecord {
 
 /** Ended waits whose wake is reserved and not yet started, and not made stale by a stop. */
 export function reservedWakes(record: ProjectRecord): WaitRegistration[] {
-  return (record.waits ?? []).filter((wait) => wait.wake !== null && wait.wake.consumedAt === null && current(record, wait));
+  return (record.waits ?? []).filter((wait) => wait.wake !== null && wait.wake.consumedAt === null && isCurrentWait(record, wait));
 }
 
 /** Ended waits that have not reserved a wake yet, for example because the project was paused. */
 export function unreservedMatches(record: ProjectRecord): WaitRegistration[] {
-  return (record.waits ?? []).filter((wait) => wait.wake === null && wait.outcome !== null && WAKING.includes(wait.outcome.kind) && current(record, wait));
+  return (record.waits ?? []).filter((wait) => wait.wake === null && wait.outcome !== null && WAKING.includes(wait.outcome.kind) && isCurrentWait(record, wait));
 }
 
 /** One plain line for the owner's wake: what it waited for and how that ended. */
@@ -239,5 +239,5 @@ export function describeWait(wait: WaitRegistration): string {
  */
 export function waitCoversCompletion(record: ProjectRecord, childId: string): boolean {
   return (record.waits ?? []).some((wait) => wait.source.kind === 'child' && wait.source.id === childId
-    && wait.outcome?.kind === 'satisfied' && wait.wake !== null && current(record, wait));
+    && wait.outcome?.kind === 'satisfied' && wait.wake !== null && isCurrentWait(record, wait));
 }

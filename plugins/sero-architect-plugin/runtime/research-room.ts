@@ -158,7 +158,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models,
         observedLiveAt: room.status === 'running' && isLive(room.liveRun, SESSION_STARTED_AT) ? deps.host.now() : undefined } : entry) };
       // A Room this project paused itself is waiting, not failing.
-      const stopped = room.status === 'failed' || room.status === 'cancelled' || (room.status === 'paused' && !current.heldBy);
+      const stopped = room.status === 'failed' || room.status === 'cancelled' || (room.status === 'paused' && !current.heldBy && !next.paused);
       if (stopped || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
         // The Room's title and the cause are both in hand here. Saving them is

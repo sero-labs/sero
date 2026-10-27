@@ -75,5 +75,5 @@ export function useInspectorPreferences(): {
 
 /** Opens the Orchestrator on the dispatched Workflow or Room. */
 export function openDispatch(link: Extract<NonNullable<RailRow['link']>, { workspaceId: string }>): void {
-  void openSeroApp('orchestrator', link.kind === 'room' ? { roomId: link.id } : { loopId: link.id }, link.workspaceId);
+  void openSeroApp('orchestrator', link.kind === 'room' ? { roomId: link.id } : { loopId: link.id, ...(link.runId ? { runId: link.runId } : {}) }, link.workspaceId);
 }

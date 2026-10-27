@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
@@ -12,6 +12,7 @@ import { firedByLabel } from '../lib/trigger-summary';
 const PAGE = 5;
 
 interface AttemptHistoryProps {
+  focusRunId?: string;
   /** Compact run summaries from the loop's runs/index.json (oldest first). */
   runs: LoopRunSummary[];
 }
@@ -59,7 +60,8 @@ function StatsHeader() {
 
 const Dash = <span className="text-muted-foreground/40">—</span>;
 
-function RunRow({ run }: { run: LoopRunSummary }) {
+function RunRow({ run, focused }: { run: LoopRunSummary; focused?: boolean }) {
+  const reveal = useCallback((node: HTMLDivElement | null) => { if (focused) node?.scrollIntoView?.({ block: 'center' }); }, [focused]);
   const wallMs = run.endedAt ? new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime() : undefined;
   const usage = run.usage;
   const firedBy = firedByLabel(run);
@@ -75,7 +77,7 @@ function RunRow({ run }: { run: LoopRunSummary }) {
   const stopped = run.block?.reason !== undefined;
 
   return (
-    <div className="flex items-center gap-4 px-3.5 py-3 text-xs">
+    <div ref={reveal} aria-current={focused ? 'true' : undefined} aria-label={`Run ${run.runNumber}`} className="flex items-center gap-4 px-3.5 py-3 text-xs">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">Run {run.runNumber}</span>
@@ -121,18 +123,19 @@ function ReceiptBadge({ receipt }: { receipt: NonNullable<LoopRunSummary['delive
 }
 
 /** Compact run history: one summarised row per run (newest first), last 5 + Show more. */
-export function AttemptHistory({ runs }: AttemptHistoryProps) {
+export function AttemptHistory({ runs, focusRunId }: AttemptHistoryProps) {
   const [shown, setShown] = useState(PAGE);
   if (runs.length === 0) {
     return <Card className="p-3 text-base text-muted-foreground">No runs yet.</Card>;
   }
   const ordered = [...runs].reverse();
-  const visible = ordered.slice(0, shown);
+  const focused = ordered.find((run) => run.id === focusRunId);
+  const visible = focused ? [focused, ...ordered.filter((run) => run.id !== focusRunId).slice(0, shown - 1)] : ordered.slice(0, shown);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col divide-y divide-border/60">
         <StatsHeader />
-        {visible.map((run) => <RunRow key={run.id} run={run} />)}
+        {visible.map((run) => <RunRow key={run.id} run={run} focused={run.id === focusRunId} />)}
       </div>
       {ordered.length > shown && (
         <Button variant="ghost" size="sm" className="self-start" onClick={() => setShown((n) => n + PAGE)}>

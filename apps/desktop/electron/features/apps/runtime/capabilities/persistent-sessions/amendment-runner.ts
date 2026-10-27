@@ -5,6 +5,7 @@
 
 import type { PersistentSessionGrantAmendment, PersistentSessionGrantAmendmentResult } from '@sero-ai/common';
 
+import { grantQuestionOrigin } from './question-origin';
 import { amendmentFingerprint } from './amendment-fingerprint';
 import { settleAmendment, storedAnswer } from './grant-amendments';
 import type { PersistentSessionHostDeps } from './host';
@@ -28,7 +29,7 @@ export async function runAmendment(
   if (!('ask' in first)) return first;
   // The dialog runs outside the store's lock. The answer is then settled under
   // the lock again, so a revocation or another amendment that landed meanwhile wins.
-  const answer = await deps.approveExpansion(String(amendment.reason ?? '').slice(0, 500), first.ask)
+  const answer = await deps.approveExpansion(String(amendment.reason ?? '').slice(0, 500), first.ask, grantQuestionOrigin(grant.appId, grant.workspaceId, grant.owner))
     .catch(() => false);
   const second = await grantStore.amend((tx) => settleAmendment(tx, appId, amendment, clamped, answer));
   return 'ask' in second ? refused('the grant changed while approval was asked') : second;
