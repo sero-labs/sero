@@ -7,7 +7,7 @@ import { STUB_MODEL_ID, STUB_PROVIDER_ID, type StubRequest, type StubReply } fro
 import { closeSeroApp, launchSeroApp } from './helpers/electron-app';
 import { waitForShell } from './helpers/workflow';
 
-const EVIDENCE = path.resolve(__dirname, '../../..', 'docs/analysis/evidence/630');
+const EVIDENCE = path.resolve(__dirname, 'screenshots/architect-board-630');
 const QUESTION = 'Should the research use the compact layout?';
 const RESULT = 'A compact layout keeps the controls beside the result.';
 let projectId = '';
