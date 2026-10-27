@@ -10,6 +10,7 @@ import {
 import type { NativeBuildContainerFallbackOptions } from './native-build/types';
 
 interface RunWorkspaceCommandOptions {
+  signal?: AbortSignal;
   isolated?: boolean;
   classifyNativeBuildFailure?: boolean;
   nativeBuildFallback?: NativeBuildContainerFallbackOptions;
@@ -42,9 +43,19 @@ export async function runWorkspaceCommand(
 
   try {
     const runtime = await runtimeManager.getRuntime(workspaceId);
+    if (options?.signal?.aborted) return { stdout: '', stderr: 'Command cancelled.', exitCode: 130 };
+    const captured = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
     const execInput: RuntimeExecInput = { command, cwd: runtimeCwd, timeoutMs };
+    if (options?.signal) {
+      execInput.signal = options.signal;
+      execInput.outputSink = {
+        write(stream, chunk) { captured[stream] = Buffer.concat([captured[stream], chunk]).subarray(-10 * 1024 * 1024); },
+        close() {},
+      };
+    }
     if (options?.isolated !== undefined) execInput.isolated = options.isolated;
-    const result = await runtime.exec(execInput);
+    const executed = await runtime.exec(execInput);
+    const result = options?.signal ? { ...executed, stdout: captured.stdout.toString('utf8'), stderr: captured.stderr.toString('utf8') || executed.stderr } : executed;
     if (options?.classifyNativeBuildFailure) {
       const failure = classifyNativeBuildFailure({
         command,

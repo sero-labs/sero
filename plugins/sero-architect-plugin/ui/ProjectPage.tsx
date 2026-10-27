@@ -75,7 +75,7 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
   const controls = useMemo<ProjectControls>(() => ({
     pause: () => void report(actions.pause(id)),
     resume: () => void report(actions.resume(id)),
-    stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
+    stop: () => { if (confirm(`Stop ${record.name}? Request cancellation of the Architect and its owned work? Some remote processes may still finish.`)) void report(actions.stop(id)); },
     raiseCap: () => { setNotice(null); setCapOpen(true); },
     setExecutionMode: (next) => void report(actions.setExecutionMode(id, next)),
     enableOpenSpec: () => void report(actions.enableOpenSpec(id)),
@@ -255,7 +255,7 @@ function StoppedTile({ record, activity, form, headerActions, asking }: { record
       // The owner line names the Room or Workflow, so Open Room says which one it opens.
       what={unlinked || notStarted ? null : activity.owner}
       reason={reason}
-      detail={unlinked ? record.blockedReason ?? undefined : undefined}
+      detail={unlinked ? record.blockedReason ?? undefined : record.cancellation?.detail}
     >
       {form}
       {headerActions.map((item) => (

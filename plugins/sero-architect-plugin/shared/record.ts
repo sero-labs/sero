@@ -373,6 +373,8 @@ export interface ProjectRecord {
   waits?: WaitRegistration[];
   /** Bumped by a stop. A wait registered before the bump is stale. Absent counts as 0. */
   controlRevision?: number;
+  /** Last cancellation request and unresolved termination, retained across restart. */
+  cancellation?: { cause: 'user-stop' | 'budget'; at: string; detail: string };
 }
 
 export type { BlockedWork, BlockedWorkCause } from './blocked-work';

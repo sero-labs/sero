@@ -292,3 +292,34 @@ describe('SubagentManager integration', () => {
     expect(manager.tracker.get(entries[0].id)?.toolCallId).toBe('call-single');
   });
 });
+
+
+describe('scoped tool cancellation', () => {
+  it.each(['parallel', 'chain'] as const)('aborts %s children without stopping another parent', async (mode) => {
+    const manager = new SubagentManager();
+    manager.setDeps(makeMockDeps());
+    const began = deferred<void>();
+    const unrelated = deferred<RunResult>();
+    mockRunSubagent.mockImplementation(async (config) => {
+      if (config.parentSessionId === 'other') return unrelated.promise;
+      began.resolve();
+      await new Promise<void>((resolve) => {
+        if (config.signal.aborted) resolve();
+        else config.signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      return { ...makeResult(''), error: 'Aborted' };
+    });
+    const other = manager.runSingle({ agent: 'scout', task: 'Keep working', parentSessionId: 'other', workspaceId: 'ws-1' });
+    const controller = new AbortController();
+    const common = { parentSessionId: 'owner', workspaceId: 'ws-1', signal: controller.signal };
+    const tasks = [{ agent: 'scout', task: 'First' }, { agent: 'analyst', task: 'Second' }];
+    const owned = mode === 'parallel' ? manager.runParallel({ ...common, tasks }) : manager.runChain({ ...common, chain: tasks });
+    await began.promise;
+    controller.abort();
+    expect(await owned).toContain('Aborted');
+    expect(manager.tracker.snapshot('ws-1').find((entry) => entry.parentSessionId === 'other')?.status).toBe('running');
+    unrelated.resolve(makeResult('Finished independently'));
+    expect(await other).toBe('Finished independently');
+    if (mode === 'chain') expect(manager.tracker.snapshot('ws-1').filter((entry) => entry.parentSessionId === 'owner')).toHaveLength(1);
+  });
+});

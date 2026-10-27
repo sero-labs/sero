@@ -589,3 +589,27 @@ describe('owner session', () => {
     expect(host.sessions.prompts).toHaveLength(0);
   });
 });
+
+
+it('charges usage arriving during owner abort before disposing its handle', async () => {
+  const host = await fakeHost();
+  const store = await storeFor(host);
+  const record = buildingProject();
+  await store.write(record);
+  let began!: () => void;
+  const ready = new Promise<void>((resolve) => { began = resolve; });
+  let finish!: () => void;
+  const ended = new Promise<void>((resolve) => { finish = resolve; });
+  host.sessions.onTurn = async () => { began(); await ended; };
+  const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+  const running = sessions.runTurn(record, wake);
+  await ready;
+  host.sessions.abort = async () => {
+    await Promise.resolve();
+    host.sessions.costUsd = 0.7;
+    finish();
+  };
+  await sessions.dispose(record.id);
+  await running;
+  expect((await store.read(record.id))?.budget.spentUsd).toBeCloseTo(0.7);
+});

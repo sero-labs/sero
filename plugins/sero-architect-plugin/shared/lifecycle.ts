@@ -116,6 +116,7 @@ export function resume(record: ProjectRecord, now: string): Outcome {
  */
 export function block(record: ProjectRecord, now: string, reason: string, on?: BlockedWork): Outcome {
   if (!reason.trim()) return refuse('A blocked project needs a reason.');
+  if (record.blockedReason === 'stopped by the user') return { ok: true, record };
   return {
     ok: true,
     record: appendHistory(

@@ -88,6 +88,9 @@ export interface OrchestratorRoomCreateLimits {
 }
 
 export interface OrchestratorRoomCreateRequest {
+  signal?: AbortSignal;
+  /** Charge planning before a member can start. The caller may abort at its cap. */
+  onPlanned?: (usage?: OrchestratorUsageView) => Promise<void>;
   /** Stable identity for a caller recovering an interrupted creation. */
   requestId?: string;
   /** The Room's brief, kept verbatim. */

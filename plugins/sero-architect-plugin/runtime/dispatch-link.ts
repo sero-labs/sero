@@ -70,6 +70,7 @@ export async function performDispatch(
   };
   let refusal = '';
   const prepared = await store.update(record.id, (fresh) => {
+    if (!mayDispatch(fresh)) { refusal = 'The project cannot start new work.'; return null; }
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     // A set-aside milestone keeps the link to its cancelled Room until it runs again.
     if (!current || (current.dispatch && current.status !== 'parked') || current.pendingDispatch) return null;

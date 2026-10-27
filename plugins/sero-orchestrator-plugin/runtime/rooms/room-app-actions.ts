@@ -214,6 +214,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       const requestId = input.requestId ?? host.newId('room-planning');
       const selection = applyProjectSnapshot(input.project?.modelSnapshot, undefined);
       const plan = await planRoom(host, {
+        signal: input.signal,
         model: selection.model, thinking: selection.thinking,
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),

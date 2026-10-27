@@ -197,3 +197,25 @@ describe('the trace records the same deltas the budget charges', () => {
     expect(journalLines(homeDir, later.record.id, 'run-maint')).toEqual([]);
   });
 });
+
+
+it('cancels active research at the shared cap and retains its late usage', async () => {
+  const host = await fakeHost();
+  const store = await storeFor(host);
+  const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1 } });
+  await store.write(record);
+  let started!: () => void;
+  const ready = new Promise<void>((resolve) => { started = resolve; });
+  host.runStructured = vi.fn(async (request) => {
+    started();
+    await new Promise<void>((resolve) => request.signal!.addEventListener('abort', () => resolve(), { once: true }));
+    return { response: '', error: 'Aborted', usage: usage(0.4) };
+  });
+  const running = runProjectModel({ host, store }, record, { kind: 'research', id: 'res-1' }, params);
+  await ready;
+  await store.update(record.id, (fresh) => ({ ...fresh, budget: { ...fresh.budget, spentUsd: 1 } }));
+  await running;
+  const saved = await store.read(record.id);
+  expect(saved?.budget.spentUsd).toBeCloseTo(1.4);
+  expect(saved?.budget.incomplete).toBe(true);
+});

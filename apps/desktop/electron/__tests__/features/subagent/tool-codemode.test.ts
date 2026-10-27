@@ -54,7 +54,7 @@ describe('a Code Mode script that calls subagent or create_agent', () => {
     await Promise.all(cleanups.splice(0).map((cleanup) => cleanup().catch(() => undefined)));
   });
 
-  async function runScript(script: string): Promise<string> {
+  async function runScript(script: string, opened?: (session: AgentSession) => void): Promise<string> {
     const root = await mkdtemp(path.join(os.tmpdir(), 'sero-codemode-subagent-'));
     const workspace = path.join(root, 'workspace');
     const agentDir = path.join(root, 'agent');
@@ -98,9 +98,23 @@ describe('a Code Mode script that calls subagent or create_agent', () => {
       await rm(root, { recursive: true, force: true });
     });
 
+    opened?.(session);
     await session.prompt('run the script');
     return resultText(session.messages);
   }
+
+  it('passes an owner stop through Code Mode into its active child call', async () => {
+    let session!: AgentSession;
+    let childStopped = false;
+    runSingle.mockImplementation(async ({ signal }: { signal: AbortSignal }) => {
+      const stopped = new Promise<void>((resolve) => signal.addEventListener('abort', () => { childStopped = true; resolve(); }, { once: true }));
+      void session.abort();
+      await stopped;
+      return 'Aborted';
+    });
+    await runScript('await tools.subagent({ systemPrompt: "Inspect", task: "Wait" });', (opened) => { session = opened; });
+    expect(childStopped).toBe(true);
+  });
 
   it('stops at a subagent call with no task', async () => {
     const result = await runScript(`await tools.subagent({ systemPrompt: 'You check.' });\ntext(${JSON.stringify(AFTER)});`);

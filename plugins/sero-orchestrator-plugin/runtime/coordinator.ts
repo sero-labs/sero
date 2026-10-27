@@ -165,7 +165,7 @@ export class Coordinator {
       case 'activate':
         return this.activateLoop(action.loopId);
       case 'disable':
-        return this.disableLoop(action.loopId);
+        return this.disableLoop(action.loopId, action.owner);
       case 'enable':
         return this.transition(action.loopId, (loop) => enable(loop, this.host.now()));
       case 'run_next':
@@ -312,7 +312,13 @@ export class Coordinator {
    * subagents stop promptly), then marks the loop `disabled` and clears its
    * active run. Scheduled triggers no longer fire until the loop is `enable`d.
    */
-  protected async disableLoop(loopId: string): Promise<OrchestratorActionResult> {
+  protected async disableLoop(loopId: string, owner?: { projectId: string }): Promise<OrchestratorActionResult> {
+    if (owner) {
+      const loop = await this.findLoop(loopId);
+      if (!loop || loop.project?.projectId !== owner.projectId) {
+        return { ok: false, error: `Workflow ${loopId} does not belong to project ${owner.projectId}.` };
+      }
+    }
     this.running.get(loopId)?.abort();
     return this.mutateLoop(loopId, (loop) => disable(loop, this.host.now()));
   }

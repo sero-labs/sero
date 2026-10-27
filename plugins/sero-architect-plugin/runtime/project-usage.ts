@@ -99,6 +99,14 @@ export async function recordCharge(
 
 /** Each SDK call starts at zero; pending costs retain earlier interrupted calls. */
 export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, operation: Operation, params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult & { recordedCostUsd: number }> {
+  const controller = new AbortController();
+  const stop = (fresh: ProjectRecord) => {
+    if (fresh.id === record.id && (fresh.blockedReason === 'stopped by the user'
+      || (fresh.budget.capUsd !== null && fresh.budget.spentUsd >= fresh.budget.capUsd))) controller.abort();
+  };
+  const detach = deps.store.subscribe(stop);
+  const fresh = await deps.store.read(record.id);
+  if (fresh) stop(fresh);
   const source = `${operation.kind}:${deps.host.newId('usage')}`;
   let latestCost = 0;
   let recordedCostUsd = operation.kind === 'research'
@@ -160,10 +168,12 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
   }) : null;
   const result = await deps.host.runStructured({
     ...params,
+    signal: params.signal ? AbortSignal.any([params.signal, controller.signal]) : controller.signal,
     onObservation: (observation) => { feedback?.onObservation(observation); noteRunId(observation); },
     onUsage: (usage) => { feedback?.onUsage(usage); params.onUsage?.(usage); report(usage); },
   })
-    .catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }));
+    .catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }))
+    .finally(detach);
   feedback?.end(result, deps.host.now());
   if (result.usage) report(result.usage);
   await writes;

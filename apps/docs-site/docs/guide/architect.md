@@ -2,7 +2,8 @@
 
 Sero Architect manages work across a product instead of one task. Give it a
 request and a start cap. It plans the work, builds it through Workflows and
-Rooms or does small pieces itself, and checks the result inside that cap.
+Rooms or does small pieces itself, and checks the result. The cap stops new
+work when reported spend reaches it; active requests can still add cost.
 Architect checks the result before it moves on to release and maintenance. It
 asks for your input when it needs a decision.
 
@@ -46,7 +47,7 @@ project page has no control to add more. Start a new project to get them.
    directory, or choose **Existing workspace** and select one. A workspace that
    already has an Architect project, and the Global workspace, cannot be chosen.
 4. Set the **Start cap ($)**. Research, building, checks and repairs all use
-   this one budget. Architect cannot spend more without your approval.
+   this one budget. Reported usage gates new work; requests already in flight can add cost.
 5. Select **Continue**. Sero then shows its own approval prompt with the access
    the project asks for. Paid work starts only after you allow it.
 
@@ -54,7 +55,7 @@ If you do not allow the access, the project stays **Not started**. Select
 **Review access** on the project page to see the prompt again.
 
 A project made this way runs under a delivery agreement: it continues on its
-own inside the cap and the access you approved, and it asks you only when a
+own under the spending and access limits you approved, and it asks you only when a
 decision is yours to make. A project made before this change runs on the
 **charter flow**, which is deprecated. It keeps its saved charter and its
 approvals, and it is marked "charter flow · deprecated" on the list and on its
@@ -184,7 +185,7 @@ Rooms work as before.
 - **Continuing.** The Architect can ask for another turn. Your instructions,
   answered decisions and events from running work are handled first. A pause, a
   block or the cost cap stops it. There is no automatic stop for a lack of
-  progress: the cost cap is the hard limit. The run inspector shows how many
+  progress: reported spend reaching the cost cap requests cancellation. The run inspector shows how many
   continuations in a row changed no file.
 - **Interruption.** A stopped turn, a stalled turn or a restart marks the work
   interrupted. The files and the saved identity stay, nothing counts as
@@ -299,13 +300,14 @@ to you as a decision instead of stopping the project:
 Every project has a cost cap: the start cap you set when you created it. Spend
 includes the owner
 session, research runs and every dispatched Workflow and Room. When the project
-reaches the cap, Architect stops starting new work. Work already in progress
-can continue and add cost before the next budget check. Raise the cap from the
-project page to continue.
+reaches the cap, Architect stops starting new work and requests cancellation
+of its owned work. Requests already in flight can add cost before cancellation
+takes effect. Raise the cap from the project page to continue.
 
 The cap limits the work Architect starts. It is not a ceiling on what a project
-can spend: a Workflow or Room already running has its own limit and can keep
-adding cost until it stops. The spend line shows a lower bound. When a source
+can spend: cancellation may not stop an active provider request or remote
+process immediately. The project records the cancellation request and any
+work it could not reach. The spend line shows a lower bound. When a source
 reported a total without per-call detail, or did not report at all, the amount
 is marked as incomplete rather than filled in.
 
@@ -371,8 +373,10 @@ The controls menu on the project page offers:
 
 - **Pause** and **Resume**. Pause prevents Architect from starting or planning
   new work. Work in flight continues.
-- **Stop**. Stops future work. Work in flight continues. Work that stops after
-  Stop still appears in the run inspector with its usage.
+- **Stop**. Stops future work and requests cancellation of the Architect and
+  its owned Rooms, Workflows and subagents. Some remote processes may still
+  finish. The project keeps the cancellation outcome across restart, and late
+  usage remains attributed to the run that started the work.
 - **Raise cap**.
 - **Autonomy**. Cycles through the three settings.
 - **Models…**. Sets a project model default per tier. A tier with no project

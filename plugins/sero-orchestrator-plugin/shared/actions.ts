@@ -38,7 +38,7 @@ export type OrchestratorAction =
   | { kind: 'activate'; loopId: string }
   | { kind: 'list' }
   | { kind: 'show'; loopId: string }
-  | { kind: 'disable'; loopId: string }
+  | { kind: 'disable'; loopId: string; owner?: { projectId: string } }
   | { kind: 'enable'; loopId: string }
   | { kind: 'run_next'; loopId: string }
   | { kind: 'run_again'; loopId: string }

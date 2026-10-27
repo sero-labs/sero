@@ -9,7 +9,7 @@ import { normalizeIndex } from '../shared/types';
 import type { WakeEvent } from '../shared/wake';
 import { createDispatchWatch, type DispatchWatch } from './dispatch-watch';
 import { createArchitectHost, type ArchitectHost } from './host';
-import { releaseProjectWork } from './linked-work';
+import { releaseProjectWork, stopProjectWork } from './linked-work';
 import { retryMilestone } from './work-recovery-actions';
 import { createOwnerActions, type OwnerActions, type OwnerServices } from './owner-actions';
 import { OwnerSessions } from './owner-session';
@@ -63,6 +63,7 @@ export class ArchitectRuntime implements AppRuntime {
   private workWatch: WorkWatch | null = null;
   private services: OwnerServices | null = null;
   private waits: WaitReconciler | null = null;
+  private stopBudgetFollow: (() => void) | null = null;
   private stopDevServerFollow: (() => void) | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
@@ -153,6 +154,17 @@ export class ArchitectRuntime implements AppRuntime {
     this.watch = watch;
     const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
+    const capped = new Map<string, string>();
+    this.stopBudgetFollow = store.subscribe((record) => {
+      const exhausted = record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd;
+      const stopped = record.blockedReason === 'stopped by the user';
+      if (!exhausted && !stopped) { capped.delete(record.id); return; }
+      const key = JSON.stringify([stopped, record.milestones.map((item) => item.dispatch?.id), record.pendingResearch?.map((item) => item.roomId ?? item.workflowId)]);
+      if (capped.get(record.id) === key) return;
+      capped.set(record.id, key);
+      void stopProjectWork({ store, now: () => this.host.now(), retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) }, record, stopped ? 'user-stop' : 'budget')
+        .catch((error: unknown) => this.host.log(`Could not stop project work at its cap: ${String(error)}`));
+    });
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services, waits });
     this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch, waits });
     this.registered = { owner: this.owner, projects: this.projects, sampleRepair: createSampleRepair({ host: this.host, store, projects: this.projects }) };
@@ -320,6 +332,7 @@ export class ArchitectRuntime implements AppRuntime {
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
     this.stopDevServerFollow?.();
+    this.stopBudgetFollow?.();
     this.waits?.dispose();
     this.workWatch?.dispose();
     await this.sessions?.disposeAll();

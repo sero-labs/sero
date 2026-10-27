@@ -1,8 +1,8 @@
 /**
  * Reads the owner session's usage and charges it to the project. When a charge
  * takes the project over its cost cap, the running turn is stopped from here:
- * the usage read is the event, so nothing polls and a busy turn cannot spend
- * past what the user allowed.
+ * the usage read is the event, so cancellation begins when known usage reaches the cap. In-flight requests
+ * can still report additional usage.
  */
 
 import type { PersistentSessionsApi } from '@sero-ai/common';
@@ -39,12 +39,15 @@ function overCostCap(record: ProjectRecord): boolean {
 }
 
 /** One read at a time: a read asked for while another runs joins it. */
-export function createUsageReader(context: OwnerUsageContext): { read: () => Promise<void>; flush: () => Promise<void> } {
+export function createUsageReader(context: OwnerUsageContext): { read: () => Promise<void>; flush: () => Promise<void>; detach: () => void } {
   const { deps, api, handleId, projectId, usageSource, tokenMarks } = context;
   let usageRead: Promise<void> | undefined;
   // An exempt wake may run on a project that is already at its cap, so it is stopped only if it
   // began under the cap. Any other wake is always stopped, whatever the record said at preparation.
   const startedUnderCap = !context.exemptFromCap || !overCostCap(context.turnRecord);
+  const detach = deps.store.subscribe((record) => {
+    if (record.id === projectId && startedUnderCap && overCostCap(record)) context.overCap();
+  });
   const read = (): Promise<void> => {
     usageRead ??= (async () => {
       const usage = await api.getSessionUsage(handleId).catch(() => null);
@@ -77,5 +80,5 @@ export function createUsageReader(context: OwnerUsageContext): { read: () => Pro
     await usageRead;
     await read();
   };
-  return { read, flush };
+  return { read, flush, detach };
 }

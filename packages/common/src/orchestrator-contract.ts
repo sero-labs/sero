@@ -351,6 +351,8 @@ export interface OrchestratorBoardCreateOptions {
 export type OrchestratorBoardAction =
   | { kind: 'create'; prompt: string; title?: string; options?: OrchestratorBoardCreateOptions }
   | { kind: 'activate'; loopId: string }
+  /** Cancel only the Workflow retained as this project's own work. */
+  | { kind: 'disable'; loopId: string; owner: { projectId: string } }
   | { kind: 'run_next'; loopId: string }
   | { kind: 'run_again'; loopId: string }
   | { kind: 'retry'; loopId: string }

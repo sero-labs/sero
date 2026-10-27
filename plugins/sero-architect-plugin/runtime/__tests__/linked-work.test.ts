@@ -253,3 +253,16 @@ describe('a project pause under an agreement', () => {
     expect(calls).toEqual([]);
   });
 });
+
+
+it('Stop cancels owned Rooms in legacy projects, keeps unrelated work, and retains the outcome after reload', async () => {
+  const { rooms } = fakeRooms({ owned: {}, unrelated: {} });
+  const { projects, store } = await setup(buildingProject({ executionMode: 'workspace', milestones: [roomMilestone('m1', 'owned')] }));
+  expect((await projects.stop('proj_1')).ok).toBe(true);
+  expect(rooms.get('owned')?.status).toBe('cancelled');
+  expect(rooms.get('unrelated')?.status).toBe('running');
+  const saved = await store.read('proj_1');
+  expect(saved?.blockedReason).toBe('stopped by the user');
+  expect(saved?.cancellation).toMatchObject({ cause: 'user-stop' });
+  expect(saved?.cancellation?.detail).toContain('may still finish');
+});

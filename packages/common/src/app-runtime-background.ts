@@ -107,6 +107,7 @@ export interface AppRuntimeCommandResult {
 
 export interface AppRuntimeRunCommandOptions {
   isolated?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface AppRuntimeWorkspaceRefreshResult {

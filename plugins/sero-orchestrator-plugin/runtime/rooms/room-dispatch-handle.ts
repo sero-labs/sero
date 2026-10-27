@@ -30,13 +30,19 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
     return status ? { ok: true, status } : { ok: false, error: `Room not found: ${roomId}`, status: null };
   };
   const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
-      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project, delegationPolicyId: request.delegationPolicyId });
+      if (request.signal?.aborted) return { ok: false, error: 'Room creation cancelled.' };
+      const planned = await app.prepare({ signal: request.signal, problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project, delegationPolicyId: request.delegationPolicyId });
+      await request.onPlanned?.(planned.usage);
       if (!planned.ok) {
         if (planned.needsInput) {
           const questions = planned.questions.map((question) => question.prompt);
           return { ok: false, error: `The Room planner needs an answer before it can plan: ${questions.join(' ')}`, questions, usage: planned.usage };
         }
         return { ok: false, error: planned.error, usage: planned.usage };
+      }
+      if (request.signal?.aborted) {
+        await app.cancel(planned.roomId, 'The owning project stopped or reached its budget.');
+        return { ok: true, roomId: planned.roomId, usage: planned.usage };
       }
       if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId, usage: planned.usage };
       const started = await app.start(planned.roomId);

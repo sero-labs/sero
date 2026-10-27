@@ -154,6 +154,19 @@ describe('Room creation through the typed handle', () => {
     expect(host.persistentSessions.proposals[0].delegationPolicyId).toBeUndefined();
   });
 
+  it('accounts planning before starting a member and retains a cancelled late-created Room', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const controller = new AbortController();
+    const result = await createRoomDispatchHandle(app).create({
+      mandate: 'Investigate the project.', signal: controller.signal,
+      onPlanned: async () => { controller.abort(); },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect((await app.inspect(result.roomId))?.status).toBe('cancelled');
+    expect(host.persistentSessions.proposals).toHaveLength(0);
+  });
+
   it('names the caller\'s stored approval when the Room asks for its grant', async () => {
     host.modelResponses.push({ response: JSON.stringify(blueprint()) });
     const result = await createRoomDispatchHandle(app).create({
@@ -291,6 +304,17 @@ describe('Trigger arming through the typed handle', () => {
     host.state = { ...host.state, loops: [armed] };
     return armed;
   }
+
+  it('refuses to disable a different project Workflow', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    seedMaintenanceLoop(host, 'another-project');
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'disable', loopId: 'loop-maint', owner: { projectId: 'proj_1' },
+    });
+    expect(result.ok).toBe(false);
+    expect(host.state.loops[0].status).toBe('active');
+  });
 
   it('disarms every trigger and leaves the run in flight alone', async () => {
     const host = createFakeHost({ workspaceId: 'ws-1' });

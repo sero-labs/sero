@@ -16,7 +16,7 @@ import { createProjectRecord, toIndexEntry, type AutonomySetting, type Execution
 import type { CreateProjectInput } from '../shared/create-project';
 import { resolveIntakePlacement } from './intake-placement';
 import { createIntake } from './intake';
-import { controlLinkedWork, holdProjectWork, releaseProjectWork, type ControlOperation, type LinkedWorkDeps } from './linked-work';
+import { controlLinkedWork, holdProjectWork, stopProjectWork, releaseProjectWork, type ControlOperation, type LinkedWorkDeps } from './linked-work';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
@@ -302,8 +302,9 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);
-      await sessions.dispose(projectId);
-      const held = hasAgreement(stopped.record) ? await holdProjectWork(linked, stopped.record) : null;
+      const ownerFailure = await sessions.dispose(projectId).then(() => '', (error: unknown) => `Owner cancellation was not confirmed: ${String(error)}.`);
+      const held = await stopProjectWork(linked, stopped.record);
+      if (ownerFailure) await store.update(projectId, (fresh) => ({ ...fresh, cancellation: { cause: 'user-stop', at: host.now(), detail: `${ownerFailure}${held.note}` } }));
       // A Stop is not completion: the run ends as stopped, and any work that is
       // still in flight keeps its identity so its late usage stays attributable.
       if (deps.journal) {
@@ -311,8 +312,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           host.log(`could not close the active run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
         });
       }
-      if (held) return ok(`Project ${projectId} stopped. The owner session is closed and no new work starts.${held.note}`);
-      return ok(`Project ${projectId} stopped. Running work continues under its own limits; the owner session is closed.`);
+      return ok(`Project ${projectId} stopped. ${ownerFailure || 'The owner session is closed and no new work starts.'}${held.note}`);
     },
 
     async control(projectId, target, operation, limits = {}) {

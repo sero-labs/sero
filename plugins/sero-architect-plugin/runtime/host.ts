@@ -57,7 +57,7 @@ export interface ArchitectHost {
   /** Provision Node only when the selected workspace executes on the host. */
   ensureNode(workspaceId: string): Promise<void>;
   /** One shell command through the workspace runtime, with its real exit code. */
-  runCommand(workspaceId: string, cwd: string, command: string, timeoutMs?: number): Promise<CommandRun>;
+  runCommand(workspaceId: string, cwd: string, command: string, timeoutMs?: number, signal?: AbortSignal): Promise<CommandRun>;
   /** A local binary (git) in a directory, outside any workspace runtime. */
   exec(file: string, args: string[], cwd: string): Promise<CommandRun>;
   /** Managed worktrees and the commit that keeps their work. */
@@ -163,8 +163,8 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
       return { tools: tools.map((tool) => tool.name), skills: skills.map((skill) => skill.name) };
     },
     ensureNode: (workspaceId) => ensureWorkspaceNode(workspaceId, host.workspace.resolveRuntime, host.toolchains.ensure),
-    runCommand: async (workspaceId, cwd, command, timeoutMs) => {
-      const result = await host.workspace.runCommand(workspaceId, cwd, command, timeoutMs);
+    runCommand: async (workspaceId, cwd, command, timeoutMs, signal) => {
+      const result = await host.workspace.runCommand(workspaceId, cwd, command, timeoutMs, { signal });
       return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
     },
     exec: (file, args, cwd) => execLocal(file, args, cwd, host.toolchains),

@@ -118,8 +118,11 @@ The user's chat and the project page use `architect_projects`.
 | `answer` | `projectId`, `decisionId`, `optionId`, optional `note` |
 | `directive` | `projectId`, `text` |
 
-`pause` and `stop` do not cancel a running Workflow or Room. `delete` removes
-the record and the owner session's grant; files in the folder stay.
+`pause` lets running turns finish. `stop` requests cancellation of the owner
+and the project's owned work, including active Rooms and Workflows. The project
+retains failures and unconfirmed remote termination across restart. Late usage
+stays attributed to the work that started it. `delete` removes the record and
+the owner session's grant; files in the folder stay.
 
 ## Direct work
 
