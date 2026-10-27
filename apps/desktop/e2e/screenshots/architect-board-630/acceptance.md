@@ -119,3 +119,9 @@ React Doctor was also rerun for the React hook changes: `npx react-doctor@latest
 The first regular CI workflow, [40560151534](https://github.com/sero-labs/sero/actions/runs/40560151534), stopped at the repository layout guard before build or tests executed. The report and compact evidence were moved beside the owning E2E test artifacts; raw logs moved to `/private/tmp/sero-v1-tools/630-logs/`. The test output-directory constant was updated accordingly. Production code is unchanged from the green second review.
 
 `node scripts/check-repository-layout.mjs` and `git diff --check` passed. Required root `pnpm typecheck` passed 29/29 tasks, with 28 cached. The compiler log is `/private/tmp/sero-v1-tools/630-logs/typecheck-layout.log`. No unit suite or app scenario was repeated for this relocation.
+
+## CI questionnaire contract correction
+
+The first executed test job, [40560906531](https://github.com/sero-labs/sero/actions/runs/40560906531), passed the other suites and failed one questionnaire mock assertion that still expected two bridge arguments. The production bridge now forwards the originating session as a third argument. The existing test now supplies a session file and checks that it is forwarded with the prompt and choices. Application source is unchanged.
+
+The single affected questionnaire test file passed 4/4. Logs: `/private/tmp/sero-v1-tools/630-logs/questionnaire-ci-fix.log` and `ci-tests-40560906531.log`. The full suite and app scenario were not rerun locally. The two formal reviewer rounds remain the completed review budget.

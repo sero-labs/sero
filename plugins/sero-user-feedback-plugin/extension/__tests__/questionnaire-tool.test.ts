@@ -50,7 +50,7 @@ describe('questionnaire tool', () => {
     expect(bridge.askQuestion).not.toHaveBeenCalled();
   });
 
-  it('opens the form with the prompt and choices from a valid question', async () => {
+  it('opens the form with the prompt, choices and originating session', async () => {
     bridge.askQuestion.mockResolvedValue({ answers: [], cancelled: true });
     const params = {
       questions: [{
@@ -62,7 +62,7 @@ describe('questionnaire tool', () => {
 
     await questionnaire.execute(
       'call-2', params, new AbortController().signal, () => {},
-      { hasUI: false } as Parameters<typeof questionnaire.execute>[4],
+      { hasUI: false, sessionManager: { getSessionFile: () => '/sessions/questionnaire.jsonl' } } as Parameters<typeof questionnaire.execute>[4],
     );
 
     expect(bridge.askQuestion).toHaveBeenCalledWith(
@@ -73,6 +73,7 @@ describe('questionnaire tool', () => {
         })],
       }),
       expect.any(AbortSignal),
+      '/sessions/questionnaire.jsonl',
     );
   });
 
