@@ -8,7 +8,8 @@ import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { boardOf, liveRows, liveSummary, type Board, type BoardStep, type LiveRow, type MadeRow } from './lib/board';
 import { openDispatch } from './lib/page-helpers';
-import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
+import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardStopped, ProofPicture } from './components/Board';
+import { BoardResult } from './components/BoardResult';
 import { BoardLive } from './components/BoardLive';
 import { BoardRequests } from './components/BoardRequests';
 import { BoardLinkedWork } from './components/BoardLinkedWork';
@@ -314,12 +315,6 @@ function newestProof(steps: readonly BoardStep[]): BoardStep | null {
   return steps.reduce<BoardStep | null>((newest, step) => (step.proofKey !== null && (!newest?.proofKey || step.proofKey > newest.proofKey) ? step : newest), null);
 }
 
-/** The result's own sentence, unless the top tile already says it. */
-function resultSentence(record: ProjectRecord, board: Board): string | null {
-  const result = record.overview?.result;
-  return result !== undefined && result.text !== board.sentence ? result.text : null;
-}
-
 /** A delegated step stopped without reporting, so the card that repairs it is on the board. */
 function needsRepair(record: ProjectRecord): boolean {
   return record.blockedReason !== null && record.milestones.some((item) => item.pendingDispatch);
@@ -344,6 +339,7 @@ interface BoardColumnProps {
   headerActions: HeaderAction[];
   onOpenWork(tab: WorkTab): void;
   onChangeDecision(row: MadeRow): void;
+  onContinue(): void;
   /** A plan is on the board. What was decided is then listed under it. */
   hasPlan: boolean;
   /** The host's start prompt is open. */
@@ -356,7 +352,7 @@ interface BoardColumnProps {
  * Which tiles apply is the board's answer, not this component's: each rule is a
  * named question below, so the markup reads in page order.
  */
-function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision, hasPlan, asking }: BoardColumnProps) {
+function BoardColumn({ record, actions, page, board, activity, wait, rows, notice, headerActions, onOpenWork, onChangeDecision, onContinue, hasPlan, asking }: BoardColumnProps) {
   const id = record.id;
   const preview = useProjectPreview(id);
   // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
@@ -365,8 +361,6 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
   const checked = record.milestones.some((milestone) => milestone.evidence);
   // The result shows the newest proof picture: the step checked last that has one.
   const proof = newestProof(board.steps);
-  // The top tile already says the newest sentence. It is not said twice.
-  const resultText = resultSentence(record, board);
   return (
     <div className="bd-col">
       <BoardRequests record={record} />
@@ -387,8 +381,8 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
       </Tile>
       <Tile when={board.main.includes('result')}>
         <BoardResult
-          headline={activity.headline}
-          text={resultText}
+          record={record}
+          onContinue={onContinue}
           preview={hasPreview ? { busy: preview.busy, open: () => void preview.open() } : null}
           onOpenChecks={checked ? () => onOpenWork('evidence') : null}
           picture={proof === null ? undefined : <ProofPicture projectId={id} step={proof} className="bd-picture" />}
@@ -454,6 +448,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
           headerActions={headerActions}
           onOpenWork={onOpenWork}
           onChangeDecision={changeDecision}
+          onContinue={focusDirective}
           hasPlan={hasPlan}
           asking={permissionPending && !started}
         />

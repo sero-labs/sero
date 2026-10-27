@@ -80,7 +80,7 @@ export function MilestoneRail({ record, onOpenDispatch, onOpenWork, focusMilesto
               {milestone.openSpecChange && <span>OpenSpec: openspec/changes/{milestone.openSpecChange}</span>}
               {sub && <span>{sub}</span>}
               {ladder !== null && <Ladder level={ladder} />}
-              {showEvidence && milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
+              {showEvidence && milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} allowPreview={record.executionMode !== 'worktree' && milestone.direct?.placement.mode !== 'worktree'} />}
             </div>
             <div className="ar-ms-right">
               <span className="ar-kind">{link?.kind ?? (milestone.id === 'maintenance' ? 'workflow' : '')}</span>

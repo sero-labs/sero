@@ -26,10 +26,10 @@ function seconds(ms: number): string {
 
 const MARK: Record<EvidenceCheck['state'], string> = { ok: '✓', err: '✕', dim: '·' };
 
-function CheckRow({ check, projectId }: { check: EvidenceCheck; projectId: string }) {
+function CheckRow({ check, projectId, allowPreview }: { check: EvidenceCheck; projectId: string; allowPreview: boolean }) {
   const preview = useProjectPreview(projectId);
 
-  if (check.opensPreview) {
+  if (check.opensPreview && allowPreview) {
     return (
       <>
         <div className="ar-check-cap">
@@ -70,7 +70,7 @@ function Capture({ projectId, milestoneId, evidence }: { projectId: string; mile
  * screenshot first: a user who asked for the proof is shown it. Elsewhere they
  * stay folded under one line.
  */
-export function Evidence({ evidence, projectId, milestoneId }: { evidence: EvidenceRecord; projectId: string; milestoneId?: string }) {
+export function Evidence({ evidence, projectId, milestoneId, allowPreview = true }: { evidence: EvidenceRecord; projectId: string; milestoneId?: string; allowPreview?: boolean }) {
   const checks = evidenceLines(evidence);
   if (milestoneId) {
     return (
@@ -78,7 +78,7 @@ export function Evidence({ evidence, projectId, milestoneId }: { evidence: Evide
         <Capture projectId={projectId} milestoneId={milestoneId} evidence={evidence} />
         <p className="wk-line">Checked at {evidence.commit.slice(0, 7)}{evidence.stale ? '. The work changed after this check.' : ''}</p>
         <ul className="ar-checks">
-          {checks.map((check) => <li key={check.key}><CheckRow check={check} projectId={projectId} /></li>)}
+          {checks.map((check) => <li key={check.key}><CheckRow check={check} projectId={projectId} allowPreview={allowPreview} /></li>)}
         </ul>
       </div>
     );
@@ -95,7 +95,7 @@ export function Evidence({ evidence, projectId, milestoneId }: { evidence: Evide
           // ones came before, because two checks can share a name — a command
           // can be listed more than once.
           <li key={check.key}>
-            <CheckRow check={check} projectId={projectId} />
+            <CheckRow check={check} projectId={projectId} allowPreview={allowPreview} />
           </li>
         ))}
       </ul>
