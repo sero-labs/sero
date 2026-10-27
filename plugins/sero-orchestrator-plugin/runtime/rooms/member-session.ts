@@ -164,9 +164,12 @@ export async function runMemberTurn(
   request.signal?.addEventListener('abort', abort, { once: true });
   let outcome: TurnOutcome;
   try {
-    const { turnId } = await api.prompt(handleId, content);
-    await request.onAccepted?.(turnId);
-    outcome = await watch.settle(turnId);
+    if (request.signal?.aborted) outcome = { turnId: null, status: 'aborted', detail: 'Turn cancelled before its request started.' };
+    else {
+      const { turnId } = await api.prompt(handleId, content);
+      await request.onAccepted?.(turnId);
+      outcome = await watch.settle(turnId);
+    }
   } catch (error) {
     // A denied, revoked or failed turn is a real outcome, not a crash: it spends
     // the member's bounded failure budget and the Room carries on (spec §30).

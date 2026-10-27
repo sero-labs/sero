@@ -546,3 +546,15 @@ describe('restart recovery', () => {
     expect(await reconcileMemberSessions({ host, store }, 'room-a')).toEqual([]);
   });
 });
+
+
+it('does not begin a paid turn when startup cancellation already reached the member', async () => {
+  const room = await seedRoom();
+  const lead = memberOf(room, 'lead');
+  const handle = await startMember(deps, room, lead);
+  const controller = new AbortController();
+  controller.abort();
+  const result = await runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Start work.', signal: controller.signal });
+  expect(result.status).toBe('aborted');
+  expect(host.persistentSessions.prompts).toHaveLength(0);
+});

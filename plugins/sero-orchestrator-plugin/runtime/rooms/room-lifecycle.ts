@@ -103,7 +103,7 @@ export async function createRoom(ctx: RoomLifecycleContext, request: CreateRoomR
  * Every other member's session opens on its first turn — a member that never
  * runs never consumes one (§14.3).
  */
-export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
+export async function startRoom(ctx: RoomLifecycleContext, roomId: string, signal?: AbortSignal): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
   if (record.runtime.status !== 'draft' && record.runtime.status !== 'ready' && record.runtime.status !== 'adjusting') {
@@ -123,7 +123,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
   }
 
   const claim = await claimTransition(ctx, roomId, (current, status) =>
-    status === 'draft' || status === 'ready' || status === 'adjusting'
+    !signal?.aborted && (status === 'draft' || status === 'ready' || status === 'adjusting')
       ? withRoomStatus(current, 'starting', ctx.host.now(), null)
       : null).catch(() => ({ won: false, status: 'failed' as const }));
   if (!claim.won) return fail(`This Room is "${claim.status}", so it cannot be started.`);
@@ -142,7 +142,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
       status === 'starting' ? withRoomStatus(current, 'draft', ctx.host.now(), null) : null).catch(() => undefined);
     return fail('This Room could not prepare a workspace for its members, so it did not start.');
   }
-  if ((await ctx.store.readRoom(roomId))?.runtime.status !== 'starting') {
+  if (signal?.aborted || (await ctx.store.readRoom(roomId))?.runtime.status !== 'starting') {
     await ctx.workspaces.releaseRoom(roomId, 'Start was cancelled.');
     return fail('This Room changed while it was starting, so Start was cancelled.');
   }
@@ -183,7 +183,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
 
   const now = ctx.host.now();
   const installed = await claimTransition(ctx, roomId, (current, status) =>
-    status === 'starting'
+    status === 'starting' && !signal?.aborted
       ? {
           ...current,
           definition: { ...current.definition, grantId: grant.grantId, grantRevision: grant.revision ?? 0, historyGrantId: grant.grantId, updatedAt: now },
@@ -199,7 +199,7 @@ export async function startRoom(ctx: RoomLifecycleContext, roomId: string): Prom
     return fail('This Room changed while authority was being approved, so Start was cancelled.');
   }
 
-  const started = await startConductor(ctx, roomId, conductor);
+  const started = await startConductor(ctx, roomId, conductor, signal);
   if (!started.ok) return started;
 
   if ((await ctx.store.readRoom(roomId))?.runtime.status !== 'ready') {
@@ -218,6 +218,7 @@ async function startConductor(
   ctx: RoomLifecycleContext,
   roomId: string,
   conductor: RoomMember,
+  signal?: AbortSignal,
 ): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
@@ -230,7 +231,7 @@ async function startConductor(
     : { session: null, error: 'the Conductor is no longer on the roster' };
   if (opened.session) {
     const activated = await claimTransition(ctx, roomId, (current, status) =>
-      status === 'starting' ? withRoomStatus(current, 'ready', ctx.host.now(), null) : null)
+      status === 'starting' && !signal?.aborted ? withRoomStatus(current, 'ready', ctx.host.now(), null) : null)
       .catch(() => ({ won: false, status: 'failed' as const }));
     if (activated.won) return ok(await reread(ctx, roomId, record));
     await ctx.sessions.release(roomId, conductor.id);

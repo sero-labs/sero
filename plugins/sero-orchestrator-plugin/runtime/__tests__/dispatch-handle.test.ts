@@ -25,6 +25,9 @@ import {
 } from '../registry';
 import { createRoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCommandRouter } from '../rooms/room-command-router';
+import { RoomCoordinator } from '../rooms/room-coordinator';
+import { createRoomWorkspaces } from '../rooms/room-workspace';
+import { createMemberSessionPool } from '../rooms/member-session';
 import { createRoomDispatchHandle } from '../rooms/room-dispatch-handle';
 import { createFakeHost } from './fake-host';
 import { planJson, oneStepPlan, seedActiveLoop } from './fixtures';
@@ -152,6 +155,40 @@ describe('Room creation through the typed handle', () => {
     expect(host.modelCalls[0].task).toContain('read-only');
     // A Room created without a stored approval asks the host as it always did.
     expect(host.persistentSessions.proposals[0].delegationPolicyId).toBeUndefined();
+  });
+
+  it.each([
+    ['user Stop', 'workspace'],
+    ['budget exhaustion', 'approval'],
+  ] as const)('keeps %s connected through deferred %s preparation', async (reason, stage) => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const workspaces = createRoomWorkspaces({ host, store });
+    const releases = vi.spyOn(workspaces, 'releaseRoom');
+    const coordinator = new RoomCoordinator(host, { store, workspaces, sessions: createMemberSessionPool({ host, store }) });
+    const ownedApp = createRoomAppActions({ host, store, coordinator, workspaceId: 'ws-1' });
+    let enter!: () => void;
+    let finish!: () => void;
+    const entered = new Promise<void>((resolve) => { enter = resolve; });
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    if (stage === 'workspace') {
+      const prepare = workspaces.prepare.bind(workspaces);
+      workspaces.prepare = async (roomId) => { enter(); await gate; return prepare(roomId); };
+    } else {
+      const requestGrant = host.persistentSessions.requestGrant.bind(host.persistentSessions);
+      host.persistentSessions.requestGrant = async (proposal) => { enter(); await gate; return requestGrant(proposal); };
+    }
+    const controller = new AbortController();
+    const creating = createRoomDispatchHandle(ownedApp).create({ mandate: 'Investigate the project.', signal: controller.signal });
+    await entered;
+    controller.abort(reason);
+    finish();
+    const result = await creating;
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect((await store.readRoom(result.roomId))?.runtime.status).toBe('cancelled');
+    expect(host.persistentSessions.prompts).toHaveLength(0);
+    expect(releases).toHaveBeenCalled();
+    if (stage === 'approval') expect(host.persistentSessions.revoked).toContain('grant-1');
   });
 
   it('accounts planning before starting a member and retains a cancelled late-created Room', async () => {

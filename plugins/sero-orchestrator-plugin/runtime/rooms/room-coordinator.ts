@@ -147,11 +147,11 @@ export class RoomCoordinator {
   }
 
   /** Requests the grant, opens the Conductor's session, then hands over to the scheduler. */
-  async startRoom(roomId: string): Promise<RoomActionResult> {
-    const result = await startRoom(this.ctx, roomId);
+  async startRoom(roomId: string, signal?: AbortSignal): Promise<RoomActionResult> {
+    const result = await startRoom(this.ctx, roomId, signal);
     if (!result.ok || !result.room) return result;
     const conductor = result.room.members.find((member) => member.isConductor);
-    if (conductor) await this.advance(roomId, [{ memberId: conductor.id, reason: 'first-turn', at: this.host.now() }]);
+    if (conductor) await this.advance(roomId, [{ memberId: conductor.id, reason: 'first-turn', at: this.host.now() }], signal);
     return { ...result, room: (await this.deps.store.readRoom(roomId)) ?? result.room };
   }
 
@@ -256,7 +256,7 @@ export class RoomCoordinator {
    * Room is marked due again and the lock holder drains it before releasing, so
    * a Room is never advanced twice at once and no wake is lost.
    */
-  async advance(roomId: string, signals: ReadySignal[] = []): Promise<void> {
+  async advance(roomId: string, signals: ReadySignal[] = [], signal?: AbortSignal): Promise<void> {
     this.signals.add(roomId, signals);
     if (!this.locks.tryAcquire(roomId)) {
       this.duePasses.add(roomId);
@@ -265,14 +265,14 @@ export class RoomCoordinator {
     try {
       do {
         this.duePasses.delete(roomId);
-        await this.pass(roomId);
+        await this.pass(roomId, signal);
       } while (this.duePasses.has(roomId));
     } finally {
       this.locks.release(roomId);
     }
   }
 
-  private async pass(roomId: string): Promise<void> {
+  private async pass(roomId: string, signal?: AbortSignal): Promise<void> {
     const record = await this.deps.store.readRoom(roomId);
     if (!record) return;
     if (!SCHEDULABLE_ROOM_STATUSES.includes(record.runtime.status)) return;
@@ -304,7 +304,7 @@ export class RoomCoordinator {
     // Room the user stopped. The status is therefore re-checked inside the same
     // serialized write, and the turns run only if that write took.
     const started = await this.deps.store.transact(roomId, null, (current) =>
-      SCHEDULABLE_ROOM_STATUSES.includes(current.runtime.status)
+      !signal?.aborted && SCHEDULABLE_ROOM_STATUSES.includes(current.runtime.status)
         ? { record: markTurnsStarted(current, memberIds, this.host.now()), result: true }
         : { record: null, result: false },
     );
@@ -315,18 +315,17 @@ export class RoomCoordinator {
     // Turns run outside the lock: holding it across a model call would serialize
     // the whole Room down to one member at a time.
     for (const memberId of memberIds) {
-      void this.runTurn(roomId, memberId).catch((error: unknown) =>
+      void this.runTurn(roomId, memberId, signal).catch((error: unknown) =>
         this.host.log(`room ${roomId}: turn for ${memberId} could not be settled: ${String(error)}`),
       );
     }
   }
 
-  private async runTurn(roomId: string, memberId: string): Promise<void> {
+  private async runTurn(roomId: string, memberId: string, signal?: AbortSignal): Promise<void> {
     const key = turnKey(roomId, memberId);
     try {
-      const result = await this.promptMember(roomId, memberId);
-      // The slot is released BEFORE the turn is settled: a pause waiting for the
-      // last turn to end reads this map, and it would wait for itself otherwise.
+      const result = await this.promptMember(roomId, memberId, signal);
+      // Release before settlement so a pause cannot wait on its own last turn.
       this.turns.delete(key);
       await this.settleAfterTurn(roomId, memberId, result);
     } finally {
@@ -342,7 +341,7 @@ export class RoomCoordinator {
    * turn's status, usage and released slot; `member-prompt.ts` owns what the
    * turn should SAY and the message lease it commits.
    */
-  private async promptMember(roomId: string, memberId: string): Promise<MemberTurnResult> {
+  private async promptMember(roomId: string, memberId: string, signal?: AbortSignal): Promise<MemberTurnResult> {
     this.deps.telemetry?.markTurnStart(roomId, memberId, this.host.now());
     const record = await this.deps.store.readRoom(roomId);
     const member = record?.members.find((candidate) => candidate.id === memberId);
@@ -351,11 +350,12 @@ export class RoomCoordinator {
     const reprime = this.reprimes.get(key);
     this.reprimes.delete(key);
     const sources = await this.briefSources(roomId);
+    const turnSignal = this.turns.get(key)?.signal;
     return promptMemberTurn(
       { host: this.host, store: this.deps.store, sessions: this.deps.sessions },
       record,
       member,
-      { reprime, work: sources.work, signal: this.turns.get(key)?.signal },
+      { reprime, work: sources.work, signal: signal && turnSignal ? AbortSignal.any([signal, turnSignal]) : signal ?? turnSignal },
     );
   }
 

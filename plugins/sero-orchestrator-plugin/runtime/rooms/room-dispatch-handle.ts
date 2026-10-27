@@ -40,16 +40,23 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
         }
         return { ok: false, error: planned.error, usage: planned.usage };
       }
-      if (request.signal?.aborted) {
-        await app.cancel(planned.roomId, 'The owning project stopped or reached its budget.');
+      let cancellation: Promise<ControlOutcome> | undefined;
+      const cancel = () => { cancellation ??= app.cancel(planned.roomId, 'The owning project stopped or reached its budget.').catch((error: unknown) => ({ ok: false, error: String(error) })); };
+      request.signal?.addEventListener('abort', cancel, { once: true });
+      try {
+        if (request.signal?.aborted) cancel();
+        if (!request.signal?.aborted && (!planned.status || ['draft', 'ready', 'adjusting'].includes(planned.status))) {
+          const started = await app.start(planned.roomId, request.signal);
+          if (!started.ok && !request.signal?.aborted) {
+            return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}`, usage: planned.usage };
+          }
+        }
+        // Retain the prepared identity even when Start was cancelled, so the
+        // project can observe final usage and report any unresolved cleanup.
+        await cancellation;
         return { ok: true, roomId: planned.roomId, usage: planned.usage };
-      }
-      if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId, usage: planned.usage };
-      const started = await app.start(planned.roomId);
-      if (!started.ok) {
-        return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}`, usage: planned.usage };
-      }
-      return { ok: true, roomId: planned.roomId, usage: planned.usage };
+      } finally { request.signal?.removeEventListener('abort', cancel); }
+
   };
   return {
     inspect: (roomId) => app.inspect(roomId),

@@ -87,3 +87,28 @@ Room planning callback/signal, and workspace-command signal contracts. The
 published `@sero-ai/app-runtime` implementation is unchanged. No Docker image,
 managed toolchain, release or platform support change is included. The external
 validation gaps tracked by issues 630 and 632 remain open.
+
+## PR 674 first-review correction
+
+The named P2 was a cancellation window between Room preparation and completion
+of async Start. The shared creation handle now keeps the prepared Room id
+attached to the project signal throughout Start. A signal abort requests Room
+cancellation immediately; the handle still returns the prepared id for final
+accounting and cleanup observation. Startup rechecks the signal before grant
+installation and readiness. Scheduling checks it in the serialized turn-start
+write, and the first member carries it to a final check before the paid prompt.
+Both milestone and research Rooms use this handle. Workflow startup and the
+unanswered manual over-cap wake choice are unchanged.
+
+Deterministic coverage delays workspace preparation for user Stop and grant
+approval for cap exhaustion. Both cases retain a cancelled Room and begin no
+member prompt; a grant returned after cancellation is revoked. A separate
+member-session test proves a pre-aborted first turn sends no prompt.
+
+Focused results: dispatch/lifecycle, 39 tests passed (`r1-room-start.log`);
+member-session, 22 tests passed (`r1-member-session.log`). No runtime campaign,
+paid call or full package rerun was used. The first typecheck caught an
+accidental unrelated local-variable insertion; it was removed. Final root
+typecheck passed all 29 tasks (`r1-typecheck-final.log`). Layout, whitespace and changed-source
+LOC checks pass; `room-coordinator.ts` remains exactly 500 lines. No additional
+published package API or version change is needed for this internal fix.
