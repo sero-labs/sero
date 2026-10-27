@@ -8,7 +8,7 @@
 import { effectiveLimits, type LimitOrigin } from '../../shared/effective-limits';
 import type { ProjectRecord } from '../../shared/record';
 import { mayWakeForWork } from '../../shared/lifecycle';
-import type { WaitRegistration } from '../../shared/waits';
+import { isCurrentWait, type WaitRegistration } from '../../shared/waits';
 import { clock } from './inspector-format';
 
 export interface FactRow {
@@ -79,7 +79,7 @@ function activeMs(record: ProjectRecord, waiting: number, now: number): number {
   return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start - waiting) : 0;
 }
 
-const openWait = (record: ProjectRecord): WaitRegistration | undefined => (record.waits ?? []).filter((wait) => wait.outcome === null).at(-1);
+const openWait = (record: ProjectRecord): WaitRegistration | undefined => (record.waits ?? []).filter((wait) => isCurrentWait(record, wait) && wait.outcome === null).at(-1);
 
 const times = (record: ProjectRecord, now: number): FactRow[] => {
   const waiting = waitingMs(record, now);
@@ -102,7 +102,7 @@ export function waitCard(record: ProjectRecord, now: number): WaitCard | null {
   if (record.blockedReason !== null) {
     return { kind: 'manual', word: 'Waiting for you', canResume: true, rows: [{ label: 'Reason', value: record.blockedReason }, { label: 'Resume', value: 'You resume it' }, ...times(record, now)] };
   }
-  const last = (record.waits ?? []).at(-1);
+  const last = (record.waits ?? []).filter((wait) => isCurrentWait(record, wait)).at(-1);
   const outcome = last?.outcome;
   if (!last || !outcome) return null;
   if (outcome.kind === 'expired' && last.wake?.consumedAt == null) {

@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useAppState } from '@sero-ai/app-runtime';
 import { DEFAULT_STATE } from '../../shared/defaults';
-import { useOrchestratorNavigation, type OrchestratorView } from '../lib/orchestrator-navigation';
+import { useOrchestratorNavigation, orchestratorViewId, type OrchestratorView } from '../lib/orchestrator-navigation';
 
 describe('useOrchestratorNavigation', () => {
   let container: HTMLDivElement;
@@ -24,6 +24,31 @@ describe('useOrchestratorNavigation', () => {
     container.remove();
     Reflect.deleteProperty(window, 'sero');
     Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+  });
+
+  it('keeps history working after a same-route no-op and waits for a different route acknowledgement', async () => {
+    let go: (view: OrchestratorView) => void;
+    const hostNavigate = vi.fn(); // The actual shell emits nothing for a same-route request.
+    function Probe() {
+      const [view, navigate] = useOrchestratorNavigation({ state: DEFAULT_STATE, updateState: () => {}, ready: true });
+      go = navigate;
+      return <span>{orchestratorViewId(view)}</span>;
+    }
+    const render = async (viewId: string) => act(async () => root.render(
+      <AppProvider value={{ appId: 'orchestrator', workspaceId: 'workspace-1', workspacePath: '/workspace', stateFilePath: '/workspace/state.json', navigation: { viewId, navigate: hostNavigate } }}><Probe /></AppProvider>,
+    ));
+    await render('workflows/loop-1');
+    await act(async () => go({ mode: 'detail', loopId: 'loop-1' }));
+    await render('home');
+    expect(container.textContent).toBe('home');
+    await render('workflows/loop-1');
+    expect(container.textContent).toBe('workflows/loop-1');
+    await act(async () => go({ mode: 'rooms', roomId: 'room-1' }));
+    await render('home'); // A stale shell route must not replace the pending request.
+    expect(container.textContent).toBe('rooms/room-1');
+    await render('rooms/room-1');
+    await render('home');
+    expect(container.textContent).toBe('home');
   });
 
   it('writes navigation and layout changes after reading a null state file', async () => {

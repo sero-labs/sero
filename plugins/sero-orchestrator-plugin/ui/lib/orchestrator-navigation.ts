@@ -114,7 +114,7 @@ export function useOrchestratorNavigation({
   }, [stateReady, updateAppState]);
 
   const navigate = useCallback((next: OrchestratorView, options?: { replace?: boolean }) => {
-    initialLaunch.current = next;
+    initialLaunch.current = host.viewId === orchestratorViewId(next) ? null : next;
     locallyNavigated.current = true;
     viewRef.current = next;
     setView(next);

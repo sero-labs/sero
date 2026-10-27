@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useArchitectView, viewId } from '../lib/navigation';
+import { useArchitectView, viewId, type ArchitectView } from '../lib/navigation';
 
 /** Stands in for the host shell: one remembered view id and a navigate that records its calls. */
 let hostViewId: string | undefined;
@@ -24,8 +24,11 @@ vi.mock('@sero-ai/app-runtime', () => ({
   onAppLaunchParams: () => () => undefined,
 }));
 
+let navigate: (view: ArchitectView) => void;
+
 function Harness() {
-  const [view] = useArchitectView();
+  const [view, go] = useArchitectView();
+  navigate = go;
   return <div id="view">{viewId(view)}</div>;
 }
 
@@ -88,6 +91,19 @@ describe('a launch into an app the user has opened before', () => {
 });
 
 describe('host back and forward', () => {
+  it('still follows history after navigating to the already acknowledged route', () => {
+    hostViewId = 'projects/ledger';
+    act(() => root.render(<Harness />));
+    // setAppView returns without emitting a new host view for this request.
+    act(() => navigate({ mode: 'project', projectId: 'ledger' }));
+    hostViewId = 'projects';
+    act(() => root.render(<Harness />));
+    expect(shownView()).toBe('projects');
+    hostViewId = 'projects/ledger';
+    act(() => root.render(<Harness />));
+    expect(shownView()).toBe('projects/ledger');
+  });
+
   it('still moves the view once the launch has been published', () => {
     hostViewId = 'projects';
     launchParams = { projectId: 'hollow-depths' };

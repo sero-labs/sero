@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { FIXTURES } from '../__preview__/fixture';
-import type { ProjectRecord } from '../../shared/record';
-import type { WaitRegistration } from '../../shared/waits';
+import { toIndexEntry, type ProjectRecord } from '../../shared/record';
+import { projectAttention } from '@sero-ai/common';
+import { expireDueWaits, stopWaits, type WaitRegistration } from '../../shared/waits';
 import { limitRows, waitCard } from '../lib/wait-status';
 
 const NOW = Date.parse('2026-10-03T12:00:00.000Z');
@@ -61,10 +62,21 @@ describe('wait card', () => {
     expect(card?.canResume).toBe(true);
   });
 
-  it('stays On hold when the wait expired, whatever else happens to the project', () => {
-    const outcome = { kind: 'expired' as const, at: at(5) };
-    const record = project({ waits: [wait({ outcome })] });
-    expect(waitCard(record, NOW)?.word).toBe('On hold');
+  it('clears obsolete expiry attention after pause, deadline, stop and resume', () => {
+    const paused = project({ paused: true, milestones: [], waits: [wait({ deadline: at(5) })] });
+    const expired = expireDueWaits(paused, at(4));
+    const active = { ...expired, paused: false, session: { ...expired.session, workingSince: at(1) } };
+    const context = { runtimeRunning: true, sessionStartedAt: at(2) };
+    // Without a Stop, the same unconsumed expiry still needs attention.
+    expect(waitCard(active, NOW)?.kind).toBe('on-hold');
+    expect(projectAttention(toIndexEntry(active, context))?.state).toBe('stopped');
+    const stopped = stopWaits(expired, at(3));
+    const resumed = { ...stopped, paused: false, session: active.session };
+    expect(toIndexEntry(resumed, context).activity?.state).toBe('working');
+    expect(projectAttention(toIndexEntry(resumed, context))).toBeNull();
+    expect(waitCard(resumed, NOW)).toBeNull();
+    // Invalidation retains the historical outcome, rather than erasing evidence.
+    expect(resumed.waits).toEqual(expired.waits);
   });
 
   it('shows the manual case from the blocked state', () => {

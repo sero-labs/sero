@@ -70,7 +70,7 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
   const initialLaunch = useRef<ArchitectView | null>(launch);
 
   const navigate = useCallback((next: ArchitectView) => {
-    initialLaunch.current = next;
+    initialLaunch.current = host.viewId === viewId(next) ? null : next;
     viewRef.current = next;
     setView(next);
     host.navigate(viewId(next));
