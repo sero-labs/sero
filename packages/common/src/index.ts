@@ -430,64 +430,7 @@ export type {
   RtkToolchainRequest,
 } from './rtk-toolchain';
 
-export type {
-  GlobalModelConfigStateIPC,
-  WorkspaceRootIPC,
-  ProfileInfo,
-  SeroSessionInfo,
-  AvailableSkillInfo,
-  StructuredAgentModelIPC,
-  AgentModelIPC,
-  AgentSummaryIPC,
-  AgentFileDataIPC,
-  SkillSummaryIPC,
-  SkillFileDataIPC,
-  PromptTemplateSummaryIPC,
-  PromptTemplateFileDataIPC,
-  ModelInfoIPC,
-  AvailableModelGroupIPC,
-  OAuthProviderInfoIPC,
-  ApiKeyProviderInfoIPC,
-  AuthProvidersResponseIPC,
-  OAuthEventIPC,
-  ProviderHealthStatusIPC,
-  ProviderHealthInfoIPC,
-  OnboardingContainerRuntimeIPC,
-  OnboardingStateIPC,
-  WorkspaceInfoIPC,
-  RuntimeCapabilitiesIPC,
-  RuntimeCapabilityInstallStateIPC,
-  RuntimeCapabilityStateIPC,
-  WorkspaceRuntimeCapabilityIPC,
-  WorkspaceRuntimeDiagnosticsIPC,
-  RuntimeInstallErrorIPC,
-  ManagedToolStatusIPC,
-  ToolchainProgressIPC,
-  ToolchainStatusIPC,
-  BrowserPackProgressIPC,
-  BrowserPackStatusIPC,
-  ContainerInfoIPC,
-  SeroAppStateBridge,
-  SeroAppsBridge,
-  SeroShellBridge,
-  SeroWorkspaceBridge,
-  SeroPluginsBridge,
-  SeroAuthBridge,
-  SeroSubagentBridge,
-  SeroSkillsBridge,
-  SeroPromptsBridge,
-  SeroModelConfigBridge,
-  SeroModelsBridge,
-  SeroOnboardingBridge,
-  SeroUserFeedbackBridge,
-  SeroProfilesBridge,
-  SeroSessionsBridge,
-  SeroAdminBridge,
-  SeroAppControlBridge,
-  SeroCaptureRect,
-  SeroEditorBridge,
-  SeroWebHostBridge,
-} from './admin-bridge';
+export type * from './admin-exports';
 export type { SkillCatalogueEntryIPC, SkillCatalogueIPC, SkillScopeIPC } from './admin-bridge-skills';
 
 export {
@@ -508,3 +451,6 @@ export {
   processWaitRefusal,
   type WaitSourceOutcome,
 } from './wait-source-outcomes';
+
+export { registerUserFeedbackOrigin, removeUserFeedbackOrigin, userFeedbackOrigin } from './user-feedback-origin';
+export type { UserFeedbackOrigin } from './user-feedback-origin';

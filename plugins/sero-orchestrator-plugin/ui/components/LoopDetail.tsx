@@ -41,6 +41,7 @@ const REFINABLE: ReadonlySet<Loop['status']> = new Set(['draft', 'active', 'disa
 const MemoizedPlanPresentation = memo(PlanPresentation);
 
 interface LoopDetailProps {
+  runId?: string;
   loop: Loop;
   /** The watched index entry, for the state line's activity word. */
   summary: LoopSummary | null;
@@ -72,7 +73,7 @@ interface LoopDetailProps {
  * around the plan, and a completion card saying "complete" under a state line
  * that already did.
  */
-export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
+export function LoopDetail({ runId, loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
   // The run in flight lives in its own file, written as it changes; `loop.json`
   // deliberately drops run history, so a step cannot read it from the loop.
@@ -147,8 +148,8 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
         </WorkViewContext.Provider>
 
         <div className="flex flex-col">
-          <CollapsibleSection title="Attempt history" hint={`${runs} run${runs === 1 ? '' : 's'}`}>
-            <AttemptHistory runs={runIndex.runs} />
+          <CollapsibleSection key={runId ?? 'history'} defaultOpen={Boolean(runId)} title="Attempt history" hint={`${runs} run${runs === 1 ? '' : 's'}`}>
+            <AttemptHistory runs={runIndex.runs} focusRunId={runId} />
           </CollapsibleSection>
           {insights.length > 0 && (
             <CollapsibleSection title="What reflection has learned" hint={String(insights.length)}>

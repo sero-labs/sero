@@ -61,6 +61,21 @@ describe('a launch into an app the user has opened before', () => {
     expect(hostNavigate).not.toHaveBeenCalledWith('projects', expect.anything());
   });
 
+  it('keeps the requested project while the shell acknowledges a launch asynchronously', () => {
+    hostViewId = 'projects';
+    launchParams = { projectId: 'hollow-depths' };
+    hostNavigate.mockImplementationOnce((_next, options) => options);
+    act(() => root.render(<Harness />));
+    hostViewId = 'projects/new';
+    act(() => root.render(<Harness />));
+    expect(shownView()).toBe('projects/hollow-depths');
+    hostViewId = 'projects/hollow-depths';
+    act(() => root.render(<Harness />));
+    hostViewId = 'projects';
+    act(() => root.render(<Harness />));
+    expect(shownView()).toBe('projects');
+  });
+
   it('opens intake over the remembered project page', () => {
     hostViewId = 'projects/ledger';
     launchParams = { intake: true };

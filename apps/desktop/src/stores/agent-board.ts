@@ -9,6 +9,7 @@
  */
 
 import { create } from 'zustand';
+import { useUserFeedbackStore } from './user-feedback-store';
 import { useShallow } from 'zustand/react/shallow';
 import {
   ARCHITECT_APP_ID,
@@ -20,6 +21,7 @@ import {
   roomAttention,
   sessionStartedAt,
   type ArchitectIndexView,
+  type UserFeedbackPendingQuestion,
   type AttentionClaim,
   type GitDiffStat,
   type OrchestratorBoardAction,
@@ -347,7 +349,13 @@ export interface WorkspaceAttention {
 export function workspaceAttention(
   state: Pick<AgentBoardState, 'slices' | 'architect'>,
   workspaceId: string,
+  pending: Iterable<UserFeedbackPendingQuestion> = [],
 ): WorkspaceAttention | null {
+  for (const request of pending) {
+    if (request.context?.workspaceId !== workspaceId) continue;
+    const project = state.architect?.projects.find((entry) => entry.workspaceId === workspaceId);
+    return { state: 'waiting-for-you', sentence: request.questions[0]?.prompt ?? 'A request needs your answer', ...(project ? { projectId: project.id } : {}) };
+  }
   const named = (title: string, claim: AttentionClaim | null): WorkspaceAttention | null =>
     (claim ? { state: claim.state, sentence: `${title}: ${attentionSentence(claim)}` } : null);
 
@@ -370,7 +378,8 @@ export function workspaceAttention(
 
 /** Subscribes to the one sentence, so an unrelated index write re-renders nothing. */
 export function useWorkspaceAttention(workspaceId: string): WorkspaceAttention | null {
-  return useAgentBoardStore(useShallow((state) => workspaceAttention(state, workspaceId)));
+  const pending = useUserFeedbackStore((state) => state.pending);
+  return useAgentBoardStore(useShallow((state) => workspaceAttention(state, workspaceId, pending.values())));
 }
 
 /** Current board prefs merged with a partial update (for persistLayout). */

@@ -54,6 +54,7 @@ const previewExists = vi.hoisted(() => ({ value: true }));
 vi.mock('@sero-ai/app-runtime', async () => ({
   // The page follows work feedback through the real hook; with no app context
   // it subscribes to nothing and stays empty.
+  usePendingQuestions: () => [],
   AppContext: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).AppContext,
   useWorkFeedback: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).useWorkFeedback,
   useAppTools: () => ({ run: vi.fn(async (_tool: string, params: { action?: string }) => params.action === 'preview_available' && !previewExists.value

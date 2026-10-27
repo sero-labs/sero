@@ -14,6 +14,7 @@
 import {
   modelKey,
   type PersistentSessionExpansion,
+  type UserFeedbackOrigin,
   type PersistentSessionGrantProposal,
   type PersistentSessionSubjectPolicy,
   type PersistentSessionsApi,
@@ -46,6 +47,7 @@ import { getToolCatalogFor, getToolPackagePath, warmSubagentToolCatalog } from '
 import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
+import { grantQuestionOrigin } from './question-origin';
 import { clampProposal, clampSubjectPolicies, describeGrantAuthority, type ClampInputs } from './clamp';
 import { fitsDelegationPolicy, type DelegationLink } from './delegation-policy';
 import { classifyUnavailableTools, resolveMemberToolSurface } from './tool-surface';
@@ -105,6 +107,7 @@ export async function clampAndApprove(
   workspaceId: string,
   proposal: PersistentSessionGrantProposal,
   link?: DelegationLink,
+  appId?: string,
 ): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
   const loaded = await loadClampInputs(workspaceId);
   if (!loaded) return null;
@@ -144,6 +147,7 @@ export async function clampAndApprove(
     : '';
 
   const choice = await requestChoice({
+    ...grantQuestionOrigin(appId ?? '', workspaceId, clamped.owner),
     title: 'Allow agents to work here?',
     // The user must see the AUTHORITY, not just a count. A dialog that says
     // "3 agents" is consent to a number, not to a capability.
@@ -187,8 +191,9 @@ export async function clampAmendmentSubjects(
 }
 
 /** Shows the user exactly the authority an amendment adds. Silence or "Not now" is a no. */
-export async function approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean> {
+export async function approveExpansion(reason: string, expansion: PersistentSessionExpansion[], origin?: UserFeedbackOrigin): Promise<boolean> {
   const choice = await requestChoice({
+    ...origin,
     title: 'Allow more access for these agents?',
     body: [reason, '', 'This adds:', ...expansion.map((item) => `• ${item.subject}: ${item.field} ${item.value}`)].join('\n'),
     choices: [
@@ -251,7 +256,7 @@ export async function installPersistentSessions(
     // The proposal's workspace, not the runtime instance's: a profile-global
     // runtime (the Architect) runs under the synthetic `global` workspace and
     // proposes sessions for a real project workspace.
-    approveGrant: (proposal, link) => clampAndApprove(proposal.workspaceId, proposal, link),
+    approveGrant: (proposal, link) => clampAndApprove(proposal.workspaceId, proposal, link, target.manifest.id),
     clampSubjects: clampAmendmentSubjects,
     approveExpansion,
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {

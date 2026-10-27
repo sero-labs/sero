@@ -50,7 +50,7 @@ export type RailDot = 'check' | 'ring' | 'verify' | 'parked' | 'hollow';
 
 /** Where a row's link goes: the Orchestrator record, or the Work view for work the Architect does itself. */
 export type RailLink =
-  | { kind: 'workflow' | 'room'; id: string; workspaceId: string }
+  | { kind: 'workflow' | 'room'; id: string; workspaceId: string; runId?: string }
   | { kind: 'architect'; tab: 'evidence' };
 
 export interface RailRow {
@@ -100,7 +100,7 @@ function directOf(milestone: Milestone): DirectExecution | null {
 }
 
 function railLink(milestone: Milestone): RailLink | null {
-  if (milestone.dispatch) return { kind: milestone.dispatch.kind, id: milestone.dispatch.id, workspaceId: milestone.dispatch.workspaceId };
+  if (milestone.dispatch) return { kind: milestone.dispatch.kind, id: milestone.dispatch.id, workspaceId: milestone.dispatch.workspaceId, runId: milestone.dispatch.runId };
   if (!directOf(milestone)) return null;
   return milestone.status === 'verifying' || milestone.status === 'done' ? { kind: 'architect', tab: 'evidence' } : null;
 }

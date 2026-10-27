@@ -76,6 +76,7 @@ export function registerInterviewTool(pi: ExtensionAPI) {
             timestamp: new Date().toISOString(),
           },
           signal,
+          ctx.sessionManager?.getSessionFile?.(),
         );
 
         return buildInterviewResult(questions, response.answers, response.cancelled);

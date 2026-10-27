@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { projectActivity } from '../../shared/activity';
 import { type ProjectRecord } from '../../shared/record';
 import type { ArchitectHost } from '../host';
 import { ArchitectRuntime } from '../index';
@@ -226,5 +227,23 @@ describe('the runtime flag and stale liveness', () => {
     const disabled = new ArchitectRuntime(host, { SERO_ARCHITECT: '0' });
     await disabled.start();
     expect(host.index()?.runtime).toMatchObject({ running: false });
+  });
+});
+
+
+describe('saved stop reasons after restart', () => {
+  it.each([
+    { name: 'pause', patch: { paused: true }, state: 'paused', headline: 'Paused by you' },
+    { name: 'user stop', patch: { blockedReason: 'Stopped by you' }, state: 'stopped', headline: 'Stopped by you' },
+    { name: 'failure', patch: { blockedReason: 'The owner provider failed' }, state: 'stopped', headline: 'The owner provider failed' },
+    { name: 'limit', patch: { budget: { capUsd: 1, spentUsd: 1, sources: { owner: 1, research: 0, dispatched: 0 } } }, state: 'stopped', headline: 'Stopped by the spend cap' },
+  ])('retains the $name cause through persisted reconciliation', async ({ patch, state, headline }) => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ milestones: [], ...patch }));
+    await reconcileProjects(store, host);
+    const saved = await store.read('proj_1');
+    expect(saved).not.toBeNull();
+    expect(projectActivity(saved!, { runtimeRunning: true, sessionStartedAt: host.now() })).toMatchObject({ state, headline });
   });
 });

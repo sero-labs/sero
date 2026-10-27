@@ -61,6 +61,12 @@ function chip(text: string): Element | undefined {
 }
 
 describe('the attempt-history row', () => {
+  it('reveals the linked run even when it falls outside the first history page', () => {
+    const runs = Array.from({ length: 8 }, (_, index) => run({ id: `run-${index}`, runNumber: index + 1 }));
+    act(() => root.render(<AttemptHistory runs={runs} focusRunId="run-0" />));
+    expect(host.querySelector('[aria-current="true"]')?.getAttribute('aria-label')).toBe('Run 1');
+  });
+
   it('prints the run number without a hash and the start as the day, short month and time', () => {
     const text = render([run()]);
     expect(text).toContain('Run 2');

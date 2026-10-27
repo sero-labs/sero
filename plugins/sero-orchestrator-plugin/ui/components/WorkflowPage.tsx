@@ -11,6 +11,7 @@ import { WORKFLOWS_LABEL } from '../../shared/labels';
 import { LoopDetail } from './LoopDetail';
 
 export interface WorkflowPageProps {
+  runId?: string;
   /** The watched record, or null while it is being read. */
   loop: Loop | null;
   /** The watched index entry for the same Workflow, for the state line. */
@@ -24,10 +25,11 @@ export interface WorkflowPageProps {
   onBack: () => void;
 }
 
-export function WorkflowPage({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
+export function WorkflowPage({ runId, loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
   if (loop) {
     return (
       <LoopDetail
+        runId={runId}
         loop={loop}
         summary={summary}
         busy={busy}

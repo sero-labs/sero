@@ -150,6 +150,16 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
           }
         });
 
+        // Hydrate after a renderer reload. Events win over an older initial read.
+        const hydrate = async (): Promise<void> => {
+          const before = get().pending;
+          const questions = await window.sero.userFeedback.getPending();
+          if (listenerRefCount === 0) return;
+          if (get().pending !== before) return hydrate();
+          set({ pending: new Map(questions.map((question) => [question.id, question])) });
+        };
+        void hydrate().catch(() => undefined);
+
         // Main process cancelled a question (e.g. tool aborted)
         const unsubCancel = window.sero.userFeedback.onCancel((data) => {
           clearPending(data.id);

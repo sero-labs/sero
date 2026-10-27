@@ -70,6 +70,7 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
   const initialLaunch = useRef<ArchitectView | null>(launch);
 
   const navigate = useCallback((next: ArchitectView) => {
+    initialLaunch.current = next;
     viewRef.current = next;
     setView(next);
     host.navigate(viewId(next));
@@ -77,7 +78,10 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
 
   // Host back/forward is an external source: apply it without a new history entry.
   useEffect(() => {
-    if (initialLaunch.current) return;
+    if (initialLaunch.current) {
+      if (host.viewId !== viewId(initialLaunch.current)) return;
+      initialLaunch.current = null;
+    }
     const next = parseViewId(host.viewId);
     if (!next || viewId(next) === viewId(viewRef.current)) return;
     viewRef.current = next;
@@ -88,7 +92,6 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
   useEffect(() => {
     if (initialLaunch.current) {
       host.navigate(viewId(initialLaunch.current), { replace: true });
-      initialLaunch.current = null;
       return;
     }
     if (!host.viewId) host.navigate(viewId(viewRef.current), { replace: true });

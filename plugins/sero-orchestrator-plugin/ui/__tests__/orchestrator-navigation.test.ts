@@ -10,6 +10,7 @@ describe('Orchestrator navigation routes', () => {
     { mode: 'home' },
     { mode: 'detail', loopId: null },
     { mode: 'detail', loopId: 'loop-12' },
+    { mode: 'detail', loopId: 'loop-12', runId: 'run-4' },
     { mode: 'create' },
     { mode: 'rooms', roomId: null },
     { mode: 'rooms', roomId: 'room-7' },

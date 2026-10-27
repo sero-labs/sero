@@ -18,7 +18,8 @@ import {
   startSessionExtensions,
 } from '@electron/ipc/agent/core/agent-session-events';
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
-import type { ExtensionRuntimeContent } from '@sero-ai/common';
+import { registerUserFeedbackOrigin, type UserFeedbackOrigin, type ExtensionRuntimeContent } from '@sero-ai/common';
+import { grantQuestionOrigin } from './question-origin';
 import type {
   PersistentSessionExpansion,
   PersistentSessionGrantAmendment,
@@ -87,7 +88,7 @@ export interface PersistentSessionHostDeps {
     subjects: Record<string, PersistentSessionSubjectPolicy>,
   ): Promise<Record<string, PersistentSessionSubjectPolicy> | null>;
   /** Shows the user exactly the added authority. True only on an explicit yes. */
-  approveExpansion(reason: string, expansion: PersistentSessionExpansion[]): Promise<boolean>;
+  approveExpansion(reason: string, expansion: PersistentSessionExpansion[], origin?: UserFeedbackOrigin): Promise<boolean>;
   /** Model ids currently resolvable through the one host ModelRuntime (AD-026). */
   listAvailableModelIds(): Promise<Set<string>>;
   /** The thinking level Pi applies when a request omits one. */
@@ -264,6 +265,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       }
 
       const sessionId = sessionManager.getSessionId();
+      registerUserFeedbackOrigin(sessionPath, grantQuestionOrigin(grant.appId, grant.workspaceId, grant.owner));
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
       return { handleId, subject: request.subject, sessionId, sessionPath };
     } catch (error) {
@@ -308,6 +310,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         throw new Error(`Cannot open session: ${commit.reason}.`);
       }
       const sessionId = sessionManager.getSessionId();
+      registerUserFeedbackOrigin(sessionPath, grantQuestionOrigin(grant.appId, grant.workspaceId, grant.owner));
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
       return { handleId, subject: request.subject, sessionId, sessionPath };
     } catch (error) {

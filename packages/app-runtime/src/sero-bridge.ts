@@ -15,6 +15,7 @@ import type {
   SharedModelInfo,
   WebAppActionResult,
   WebAppRequest,
+  SeroUserFeedbackBridge,
 } from '@sero-ai/common';
 
 /** Parsed app-state content plus the etag a later write must echo. */
@@ -160,6 +161,7 @@ export interface SeroAppRuntimeUiBridge {
 }
 
 export interface SeroBridge {
+  userFeedback?: SeroUserFeedbackBridge;
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
   appControl?: SeroAppControlBridge;

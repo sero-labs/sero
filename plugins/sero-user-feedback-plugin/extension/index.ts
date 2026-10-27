@@ -121,6 +121,7 @@ function registerQuestionTool(pi: ExtensionAPI) {
             timestamp: new Date().toISOString(),
           },
           signal,
+          ctx.sessionManager?.getSessionFile?.(),
         );
 
         if (response.cancelled || response.answers.length === 0) {
@@ -212,6 +213,7 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
             timestamp: new Date().toISOString(),
           },
           signal,
+          ctx.sessionManager?.getSessionFile?.(),
         );
 
         return buildQuestionnaireResult(questions, response.answers, response.cancelled);

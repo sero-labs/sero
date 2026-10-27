@@ -10,6 +10,8 @@ import { boardOf, liveRows, liveSummary, type Board, type BoardStep, type LiveRo
 import { openDispatch } from './lib/page-helpers';
 import { BoardAsk, BoardHero, BoardMade, BoardPlan, BoardResult, BoardStopped, ProofPicture } from './components/Board';
 import { BoardLive } from './components/BoardLive';
+import { BoardRequests } from './components/BoardRequests';
+import { BoardLinkedWork } from './components/BoardLinkedWork';
 import { CapInput } from './components/CapInput';
 import { DirectiveComposer } from './components/Directives';
 import { RepairCard } from './components/RepairCard';
@@ -161,7 +163,7 @@ function recoveryActions(record: ProjectRecord, action: string, reviewAccess: ((
   // here. A cap needs a field to type in, and no cap needs the busy state and
   // the refusal — neither of which a bare action can show. `ProjectPage`
   // renders it in the `form` slot; this returns nothing so it appears once.
-  if (record.milestones.some((milestone) => milestone.dispatch?.failure)) return [];
+  if (record.milestones.some((milestone) => milestone.dispatch?.kind === 'workflow' && milestone.dispatch.failure)) return [];
 
   // The Architect stopped and says to resume. The control it names is here, not
   // only in the menu.
@@ -172,6 +174,7 @@ function recoveryActions(record: ProjectRecord, action: string, reviewAccess: ((
     const { kind, id, workspaceId } = room.dispatch;
     return [{ label: 'Open Room to answer', primary: true, run: () => openDispatch({ kind, id, workspaceId }) }];
   }
+  if (action === 'Resume work' && reviewAccess) return [{ label: 'Resume work', primary: true, run: reviewAccess }];
   // An open decision keeps its control: the Needs You card sits right under
   // this header with its answer, so a second button would be the same one twice.
   return [];
@@ -206,7 +209,7 @@ function recoveryForm(record: ProjectRecord, actions: ArchitectActions, onNotice
   }
   // A dispatch that stopped with NO cap to approve: a time limit clears the step
   // id, so there is no step to retry from and the whole Workflow restarts.
-  const stoppedWorkflow = record.milestones.find((item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined);
+  const stoppedWorkflow = record.milestones.find((item) => item.dispatch?.kind === 'workflow' && item.dispatch.failure && item.dispatch.costLimitUsd === undefined);
   if (!stoppedWorkflow) return null;
   return <RetryWorkflowControl label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'} retry={() => actions.retry(id, stoppedWorkflow.id)} onError={onNotice} />;
 }
@@ -366,6 +369,8 @@ function BoardColumn({ record, actions, page, board, activity, wait, rows, notic
   const resultText = resultSentence(record, board);
   return (
     <div className="bd-col">
+      <BoardRequests record={record} />
+      <BoardLinkedWork record={record} />
       <PageNotice record={record} actions={actions} notice={notice} page={page} />
       <Tile when={board.main.includes('ask')}>
         <BoardAsk record={record} actions={page.needsActions} onOpenWork={onOpenWork} />

@@ -331,6 +331,20 @@ Model and thinking level are shown together, because the same model at two
 effort levels is two decisions. An operation that recorded no model says so
 rather than showing a blank.
 
+## Requests and linked work
+
+The project board shows requests that need your answer, including session access
+and permission prompts. The workspace attention mark also stays visible while a
+request is pending. Answering the request clears it from both places.
+
+Linked Workflows show their progress and current steps. Open a Workflow to reach
+the saved run, or open a Room to review its questions and result. Completed
+research remains under **Made** on the board.
+
+After restarting Sero, the board keeps the saved reason a project paused or
+stopped. A wait that reaches its deadline offers **Resume work**; resuming is a
+manual choice when Sero cannot confirm the result of the work it was waiting on.
+
 ## Controls
 
 The controls menu on the project page offers:

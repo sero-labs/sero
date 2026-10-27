@@ -11,7 +11,7 @@ import type { OrchestratorStateRuntime } from './orchestrator-state';
 
 export type OrchestratorView =
   | { mode: 'home' }
-  | { mode: 'detail'; loopId: string | null }
+  | { mode: 'detail'; loopId: string | null; runId?: string }
   | { mode: 'create' }
   | { mode: 'rooms'; roomId: string | null; roomView?: RoomView; memberId?: string }
   | { mode: 'goals'; goalId: string | null }
@@ -20,6 +20,7 @@ export type OrchestratorView =
 
 interface OrchestratorLaunchParams extends Record<string, unknown> {
   loopId?: string;
+  runId?: string;
   roomId?: string;
   goalId?: string;
 }
@@ -27,7 +28,7 @@ interface OrchestratorLaunchParams extends Record<string, unknown> {
 export function orchestratorViewId(view: OrchestratorView): string {
   if (view.mode === 'home') return 'home';
   if (view.mode === 'create') return 'workflows/new';
-  if (view.mode === 'detail') return view.loopId ? `workflows/${view.loopId}` : 'workflows';
+  if (view.mode === 'detail') return view.loopId ? `workflows/${view.loopId}${view.runId ? `?run=${encodeURIComponent(view.runId)}` : ''}` : 'workflows';
   if (view.mode === 'room-create') return 'rooms/new';
   if (view.mode === 'goals') return view.goalId ? `goals/${view.goalId}` : 'goals';
   if (view.mode === 'library') return `library/${view.tab}`;
@@ -47,7 +48,7 @@ export function parseOrchestratorView(viewId: string | undefined): OrchestratorV
   if (section === 'home' && !id) return { mode: 'home' };
   if (section === 'workflows') {
     if (id === 'new') return { mode: 'create' };
-    return { mode: 'detail', loopId: id || null };
+    return { mode: 'detail', loopId: id || null, ...(new URLSearchParams(query).get('run') ? { runId: new URLSearchParams(query).get('run')! } : {}) };
   }
   if (section === 'library' && (id === 'mine' || id === 'catalog')) {
     return { mode: 'library', tab: id };
@@ -77,7 +78,7 @@ export function parseOrchestratorView(viewId: string | undefined): OrchestratorV
 function launchView(params: OrchestratorLaunchParams | undefined): OrchestratorView | null {
   if (typeof params?.roomId === 'string') return { mode: 'rooms', roomId: params.roomId };
   if (typeof params?.goalId === 'string') return { mode: 'goals', goalId: params.goalId };
-  if (typeof params?.loopId === 'string') return { mode: 'detail', loopId: params.loopId };
+  if (typeof params?.loopId === 'string') return { mode: 'detail', loopId: params.loopId, ...(typeof params.runId === 'string' ? { runId: params.runId } : {}) };
   return null;
 }
 
@@ -95,6 +96,7 @@ export function useOrchestratorNavigation({
     consumeAppLaunchParams<OrchestratorLaunchParams>('orchestrator'),
   ));
   const initialLaunch = useRef<OrchestratorView | null>(mountLaunch);
+  const launchPublished = useRef(false);
   const initial = mountLaunch ?? parseOrchestratorView(host.viewId) ?? { mode: 'home' };
   const [view, setView] = useState<OrchestratorView>(initial);
   const viewRef = useRef(view);
@@ -112,6 +114,7 @@ export function useOrchestratorNavigation({
   }, [stateReady, updateAppState]);
 
   const navigate = useCallback((next: OrchestratorView, options?: { replace?: boolean }) => {
+    initialLaunch.current = next;
     locallyNavigated.current = true;
     viewRef.current = next;
     setView(next);
@@ -122,7 +125,10 @@ export function useOrchestratorNavigation({
   // Host back/forward is an external navigation source. Apply it without
   // publishing another history entry, then keep the plugin state in sync.
   useEffect(() => {
-    if (initialLaunch.current) return;
+    if (initialLaunch.current) {
+      if (host.viewId !== orchestratorViewId(initialLaunch.current)) return;
+      initialLaunch.current = null;
+    }
     const next = parseOrchestratorView(host.viewId);
     if (!next || orchestratorViewId(next) === orchestratorViewId(viewRef.current)) return;
     viewRef.current = next;
@@ -164,10 +170,10 @@ export function useOrchestratorNavigation({
   // Mount-time launch params must become the shell's current history entry, so
   // one Back returns to the app the user came from instead of this app's page.
   useEffect(() => {
-    if (!initialLaunch.current) return;
+    if (!initialLaunch.current || launchPublished.current) return;
+    launchPublished.current = true;
     persist(initialLaunch.current);
     host.navigate(orchestratorViewId(initialLaunch.current), { replace: true });
-    initialLaunch.current = null;
   }, [host, persist]);
 
   return [view, navigate] as const;

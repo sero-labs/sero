@@ -119,3 +119,11 @@ describe('workspaceAttention', () => {
     );
   });
 });
+
+it('adds host requests to workspace attention and clears them when the request resolves', () => {
+  const state = { slices: {}, architect: null };
+  const request = { id: 'host-1', type: 'permission' as const, toolCallId: 'call-1', timestamp: '2026-10-27T10:00:00Z', context: { workspaceId: 'ws' }, questions: [{ id: 'q', label: 'Permission', prompt: 'Allow this command?', options: [], allowOther: false }] };
+  expect(workspaceAttention(state, 'ws', [request])?.state).toBe('waiting-for-you');
+  expect(workspaceAttention(state, 'other', [request])).toBeNull();
+  expect(workspaceAttention(state, 'ws', [])).toBeNull();
+});

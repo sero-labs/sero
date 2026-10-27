@@ -118,8 +118,8 @@ describe('useOrchestratorNavigation', () => {
 
     function Probe() {
       const [state, updateState, ready] = useAppState(DEFAULT_STATE);
-      useOrchestratorNavigation({ state, updateState, ready });
-      return null;
+      const [view] = useOrchestratorNavigation({ state, updateState, ready });
+      return <span>{view.mode === 'detail' ? view.loopId : view.mode}</span>;
     }
 
     await act(async () => {
@@ -142,5 +142,6 @@ describe('useOrchestratorNavigation', () => {
     // One navigation, and it replaces: the launch does not add a second step.
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('workflows/loop-1', { replace: true });
+    expect(container.textContent).toBe('loop-1');
   });
 });

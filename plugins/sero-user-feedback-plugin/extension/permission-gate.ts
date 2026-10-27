@@ -50,7 +50,7 @@ export function registerPermissionGate(pi: ExtensionAPI) {
     if (!isDangerous) return undefined;
 
     if (hasSeroIPCBridge()) {
-      return askPermissionViaSero(event.toolCallId, command, ctx.signal);
+      return askPermissionViaSero(event.toolCallId, command, ctx.signal, ctx.sessionManager?.getSessionFile?.());
     }
 
     return askPermissionViaTUI(ctx, command);
@@ -63,6 +63,7 @@ async function askPermissionViaSero(
   toolCallId: string,
   command: string,
   signal: AbortSignal | undefined,
+  sessionPath?: string,
 ): Promise<{ block: true; reason: string } | undefined> {
   const id = nextQuestionId();
   const response = await askQuestion(
@@ -85,6 +86,7 @@ async function askPermissionViaSero(
       timestamp: new Date().toISOString(),
     },
     signal,
+    sessionPath,
   );
 
   if (response.cancelled || response.answers.length === 0) {

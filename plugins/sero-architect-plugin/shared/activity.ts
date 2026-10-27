@@ -212,6 +212,7 @@ export function projectActivity(
     };
   }
 
+
   const stopped = record.milestones.find((m) => m.dispatch?.failure);
   const cause = stopped?.dispatch?.failure;
   if (stopped?.dispatch && cause) {
@@ -275,6 +276,12 @@ export function projectActivity(
       ownerSuffix: undefined,
     };
   }
+
+  const expired = (record.waits ?? []).find((wait) => wait.outcome?.kind === 'expired' && wait.wake?.consumedAt == null);
+  if (expired) return {
+    state: 'stopped', headline: `The wait for ${expired.source.kind} ${expired.source.id} expired`,
+    owner: 'No result arrived before the deadline', action: 'Resume work',
+  };
 
   // Nobody updates the liveness mark while the Architect runtime is off, so a
   // mark it wrote earlier in this session cannot prove a run is reporting now.
