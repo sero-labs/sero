@@ -362,6 +362,11 @@ incomplete. **Request changes / continue** focuses the existing message box;
 write and send your request there. OpenSpec projects also offer **Start OpenSpec
 change** when they are in maintenance.
 
+For a result delivered on a worktree branch, **Open recorded result** opens its
+saved checks and diff. The branch stays visible, but the board cannot open that
+branch's files or live preview. Its checkout may have been released. The project
+folder's preview is not a preview of the delivered branch.
+
 The controls menu on the project page offers:
 
 - **Pause** and **Resume**. Pause prevents Architect from starting or planning

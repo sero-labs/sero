@@ -13,6 +13,8 @@ import type { ActionOutcome, ArchitectActions } from '../lib/actions';
 import type { WorkTab } from '../lib/navigation';
 import type { ProjectRecord } from '../../shared/record';
 import { ProjectPage } from '../ProjectPage';
+import { WorkPage } from '../WorkPage';
+import { MilestoneRail } from '../components/MilestoneRail';
 import { openSeroApp } from '@sero-ai/app-runtime';
 
 vi.mock('@sero-ai/ui', async () => {
@@ -149,10 +151,66 @@ it('opens the result workspace and focuses a change request without sending it',
   act(() => button('Open result').click());
   await flush();
   expect(openSeroApp).toHaveBeenCalledWith('explorer', undefined, record.workspaceId);
+  act(() => button('Open Git changes').click());
+  await flush();
+  expect(openSeroApp).toHaveBeenCalledWith('git', undefined, record.workspaceId);
   act(() => button('Request changes / continue').click());
   expect(document.activeElement).toBe(container.querySelector('[aria-label="Note to Architect"]'));
   expect(actions.directive).not.toHaveBeenCalled();
   expect(actions.requestChange).not.toHaveBeenCalled();
+});
+
+function placedResult(mode: 'workspace' | 'worktree'): ProjectRecord {
+  const base = DELIVERY_FIXTURES['board-done']!;
+  const first = base.milestones[0]!;
+  const directory = mode === 'worktree' ? `${base.folder}/.sero/worktrees/card-direct-${first.id}` : base.folder;
+  const branch = 'architect/direct-repair';
+  return { ...base, executionMode: mode, milestones: [{ ...first, receipt: mode === 'worktree' ? branch : base.folder,
+    direct: {
+      id: 'exec-repair', runId: null, owner: { subject: 'owner', sessionId: null, sessionPath: null },
+      // The production worktree placement keeps the ORIGINAL workspace ID,
+      // even after releaseSettled removes its checkout directory.
+      placement: { mode, directory, workspaceId: base.workspaceId, ...(mode === 'worktree' ? { branch } : {}) },
+      baseCommit: first.evidence!.commit, baseFingerprint: null, requirementRevision: 1,
+      state: 'reported', startedAt: base.createdAt, claim: { reportedAt: base.updatedAt, summary: 'Repaired on the recorded branch.' },
+      continuations: 0, idleContinuations: 0,
+    },
+    evidence: { ...first.evidence!, diffSummary: 'truncate.js | 2 +-', preview: { route: '/', smokePassed: true, capturePath: 'evidence/recorded.png' } },
+  }] };
+}
+
+it('opens recorded evidence for a released worktree receipt without opening the original checkout or its preview', async () => {
+  const record = placedResult('worktree');
+  const onOpenWork = vi.fn();
+  vi.mocked(openSeroApp).mockClear();
+  act(() => root.render(<ProjectPage runtimeRunning record={record} actions={stubActions()} onBack={vi.fn()} onOpenWork={onOpenWork} onOpenModels={vi.fn()} onOpenInspector={vi.fn()} onOpenHistory={vi.fn()} confirm={() => true} />));
+  await flush();
+  const labels = [...container.querySelectorAll('button')].map((item) => item.textContent);
+  expect(labels).not.toContain('Open result');
+  expect(labels).not.toContain('Open Git changes');
+  expect(labels).not.toContain('Open preview');
+  expect(container.textContent).toContain('architect/direct-repair');
+  expect(container.textContent).toContain('truncate.js | 2 +-');
+  expect(container.textContent).toContain('checkout may have been released');
+  act(() => button('Open recorded result').click());
+  expect(onOpenWork).toHaveBeenCalledWith('evidence');
+  expect(openSeroApp).not.toHaveBeenCalled();
+});
+
+it.each(['workspace', 'worktree'] as const)('keeps %s evidence preview targeting consistent in the work page and milestone rail', async (mode) => {
+  const record = placedResult(mode);
+  const actions = stubActions();
+  const noop = () => undefined;
+  act(() => root.render(<WorkPage record={record} actions={actions} runtimeRunning tab="evidence" onTab={noop} onOpenEvidence={noop} onBack={noop} onProject={noop} onOpenHistory={noop} />));
+  await flush();
+  const previews = () => [...container.querySelectorAll('button')].filter((item) => item.textContent === 'Open preview');
+  expect(previews().length).toBe(mode === 'workspace' ? 1 : 0);
+  expect(container.textContent).toContain('Screenshot of /');
+  expect(container.textContent).toContain('truncate.js | 2 +-');
+  act(() => root.render(<MilestoneRail record={record} onOpenDispatch={noop} onOpenWork={noop} />));
+  await flush();
+  expect(previews().length).toBe(mode === 'workspace' ? 1 : 0);
+  expect(container.textContent).toContain('Screenshot of /');
 });
 
 describe('a refused control', () => {
@@ -640,7 +698,7 @@ describe('the top of a project', () => {
     act(() => button('Full plan').click());
     expect(onOpenWork).toHaveBeenLastCalledWith('plan');
     // The build fixture has checked milestones, so their evidence is offered too.
-    act(() => button('See the proof').click());
+    act(() => button('See recorded checks').click());
     expect(onOpenWork).toHaveBeenLastCalledWith('evidence');
   });
 });

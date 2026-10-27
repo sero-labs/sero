@@ -113,7 +113,7 @@ function EvidenceTab({ record, focusMilestoneId }: Pick<WorkPageProps, 'record' 
       {checked.map((milestone) => (
         <section key={milestone.id} ref={milestone.id === focusMilestoneId ? focusRef : undefined} data-milestone={milestone.id}>
           <h3 className="wk-h">{milestone.title}</h3>
-          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} milestoneId={milestone.id} />}
+          {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} milestoneId={milestone.id} allowPreview={record.executionMode !== 'worktree' && milestone.direct?.placement.mode !== 'worktree'} />}
         </section>
       ))}
     </div>

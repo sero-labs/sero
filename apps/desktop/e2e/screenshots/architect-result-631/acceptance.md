@@ -13,7 +13,7 @@ Paths below are relative to `plugins/sero-architect-plugin/` unless noted.
 | # | Implementation | Evidence and limits |
 | --- | --- | --- |
 | 1 | `ui/components/BoardResult.tsx` keeps the original request, current objective and saved Architect account together. Direct-work claims remain labelled as reports. | [Repair screenshot](01-repair-result.png) and `observations.json` show the actual request and delivered account from project `proj_c5pfhu7d`. |
-| 2 | The tile opens the registered result workspace or a saved HTTP(S) receipt, the workspace's Git app, available preview and existing evidence. Branch/destination text stays attached to its milestone. Opaque receipts stay text rather than being guessed into URLs. | [Opened result](02-open-result.png) verifies actual workspace navigation. The repair had workspace output and Git changes, no PR or preview. Existing preview-unavailable contract passes. URL protocol behavior is covered by `ui/__tests__/result.test.ts`; no external PR was created or opened. |
+| 2 | In workspace mode the tile opens the result workspace or saved HTTP(S) receipt, Git and available preview. For worktree output it opens recorded evidence, preserves the branch/diff and states the file/live-preview navigation limit. Opaque receipts stay text rather than being guessed into URLs. | [Opened result](02-open-result.png) verifies actual workspace navigation. The repair had workspace output and Git changes, no PR or preview. The review follow-up below proves worktree targeting with the production placement shape. URL protocol behavior is covered by `ui/__tests__/result.test.ts`; no external PR was created or opened. |
 | 3 | `BoardResult` distinguishes reported, checked, acceptance recorded and delivery recorded. It reuses `Evidence` for actual command outcomes/output and commit, and includes the saved requirement revision and check timestamp. | The repair record has a direct claim, `verification: delivered`, command `node --test repair.test.cjs`, exit 0, commit `be3a384c7671368d7a2d07ea2f2fa920e9b1e6ac`, requirement revision 1. Its output is 1 passed, 0 failed. The commit is the recorded HEAD; the content fingerprint also identifies the uncommitted repair. |
 | 4 | `ui/lib/result.ts` uses `provenBy` and explicit criterion gaps. Uncovered criteria and missing coverage remain review items. | Behavior coverage checks changed criteria, explicit manual-review gaps and absent coverage. The actual subsequent directive adds c2 at revision 2 without proof for it. No claim is made that the second repair was delivered. |
 | 5 | The result labels project-total elapsed time through the last update and cost. Missing usage gets a visible lower-bound label. | Repair screenshot and saved budget show $0 from the local stub, `incomplete: true`, and the visible incomplete-accounting explanation. This is project lifetime accounting, not a guessed per-result share. |
@@ -65,3 +65,52 @@ The guide update is `apps/docs-site/docs/guide/architect.md`. No dependency,
 lockfile, npm version, source contract or runtime engine change is included.
 Touched production LOC: `ProjectPage.tsx` 483, `board.ts` 254, `result.ts` 51,
 `Board.tsx` 177, `BoardResult.tsx` 85, `Evidence.tsx` 104. CSS and tests are exempt.
+
+## Review round 1: worktree result targeting
+
+The worktree navigation finding and its preview sibling are fixed. A direct
+worktree's `placement.workspaceId` is the original project workspace ID, not a
+separate registered checkout. `runtime/direct-worktree.ts` saves that shape and
+can release the checkout after delivery. The previous result and Git buttons
+therefore opened the original checkout. The project preview service likewise
+starts `record.folder`, not the worktree branch.
+
+For worktree output, **Open recorded result** now opens the existing evidence
+view. The branch, recorded diff/check output and saved screenshot remain
+available. The tile states that opening the branch's files or live preview is
+unavailable and its checkout may have been released. It does not substitute the
+original workspace, switch its branch, recreate a checkout or change delivery.
+Workspace-mode result/Git/preview behavior remains unchanged; HTTP(S) receipts
+remain directly openable. Work-page and milestone-rail evidence suppress the
+same incorrect project-preview action for worktree checks.
+
+The existing Git path was traced before choosing this fallback:
+`useGitSelection.selectCommit` sets local React selection, then
+`runGitAction` calls `window.sero.vcs.run` through `sero:vcs:run`. The host
+`git-service-query-actions.ts` `show_commit` action only writes `commitDiffs`
+and `selectedCommitHash`. `GitApp.tsx` displays CommitDetail only when its local
+`selection.selectedCommit` is non-null. That state starts null and is not
+hydrated from `selectedCommitHash`; Git has no branch/ref launch consumer.
+Calling the existing read API before opening Git would still show WorkingTree.
+Explorer likewise has no branch-targeted launch, only workspace/file opening.
+This is an existing navigation limit, not a removed branch-delivery capability.
+
+The focused tests use the actual production placement: a worktree directory and
+branch, with `workspaceId` equal to the original workspace ID, including a delivered
+branch receipt whose checkout may be released. They verify that the result
+action opens evidence without calling Explorer/Git, no live preview escapes
+through the board or either evidence view, and branch/diff/screenshot records
+remain. The paired workspace cases retain Explorer/Git and preview controls.
+
+Validation, using the same native pnpm PATH prefix:
+
+- `pnpm --dir plugins/sero-architect-plugin exec vitest run ui/__tests__/project-controls.test.tsx ui/__tests__/work-page.test.tsx ui/__tests__/milestone-rail.test.tsx`: 53 passed, one stale selector failed. The failure still searched for the earlier label **See the proof**. All new targeting cases passed. Log: `review1-tests.log`.
+- After updating that selector to **See recorded checks**, `pnpm --dir plugins/sero-architect-plugin exec vitest run ui/__tests__/project-controls.test.tsx` passed 42/42. Log: `review1-controls-final.log`.
+- Root `pnpm typecheck`: 29/29 passed. Log: `review1-typecheck.log`.
+- React Doctor: 93/100, two maintainability complexity warnings for `RecordedStep` and `BoardResult`; no correctness diagnostic. `RecordedStep` is unchanged by this fix; `BoardResult` adds explicit target eligibility. These are complexity advisories, not evidence of a broken target, and no unrelated refactor or suppression was added. Log: `review1-react-doctor.log`.
+- Repository layout, whitespace and LOC guards passed. Touched production LOC: `BoardResult.tsx` 88, `WorkPage.tsx` 147, `MilestoneRail.tsx` 109.
+
+No app run, full package suite, paid call or platform matrix was repeated. The
+single failed app pass and its repair/change-request evidence above are
+unchanged. Live worktree-output navigation remains explicitly unavailable;
+recorded-result navigation is covered by functional tests.

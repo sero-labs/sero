@@ -44,13 +44,15 @@ export function BoardResult({ record, preview, onOpenChecks, onContinue, picture
   const result = record.overview?.result?.text;
   const destination = [...milestones].reverse().find((milestone) => milestone.receipt);
   const url = destination?.receipt ? receiptUrl(destination.receipt) : null;
-  // A worktree has its own registered workspace. Never open the project folder
-  // as though it contained that branch's output.
+  // Worktree placements retain the project's workspace ID. Existing app
+  // navigation opens that workspace, not the recorded branch or checkout.
+  const worktreeResult = record.executionMode === 'worktree'
+    || milestones.some((milestone) => milestone.direct?.placement.mode === 'worktree');
   const placement = destination?.direct?.placement;
-  const workspaceId = placement?.mode === 'worktree'
-    ? placement.workspaceId : record.workspaceId;
-  const workspaceResult = !destination || destination.receipt === record.folder
-    || destination.receipt === placement?.directory || destination.receipt === placement?.branch;
+  const workspaceId = record.workspaceId;
+  const workspaceResult = !worktreeResult && (!destination || destination.receipt === record.folder
+    || destination.receipt === placement?.directory);
+  const resultPreview = worktreeResult ? null : preview;
   const openWorkspace = async (appId: string) => {
     if (!workspaceId) return;
     const opened = await openSeroApp(appId, undefined, workspaceId);
@@ -68,13 +70,14 @@ export function BoardResult({ record, preview, onOpenChecks, onContinue, picture
         {record.budget.incomplete !== false && <p className="bd-note">Incomplete accounting: some usage is unavailable; cost is a lower bound.</p>}
         <div className="bd-btns">
           {url ? <a className="bd-link" href={url} target="_blank" rel="noopener noreferrer">Open result</a> : workspaceId && workspaceResult && <Button size="sm" className="ar-btn ar-btn-solid" onClick={() => void openWorkspace('explorer')}>Open result</Button>}
-          {workspaceId && <Button size="sm" variant="outline" onClick={() => void openWorkspace('git')}>Open Git changes</Button>}
-          {preview && <Button size="sm" disabled={preview.busy} onClick={preview.open}>{preview.busy ? 'Starting preview…' : 'Open preview'}</Button>}
-          {onOpenChecks && <Button size="sm" variant="outline" onClick={onOpenChecks}>See the checks</Button>}
+          {workspaceId && !worktreeResult && <Button size="sm" variant="outline" onClick={() => void openWorkspace('git')}>Open Git changes</Button>}
+          {resultPreview && <Button size="sm" disabled={resultPreview.busy} onClick={resultPreview.open}>{resultPreview.busy ? 'Starting preview…' : 'Open preview'}</Button>}
+          {onOpenChecks && <Button size="sm" variant="outline" onClick={onOpenChecks}>{worktreeResult ? 'Open recorded result' : 'See the checks'}</Button>}
           <Button size="sm" variant="outline" onClick={onContinue}>Request changes / continue</Button>
         </div>
         {error && <p role="alert" className="ar-error">{error}</p>}
-        <ul className="bd-result-steps">{milestones.map((milestone) => <RecordedStep key={milestone.id} record={record} milestone={milestone} allowPreview={preview !== null} />)}</ul>
+        {worktreeResult && <p className="bd-note">This result is on a worktree branch. Opening its files or live preview from this board is unavailable. The checkout may have been released; its recorded branch, diff and checks remain below.</p>}
+        <ul className="bd-result-steps">{milestones.map((milestone) => <RecordedStep key={milestone.id} record={record} milestone={milestone} allowPreview={resultPreview !== null} />)}</ul>
         {gaps.length > 0 && <div><h4>Needs review</h4><ul>{gaps.map((gap) => <li key={gap.id}>{gap.text}: {gap.reason}</li>)}</ul></div>}
         {!record.working?.criteria.length && <p className="bd-note">Requirement coverage is not recorded. Review the result against your request.</p>}
         <p className="bd-note">Checks and destinations describe saved records. Open the result to review its current state.</p>
