@@ -298,8 +298,12 @@ export interface RoomUnmergedBranch {
   memberId: string;
   displayName: string;
   branch: string;
-  /** Commits on the branch that the workspace HEAD does not have. */
-  commits: number;
+  /**
+   * Commits on the branch the workspace HEAD does not have. Null is a branch
+   * whose state could not be read — which is not the same as merged, and is
+   * never reported as such.
+   */
+  commits: number | null;
 }
 
 /**

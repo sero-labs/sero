@@ -349,6 +349,16 @@ export async function deliverRoomResult(
     : chatRef
       ? INVOKING_CHAT_DESTINATION
       : record?.delivery.destination ?? request.roomId;
+  // Only a workspace delivery the user's files did not receive needs the note:
+  // the work did arrive, on branches (#654).
+  const unmerged = timelineRef && timelineDestination === WORKSPACE_DESTINATION
+    ? request.memberBranches?.length ?? 0
+    : 0;
+  const timelineDetails: Record<string, string | number | boolean> = {};
+  if (timelineRef) {
+    timelineDetails.ref = timelineRef;
+    if (unmerged > 0) timelineDetails.unmergedBranches = unmerged;
+  }
   await deps.store.appendTimeline(request.roomId, [{
     id: deps.host.newId('tl'),
     roomId: request.roomId,
@@ -358,11 +368,21 @@ export async function deliverRoomResult(
     // A claimed delivery whose send then failed leaves no ref. Recording that
     // as "delivered" would put a false line in the audit timeline.
     summary: timelineRef
-      ? `Result delivered to ${timelineDestination}.`
+      ? `Result delivered to ${timelineDestination}${unmergedNote(unmerged)}.`
       : `Result could not be delivered to ${timelineDestination}.`,
-    details: timelineRef ? { ref: timelineRef } : {},
+    details: timelineDetails,
   }]);
   return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat, ref };
+}
+
+/**
+ * The timeline line's own qualification (#654). A workspace delivery the user's
+ * files did not receive is recorded as delivered — the work did arrive, on the
+ * branches — so the line has to name what the files are still missing.
+ */
+function unmergedNote(count: number): string {
+  if (count === 0) return '';
+  return count === 1 ? ', but 1 member branch still holds the work' : `, but ${count} member branches still hold the work`;
 }
 
 /**

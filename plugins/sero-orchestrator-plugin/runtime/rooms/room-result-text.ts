@@ -81,7 +81,11 @@ function formatCost(usd: number): string {
   return `$${usd.toFixed(usd < 0.1 ? 4 : 2)}`;
 }
 
-/** "1 commit", "3 commits" — a count the reader can weigh, not a bare number. */
-export function commitCount(commits: number): string {
+/**
+ * "1 commit", "3 commits" — a count the reader can weigh, not a bare number. A
+ * branch Git could not read says so instead of borrowing a number.
+ */
+export function commitCount(commits: number | null): string {
+  if (commits === null) return 'state unknown';
   return commits === 1 ? '1 commit' : `${commits} commits`;
 }

@@ -101,6 +101,24 @@ describe('deliveredLine', () => {
     expect(line.text).toContain('not your workspace files');
     expect(line.branches).toEqual(branches);
   });
+
+  it('keeps a destination that really was delivered, and shows the branches beside it', () => {
+    // A pull request or a chat post did land where it says; the branches are
+    // extra context there, not a replacement for the destination (#654).
+    const branches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room_1-impl', commits: null },
+    ];
+    const line = deliveredLine(room([], {
+      destination: 'pr',
+      deliveredAt: '2026-09-16T22:13:07.440Z',
+      deliveryRef: 'https://github.com/acme/repo/pull/7',
+      unmergedBranches: branches,
+    }));
+    expect(line.text).toContain('To pr');
+    expect(line.text).not.toContain('member branch');
+    expect(line.ref).toBe('https://github.com/acme/repo/pull/7');
+    expect(line.branches).toEqual(branches);
+  });
 });
 
 describe('otherArtifacts', () => {

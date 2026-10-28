@@ -321,6 +321,12 @@ describe('delivery that stays in the workspace', () => {
     expect(sent).toContain('orchestrator/room-room-a-impl');
     expect(sent).toContain('2 commits');
     expect(sent).toContain('not in your workspace files yet');
+    // The audit line records the delivery, so it has to say what the files are
+    // still missing rather than claiming a clean workspace delivery.
+    const events = await store.readTimeline('room-a', 50);
+    const delivery = events.find((event) => event.kind === 'delivery');
+    expect(delivery?.summary).toContain('still holds the work');
+    expect(delivery?.details?.unmergedBranches).toBe(1);
   });
 });
 

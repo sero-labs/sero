@@ -12,6 +12,12 @@ import type { PersistedRoom, RoomMember, RoomUnmergedBranch } from '../../shared
 import { formatDayTime } from './format';
 
 /**
+ * `WORKSPACE_DESTINATION` in the runtime. The renderer bundles this module
+ * without the runtime, so the id is spelled here rather than imported.
+ */
+const WORKSPACE_FILES = 'workspace-files';
+
+/**
  * The plan the result view shows in place: the Conductor's own plan, or the
  * newest plan when the Conductor did not write one. Null when the Room
  * published no plan at all, which is a state the view shows rather than fills.
@@ -66,20 +72,27 @@ export function deliveredLine(room: PersistedRoom): DeliveredLine {
   // which is that id with its hyphens opened out.
   const where = destination.replace(/-/g, ' ');
   if (!deliveredAt) {
-    return { text: `Not delivered to ${where}. Nothing left Sero.`, ref: null, branches: [] };
+    return { text: `Not delivered to ${where}. Nothing left Sero.`, ref: null, branches };
   }
-  if (branches.length > 0) {
+  // Only the workspace destination is a claim about the user's files, and only
+  // that claim the branches contradict. A pull request or a chat post really was
+  // delivered where it says, so its wording stays and the branches are context.
+  if (branches.length > 0 && destination === WORKSPACE_FILES) {
     return {
       text: `To ${branches.length === 1 ? 'one member branch' : `${branches.length} member branches`}, not your workspace files · ${formatDayTime(deliveredAt)}`,
       ref: deliveryRef,
       branches,
     };
   }
-  return { text: `To ${where} · ${formatDayTime(deliveredAt)}`, ref: deliveryRef, branches: [] };
+  return { text: `To ${where} · ${formatDayTime(deliveredAt)}`, ref: deliveryRef, branches };
 }
 
-/** "1 commit", "3 commits" — a count the user can weigh against the branch. */
-export function branchCommitLabel(commits: number): string {
+/**
+ * "1 commit", "2 commits", or nothing it can vouch for. A branch Git could not
+ * read says so rather than borrowing a number it does not have.
+ */
+export function branchCommitLabel(commits: number | null): string {
+  if (commits === null) return 'state unknown';
   return commits === 1 ? '1 commit' : `${commits} commits`;
 }
 

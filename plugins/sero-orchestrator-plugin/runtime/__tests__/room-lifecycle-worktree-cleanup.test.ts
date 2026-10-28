@@ -61,16 +61,20 @@ describe('terminal worktree cleanup', () => {
       ...current,
       delivery: { ...current.delivery, destination: 'workspace-files' },
     }));
+    // Per member: the ref exists, HEAD exists, then the count. Both branches hold
+    // commits the workspace does not have.
+    const exists = { stdout: 'abc123\n', stderr: '', exitCode: 0 };
     host.commandResults.push(
-      { stdout: '2\n', stderr: '', exitCode: 0 },
-      { stdout: '1\n', stderr: '', exitCode: 0 },
+      exists, exists, { stdout: '2\n', stderr: '', exitCode: 0 },
+      exists, exists, { stdout: '1\n', stderr: '', exitCode: 0 },
     );
 
     const completed = await coordinator.completeRoom(roomId, 'Done.');
 
     expect(completed.ok).toBe(true);
     const stored = await store.readRoom(roomId);
-    expect(stored?.delivery.unmergedBranches.map((branch) => branch.memberId)).toEqual(['lead', 'impl']);
+    expect(stored?.delivery.unmergedBranches.map((branch) => [branch.memberId, branch.commits]))
+      .toEqual([['lead', 2], ['impl', 1]]);
     // The Delivered line is not the only place the user is told where the work
     // went, so the finish notice names them too.
     expect(host.notifications.map((entry) => entry.message).join(' ')).toContain('2 member branches');
