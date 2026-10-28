@@ -24,7 +24,11 @@ import {
   truncateHead,
 } from '../filesystem/truncate';
 import { canonicalizeHostPath } from '../filesystem/host-path';
-import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
+import {
+  isRuntimeWorkspacePath,
+  toHostWorkspacePath,
+  toRuntimeIdentityMountPath,
+} from '@electron/features/workspace/runtime/runtime-paths';
 import { OutputCapture } from '@electron/features/tool-capture/capture';
 import { renderCaptureReport } from '@electron/features/tool-capture/report';
 import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
@@ -83,12 +87,29 @@ async function resolveContainerPathForGuard(
   targetPath: string,
   cwd: string,
 ): Promise<string> {
+  const visiblePath = guardVisiblePath(runtime, targetPath);
   const result = await runtime.exec({
-    command: buildResolveContainerPathCommand(targetPath),
+    command: buildResolveContainerPathCommand(visiblePath),
     cwd,
     timeoutMs: 10_000,
   });
-  return normalizeContainerGuardPath(result.stdout.trim() || targetPath);
+  return normalizeContainerGuardPath(result.stdout.trim() || visiblePath);
+}
+
+/**
+ * The path the machine running the resolver can actually see (#678).
+ *
+ * The resolver runs a shell command inside the runtime, but a host runtime
+ * executes it on the host with only the cwd translated — a `/workspace/...` path
+ * embedded in the command does not exist there, so the resolver would answer
+ * about nothing and the guard would let the path through. Host candidates are
+ * therefore translated before they are embedded; the resolver then answers with
+ * a host path, which is what the protected roots are expressed in.
+ */
+function guardVisiblePath(runtime: RuntimeBackend, targetPath: string): string {
+  if (runtime.backend !== 'host') return targetPath;
+  if (!isRuntimeWorkspacePath(targetPath)) return targetPath;
+  return toHostWorkspacePath(runtime.hostWorkspacePath, targetPath);
 }
 
 // ── Bash ────────────────────────────────────────────────────

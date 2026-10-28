@@ -99,4 +99,38 @@ describe('memory guard on the host runtime', () => {
       await rm(protectedRoot, { recursive: true, force: true });
     }
   });
+
+  it('blocks a symlinked memory file at a session\'s default workspace cwd (#678)', async () => {
+    // The cwd a real session uses, so the guard has to resolve a `/workspace/...`
+    // candidate on a machine where only the host path exists. It used to miss the
+    // symlink here and let `bash` print the memory file.
+    const workspaceDir = await mkdtemp(path.join(os.tmpdir(), 'sero-host-guard-default-'));
+    const protectedRoot = getProtectedMemoryRoot();
+    const protectedPath = path.join(protectedRoot, 'MEMORY.md');
+
+    await mkdir(protectedRoot, { recursive: true });
+    await writeFile(protectedPath, '# Memory\n', 'utf8');
+    await symlink(protectedPath, path.join(workspaceDir, 'memory-link'));
+    await writeFile(path.join(workspaceDir, 'notes.md'), '# Notes\n', 'utf8');
+
+    const runtime = createHostRuntime(workspaceDir);
+    const tools = [createBash(runtime), createRead(runtime), createEdit(runtime), createWrite(runtime)];
+
+    try {
+      await expect(getTool(tools, 'read').execute('tool-1', { path: 'memory-link' }, undefined, undefined, undefined as never))
+        .rejects.toThrow(getProtectedMemoryAccessError('read'));
+      await expect(getTool(tools, 'bash').execute('tool-2', { command: 'cat memory-link' }, undefined, undefined, undefined as never))
+        .rejects.toThrow(getProtectedMemoryAccessError('bash'));
+      await expect(getTool(tools, 'bash').execute('tool-3', { command: 'cd /workspace && cat ./memory-link' }, undefined, undefined, undefined as never))
+        .rejects.toThrow(getProtectedMemoryAccessError('bash'));
+
+      // Translating the candidate must not block everything: an ordinary file in
+      // the same workspace still reads.
+      const read = await getTool(tools, 'read').execute('tool-4', { path: 'notes.md' }, undefined, undefined, undefined as never);
+      expect(JSON.stringify(read.content)).toContain('# Notes');
+    } finally {
+      await rm(workspaceDir, { recursive: true, force: true });
+      await rm(protectedRoot, { recursive: true, force: true });
+    }
+  });
 });
