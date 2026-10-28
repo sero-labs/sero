@@ -91,6 +91,8 @@ export interface OrchestratorRoomCreateRequest {
   signal?: AbortSignal;
   /** Charge planning before a member can start. The caller may abort at its cap. */
   onPlanned?: (usage?: OrchestratorUsageView) => Promise<void>;
+  /** Retain ownership before any member is scheduled. Failure cancels the prepared Room. */
+  onPrepared?: (roomId: string) => Promise<void>;
   /** Stable identity for a caller recovering an interrupted creation. */
   requestId?: string;
   /** The Room's brief, kept verbatim. */

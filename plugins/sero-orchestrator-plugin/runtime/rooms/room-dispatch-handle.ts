@@ -45,6 +45,7 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
       request.signal?.addEventListener('abort', cancel, { once: true });
       try {
         if (request.signal?.aborted) cancel();
+        await request.onPrepared?.(planned.roomId);
         if (!request.signal?.aborted && (!planned.status || ['draft', 'ready', 'adjusting'].includes(planned.status))) {
           const started = await app.start(planned.roomId, request.signal);
           if (!started.ok && !request.signal?.aborted) {
@@ -55,6 +56,10 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
         // project can observe final usage and report any unresolved cleanup.
         await cancellation;
         return { ok: true, roomId: planned.roomId, usage: planned.usage };
+      } catch (error) {
+        cancel();
+        const cleanup = await cancellation;
+        return { ok: false, error: `Room ${planned.roomId} could not retain its owner: ${String(error)}${cleanup && !cleanup.ok ? `. Cancellation unconfirmed: ${cleanup.error}` : ''}`, usage: planned.usage };
       } finally { request.signal?.removeEventListener('abort', cancel); }
 
   };

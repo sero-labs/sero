@@ -273,7 +273,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       return { id: pending.id };
     },
 
-    async dispatch(record, milestone, request) {
+    async dispatch(record, milestone, request, onPrepared) {
       const current = await store.read(record.id);
       if (!current || current.paused || current.blockedReason || (current.budget.capUsd !== null && current.budget.spentUsd >= current.budget.capUsd)) throw new Error('The project is stopped or has no budget for a new dispatch.');
       if (!record.workspaceId) throw new Error('The project has no workspace to dispatch into.');
@@ -336,8 +336,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const policyId = delegationPolicyId(record);
       if (policyId) roomRequest.delegationPolicyId = policyId;
       // A Room's planning is its own operation, before any member starts.
-      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => withProjectCancellation(store, record.id, (signal) => createOrchestratorRoom(projectWorkspaceId, { ...roomRequest, signal, onPlanned: async (usage) => { await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, usage); } })));
-      const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
+      let plannedCharge: number | undefined;
+      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => withProjectCancellation(store, record.id, (signal) => createOrchestratorRoom(projectWorkspaceId, { ...roomRequest, signal, onPlanned: async (usage) => { plannedCharge = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, usage); }, onPrepared: async (id) => { await onPrepared?.({ id, workspaceId: projectWorkspaceId, baseCommit, chargedUsd: plannedCharge }); } })));
+      const chargedUsd = plannedCharge ?? await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };
     },

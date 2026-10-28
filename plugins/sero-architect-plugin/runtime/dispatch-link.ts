@@ -159,11 +159,57 @@ async function linkDispatch(
   const record = prepared;
   const milestone = preparedMilestone;
 
+  const retain = async (link: Awaited<ReturnType<OwnerServices['dispatch']>>) => {
+    const running: Milestone = {
+      ...preparedMilestone,
+      status: 'running',
+      verification: null,
+      pendingDispatch: undefined,
+      parkedFrom: null,
+      dispatch: {
+        kind: request.kind,
+        id: link.id,
+        workspaceId: link.workspaceId,
+        dispatchedAt: now,
+        chargedUsd: link.chargedUsd ?? 0,
+        destination: request.destination,
+        baseCommit: link.baseCommit,
+        ...(preparedMilestone.pendingDispatch?.allocatedUsd !== undefined ? { allocatedUsd: preparedMilestone.pendingDispatch.allocatedUsd } : {}),
+        ...(request.project?.runId ? { runId: request.project.runId } : {}),
+      },
+    };
+    const cause = request.kind === 'room' ? 'sent to its Room' : 'sent to its Workflow';
+    const written = await store.update(record.id, (fresh) => {
+      const current = fresh.milestones.find((item) => item.id === milestone.id);
+      if (current?.dispatch?.id === link.id) return fresh;
+      if (current?.pendingDispatch?.startedAt !== now || current.dispatch) return null;
+      const linked = fresh.milestones.map((m) =>
+        m.id === milestone.id
+          ? { ...m, status: running.status, verification: null, dispatch: running.dispatch, pendingDispatch: undefined }
+          : m,
+      );
+      const recovered = fresh.blockedReason?.startsWith('Could not start ') || fresh.blockedReason?.startsWith('dispatch state could not be confirmed after restart:')
+        ? unblock(fresh, now, 'recovered its dispatch', { kind: 'milestone', id: milestone.id, label: milestone.title }) : null;
+      const settled = settle({ ...(recovered?.ok ? recovered.record : fresh), milestones: linked, ...(!fresh.paused && !fresh.blockedReason && (fresh.budget.capUsd === null || fresh.budget.spentUsd < fresh.budget.capUsd) ? { stateLine: `Working on ${milestone.title}.` } : {}) }, now);
+      return {
+        ...settled,
+        history: [...settled.history, {
+          at: now,
+          phase: settled.phase,
+          overlay: settled.overlay,
+          cause,
+          subject: { kind: request.kind, id: link.id, label: milestone.title },
+        }],
+      };
+    });
+    if (!written) throw new Error(`Dispatch ${link.id} started, but milestone ${milestone.id} could not save its link. The project needs reconciliation.`);
+    return { record: written, milestone: written.milestones.find((item) => item.id === milestone.id)! };
+  };
   // The dispatch itself is slow and must stay outside the store's write queue;
   // the durable intent prevents a crash or write failure from creating a duplicate run.
   let link: Awaited<ReturnType<OwnerServices['dispatch']>>;
   try {
-    link = await services.dispatch(prepared, preparedMilestone, request);
+    link = await services.dispatch(prepared, preparedMilestone, request, async (preparedLink) => { await retain(preparedLink); });
   } catch (error) {
     await store.update(record.id, (fresh) => ({
       ...fresh,
@@ -175,48 +221,7 @@ async function linkDispatch(
     }));
     throw error;
   }
-  const running: Milestone = {
-    ...preparedMilestone,
-    status: 'running',
-    verification: null,
-    pendingDispatch: undefined,
-    parkedFrom: null,
-    dispatch: {
-      kind: request.kind,
-      id: link.id,
-      workspaceId: link.workspaceId,
-      dispatchedAt: now,
-      chargedUsd: link.chargedUsd ?? 0,
-      destination: request.destination,
-      baseCommit: link.baseCommit,
-      ...(preparedMilestone.pendingDispatch?.allocatedUsd !== undefined ? { allocatedUsd: preparedMilestone.pendingDispatch.allocatedUsd } : {}),
-      ...(request.project?.runId ? { runId: request.project.runId } : {}),
-    },
-  };
-  const cause = request.kind === 'room' ? 'sent to its Room' : 'sent to its Workflow';
-  const written = await store.update(record.id, (fresh) => {
-    const current = fresh.milestones.find((item) => item.id === milestone.id);
-    if (current?.pendingDispatch?.startedAt !== now || current.dispatch) return null;
-    const linked = fresh.milestones.map((m) =>
-      m.id === milestone.id
-        ? { ...m, status: running.status, verification: null, dispatch: running.dispatch, pendingDispatch: undefined }
-        : m,
-    );
-    const recovered = fresh.blockedReason?.startsWith('Could not start ') || fresh.blockedReason?.startsWith('dispatch state could not be confirmed after restart:')
-      ? unblock(fresh, now, 'recovered its dispatch', { kind: 'milestone', id: milestone.id, label: milestone.title }) : null;
-    const settled = settle({ ...(recovered?.ok ? recovered.record : fresh), milestones: linked, stateLine: `Working on ${milestone.title}.` }, now);
-    return {
-      ...settled,
-      history: [...settled.history, {
-        at: now,
-        phase: settled.phase,
-        overlay: settled.overlay,
-        cause,
-        subject: { kind: request.kind, id: link.id, label: milestone.title },
-      }],
-    };
-  });
-  if (!written) throw new Error(`Dispatch ${link.id} started, but milestone ${milestone.id} could not save its link. The project needs reconciliation.`);
+  const retained = await retain(link);
   // Activation waits for execution. Save the link first, then let the existing
   // dispatch watcher report progress without holding the owner's tool call.
   if (link.start) void link.start().catch(async (error: unknown) => {
@@ -227,5 +232,5 @@ async function linkDispatch(
       return stopped.ok ? { ...stopped.record, stateLine: reason } : null;
     });
   }).catch((error: unknown) => console.error(`Could not record failure for dispatch ${link.id}`, error));
-  return { record: written, milestone: running };
+  return retained;
 }

@@ -160,3 +160,39 @@ Final policy handoff checks: the saved-input/runtime and project controls passed
 retains its failure detail and unread answer for owner processing, rather than
 hiding that answer indefinitely. Final root typecheck passed all 29 tasks
 (`policy-typecheck-final.log`). No runtime or full-package check was repeated.
+
+## R2 Room ownership handoff correction
+
+The optional common `onPrepared(roomId)` hook is awaited before Room Start,
+inside the handle's abort-covered scope. Milestone dispatch saves its complete
+link there; research saves its Room identity there. The later caller completion
+recognizes the same identity and preserves current cancellation, costs and
+state. Workflow save-before-activation and request coalescing are unchanged.
+The dispatch service carries the planning charge already recorded by
+`onPlanned`, avoiding a second charge after link retention clears the pending
+checkpoint. Failed/refused planning continues to report known usage. If
+ownership retention fails, the prepared Room is cancelled without starting;
+cancellation failures are included in the returned error.
+
+The deterministic production caller/shared-handle test covers both milestone
+and research paths, each with user Stop and budget exhaustion after the shared
+handle has returned and detached its abort listener. It checks identity before
+member scheduling, cancellation of deferred member setup, no subsequent prompt,
+retained identity and Stop state, one planning charge, and one milestone history
+entry. The research case waits for post-create accounting and retention to
+finish. The real Room handle test verifies retention failure cancels the
+prepared Room, reports planner usage, and creates no grant or prompt.
+
+Focused checks passed: 24 Architect tests (`r2-handoff-architect.log`) and 20
+Orchestrator dispatch-handle tests (`r2-handoff-orchestrator.log`). The strengthened
+caller regression passed both cases (`r2-handoff-final-regression.log`). The
+initial typechecks found test fixtures missing required token fields and the
+Room models list; both fixtures were corrected. Final validation is recorded below. No paid calls,
+whole-app/process campaign or full package suite was repeated. Common's optional
+API addition is covered by this PR's existing 0.24.2 bump; app-runtime and React
+source are unchanged. The external #630/#632 limits above remain unproved.
+
+Final root typecheck passed all 29 tasks
+(`r2-handoff-typecheck-complete.log`). Repository layout and `git diff --check`
+passed. Changed production source files are at most 495 lines. No generated
+package-manager cache or dependency changes are included.

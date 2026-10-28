@@ -191,6 +191,22 @@ describe('Room creation through the typed handle', () => {
     if (stage === 'approval') expect(host.persistentSessions.revoked).toContain('grant-1');
   });
 
+  it('cancels a prepared Room if retaining ownership fails, after reporting planner usage', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()), usage: { costUsd: 0.25, inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
+    let charged = 0;
+    let roomId = '';
+    const result = await createRoomDispatchHandle(app).create({
+      mandate: 'Investigate the project.',
+      onPlanned: async (usage) => { charged = usage?.costUsd ?? 0; },
+      onPrepared: async (id) => { roomId = id; throw new Error('Storage unavailable'); },
+    });
+    expect(result.ok).toBe(false);
+    expect(charged).toBe(0.25);
+    expect((await app.inspect(roomId))?.status).toBe('cancelled');
+    expect(host.persistentSessions.prompts).toHaveLength(0);
+    expect(host.persistentSessions.proposals).toHaveLength(0);
+  });
+
   it('accounts planning before starting a member and retains a cancelled late-created Room', async () => {
     host.modelResponses.push({ response: JSON.stringify(blueprint()) });
     const controller = new AbortController();
