@@ -286,6 +286,27 @@ export interface RoomRuntimeState {
 }
 
 /**
+ * One editing member's branch, as the delivery record has to name it.
+ *
+ * Members edit in their own worktrees, so a Room that says it delivered to the
+ * workspace files while its work sits on these branches is telling the user
+ * something untrue (#654). Naming the branch is what makes the claim checkable:
+ * the user can merge it, or open it in the Git app, without having to guess
+ * where their fix went.
+ */
+export interface RoomUnmergedBranch {
+  memberId: string;
+  displayName: string;
+  branch: string;
+  /**
+   * Commits on the branch the workspace HEAD does not have. Null is a branch
+   * whose state could not be read — which is not the same as merged, and is
+   * never reported as such.
+   */
+  commits: number | null;
+}
+
+/**
  * Where a Room's result goes. `originSessionId` is set when the Room was
  * started from a chat, which is the contract the old collaboration engines had
  * (FR-029).
@@ -300,6 +321,11 @@ export interface RoomDelivery {
   /** Return to the chat that invoked the Room, independent of its declared destination. */
   originReturnedAt: string | null;
   originReturnRef: string | null;
+  /**
+   * Member branches still holding commits the workspace does not have, read
+   * when the result was delivered. Empty when the work is in the workspace.
+   */
+  unmergedBranches: RoomUnmergedBranch[];
 }
 
 /**

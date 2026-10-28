@@ -39,8 +39,9 @@
  * the same contract loop worktrees have always had.
  */
 
-import type { RoomMember } from '../../shared/room-types';
+import type { RoomMember, RoomUnmergedBranch } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
+import { readMemberBranchState } from './room-branch-state';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
@@ -129,6 +130,15 @@ export interface RoomWorkspaces {
   releaseRoom(roomId: string, reason: string): Promise<ReleaseResult[]>;
   /** Conductor-only: collect member branches and report overlapping edits. */
   collectCommits(roomId: string, callerMemberId: string): Promise<CollectionResult>;
+  /**
+   * Member branches still holding commits the workspace does not have (#654).
+   *
+   * A Room whose members edit in their own worktrees leaves the work on their
+   * branches, and a delivery that claims the workspace files without naming
+   * them is telling the user their fix landed when it did not. Read before the
+   * result is delivered, so the record and the notice carry the branch names.
+   */
+  unmergedBranches(roomId: string): Promise<RoomUnmergedBranch[]>;
 }
 
 /**
@@ -443,6 +453,27 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
         }),
       ]);
       return { ok: true, branches, conflicts, summary };
+    },
+
+    async unmergedBranches(roomId) {
+      const record = await store.readRoom(roomId);
+      if (!record) return [];
+      const ahead: RoomUnmergedBranch[] = [];
+      for (const member of record.members) {
+        const branch = member.worktreeBranch;
+        if (!branch) continue;
+        // Uncommitted edits only reach the branch through a checkpoint, so a
+        // failed one leaves the branch's state unknown — never zero.
+        const preserved = member.worktreePath ? await checkpoint(member, 'delivery') : null;
+        const state = await readMemberBranchState(host, branch);
+        if (state === 'absent') continue;
+        const commits = preserved?.error ? null : state.commits;
+        // Zero is the one answer that means "already in the workspace". Null is
+        // unknown, and unknown is reported rather than assumed merged.
+        if (commits === 0) continue;
+        ahead.push({ memberId: member.id, displayName: member.displayName, branch, commits });
+      }
+      return ahead;
     },
   };
 }

@@ -295,6 +295,43 @@ describe('delivery that stays in the workspace', () => {
     expect(outcome.ok).toBe(false);
     expect((await store.readRoom('room-a'))?.delivery.deliveredAt).toBeNull();
   });
+
+  it('names the member branches that hold the work, on the record and in the chat result (#654)', async () => {
+    // Members edit in their own worktrees, so "delivered to the workspace files"
+    // is only true when nothing is left on a branch.
+    await seedRoom((record) => ({
+      ...workspaceRoom(record),
+      originSessionId: 'sess-9',
+      delivery: { ...workspaceRoom(record).delivery, originSessionId: 'sess-9' },
+    }));
+    const memberBranches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room-room-a-impl', commits: 2 },
+    ];
+
+    const outcome = await deliverRoomResult(
+      { host, store },
+      { roomId: 'room-a', finalResult: 'The greeting is fixed.', memberBranches },
+    );
+
+    expect(outcome).toMatchObject({ ok: true, problems: [] });
+    expect((await store.readRoom('room-a'))?.delivery.unmergedBranches).toEqual(memberBranches);
+    // The ref is what every other surface reads back — the Architect milestone
+    // copies it and renders "Delivered · <ref>" — so it has to name the branches
+    // rather than the workspace the files never received.
+    expect((await store.readRoom('room-a'))?.delivery.deliveryRef).toBe('branches: orchestrator/room-room-a-impl');
+    // The branch name is what the user needs to merge; the chat message that
+    // leaves it out is the false claim this fixes.
+    const sent = String(host.contextMessages[0].content);
+    expect(sent).toContain('orchestrator/room-room-a-impl');
+    expect(sent).toContain('2 commits');
+    expect(sent).toContain('not in your workspace files yet');
+    // The audit line records the delivery, so it has to say what the files are
+    // still missing rather than claiming a clean workspace delivery.
+    const events = await store.readTimeline('room-a', 50);
+    const delivery = events.find((event) => event.kind === 'delivery');
+    expect(delivery?.summary).toContain('still holds the work');
+    expect(delivery?.details?.unmergedBranches).toBe(1);
+  });
 });
 
 describe('external delivery', () => {

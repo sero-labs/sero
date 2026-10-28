@@ -122,6 +122,9 @@ export function reassembleRoom(
       ...persisted.delivery,
       originReturnedAt: persisted.delivery.originReturnedAt ?? null,
       originReturnRef: persisted.delivery.originReturnRef ?? null,
+      // A Room delivered before this list existed has no branches recorded, and
+      // "none" is the reading that tells the user nothing that is untrue.
+      unmergedBranches: persisted.delivery.unmergedBranches ?? [],
     },
     archivedAt: persisted.archivedAt,
     readCursors: persisted.readCursors,

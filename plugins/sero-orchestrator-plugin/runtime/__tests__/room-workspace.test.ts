@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { AppRuntimeContext } from '@sero-ai/common';
+import type { AppRuntimeCommandResult, AppRuntimeContext } from '@sero-ai/common';
 import type { BlueprintMember, OperatingEnvelope, RoomBlueprint } from '../../shared/room-blueprint-types';
 import { computeProposalSummary } from '../../shared/room-proposal';
 import { createMemberSessionPool } from '../rooms/member-session';
@@ -465,5 +465,98 @@ describe('collecting commits', () => {
     expect(collected.summary).toContain('src/server/app.ts');
     // Collection makes in-progress edits durable before it reads Git.
     expect(host.checkpoints).toHaveLength(2);
+  });
+});
+
+describe('member branches the workspace does not have', () => {
+  /** `git rev-parse --verify --quiet <ref>` succeeded. */
+  const found = (rev = ''): AppRuntimeCommandResult => ({ stdout: rev, stderr: '', exitCode: 0 });
+  /** A ref that does not exist: `--verify --quiet` exits 1 for that. */
+  const deleted = (): AppRuntimeCommandResult => ({ stdout: '', stderr: '', exitCode: 1 });
+  /** A command that failed outright (bad repo, timeout), which is not a missing ref. */
+  const missing = (): AppRuntimeCommandResult => ({ stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 });
+  const counted = (commits: number): AppRuntimeCommandResult => ({ stdout: `${commits}\n`, stderr: '', exitCode: 0 });
+
+  it('names the branches still ahead of the workspace and leaves the merged ones out', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    // API's ref and HEAD exist and API is two commits ahead; UI's branch is merged.
+    host.commandResults.push(
+      found(), found(), counted(2),
+      found(), found(), counted(0),
+    );
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead).toEqual([
+      {
+        memberId: 'api',
+        displayName: 'API',
+        branch: `orchestrator/room-${roomId}-api`,
+        commits: 2,
+      },
+    ]);
+    // Read from the workspace, so the answer is about the files the user has.
+    expect(host.commands).toContain(`git rev-list --count 'refs/heads/orchestrator/room-${roomId}-api' --not HEAD`);
+    // Uncommitted edits are made durable first, or the count would miss them.
+    expect(host.checkpoints).toHaveLength(2);
+  });
+
+  it('reports the branch when the workspace has no first commit yet', async () => {
+    // The snapshot placement deliberately leaves HEAD unborn, so `... --not HEAD`
+    // fails. Every commit on the branch is then one the workspace does not have —
+    // and a failed read must never be read as an already-merged branch.
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    host.commandResults.push(
+      found(), missing(), counted(3),
+      found(), found(), counted(0),
+    );
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => [branch.memberId, branch.commits])).toEqual([['api', 3]]);
+    expect(host.commands).toContain(`git rev-list --count 'refs/heads/orchestrator/room-${roomId}-api'`);
+  });
+
+  it('names no branch that Git confirms no longer exists', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    // API's branch was deleted — `rev-parse --verify --quiet` exits 1 for that —
+    // and UI's is one commit ahead of the workspace.
+    host.commandResults.push(deleted(), found(), found(), counted(1));
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => branch.memberId)).toEqual(['ui']);
+  });
+
+  it('reports a branch it could not read at all, rather than calling it gone', async () => {
+    // A failed command is not a missing ref: a timeout or an unopenable repo must
+    // not be how a branch holding unmerged work gets dropped.
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    host.commandResults.push(missing(), found(), found(), counted(0));
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => [branch.memberId, branch.commits])).toEqual([['api', null]]);
+  });
+
+  it('reports an unknown count when a member\'s work could not be committed', async () => {
+    const roomId = await draftRoom();
+    const placements = await workspaces.prepare(roomId);
+    const apiTree = placements.find((placement) => placement.memberId === 'api')?.cwd ?? '';
+    // Uncommitted work left behind on a failed checkpoint is work the branch
+    // does not carry yet, so its state is unknown — not zero, and not merged.
+    host.checkpointFailures.set(apiTree, 'index.lock exists');
+    host.commandResults.push(
+      found(), found(), counted(0),
+      found(), found(), counted(0),
+    );
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => [branch.memberId, branch.commits])).toEqual([['api', null]]);
   });
 });

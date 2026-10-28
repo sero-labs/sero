@@ -12,7 +12,7 @@ import type {
 } from '../../shared/attention-types';
 import { ROOM_ACCESS_LABEL_TEXT } from '../../shared/room-access-map';
 import type { RoomApprovalRequest } from '../../shared/room-message-types';
-import type { RoomMember } from '../../shared/room-types';
+import type { RoomUnmergedBranch } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import {
   buildDeliveryBinding,
@@ -20,6 +20,7 @@ import {
   withApprovalConsumed,
 } from './room-delivery-binding';
 import { applyRevisionToRoom } from './room-revision-mutate';
+import { formatRoomResult } from './room-result-text';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
 import { resolveRoomApproval, type ApprovalOutcome } from './room-revisions';
@@ -37,9 +38,26 @@ export const INVOKING_CHAT_DESTINATION = 'invoking-chat';
  */
 export const WORKSPACE_DESTINATION = 'workspace-files';
 export const WORKSPACE_DELIVERY_REF = 'workspace';
+/** Prefix for a workspace delivery ref that names branches instead of the files. */
+const UNMERGED_BRANCH_REF_PREFIX = 'branches:';
 
-/** Longest list the chat summary prints. A summary that grows without bound is a transcript. */
-const MAX_LISTED = 8;
+/**
+ * What a workspace delivery is recorded as: the placeholder, or the branches the
+ * work is really on (#654).
+ *
+ * The ref is read back by every other surface — the Room's Delivered row, and the
+ * Architect milestone that copies it and renders "Delivered · workspace" — so
+ * naming the branches here is what keeps those sentences true. `workspace` alone
+ * claims the user's files received a result they did not.
+ */
+function workspaceDeliveryRef(
+  destination: string,
+  branches: RoomUnmergedBranch[] | undefined,
+): string | null {
+  if (destination !== WORKSPACE_DESTINATION) return null;
+  if (!branches || branches.length === 0) return WORKSPACE_DELIVERY_REF;
+  return `${UNMERGED_BRANCH_REF_PREFIX} ${branches.map((branch) => branch.branch).join(', ')}`;
+}
 
 export interface RoomDeliveryDeps {
   host: OrchestratorHost;
@@ -174,6 +192,12 @@ export interface RoomDeliveryRequest {
   finalResult: string;
   /** Proof of an agent-performed send. Required for every destination the runtime does not deliver itself. */
   receipt?: DeliveryReceipt;
+  /**
+   * Member branches still holding commits the workspace does not have, filed
+   * with the delivery so the record, the notice and the chat result all name
+   * them (#654). Empty when the work is in the workspace.
+   */
+  memberBranches?: RoomUnmergedBranch[];
 }
 
 export interface RoomDeliveryOutcome {
@@ -244,7 +268,7 @@ export async function deliverRoomResult(
       : problems.length > 0
         ? null
         : request.receipt?.ref
-          ?? (delivery.destination === WORKSPACE_DESTINATION ? WORKSPACE_DELIVERY_REF : null);
+          ?? workspaceDeliveryRef(delivery.destination, request.memberBranches);
     const sessionId = delivery.originSessionId;
     const claimDestination = !destinationAlreadyDelivered && (accepted !== null || (invokingChat && sessionId !== null));
     const claimOrigin = !invokingChat && sessionId !== null && !delivery.originReturnedAt;
@@ -273,6 +297,7 @@ export async function deliverRoomResult(
           deliveryRef: claimDestination ? accepted : delivery.deliveryRef,
           originReturnedAt: claimOrigin ? now : delivery.originReturnedAt,
           originReturnRef: claimOrigin ? null : delivery.originReturnRef,
+          unmergedBranches: request.memberBranches ?? delivery.unmergedBranches ?? [],
         },
       },
       result: {
@@ -344,6 +369,16 @@ export async function deliverRoomResult(
     : chatRef
       ? INVOKING_CHAT_DESTINATION
       : record?.delivery.destination ?? request.roomId;
+  // Only a workspace delivery the user's files did not receive needs the note:
+  // the work did arrive, on branches (#654).
+  const unmerged = timelineRef && timelineDestination === WORKSPACE_DESTINATION
+    ? request.memberBranches?.length ?? 0
+    : 0;
+  const timelineDetails: Record<string, string | number | boolean> = {};
+  if (timelineRef) {
+    timelineDetails.ref = timelineRef;
+    if (unmerged > 0) timelineDetails.unmergedBranches = unmerged;
+  }
   await deps.store.appendTimeline(request.roomId, [{
     id: deps.host.newId('tl'),
     roomId: request.roomId,
@@ -353,11 +388,21 @@ export async function deliverRoomResult(
     // A claimed delivery whose send then failed leaves no ref. Recording that
     // as "delivered" would put a false line in the audit timeline.
     summary: timelineRef
-      ? `Result delivered to ${timelineDestination}.`
+      ? `Result delivered to ${timelineDestination}${unmergedNote(unmerged)}.`
       : `Result could not be delivered to ${timelineDestination}.`,
-    details: timelineRef ? { ref: timelineRef } : {},
+    details: timelineDetails,
   }]);
   return { ok: outcome.problems.length === 0, problems: outcome.problems, returnedToChat, ref };
+}
+
+/**
+ * The timeline line's own qualification (#654). A workspace delivery the user's
+ * files did not receive is recorded as delivered — the work did arrive, on the
+ * branches — so the line has to name what the files are still missing.
+ */
+function unmergedNote(count: number): string {
+  if (count === 0) return '';
+  return count === 1 ? ', but 1 member branch still holds the work' : `, but ${count} member branches still hold the work`;
 }
 
 /**
@@ -432,68 +477,6 @@ async function returnToInvokingChat(
     });
 }
 
-/**
- * What the invoking chat receives (§23): the final result, the completion
- * state, key artifacts, unresolved items, the Room to open, and what it cost.
- *
- * Everything except the final result is read from the Room's own computed
- * records, so a member cannot dress up how the Room finished.
- */
-export function formatRoomResult(record: RoomRecord, finalResult: string, problems: string[] = []): string {
-  const { definition, runtime, brief } = record;
-  // Work still open, questions nobody answered and members that ended blocked —
-  // all computed by the coordinator, so "unresolved" is not the Conductor's
-  // opinion of how tidy the Room was.
-  const unresolved = [...brief.activeWork, ...brief.openQuestions, ...brief.blockers];
-  const artifacts = record.artifacts.slice(-MAX_LISTED);
-  const lines = [
-    `Room "${definition.title}" ${completionState(record)}.`,
-    '',
-    finalResult.trim() || 'The Room finished without a written result.',
-  ];
-  if (artifacts.length > 0) {
-    lines.push('', 'Artifacts:', ...artifacts.map((artifact) => `- ${artifact.title} (${artifact.kind}): ${artifact.ref}`));
-  }
-  if (unresolved.length > 0) {
-    lines.push('', 'Still unresolved:', ...unresolved.slice(0, MAX_LISTED).map((item) => `- ${item}`));
-  }
-  if (problems.length > 0) {
-    lines.push('', 'Delivery not completed:', ...problems.map((problem) => `- ${problem}`));
-  }
-  lines.push(
-    '',
-    `Took ${formatDuration(durationMs(record))} · ${runtime.usage.turns} turns · ${formatCost(runtime.usage.costUsd)}`,
-    // No deep link: Sero has no URL scheme for a Room, so the id is what the
-    // user (or the chat's agent) opens the Room with.
-    `Room: ${definition.title} (${definition.id})`,
-  );
-  return lines.join('\n');
-}
-
-function completionState(record: RoomRecord): string {
-  const { status, stopReason } = record.runtime;
-  // Delivery runs while the Room is still `completing` — that is what keeps the
-  // crash marker up until the result is out — and to the reader it has finished.
-  if (status === 'completed' || status === 'completing') return 'finished';
-  return stopReason ? `stopped — ${stopReason.detail}` : `stopped (${status})`;
-}
-
-function durationMs(record: RoomRecord): number | null {
-  const { startedAt, endedAt } = record.runtime;
-  if (!startedAt) return null;
-  return Date.parse(endedAt ?? startedAt) - Date.parse(startedAt);
-}
-
-/** Compact duration for the chat summary (the renderer's formatter is renderer-scoped). */
-function formatDuration(ms: number | null): string {
-  if (ms === null || !Number.isFinite(ms) || ms < 0) return 'no recorded time';
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) return `${Math.round(ms / 1000)}s`;
-  if (minutes < 60) return `${minutes}m`;
-  const remainder = minutes % 60;
-  return remainder ? `${Math.floor(minutes / 60)}h ${remainder}m` : `${Math.floor(minutes / 60)}h`;
-}
-
-function formatCost(usd: number): string {
-  return `$${usd.toFixed(usd < 0.1 ? 4 : 2)}`;
-}
+// The chat summary lives in its own module; re-exported so every caller and
+// test keeps importing a finished Room's text from the delivery rules.
+export { formatRoomResult } from './room-result-text';

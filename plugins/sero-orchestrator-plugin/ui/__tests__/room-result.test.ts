@@ -86,6 +86,43 @@ describe('deliveredLine', () => {
     expect(line.text).toContain('Not delivered to workspace files');
     expect(line.ref).toBeNull();
   });
+
+  it('names the member branches when the work never reached the workspace files (#654)', () => {
+    const branches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room_1-impl', commits: 2 },
+    ];
+    const line = deliveredLine(room([], {
+      deliveredAt: '2026-09-16T22:13:07.440Z',
+      // The ref a workspace delivery with branches is recorded under.
+      deliveryRef: 'branches: orchestrator/room_1-impl',
+      unmergedBranches: branches,
+    }));
+    // The destination is not the workspace files, and the row must not say it is.
+    expect(line.text).toContain('one member branch');
+    expect(line.text).toContain('not your workspace files');
+    expect(line.branches).toEqual(branches);
+    // The branch rows below already name every branch, so the ref is not
+    // printed a second time underneath them.
+    expect(line.ref).toBeNull();
+  });
+
+  it('keeps a destination that really was delivered, and shows the branches beside it', () => {
+    // A pull request or a chat post did land where it says; the branches are
+    // extra context there, not a replacement for the destination (#654).
+    const branches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room_1-impl', commits: null },
+    ];
+    const line = deliveredLine(room([], {
+      destination: 'pr',
+      deliveredAt: '2026-09-16T22:13:07.440Z',
+      deliveryRef: 'https://github.com/acme/repo/pull/7',
+      unmergedBranches: branches,
+    }));
+    expect(line.text).toContain('To pr');
+    expect(line.text).not.toContain('member branch');
+    expect(line.ref).toBe('https://github.com/acme/repo/pull/7');
+    expect(line.branches).toEqual(branches);
+  });
 });
 
 describe('otherArtifacts', () => {

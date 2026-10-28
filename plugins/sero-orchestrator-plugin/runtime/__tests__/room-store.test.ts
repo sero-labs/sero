@@ -79,7 +79,7 @@ function roomFixture(id: string): RoomRecord {
     },
     members: [member('m1'), member('m2')],
     brief: { objective: 'o', successCriteria: [], decisions: [], activeWork: [], blockers: [], openQuestions: [], artifactRefs: [], updatedAt: 't', conductorNote: null, conductorNoteAt: null },
-    delivery: { destination: 'saved-artifact', params: {}, originSessionId: null, originWorkspaceId: null, deliveredAt: null, deliveryRef: null, originReturnedAt: null, originReturnRef: null },
+    delivery: { destination: 'saved-artifact', params: {}, originSessionId: null, originWorkspaceId: null, deliveredAt: null, deliveryRef: null, originReturnedAt: null, originReturnRef: null, unmergedBranches: [] },
     archivedAt: null,
     revisions: [],
     readCursors: [],
