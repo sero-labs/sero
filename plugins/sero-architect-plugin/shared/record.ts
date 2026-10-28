@@ -211,7 +211,8 @@ export interface Decision {
   raisedAt: string;
   /** A forced escalation carries what it proposes, applied only when the user picks `apply`. */
   proposal: DecisionProposal | null;
-  answer: { optionId: string; note: string | null; answeredAt: string } | null;
+  /** Pending flags retain unprocessed input and approved effects across budget holds and restart. */
+  answer: { optionId: string; note: string | null; answeredAt: string; pendingApply?: boolean; pendingOwner?: boolean } | null;
 }
 
 export interface Directive {
@@ -373,6 +374,8 @@ export interface ProjectRecord {
   waits?: WaitRegistration[];
   /** Bumped by a stop. A wait registered before the bump is stale. Absent counts as 0. */
   controlRevision?: number;
+  /** Last cancellation request and unresolved termination, retained across restart. */
+  cancellation?: { cause: 'user-stop' | 'budget'; at: string; detail: string };
 }
 
 export type { BlockedWork, BlockedWorkCause } from './blocked-work';

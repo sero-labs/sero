@@ -65,7 +65,7 @@ export interface RoomAppActions extends RoomLiveActions, RevisionActions {
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
   /** Re-plans a draft in the user's own words. Refused once the Room has started. */
   adjust(roomId: string, instruction: string): Promise<PrepareRoomOutcome>;
-  start(roomId: string): Promise<SimpleOutcome>;
+  start(roomId: string, signal?: AbortSignal): Promise<SimpleOutcome>;
   pause(roomId: string, detail?: string): Promise<SimpleOutcome>;
   resume(roomId: string, maxWallClockMs?: number): Promise<SimpleOutcome>;
   cancel(roomId: string, detail?: string): Promise<SimpleOutcome>;
@@ -214,6 +214,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       const requestId = input.requestId ?? host.newId('room-planning');
       const selection = applyProjectSnapshot(input.project?.modelSnapshot, undefined);
       const plan = await planRoom(host, {
+        signal: input.signal,
         model: selection.model, thinking: selection.thinking,
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
@@ -364,8 +365,8 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return { ok: true, roomId, proposal: outcome.proposal, clamps: outcome.clamps, usage: reportedUsage(currentRecord.runtime.planningUsage) };
     },
 
-    async start(roomId) {
-      return settled(await coordinator.startRoom(roomId));
+    async start(roomId, signal) {
+      return settled(await coordinator.startRoom(roomId, signal));
     },
 
     async pause(roomId, detail) {

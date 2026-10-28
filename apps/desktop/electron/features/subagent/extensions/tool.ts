@@ -66,19 +66,19 @@ export function registerSubagentTool(
       'parallel (tasks array), chain (sequential with {previous} placeholder).',
     parameters: SubagentParams,
 
-    async execute(toolCallId, params, _signal, onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
+    async execute(toolCallId, params, signal, onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
       // Wrap the SDK's onUpdate callback into a simple text callback for our helpers
       const textUpdate: OnUpdate = onUpdate
         ? (text: string) => onUpdate({ content: [{ type: 'text' as const, text }], details: undefined })
         : undefined;
       // Mode detection
       if (params.tasks && Array.isArray(params.tasks)) {
-        return executeParallel(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
+        return executeParallel(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId, signal);
       }
       if (params.chain && Array.isArray(params.chain)) {
-        return executeChain(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
+        return executeChain(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId, signal);
       }
-      return executeSingle(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
+      return executeSingle(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId, signal);
     },
   });
 }
@@ -98,6 +98,7 @@ async function executeSingle(
   workspaceId: string,
   onUpdate: OnUpdate,
   toolCallId?: string,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
   const task = p.task as string | undefined;
   const agent = p.agent as string | undefined;
@@ -120,6 +121,7 @@ async function executeSingle(
     parentSessionId,
     workspaceId,
     toolCallId,
+    signal,
     onUpdate,
   });
 
@@ -133,6 +135,7 @@ async function executeParallel(
   workspaceId: string,
   onUpdate: OnUpdate,
   toolCallId?: string,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
   const tasks = p.tasks as Array<{ agent: string; task: string; model?: string; thinking?: string; timeoutMs?: number }>;
 
@@ -144,6 +147,7 @@ async function executeParallel(
     parentSessionId,
     workspaceId,
     toolCallId,
+    signal,
     onUpdate,
   });
 
@@ -157,6 +161,7 @@ async function executeChain(
   workspaceId: string,
   onUpdate: OnUpdate,
   toolCallId?: string,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
   const chain = p.chain as Array<{ agent: string; task: string; model?: string; thinking?: string; timeoutMs?: number }>;
 
@@ -168,6 +173,7 @@ async function executeChain(
     parentSessionId,
     workspaceId,
     toolCallId,
+    signal,
     onUpdate,
   });
 

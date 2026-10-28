@@ -62,6 +62,7 @@ export interface OwnerServices {
     record: ProjectRecord,
     milestone: Milestone,
     request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null; project?: OrchestratorProjectContext },
+    onPrepared?: (link: { id: string; workspaceId: string; baseCommit: string; chargedUsd?: number }) => Promise<void>,
   ): Promise<{ id: string; workspaceId: string; baseCommit: string; chargedUsd?: number; start?(): Promise<void> }>;
   /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
   maintenance(record: ProjectRecord): Promise<ProjectRecord>;

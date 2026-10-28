@@ -65,6 +65,7 @@ export type RecordMutator = (record: ProjectRecord) => ProjectRecord | null | Pr
 
 export interface RecordStore {
   readonly projectsDir: string;
+  subscribe(listener: (record: ProjectRecord) => void): () => void;
   read(projectId: string): Promise<ProjectRecord | null>;
   list(): Promise<ProjectRecord[]>;
   /** Writes the record and its index row as one queued step. */
@@ -111,6 +112,7 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
   const projectsDir = path.join(deps.homeDir, 'projects');
   let queue: Promise<unknown> = Promise.resolve();
   let indexDirty = false;
+  const listeners = new Set<(record: ProjectRecord) => void>();
 
   /** The single writer. Each step waits for the previous, whether it succeeded or not. */
   function enqueue<T>(step: () => Promise<T>): Promise<T> {
@@ -186,6 +188,7 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
   /** Writes the authoritative record, then updates the derived index best-effort. */
   async function commit(record: ProjectRecord): Promise<void> {
     await writeAtomically(record);
+    for (const listener of listeners) listener(record);
     if (indexDirty) {
       try {
         await rebuildIndexUnlocked();
@@ -199,6 +202,10 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
 
   return {
     projectsDir,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
 
     read(projectId) {
       return readAt(recordPath(projectId));

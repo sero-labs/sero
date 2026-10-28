@@ -140,6 +140,7 @@ export class SubagentManager {
     workspaceId: string;
     /** Id of the `subagent` tool call that started these runs, when one did. */
     toolCallId?: string;
+    signal?: AbortSignal;
     /** Restrict to own workspace only — no cross-workspace mounts in container. */
     isolated?: boolean;
     onUpdate?: (text: string) => void;
@@ -156,6 +157,9 @@ export class SubagentManager {
 
         const runId = randomUUID();
         const controller = new AbortController();
+        const abort = () => controller.abort();
+        if (params.signal?.aborted) abort();
+        else params.signal?.addEventListener('abort', abort, { once: true });
         const entry: SubagentEntry = {
           id: runId, agentName: agent.name, taskPreview: t.task.slice(0, 200),
           status: 'running', startedAt: Date.now(), completedAt: null, durationMs: null,
@@ -195,6 +199,7 @@ export class SubagentManager {
           params.onUpdate?.(`✅ ${agent.name} completed (${dur}s, ${result.usage.totalTokens} tokens)`);
           return { idx, agent: agent.name, task: t.task, response: result.response, error: false };
         } finally {
+          params.signal?.removeEventListener('abort', abort);
           this.pool.releaseSlot(runId, params.parentSessionId, callGroup);
         }
       }),
@@ -224,12 +229,14 @@ export class SubagentManager {
     workspaceId: string;
     /** Id of the `subagent` tool call that started these runs, when one did. */
     toolCallId?: string;
+    signal?: AbortSignal;
     onUpdate?: (text: string) => void;
   }): Promise<string> {
     if (!this.deps) throw new Error('SubagentManager not initialized');
     const deps = this.deps;
 
     const runStep = async (step: number, previousOutput: string): Promise<string> => {
+      if (params.signal?.aborted) return 'Error: Aborted';
       if (step >= params.chain.length) return previousOutput;
 
       const s = params.chain[step];
@@ -243,6 +250,9 @@ export class SubagentManager {
 
       const runId = randomUUID();
       const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (params.signal?.aborted) abort();
+      else params.signal?.addEventListener('abort', abort, { once: true });
       const entry: SubagentEntry = {
         id: runId, agentName: agent.name, taskPreview: task.slice(0, 200),
         status: 'running', startedAt: Date.now(), completedAt: null, durationMs: null,
@@ -281,6 +291,7 @@ export class SubagentManager {
         params.onUpdate?.(`✅ [Step ${step + 1}] ${agent.name} completed (${dur}s, ${result.usage.totalTokens} tokens)`);
         return runStep(step + 1, result.response);
       } finally {
+        params.signal?.removeEventListener('abort', abort);
         this.pool.releaseSlot(runId, params.parentSessionId);
       }
     };

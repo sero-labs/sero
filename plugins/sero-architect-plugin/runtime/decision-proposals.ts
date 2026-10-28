@@ -1,3 +1,4 @@
+import { costCapReached } from '../shared/budget';
 /**
  * What the user's `apply` means for each forced escalation. Split from the
  * management actions to keep that file within the 500-LOC limit.
@@ -96,4 +97,36 @@ export async function applyDecisionProposal(deps: ProposalDeps, record: ProjectR
       // Answered by its own options, never by `apply`.
       return record;
   }
+}
+
+
+const applying = new WeakMap<RecordStore, Map<string, Promise<void>>>();
+
+/** Resume accepted effects from the existing decision record after budget recovery. */
+export function applySavedDecisionProposals(deps: ProposalDeps, projectId: string, now: string): Promise<void> {
+  let projects = applying.get(deps.store);
+  if (!projects) { projects = new Map(); applying.set(deps.store, projects); }
+  const active = projects.get(projectId);
+  if (active) return active;
+  const run = (async () => {
+    const record = await deps.store.read(projectId);
+    for (const decision of record?.decisions ?? []) {
+      if (!decision.answer?.pendingApply || !decision.proposal) continue;
+      const fresh = await deps.store.read(projectId);
+      if (!fresh || fresh.paused || fresh.blockedReason || costCapReached(fresh)) return;
+      try {
+        await applyDecisionProposal(deps, fresh, decision.proposal, now);
+        await deps.store.update(projectId, (current) => ({ ...current, decisions: current.decisions.map((item) =>
+          item.id === decision.id && item.answer ? { ...item, answer: { ...item.answer, pendingApply: false } } : item) }));
+      } catch (error) {
+        await deps.store.update(projectId, (current) => ({ ...current,
+          stateLine: `Saved decision ${decision.id} could not be applied: ${String(error)}`,
+          decisions: current.decisions.map((item) => item.id === decision.id && item.answer
+            ? { ...item, answer: { ...item.answer, pendingApply: false } } : item),
+        }));
+      }
+    }
+  })().finally(() => projects.delete(projectId));
+  projects.set(projectId, run);
+  return run;
 }

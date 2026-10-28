@@ -195,8 +195,12 @@ async function controlRoom(deps: LinkedWorkDeps, record: ProjectRecord, linked: 
 async function controlWorkflow(deps: LinkedWorkDeps, record: ProjectRecord, linked: Linked, request: ControlRequest): Promise<ControlOutcome> {
   const owner = { projectId: record.id };
   switch (request.operation) {
-    case 'cancel':
-      return refuse(`Workflow ${linked.id} cannot be cancelled from here. Pause it to stop new runs.`);
+    case 'cancel': {
+      const result = await requestOrchestratorAction(linked.workspaceId, { kind: 'disable', loopId: linked.id, owner });
+      return result.ok
+        ? { ok: true, status: 'disabled', text: `Workflow ${linked.id} is disabled; cancellation was requested for its active run.` }
+        : refuse(`Workflow ${linked.id} could not be stopped: ${result.error ?? 'the Orchestrator refused the change'}`);
+    }
     case 'pause': {
       const result = await requestOrchestratorAction(linked.workspaceId, { kind: 'set_armed', loopId: linked.id, armed: false, owner });
       if (!result.ok) return refuse(`Workflow ${linked.id} was not paused: ${result.error ?? 'the Orchestrator refused the change'}`);
@@ -313,4 +317,22 @@ export function hasSettledHeldRoom(record: ProjectRecord, rooms: readonly { id: 
     ...(record.pendingResearch ?? []).filter((entry) => entry.heldBy === 'project').map((entry) => entry.roomId),
   ]);
   return rooms.some((room) => room.status === 'paused' && held.has(room.id));
+}
+
+/** Cancel only work retained on this project's dispatch and research entries. */
+export async function stopProjectWork(deps: LinkedWorkDeps, record: ProjectRecord, cause: 'user-stop' | 'budget' = 'user-stop'): Promise<{ note: string }> {
+  const targets = [
+    ...record.milestones.filter((item) => item.dispatch && item.status === 'running').map((item) => item.id),
+    ...(record.pendingResearch ?? []).filter((entry) => entry.roomId || entry.workflowId).map((entry) => entry.id),
+  ];
+  const notes: string[] = [];
+  for (const target of targets) {
+    const fresh = (await deps.store.read(record.id)) ?? record;
+    const outcome = await controlLinkedWork(deps, fresh, { target, operation: 'cancel', by: 'project' })
+      .catch((error: unknown) => ({ ok: false, text: `Could not stop ${target}: ${String(error)}` }));
+    notes.push(outcome.text);
+  }
+  const detail = `${notes.join(' ')} Cancellation has been requested. Remote processes and requests that do not support cancellation may still finish; their final usage can arrive later.`.trim();
+  await deps.store.update(record.id, (fresh) => ({ ...fresh, cancellation: { cause, at: deps.now(), detail } }));
+  return { note: ` ${detail}` };
 }

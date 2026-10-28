@@ -1,3 +1,5 @@
+import { costCapReached } from '../shared/budget';
+import { abortOwner } from './project-cancellation';
 import { activeRun } from '../shared/runs';
 import type { TokenCounters } from './project-usage';
 import { createUsageReader } from './owner-usage';
@@ -129,6 +131,7 @@ export interface OwnerTurnResult {
 }
 
 export class OwnerSessions {
+  private readonly flushes = new Map<string, () => Promise<void>>();
   private readonly live = new Map<string, string>();
   /**
    * The turn each project is waiting on. Disposing the session removes the
@@ -262,6 +265,7 @@ export class OwnerSessions {
     /** Asked with the fresh record just before the prompt. False sends nothing. */
     mayStart?: (fresh: ProjectRecord) => boolean,
   ): Promise<OwnerTurnResult> {
+    if (costCapReached(record)) return { record, status: 'aborted', declared: null };
     let modelProblem: string | null = null;
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -313,19 +317,20 @@ export class OwnerSessions {
     const spans = this.deps.spans;
     const { model, thinking } = opened.session;
     let capAborted = false;
+    let capAbort: Promise<void> | undefined;
     const usage = createUsageReader({
       deps: this.deps, api, handleId, projectId: opened.id, usageSource, turnRecord, tokenMarks: this.tokenMarks,
       turnRunId, wakeId, model, thinking,
-      exemptFromCap: wake.kind === 'directive' || wake.kind === 'decision',
       // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
       overCap: () => {
         if (finished || capAborted) return;
         capAborted = true;
         this.deps.host.log(`owner turn for ${opened.id} stopped: the project reached its cost cap`);
-        void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not stop the owner at the cost cap: ${String(error)}`));
+        capAbort = abortOwner(api, handleId).catch((error: unknown) => this.deps.host.log(`Could not stop the owner at the cost cap: ${String(error)}`));
         resolveEnd('aborted');
       },
     });
+    this.flushes.set(opened.id, usage.flush);
     // The owner's request and tool state, for the project views. No text.
     const feedbackKey = `owner:${opened.id}`;
     const feedback = this.deps.host.feedback.open({
@@ -378,11 +383,8 @@ export class OwnerSessions {
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
         // Preparation took time: a pause or cap since the wake was admitted sends nothing.
-        if (mayStart) {
-          const fresh = await this.deps.store.read(opened.id);
-          if (fresh && !mayStart(fresh)) return 'aborted';
-          if (stopRequested()) return 'aborted';
-        }
+        const fresh = await this.deps.store.read(opened.id);
+        if (!fresh || costCapReached(fresh) || (mayStart && !mayStart(fresh)) || stopRequested()) return 'aborted';
         const { turnId } = await api.prompt(handleId, contract);
         await acknowledge();
         if (finished || stopRequested()) return 'aborted';
@@ -412,6 +414,7 @@ export class OwnerSessions {
       stall?.stop();
       this.waiting.delete(opened.id);
       unsubscribe();
+      usage.detach();
       // A turn that was stopped or timed out reported no end of its own.
       this.deps.host.feedback.lose((entry) => entry.key === feedbackKey);
       await this.deps.store.update(opened.id, (fresh) => ({
@@ -425,7 +428,9 @@ export class OwnerSessions {
     const declared = this.deps.outcomes.end(opened.id);
     const now = this.deps.host.now();
     // The usage read talks to the host, so it happens before the queued write.
+    await capAbort;
     await usage.flush();
+    this.flushes.delete(opened.id);
     if (spans && wakeId && turnRunId) {
       await spans.close({
         projectId: opened.id,
@@ -440,13 +445,17 @@ export class OwnerSessions {
     if (retry) this.overran.add(opened.id);
     else this.overran.delete(opened.id);
     const next = await this.deps.store.update(opened.id, (fresh) => {
+      if (!acknowledged && status === 'aborted') return fresh;
       let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
         : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };
+      if (status === 'completed') updated = { ...updated, decisions: updated.decisions.map((decision) =>
+        turnRecord.decisions.some((seen) => seen.id === decision.id && seen.answer && !seen.answer.pendingApply) && decision.answer
+          ? { ...decision, answer: { ...decision.answer, pendingOwner: false } } : decision) };
       if (status === 'error' && !retry) {
         const stopped = block(updated, now, failure);
         if (stopped.ok) updated = { ...stopped.record, stateLine: failure };
       }
-      updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
+      if (acknowledged) updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
       return updated;
     });
     return { record: next ?? opened, status, declared, ...(retry ? { retry } : {}) };
@@ -465,6 +474,9 @@ export class OwnerSessions {
     if (!handleId) return;
     this.live.delete(projectId);
     this.deps.onHandle?.(projectId);
+    const flush = this.flushes.get(projectId);
+    await abortOwner(this.api(), handleId);
+    await flush?.();
     await this.api().dispose(handleId);
   }
 

@@ -34,18 +34,20 @@ export async function startResearchWorkflow(deps: ResearchWorkflowDeps, record: 
   running.add(pending.id);
   try {
     if (!record.workspaceId) throw new Error('The project has no workspace for research.');
+    const workspaceId = record.workspaceId;
     const deadline = Date.now() + 5000;
     while (!getOrchestratorRegistry()?.has(record.workspaceId) && Date.now() < deadline) await delay(100);
     if (!getOrchestratorRegistry()?.has(record.workspaceId)) throw new Error('The workspace Workflow runtime is not ready. Resume to retry.');
+    record = (await deps.store.read(record.id)) ?? record;
     let loopId = pending.workflowId;
     if (!loopId) {
-      if (record.paused || record.blockedReason) return;
+      if (record.paused || record.blockedReason || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd)) return;
       const project = await ensureResearchContext(deps, record, pending);
       // The start was promised its budget when the request was saved. An entry
       // saved before promises existed is measured against what the project has left.
       const remaining = pending.allocatedUsd ?? (record.budget.capUsd === null ? RESEARCH_START_USD : record.budget.capUsd - record.budget.spentUsd);
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
-      const result = await requestOrchestratorAction(record.workspaceId, {
+      const result = await requestOrchestratorAction(workspaceId, {
         kind: 'create',
         title: pending.question,
         prompt: `Investigate this project question in a bounded sequence of steps.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nProduce findings, evidence and unresolved user decisions. Save the final research report as a local artifact and include its path in the final step summary. Do not implement the product or change its source files.`,
@@ -59,10 +61,11 @@ export async function startResearchWorkflow(deps: ResearchWorkflowDeps, record: 
         stateLine: 'A Workflow is investigating the project question.',
       }, deps.host.now()));
     }
+    record = (await deps.store.read(record.id)) ?? record;
     const saved = await deps.host.readJson(path.join(record.folder, stateDir, 'loops', loopId, 'loop.json')) as { status?: string } | null;
     if (!pending.workflowId || saved?.status === 'draft') {
-      if (record.paused || record.blockedReason) return;
-      const started = await requestOrchestratorAction(record.workspaceId, { kind: 'activate', loopId });
+      if (record.paused || record.blockedReason || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd)) return;
+      const started = await requestOrchestratorAction(workspaceId, { kind: 'activate', loopId });
       if (!started.ok) throw new Error(started.error ?? 'The research Workflow could not start.');
     }
     const index = await deps.host.readJson(path.join(record.folder, ORCHESTRATOR_INDEX_FILE));

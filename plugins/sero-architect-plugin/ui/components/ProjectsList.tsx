@@ -51,7 +51,7 @@ export function ProjectsList({ projects, runtime, needsOnly, onOpen, onNewProjec
       {projects.length === 0 ? (
         <div className="ar-empty">
           <h3>No projects yet</h3>
-          <p>Tell Architect what you want and set a start cap. It plans, builds and checks the work inside that cap. It asks you when it needs a decision.</p>
+          <p>Tell Architect what you want and set a start cap. It plans, builds and checks the work. When reported spend reaches the cap, it requests a stop. Active requests may still add cost. It asks you when it needs a decision.</p>
           <Button size="sm" className="ar-btn ar-btn-solid" onClick={onNewProject}><Plus className="ar-i" />New project</Button>
         </div>
       ) : (

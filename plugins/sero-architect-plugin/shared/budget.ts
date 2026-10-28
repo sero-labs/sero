@@ -56,3 +56,8 @@ export function allocateStart(record: ProjectRecord, askedUsd: number | null): A
   }
   return { ok: true, allocatedUsd: askedUsd === null ? free : Math.min(askedUsd, free) };
 }
+
+/** Known reported spend has exhausted the user's cap. */
+export function costCapReached(record: ProjectRecord): boolean {
+  return record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd;
+}

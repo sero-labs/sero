@@ -25,6 +25,9 @@ import {
 } from '../registry';
 import { createRoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCommandRouter } from '../rooms/room-command-router';
+import { RoomCoordinator } from '../rooms/room-coordinator';
+import { createRoomWorkspaces } from '../rooms/room-workspace';
+import { createMemberSessionPool } from '../rooms/member-session';
 import { createRoomDispatchHandle } from '../rooms/room-dispatch-handle';
 import { createFakeHost } from './fake-host';
 import { planJson, oneStepPlan, seedActiveLoop } from './fixtures';
@@ -152,6 +155,69 @@ describe('Room creation through the typed handle', () => {
     expect(host.modelCalls[0].task).toContain('read-only');
     // A Room created without a stored approval asks the host as it always did.
     expect(host.persistentSessions.proposals[0].delegationPolicyId).toBeUndefined();
+  });
+
+  it.each([
+    ['user Stop', 'workspace'],
+    ['budget exhaustion', 'approval'],
+  ] as const)('keeps %s connected through deferred %s preparation', async (reason, stage) => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const workspaces = createRoomWorkspaces({ host, store });
+    const releases = vi.spyOn(workspaces, 'releaseRoom');
+    const coordinator = new RoomCoordinator(host, { store, workspaces, sessions: createMemberSessionPool({ host, store }) });
+    const ownedApp = createRoomAppActions({ host, store, coordinator, workspaceId: 'ws-1' });
+    let enter!: () => void;
+    let finish!: () => void;
+    const entered = new Promise<void>((resolve) => { enter = resolve; });
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    if (stage === 'workspace') {
+      const prepare = workspaces.prepare.bind(workspaces);
+      workspaces.prepare = async (roomId) => { enter(); await gate; return prepare(roomId); };
+    } else {
+      const requestGrant = host.persistentSessions.requestGrant.bind(host.persistentSessions);
+      host.persistentSessions.requestGrant = async (proposal) => { enter(); await gate; return requestGrant(proposal); };
+    }
+    const controller = new AbortController();
+    const creating = createRoomDispatchHandle(ownedApp).create({ mandate: 'Investigate the project.', signal: controller.signal });
+    await entered;
+    controller.abort(reason);
+    finish();
+    const result = await creating;
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect((await store.readRoom(result.roomId))?.runtime.status).toBe('cancelled');
+    expect(host.persistentSessions.prompts).toHaveLength(0);
+    expect(releases).toHaveBeenCalled();
+    if (stage === 'approval') expect(host.persistentSessions.revoked).toContain('grant-1');
+  });
+
+  it('cancels a prepared Room if retaining ownership fails, after reporting planner usage', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()), usage: { costUsd: 0.25, inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
+    let charged = 0;
+    let roomId = '';
+    const result = await createRoomDispatchHandle(app).create({
+      mandate: 'Investigate the project.',
+      onPlanned: async (usage) => { charged = usage?.costUsd ?? 0; },
+      onPrepared: async (id) => { roomId = id; throw new Error('Storage unavailable'); },
+    });
+    expect(result.ok).toBe(false);
+    expect(charged).toBe(0.25);
+    expect((await app.inspect(roomId))?.status).toBe('cancelled');
+    expect(host.persistentSessions.prompts).toHaveLength(0);
+    expect(host.persistentSessions.proposals).toHaveLength(0);
+  });
+
+  it('accounts planning before starting a member and retains a cancelled late-created Room', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const controller = new AbortController();
+    const result = await createRoomDispatchHandle(app).create({
+      mandate: 'Investigate the project.', signal: controller.signal,
+      onPlanned: async () => { controller.abort(); },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect((await app.inspect(result.roomId))?.status).toBe('cancelled');
+    expect(host.persistentSessions.proposals).toHaveLength(0);
   });
 
   it('names the caller\'s stored approval when the Room asks for its grant', async () => {
@@ -291,6 +357,17 @@ describe('Trigger arming through the typed handle', () => {
     host.state = { ...host.state, loops: [armed] };
     return armed;
   }
+
+  it('refuses to disable a different project Workflow', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    seedMaintenanceLoop(host, 'another-project');
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'disable', loopId: 'loop-maint', owner: { projectId: 'proj_1' },
+    });
+    expect(result.ok).toBe(false);
+    expect(host.state.loops[0].status).toBe('active');
+  });
 
   it('disarms every trigger and leaves the run in flight alone', async () => {
     const host = createFakeHost({ workspaceId: 'ws-1' });

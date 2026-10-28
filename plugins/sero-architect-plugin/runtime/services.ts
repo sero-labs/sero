@@ -5,6 +5,7 @@
  * touches any of these; it asks, and is woken with the result.
  */
 
+import { withProjectCancellation } from './project-cancellation';
 import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -132,7 +133,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     });
   };
 
-  const runEvidence = async (projectId: string, milestoneId: string, commands: string[], route: string | null): Promise<void> => {
+  const runEvidence = async (projectId: string, milestoneId: string, commands: string[], route: string | null, signal: AbortSignal): Promise<void> => {
     const startedAt = Date.now();
     const record = await store.read(projectId);
     const milestone = record?.milestones.find((m) => m.id === milestoneId);
@@ -146,8 +147,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const ran: EvidenceCommand[] = [];
     await span(record, 'evidence', milestoneId, async () => {
       for (const command of commands) {
+        if (signal.aborted) throw new Error('Evidence cancelled.');
         const began = Date.now();
-        const result = await host.runCommand(workspaceId, directory, command, COMMAND_TIMEOUT_MS);
+        const result = await host.runCommand(workspaceId, directory, command, COMMAND_TIMEOUT_MS, signal);
         ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
       }
     });
@@ -213,11 +215,19 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const key = `${projectId}:${milestoneId}`;
     if (activeEvidence.has(key)) return;
     activeEvidence.add(key);
-    void runEvidence(projectId, milestoneId, commands, route).catch(async (error: unknown) => {
+    const controller = new AbortController();
+    const detach = store.subscribe((record) => {
+      if (record.id === projectId && (record.blockedReason === 'stopped by the user'
+        || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd))) controller.abort();
+    });
+    void store.read(projectId).then((record) => {
+      if (!record || record.blockedReason === 'stopped by the user' || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd)) controller.abort();
+      return runEvidence(projectId, milestoneId, commands, route, controller.signal);
+    }).catch(async (error: unknown) => {
       await recordEvidenceFailure(projectId, milestoneId, startedAt, commands, error instanceof Error ? error.message : String(error));
     }).catch((error: unknown) => {
       host.log(`could not record evidence failure for ${key}: ${error instanceof Error ? error.message : String(error)}`);
-    }).finally(() => activeEvidence.delete(key));
+    }).finally(() => { detach(); activeEvidence.delete(key); });
   };
 
   const runResearch = (record: ProjectRecord, pending: PendingResearch): void => {
@@ -249,6 +259,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       // nothing is promised for it: it starts only while some budget is free.
       let refusal = '';
       const written = await store.update(record.id, (fresh) => {
+        if (fresh.paused || fresh.blockedReason) { refusal = 'The project is stopped.'; return null; }
         const allocation = allocateStart(fresh, RESEARCH_START_USD);
         if (!allocation.ok) {
           refusal = allocation.error;
@@ -262,7 +273,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       return { id: pending.id };
     },
 
-    async dispatch(record, milestone, request) {
+    async dispatch(record, milestone, request, onPrepared) {
+      const current = await store.read(record.id);
+      if (!current || current.paused || current.blockedReason || (current.budget.capUsd !== null && current.budget.spentUsd >= current.budget.capUsd)) throw new Error('The project is stopped or has no budget for a new dispatch.');
       if (!record.workspaceId) throw new Error('The project has no workspace to dispatch into.');
       // Captured after the guard: a narrowing does not survive into a closure.
       // A distinct name, because the workflow branch below declares its own.
@@ -306,6 +319,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         const loopId = result.loopId;
         const workspaceId = record.workspaceId;
         return { id: loopId, workspaceId, baseCommit, async start() {
+          const current = await store.read(record.id);
+          if (!current || current.paused || current.blockedReason || (current.budget.capUsd !== null && current.budget.spentUsd >= current.budget.capUsd)) return;
           const activated = await requestOrchestratorAction(workspaceId, { kind: 'activate', loopId });
           if (!activated.ok) throw new Error(activated.error ?? 'The Workflow could not start.');
         } };
@@ -321,8 +336,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const policyId = delegationPolicyId(record);
       if (policyId) roomRequest.delegationPolicyId = policyId;
       // A Room's planning is its own operation, before any member starts.
-      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => createOrchestratorRoom(projectWorkspaceId, roomRequest));
-      const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
+      let plannedCharge: number | undefined;
+      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => withProjectCancellation(store, record.id, (signal) => createOrchestratorRoom(projectWorkspaceId, { ...roomRequest, signal, onPlanned: async (usage) => { plannedCharge = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, usage); }, onPrepared: async (id) => { await onPrepared?.({ id, workspaceId: projectWorkspaceId, baseCommit, chargedUsd: plannedCharge }); } })));
+      const chargedUsd = plannedCharge ?? await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };
     },

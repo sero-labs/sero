@@ -1,3 +1,4 @@
+import { withProjectCancellation } from './project-cancellation';
 import { RESEARCH_START_USD } from '../shared/budget';
 import { closeDeliveredObjectives } from './objective-completion';
 import type { RunJournal } from './run-journal';
@@ -48,7 +49,7 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
     const pending = record.pendingResearch?.find((entry) => entry.id === requested.id);
     if (!pending) return;
     if (!pending.roomId) {
-      if (record.paused || record.blockedReason) return;
+      if (record.paused || record.blockedReason || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd)) return;
       // The planner already asked; the user has not answered. Planning again
       // would only ask again.
       if (hasOpenResearchAccessDecision(record, pending.id)) return;
@@ -67,7 +68,19 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
       const commands = access === 'edit-workspace'
         ? ' You may run commands such as tests and builds to answer the question.'
         : '';
-      const result = await createOrchestratorRoom(snapshot.workspaceId, {
+      const retain = async (roomId: string) => {
+        const saved = await deps.store.update(record.id, (fresh) => {
+          const entry = fresh.pendingResearch?.find((item) => item.id === pending.id);
+          if (entry?.roomId === roomId) return fresh;
+          if (!entry || entry.roomId) return null;
+          return settle({ ...fresh, pendingResearch: fresh.pendingResearch?.map((item) => item.id === pending.id ? { ...item, roomId, chargedUsd: item.chargedUsd ?? 0 } : item),
+            ...(!fresh.paused && !fresh.blockedReason && (fresh.budget.capUsd === null || fresh.budget.spentUsd < fresh.budget.capUsd) ? { stateLine: 'A Room is working on the project question.' } : {}),
+          }, deps.host.now());
+        });
+        if (!saved) throw new Error(`Could not retain research Room ${roomId}.`);
+      };
+      const result = await withProjectCancellation(deps.store, record.id, async (signal) => createOrchestratorRoom(snapshot.workspaceId!, {
+        signal, onPrepared: retain, onPlanned: async (usage) => { await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, usage); },
         project, requestId: `${record.id}:${pending.id}`,
         ...(delegationPolicyId(record) ? { delegationPolicyId: delegationPolicyId(record) } : {}),
         mandate: pending.openSpecChange
@@ -76,7 +89,7 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
         // Commands need isolation whatever the project's own mode: in Workspace
         // mode an editing member would otherwise run in the shared working tree.
         limits: { ...await roomModelLimits(deps.host, project.modelSnapshot), ...roomWorkspace(record), ...(access === 'edit-workspace' ? { executionMode: 'worktree' as const } : {}), maxCostUsd: Math.min(RESEARCH_START_USD, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
-      });
+      }));
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
       if (!result.ok && result.questions?.length) {
         // A planner question is the user's to answer, on the project page,
@@ -95,15 +108,13 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
         // The Room plan was refused. The owner asked for this research, so it
         // gets the reason and the entry is closed: it can ask again in another
         // way. The user cannot correct a Room plan, so the project does not block.
+        if ((await deps.store.read(record.id))?.pendingResearch?.find((entry) => entry.id === pending.id)?.roomId) throw new Error(result.error);
         const refused = result.error;
-        await deps.store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: fresh.pendingResearch?.filter((entry) => entry.id !== pending.id) }, deps.host.now()));
+        await deps.store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: fresh.pendingResearch?.filter((entry) => entry.id !== pending.id || !!entry.roomId) }, deps.host.now()));
         deps.wake(record.id, { kind: 'dispatch-blocked', at: deps.host.now(), items: [`research ${pending.id} did not start, and nothing is running for it: ${refused}. Ask for the research again in a way that avoids this, do the work another way, or call blocked if you cannot go on`] });
         return;
       }
-      await deps.store.update(record.id, (fresh) => settle({ ...fresh,
-        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, roomId: result.roomId, chargedUsd: entry.chargedUsd ?? 0 } : entry),
-        stateLine: 'A Room is working on the project question.',
-      }, deps.host.now()));
+      await retain(result.roomId);
     }
     // Covers a Room that finished before its link was saved, and restart reads.
     const index = await deps.host.readJson(path.join(record.folder, ORCHESTRATOR_ROOM_INDEX_FILE));

@@ -30,7 +30,9 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
     return status ? { ok: true, status } : { ok: false, error: `Room not found: ${roomId}`, status: null };
   };
   const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
-      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project, delegationPolicyId: request.delegationPolicyId });
+      if (request.signal?.aborted) return { ok: false, error: 'Room creation cancelled.' };
+      const planned = await app.prepare({ signal: request.signal, problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project, delegationPolicyId: request.delegationPolicyId });
+      await request.onPlanned?.(planned.usage);
       if (!planned.ok) {
         if (planned.needsInput) {
           const questions = planned.questions.map((question) => question.prompt);
@@ -38,12 +40,28 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
         }
         return { ok: false, error: planned.error, usage: planned.usage };
       }
-      if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId, usage: planned.usage };
-      const started = await app.start(planned.roomId);
-      if (!started.ok) {
-        return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}`, usage: planned.usage };
-      }
-      return { ok: true, roomId: planned.roomId, usage: planned.usage };
+      let cancellation: Promise<ControlOutcome> | undefined;
+      const cancel = () => { cancellation ??= app.cancel(planned.roomId, 'The owning project stopped or reached its budget.').catch((error: unknown) => ({ ok: false, error: String(error) })); };
+      request.signal?.addEventListener('abort', cancel, { once: true });
+      try {
+        if (request.signal?.aborted) cancel();
+        await request.onPrepared?.(planned.roomId);
+        if (!request.signal?.aborted && (!planned.status || ['draft', 'ready', 'adjusting'].includes(planned.status))) {
+          const started = await app.start(planned.roomId, request.signal);
+          if (!started.ok && !request.signal?.aborted) {
+            return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}`, usage: planned.usage };
+          }
+        }
+        // Retain the prepared identity even when Start was cancelled, so the
+        // project can observe final usage and report any unresolved cleanup.
+        await cancellation;
+        return { ok: true, roomId: planned.roomId, usage: planned.usage };
+      } catch (error) {
+        cancel();
+        const cleanup = await cancellation;
+        return { ok: false, error: `Room ${planned.roomId} could not retain its owner: ${String(error)}${cleanup && !cleanup.ok ? `. Cancellation unconfirmed: ${cleanup.error}` : ''}`, usage: planned.usage };
+      } finally { request.signal?.removeEventListener('abort', cancel); }
+
   };
   return {
     inspect: (roomId) => app.inspect(roomId),

@@ -1,3 +1,4 @@
+import { costCapReached } from '../shared/budget';
 /**
  * The user's management surface: create, pause, resume, stop, raise cap, set
  * autonomy, approve, answer, directive and delete. The UI and the
@@ -16,7 +17,7 @@ import { createProjectRecord, toIndexEntry, type AutonomySetting, type Execution
 import type { CreateProjectInput } from '../shared/create-project';
 import { resolveIntakePlacement } from './intake-placement';
 import { createIntake } from './intake';
-import { controlLinkedWork, holdProjectWork, releaseProjectWork, type ControlOperation, type LinkedWorkDeps } from './linked-work';
+import { controlLinkedWork, holdProjectWork, stopProjectWork, releaseProjectWork, type ControlOperation, type LinkedWorkDeps } from './linked-work';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
@@ -39,7 +40,7 @@ import { createRequestChangeAction } from './request-change';
 import { createEnableOpenSpecAction } from './enable-openspec';
 import { closeDeliveredObjectives } from './objective-completion';
 import { answerResearchAccess, restartsResearch } from './research-access';
-import { applyDecisionProposal } from './decision-proposals';
+import { applyDecisionProposal, applySavedDecisionProposals } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
 import type { WorkWatch } from './work-watch';
 import type { DispatchWatch } from './dispatch-watch';
@@ -302,17 +303,15 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);
-      await sessions.dispose(projectId);
-      const held = hasAgreement(stopped.record) ? await holdProjectWork(linked, stopped.record) : null;
-      // A Stop is not completion: the run ends as stopped, and any work that is
-      // still in flight keeps its identity so its late usage stays attributable.
+      const ownerFailure = await sessions.dispose(projectId).then(() => '', (error: unknown) => `Owner cancellation was not confirmed: ${String(error)}.`);
+      const held = await stopProjectWork(linked, stopped.record);
+      if (ownerFailure) await store.update(projectId, (fresh) => ({ ...fresh, cancellation: { cause: 'user-stop', at: host.now(), detail: `${ownerFailure}${held.note}` } }));
       if (deps.journal) {
         await closeActiveRun({ store, journal: deps.journal }, projectId, 'stopped', host.now()).catch((error: unknown) => {
           host.log(`could not close the active run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
         });
       }
-      if (held) return ok(`Project ${projectId} stopped. The owner session is closed and no new work starts.${held.note}`);
-      return ok(`Project ${projectId} stopped. Running work continues under its own limits; the owner session is closed.`);
+      return ok(`Project ${projectId} stopped. ${ownerFailure || 'The owner session is closed and no new work starts.'}${held.note}`);
     },
 
     async control(projectId, target, operation, limits = {}) {
@@ -325,12 +324,14 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     async raiseCap(projectId, capUsd) {
       let wasLimited = false;
       const result = await mutateRecord(store, projectId, (record) => {
-        wasLimited = record.overlay === 'limited';
+        wasLimited = costCapReached(record);
         const raised = setCap(record, capUsd, host.now());
         return raised.ok ? { record: raised.record } : { error: raised.error };
       });
       if (!result.ok) return refuse(result.error);
-      if (wasLimited && result.record.overlay !== 'limited') {
+      if (wasLimited && !costCapReached(result.record)) {
+        await applySavedDecisionProposals({ store, services, linked }, projectId, host.now());
+        services.recoverPending((await store.read(projectId)) ?? result.record);
         scheduler.request(projectId, { kind: 'decision', at: host.now(), items: [`the user raised the cap to $${capUsd}`] });
       }
       return ok(`Cap set to $${capUsd}.`);
@@ -396,7 +397,8 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (decision.answer) return { error: `Decision ${decisionId} is already answered.` };
         if (!decision.options.some((o) => o.id === optionId)) return { error: `"${optionId}" is not an option of decision ${decisionId}.` };
         proposal = decision.proposal;
-        const withAnswer = { ...decision, answer: { optionId, note: note?.trim() || null, answeredAt: now } };
+        const pendingApply = costCapReached(record) && optionId === 'apply' && !!decision.proposal && !['cap', 'charter', 'research-access'].includes(decision.proposal.kind);
+        const withAnswer = { ...decision, answer: { optionId, note: note?.trim() || null, answeredAt: now, pendingOwner: true, ...(pendingApply ? { pendingApply: true } : {}) } };
         let next: ProjectRecord = settle({
           ...record,
           decisions: record.decisions.map((d) => (d.id === decisionId ? withAnswer : d)),
@@ -428,6 +430,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return { record: next };
       });
       if (!answered.ok) return refuse(answered.error);
+      if (answered.record.decisions.find((item) => item.id === decisionId)?.answer?.pendingApply) return ok('Answer saved, waiting for a budget increase.');
       if (proposal && optionId === 'apply') {
         try {
           await applyDecisionProposal({ store, services, linked }, answered.record, proposal, now);
@@ -446,9 +449,8 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           return refuse(`Decision ${decisionId} was not applied: ${reason}. It remains open so the user can retry.`);
         }
       }
-      // Read back from the record: the closure above assigns `proposal` and
-      // control-flow typing does not follow it.
       const applied = answered.record.decisions.find((decision) => decision.id === decisionId)?.proposal ?? null;
+      if (costCapReached((await store.read(projectId)) ?? answered.record)) return ok('Answer saved, waiting for a budget increase.');
       if (applied?.kind === 'research-access' && restartsResearch(optionId)) services.restartResearch(answered.record, applied.researchId);
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user answered decision ${decisionId} with "${optionId}"${note?.trim() ? ' and left a note' : ''}`] });
       return ok(`Decision ${decisionId} answered with "${optionId}".`);
@@ -461,6 +463,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const id = host.newId('dir');
       const sent = await store.update(projectId, (record) => settle({ ...record, directives: [...record.directives, { id, text: body, sentAt: now, reply: null }] }, now));
       if (!sent) return refuse(`No project ${projectId}.`);
+      if (costCapReached(sent)) return ok('Reply saved, waiting for a budget increase.');
       scheduler.request(projectId,{ kind: 'directive', at: now, items: [`directive ${id}`] });
       return ok(`Directive ${id} sent. The owner replies on its next wake.`);
     },

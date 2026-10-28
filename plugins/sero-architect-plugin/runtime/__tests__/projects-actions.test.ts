@@ -531,7 +531,7 @@ describe('project management', () => {
     expect((await actions.answer('proj_1', 'dec_1', 'sq', 'Keep it simple.')).ok).toBe(true);
     const record = await store.read('proj_1');
     expect(record?.overlay).toBeNull();
-    expect(record?.decisions[0]?.answer).toEqual({ optionId: 'sq', note: 'Keep it simple.', answeredAt: T0 });
+    expect(record?.decisions[0]?.answer).toEqual({ optionId: 'sq', note: 'Keep it simple.', answeredAt: T0, pendingOwner: true });
     expect(record?.milestones[1]).toMatchObject({ status: 'approved', parkedBy: null });
     // The answer entry names the chosen option and folds the note.
     const answerEntry = record?.history.find((entry) => entry.cause.startsWith("You answered Architect's question:"));
@@ -595,7 +595,7 @@ describe('project management', () => {
     expect(services.dispatch).not.toHaveBeenCalled();
     await store.write(buildingProject({ phase: 'release', decisions: [decision], milestones: [milestone('m1', { status: 'approved' })] }));
     await actions.answer('proj_1', 'dec_1', 'apply');
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }));
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }), expect.any(Function));
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_9', destination: 'chat-post' } });
   });
 
@@ -912,4 +912,37 @@ describe('pausing a project pauses what it runs on a trigger', () => {
       expect((await store.read(record.id))?.milestones[0].status).toBe('running');
     } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
   });
+});
+
+it('retains an accepted dispatch while capped and applies it once after a sufficient increase', async () => {
+  const { store, actions, services } = await setup();
+  const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 },
+    milestones: [milestone('m1', { status: 'approved' })],
+    decisions: [{ id: 'd1', question: 'Dispatch?', options: [{ id: 'apply', label: 'Apply', consequence: 'Build' }], recommendation: 'apply', reason: 'Scope', dependsOn: [], raisedAt: T0,
+      proposal: { kind: 'dispatch', milestoneId: 'm1', dispatchKind: 'workflow', prompt: 'Build the approved work', destination: 'workspace-files' }, answer: null }],
+  });
+  await store.write(record);
+  expect((await actions.answer(record.id, 'd1', 'apply')).ok).toBe(true);
+  expect((await store.read(record.id))?.decisions[0].answer).toMatchObject({ optionId: 'apply', pendingApply: true });
+  expect(services.dispatch).not.toHaveBeenCalled();
+  await actions.raiseCap(record.id, 2);
+  expect(services.dispatch).not.toHaveBeenCalled();
+  await actions.raiseCap(record.id, 5);
+  await actions.raiseCap(record.id, 6);
+  expect(services.dispatch).toHaveBeenCalledTimes(1);
+  expect((await store.read(record.id))?.decisions[0].answer?.pendingApply).toBe(false);
+});
+
+it('keeps the saved answer readable when its deferred child effect cannot be applied', async () => {
+  const { store, actions } = await setup();
+  const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 },
+    decisions: [{ id: 'd1', question: 'More Room time?', options: [{ id: 'apply', label: 'Apply', consequence: 'Resume' }], recommendation: 'apply', reason: 'Time', dependsOn: [], raisedAt: T0,
+      proposal: { kind: 'room-time', target: 'missing-room', maxMinutes: 30 }, answer: null }],
+  });
+  await store.write(record);
+  await actions.answer(record.id, 'd1', 'apply');
+  await actions.raiseCap(record.id, 5);
+  const saved = (await store.read(record.id))!;
+  expect(saved.decisions[0].answer).toMatchObject({ optionId: 'apply', pendingApply: false, pendingOwner: true });
+  expect(saved.stateLine).toContain('could not be applied');
 });

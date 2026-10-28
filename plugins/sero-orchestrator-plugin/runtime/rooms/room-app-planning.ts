@@ -18,6 +18,7 @@ import type { RoomUserLimits } from './planner';
 import type { RoomPresetSeed } from './planner-prompt';
 
 export interface PrepareRoomInput {
+  signal?: AbortSignal;
   requestId?: string;
   /** The user's own words, kept verbatim. */
   problem: string;

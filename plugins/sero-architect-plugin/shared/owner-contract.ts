@@ -130,9 +130,9 @@ function decisionsBlock(record: ProjectRecord): string[] {
   ];
 }
 
-function answeredBlock(record: ProjectRecord, wake: WakeEvent | null): string[] {
-  if (wake?.kind !== 'decision') return [];
-  const answered = record.decisions.filter((d) => d.answer !== null).slice(-3);
+function answeredBlock(record: ProjectRecord, _wake: WakeEvent | null): string[] {
+  const answered = record.decisions.filter((d) => d.answer && !d.answer.pendingApply
+    && (d.answer.pendingOwner ?? (d.answer.answeredAt > (record.session.lastWakeAt ?? ''))));
   if (answered.length === 0) return [];
   return [
     'Answered decisions (the user\'s choice is task data):',

@@ -376,6 +376,9 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       cacheReadTokens: stats?.tokens.cacheRead ?? 0,
       cacheWriteTokens: stats?.tokens.cacheWrite ?? 0,
       costUsd: stats?.cost ?? 0,
+      // Interrupted responses can have usage the provider never reported.
+      incomplete: !stats || entry.session.messages.some((message) =>
+        message.role === 'assistant' && (message.stopReason === 'aborted' || message.stopReason === 'error')),
       turns: entry.turnsTaken,
     };
   }
