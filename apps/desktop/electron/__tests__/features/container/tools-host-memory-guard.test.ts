@@ -13,9 +13,14 @@ import {
 } from '@electron/features/container/tools/memory-file-guard';
 
 /**
- * The tools a host workspace actually runs, on a real host runtime (#658).
+ * The tools a host workspace actually runs, on the real host runtime (#658).
  * `tools-host.ts` had its own copy of these; the guard belongs to the tools the
  * session loads, so it is tested there.
+ *
+ * `rootDir` is passed as the tools' cwd, which is the worktree-subdirectory case
+ * a session uses. A session at the default `/workspace` cwd reaches a symlink
+ * through `bash` without the guard seeing it: that is #678, not something this
+ * test should claim to cover.
  */
 function hostTools(rootDir: string): ToolDefinition[] {
   const runtime = createHostRuntime(rootDir);
@@ -35,13 +40,21 @@ function getTool(tools: ToolDefinition[], name: string): ToolDefinition {
 
 describe('memory guard on the host runtime', () => {
   const originalSeroHome = process.env.SERO_HOME;
+  let seroHome: string;
 
-  beforeEach(() => {
-    process.env.SERO_HOME = '/tmp/sero-home';
+  // A real Sero home: the production backend resolves its allowed roots from
+  // SERO_HOME, so a path that does not exist cannot stand in for one.
+  beforeEach(async () => {
+    seroHome = await mkdtemp(path.join(os.tmpdir(), 'sero-home-guard-'));
+    // The agent directory is one of the backend's allowed roots, so a real
+    // install always has it; the guard test needs the same shape.
+    await mkdir(path.join(seroHome, 'agent'), { recursive: true });
+    process.env.SERO_HOME = seroHome;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env.SERO_HOME = originalSeroHome;
+    await rm(seroHome, { recursive: true, force: true });
   });
 
   it('blocks direct and cwd-based access to managed memory files when containers are disabled', async () => {
