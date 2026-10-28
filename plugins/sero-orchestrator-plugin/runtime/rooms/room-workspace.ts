@@ -41,6 +41,7 @@
 
 import type { RoomMember, RoomUnmergedBranch } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
+import { readMemberBranchState } from './room-branch-state';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
@@ -361,45 +362,6 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     };
   }
 
-  /**
-   * One `git` call at the workspace root, or null when it could not run at all.
-   * The caller reads the exit code, because for Git "no commits" and "no such
-   * ref" are both failures and mean different things here.
-   */
-  async function git(command: string): Promise<{ exitCode: number; stdout: string } | null> {
-    const result = await host.runCommand(`git ${command}`, 15_000).catch(() => null);
-    return result ? { exitCode: result.exitCode, stdout: result.stdout } : null;
-  }
-
-  /**
-   * What Git says about one member branch, relative to the workspace the user
-   * asked for. `'absent'` is a branch that no longer exists, so there is nothing
-   * to name; `commits: null` is a branch whose state could not be read, which is
-   * NOT the same as merged (#654).
-   */
-  async function readBranch(branch: string): Promise<'absent' | { commits: number | null }> {
-    // Every branch here comes from `createWorktree`, so a name that cannot be
-    // handed to a shell intact is a defect. Guessing is worse than reporting it.
-    if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith('-')) return { commits: null };
-    const ref = `'refs/heads/${branch}'`;
-    const exists = await git(`rev-parse --verify --quiet ${ref}`);
-    if (exists === null) return { commits: null };
-    if (exists.exitCode !== 0) return 'absent';
-    // A Room can start before the workspace has its first commit, and the
-    // snapshot placement keeps HEAD unborn rather than bootstrapping one. Then
-    // every commit on the branch is one the workspace does not have — asking
-    // `git rev-list ... --not HEAD` would fail, and a failed read must never be
-    // read as "already merged".
-    const head = await git('rev-parse --verify --quiet HEAD');
-    if (head === null) return { commits: null };
-    const counted = await git(head.exitCode === 0
-      ? `rev-list --count ${ref} --not HEAD`
-      : `rev-list --count ${ref}`);
-    if (counted === null || counted.exitCode !== 0) return { commits: null };
-    const commits = Number.parseInt(counted.stdout.trim(), 10);
-    return { commits: Number.isFinite(commits) && commits >= 0 ? commits : null };
-  }
-
   return {
     async prepare(roomId) {
       const record = await store.readRoom(roomId);
@@ -503,7 +465,7 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
         // Uncommitted edits only reach the branch through a checkpoint, so a
         // failed one leaves the branch's state unknown — never zero.
         const preserved = member.worktreePath ? await checkpoint(member, 'delivery') : null;
-        const state = await readBranch(branch);
+        const state = await readMemberBranchState(host, branch);
         if (state === 'absent') continue;
         const commits = preserved?.error ? null : state.commits;
         // Zero is the one answer that means "already in the workspace". Null is

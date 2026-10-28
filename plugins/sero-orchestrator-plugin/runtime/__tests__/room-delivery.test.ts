@@ -315,6 +315,10 @@ describe('delivery that stays in the workspace', () => {
 
     expect(outcome).toMatchObject({ ok: true, problems: [] });
     expect((await store.readRoom('room-a'))?.delivery.unmergedBranches).toEqual(memberBranches);
+    // The ref is what every other surface reads back — the Architect milestone
+    // copies it and renders "Delivered · <ref>" — so it has to name the branches
+    // rather than the workspace the files never received.
+    expect((await store.readRoom('room-a'))?.delivery.deliveryRef).toBe('branches: orchestrator/room-room-a-impl');
     // The branch name is what the user needs to merge; the chat message that
     // leaves it out is the false claim this fixes.
     const sent = String(host.contextMessages[0].content);

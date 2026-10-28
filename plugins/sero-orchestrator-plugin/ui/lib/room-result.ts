@@ -80,7 +80,9 @@ export function deliveredLine(room: PersistedRoom): DeliveredLine {
   if (branches.length > 0 && destination === WORKSPACE_FILES) {
     return {
       text: `To ${branches.length === 1 ? 'one member branch' : `${branches.length} member branches`}, not your workspace files · ${formatDayTime(deliveredAt)}`,
-      ref: deliveryRef,
+      // The ref for this delivery is the branch list itself, and the rows below
+      // already name every branch. A second copy under the sentence is noise.
+      ref: null,
       branches,
     };
   }

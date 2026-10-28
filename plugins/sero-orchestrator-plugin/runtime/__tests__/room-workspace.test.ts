@@ -471,8 +471,10 @@ describe('collecting commits', () => {
 describe('member branches the workspace does not have', () => {
   /** `git rev-parse --verify --quiet <ref>` succeeded. */
   const found = (rev = ''): AppRuntimeCommandResult => ({ stdout: rev, stderr: '', exitCode: 0 });
-  /** A ref that does not exist: Git exits 1 (or 128 for a bad revision). */
-  const missing = (): AppRuntimeCommandResult => ({ stdout: '', stderr: '', exitCode: 128 });
+  /** A ref that does not exist: `--verify --quiet` exits 1 for that. */
+  const deleted = (): AppRuntimeCommandResult => ({ stdout: '', stderr: '', exitCode: 1 });
+  /** A command that failed outright (bad repo, timeout), which is not a missing ref. */
+  const missing = (): AppRuntimeCommandResult => ({ stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 });
   const counted = (commits: number): AppRuntimeCommandResult => ({ stdout: `${commits}\n`, stderr: '', exitCode: 0 });
 
   it('names the branches still ahead of the workspace and leaves the merged ones out', async () => {
@@ -517,15 +519,28 @@ describe('member branches the workspace does not have', () => {
     expect(host.commands).toContain(`git rev-list --count 'refs/heads/orchestrator/room-${roomId}-api'`);
   });
 
-  it('names no branch that no longer exists', async () => {
+  it('names no branch that Git confirms no longer exists', async () => {
     const roomId = await draftRoom();
     await workspaces.prepare(roomId);
-    // API's branch was deleted; UI's is one commit ahead of the workspace.
-    host.commandResults.push(missing(), found(), found(), counted(1));
+    // API's branch was deleted — `rev-parse --verify --quiet` exits 1 for that —
+    // and UI's is one commit ahead of the workspace.
+    host.commandResults.push(deleted(), found(), found(), counted(1));
 
     const ahead = await workspaces.unmergedBranches(roomId);
 
     expect(ahead.map((branch) => branch.memberId)).toEqual(['ui']);
+  });
+
+  it('reports a branch it could not read at all, rather than calling it gone', async () => {
+    // A failed command is not a missing ref: a timeout or an unopenable repo must
+    // not be how a branch holding unmerged work gets dropped.
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    host.commandResults.push(missing(), found(), found(), counted(0));
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => [branch.memberId, branch.commits])).toEqual([['api', null]]);
   });
 
   it('reports an unknown count when a member\'s work could not be committed', async () => {

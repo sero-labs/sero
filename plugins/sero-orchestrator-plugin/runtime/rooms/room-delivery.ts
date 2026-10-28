@@ -38,6 +38,26 @@ export const INVOKING_CHAT_DESTINATION = 'invoking-chat';
  */
 export const WORKSPACE_DESTINATION = 'workspace-files';
 export const WORKSPACE_DELIVERY_REF = 'workspace';
+/** Prefix for a workspace delivery ref that names branches instead of the files. */
+const UNMERGED_BRANCH_REF_PREFIX = 'branches:';
+
+/**
+ * What a workspace delivery is recorded as: the placeholder, or the branches the
+ * work is really on (#654).
+ *
+ * The ref is read back by every other surface — the Room's Delivered row, and the
+ * Architect milestone that copies it and renders "Delivered · workspace" — so
+ * naming the branches here is what keeps those sentences true. `workspace` alone
+ * claims the user's files received a result they did not.
+ */
+function workspaceDeliveryRef(
+  destination: string,
+  branches: RoomUnmergedBranch[] | undefined,
+): string | null {
+  if (destination !== WORKSPACE_DESTINATION) return null;
+  if (!branches || branches.length === 0) return WORKSPACE_DELIVERY_REF;
+  return `${UNMERGED_BRANCH_REF_PREFIX} ${branches.map((branch) => branch.branch).join(', ')}`;
+}
 
 export interface RoomDeliveryDeps {
   host: OrchestratorHost;
@@ -248,7 +268,7 @@ export async function deliverRoomResult(
       : problems.length > 0
         ? null
         : request.receipt?.ref
-          ?? (delivery.destination === WORKSPACE_DESTINATION ? WORKSPACE_DELIVERY_REF : null);
+          ?? workspaceDeliveryRef(delivery.destination, request.memberBranches);
     const sessionId = delivery.originSessionId;
     const claimDestination = !destinationAlreadyDelivered && (accepted !== null || (invokingChat && sessionId !== null));
     const claimOrigin = !invokingChat && sessionId !== null && !delivery.originReturnedAt;

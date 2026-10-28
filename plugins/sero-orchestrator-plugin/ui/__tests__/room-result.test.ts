@@ -93,13 +93,17 @@ describe('deliveredLine', () => {
     ];
     const line = deliveredLine(room([], {
       deliveredAt: '2026-09-16T22:13:07.440Z',
-      deliveryRef: 'workspace',
+      // The ref a workspace delivery with branches is recorded under.
+      deliveryRef: 'branches: orchestrator/room_1-impl',
       unmergedBranches: branches,
     }));
     // The destination is not the workspace files, and the row must not say it is.
     expect(line.text).toContain('one member branch');
     expect(line.text).toContain('not your workspace files');
     expect(line.branches).toEqual(branches);
+    // The branch rows below already name every branch, so the ref is not
+    // printed a second time underneath them.
+    expect(line.ref).toBeNull();
   });
 
   it('keeps a destination that really was delivered, and shows the branches beside it', () => {
