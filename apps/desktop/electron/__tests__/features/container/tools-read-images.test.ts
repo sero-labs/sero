@@ -12,7 +12,7 @@ vi.mock('@electron/shared/media/image-resize', () => ({
   prepareToolImage: mocks.prepareToolImage,
 }));
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
+import { createHostRuntime } from '../../helpers/host-runtime';
 import { createRead } from '@electron/features/container/tools/tools-coding';
 
 function getTool<T extends { name: string }>(tools: T[], name: string): T {
@@ -49,14 +49,15 @@ describe('image read tool resizing', () => {
     vi.restoreAllMocks();
   });
 
-  it('applies Pi-style resize metadata to host read image attachments', async () => {
+  it('applies Pi-style resize metadata to a host read image attachment', async () => {
     const workspaceDir = await mkdtemp(path.join(os.tmpdir(), 'sero-host-read-image-'));
     const imagePath = path.join(workspaceDir, 'image.png');
     await writeFile(imagePath, pngBytes);
 
     try {
-      const tools = createHostCodingTools(workspaceDir);
-      const tool = getTool(tools, 'read');
+      // The production read tool, on the host runtime a host workspace actually
+      // gets. Nothing here stands in for the tool itself (#658).
+      const tool = getTool([createRead(createHostRuntime(workspaceDir), workspaceDir)], 'read');
       const result = await tool.execute('tool-host', { path: 'image.png' }, undefined, undefined, undefined as never);
 
       expect(mocks.prepareToolImage).toHaveBeenCalledWith(pngBytes.toString('base64'), 'image/png');

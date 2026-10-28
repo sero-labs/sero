@@ -5,11 +5,27 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
+import { createHostRuntime } from '../../helpers/host-runtime';
+import { createBash, createEdit, createRead, createWrite } from '@electron/features/container/tools/tools-coding';
 import {
   getProtectedMemoryAccessError,
   getProtectedMemoryRoot,
 } from '@electron/features/container/tools/memory-file-guard';
+
+/**
+ * The tools a host workspace actually runs, on a real host runtime (#658).
+ * `tools-host.ts` had its own copy of these; the guard belongs to the tools the
+ * session loads, so it is tested there.
+ */
+function hostTools(rootDir: string): ToolDefinition[] {
+  const runtime = createHostRuntime(rootDir);
+  return [
+    createBash(runtime, rootDir),
+    createRead(runtime, rootDir),
+    createWrite(runtime, rootDir),
+    createEdit(runtime, rootDir),
+  ];
+}
 
 function getTool(tools: ToolDefinition[], name: string): ToolDefinition {
   const tool = tools.find((entry) => entry.name === name);
@@ -17,7 +33,7 @@ function getTool(tools: ToolDefinition[], name: string): ToolDefinition {
   return tool;
 }
 
-describe('host coding tools memory guard', () => {
+describe('memory guard on the host runtime', () => {
   const originalSeroHome = process.env.SERO_HOME;
 
   beforeEach(() => {
@@ -29,7 +45,7 @@ describe('host coding tools memory guard', () => {
   });
 
   it('blocks direct and cwd-based access to managed memory files when containers are disabled', async () => {
-    const tools = createHostCodingTools('/tmp/workspace');
+    const tools = hostTools('/tmp/workspace');
     const protectedRoot = getProtectedMemoryRoot();
     const protectedPath = `${protectedRoot}/MEMORY.md`;
 
@@ -54,7 +70,7 @@ describe('host coding tools memory guard', () => {
     await writeFile(protectedPath, '# Memory\n', 'utf8');
     await symlink(protectedPath, path.join(workspaceDir, 'memory-link'));
 
-    const tools = createHostCodingTools(workspaceDir);
+    const tools = hostTools(workspaceDir);
 
     try {
       await expect(getTool(tools, 'read').execute('tool-1', { path: 'memory-link' }, undefined, undefined, undefined as never))

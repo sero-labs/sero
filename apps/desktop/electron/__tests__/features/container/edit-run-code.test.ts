@@ -10,7 +10,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
+import { createRuntimeTools } from '@electron/features/container/tools';
+import { createHostRuntime } from '../../helpers/host-runtime';
 import { activateCodemode, createSeroCodemodeExtension } from '@electron/features/codemode';
 import {
   seedFixtureAgentDir,
@@ -104,7 +105,7 @@ async function runScript(script: string, files: Record<string, string>): Promise
     modelRuntime,
     model,
     tools: ['read', 'write', 'edit', 'codemode'],
-    customTools: createHostCodingTools(workspace),
+    customTools: await createRuntimeTools(createHostRuntime(workspace), 'session-1', workspace),
     resourceLoader: loader,
   });
   activateCodemode(session);
