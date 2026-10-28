@@ -52,6 +52,30 @@ describe('terminal worktree cleanup', () => {
     expect((await store.readRoom(roomId))?.members.every((entry) => entry.worktreePath === null)).toBe(true);
   });
 
+  it('names the member branches when the work never reached the workspace files (#654)', async () => {
+    const roomId = await editingRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await store.readMember(roomId, 'lead'))?.usage.turns === 1, 'the first turn');
+    // The destination the false claim was made for: the files the user asked for.
+    await store.updateRoom(roomId, (current) => ({
+      ...current,
+      delivery: { ...current.delivery, destination: 'workspace-files' },
+    }));
+    host.commandResults.push(
+      { stdout: '2\n', stderr: '', exitCode: 0 },
+      { stdout: '1\n', stderr: '', exitCode: 0 },
+    );
+
+    const completed = await coordinator.completeRoom(roomId, 'Done.');
+
+    expect(completed.ok).toBe(true);
+    const stored = await store.readRoom(roomId);
+    expect(stored?.delivery.unmergedBranches.map((branch) => branch.memberId)).toEqual(['lead', 'impl']);
+    // The Delivered line is not the only place the user is told where the work
+    // went, so the finish notice names them too.
+    expect(host.notifications.map((entry) => entry.message).join(' ')).toContain('2 member branches');
+  });
+
   it('preserves and releases every editing worktree on cancel', async () => {
     const roomId = await editingRoom();
     host.persistentSessions.mode = 'manual';

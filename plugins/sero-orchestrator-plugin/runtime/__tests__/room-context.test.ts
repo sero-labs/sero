@@ -58,7 +58,7 @@ function room(current: RoomMember): Room {
       artifactRefs: ['/state/rooms/room-a/artifacts/plan.md'], updatedAt: 't',
       conductorNote: null, conductorNoteAt: null,
     },
-    delivery: { destination: 'saved-artifact', params: {}, originSessionId: null, originWorkspaceId: null, deliveredAt: null, deliveryRef: null, originReturnedAt: null, originReturnRef: null },
+    delivery: { destination: 'saved-artifact', params: {}, originSessionId: null, originWorkspaceId: null, deliveredAt: null, deliveryRef: null, originReturnedAt: null, originReturnRef: null, unmergedBranches: [] },
     archivedAt: null,
   };
 }

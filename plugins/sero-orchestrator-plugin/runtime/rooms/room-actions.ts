@@ -126,6 +126,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       deliveryRef: null,
       originReturnedAt: null,
       originReturnRef: null,
+      unmergedBranches: [],
     },
     archivedAt: null,
     revisions: [],

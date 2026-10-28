@@ -8,13 +8,14 @@
  * what it cost, which is what the user came for.
  */
 
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { RoomArtifact } from '../../shared/room-message-types';
-import type { PersistedRoom, RoomMember } from '../../shared/room-types';
+import type { PersistedRoom, RoomMember, RoomUnmergedBranch } from '../../shared/room-types';
 import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
 import { splitArtifactDocument, partKeys } from '../lib/artifact-document';
 import { formatCost } from '../lib/format';
-import { deliveredLine, otherArtifacts, pickPlan, resultLine } from '../lib/room-result';
+import { type MergeOutcome, mergeMemberBranch } from '../lib/member-branch';
+import { branchCommitLabel, deliveredLine, otherArtifacts, pickPlan, resultLine } from '../lib/room-result';
 import { useRoomArtifact } from '../lib/use-room-artifact';
 import { ArtifactProse } from './ArtifactProse';
 import { WorkspaceFileLink } from './WorkspaceFileLink';
@@ -148,6 +149,63 @@ function ArtifactRows({ artifacts, members, workspaceId }: {
   );
 }
 
+/**
+ * The member branches that still hold the Room's work, each with the one action
+ * that puts it in the user's files (#654).
+ *
+ * A merge that failed says so where the button was, because the alternative — a
+ * button that did nothing visible — reads as a merge that worked.
+ */
+function MemberBranches({ branches, workspaceId }: {
+  branches: RoomUnmergedBranch[];
+  workspaceId: string | undefined;
+}) {
+  const [merging, setMerging] = useState<string | null>(null);
+  const [outcomes, setOutcomes] = useState<Record<string, MergeOutcome>>({});
+
+  const merge = async (branch: string) => {
+    if (!workspaceId) return;
+    setMerging(branch);
+    const outcome = await mergeMemberBranch(workspaceId, branch);
+    setMerging(null);
+    setOutcomes((current) => ({ ...current, [branch]: outcome }));
+  };
+
+  return (
+    <ul className="mt-1 flex flex-col gap-1">
+      {branches.map((branch) => {
+        const outcome = outcomes[branch.branch];
+        return (
+          <li key={branch.branch} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-room-text2">{branch.displayName}</span>
+            <code className="break-all font-mono text-[11px] text-room-text3">{branch.branch}</code>
+            <span className="text-[11.5px] text-room-text3">{branchCommitLabel(branch.commits)}</span>
+            {workspaceId ? (
+              <button
+                type="button"
+                disabled={merging === branch.branch || outcome?.ok === true}
+                onClick={() => void merge(branch.branch)}
+                className="ml-auto shrink-0 cursor-pointer rounded border border-room-line px-2 py-0.5 text-[11.5px] text-room-text2 hover:border-room-line-strong hover:text-room-text disabled:cursor-default disabled:text-room-text4"
+              >
+                {outcome?.ok ? 'Merged' : merging === branch.branch ? 'Merging…' : 'Merge'}
+              </button>
+            ) : (
+              // No workspace to merge into: name the branch anyway and say where
+              // it can be merged, rather than leaving a button that cannot work.
+              <span className="ml-auto shrink-0 text-[11.5px] text-room-text4">Merge it in the Git app</span>
+            )}
+            {outcome && (
+              <span className={`basis-full text-[11.5px] ${outcome.ok ? 'text-room-text3' : 'text-room-ink-warn'}`}>
+                {outcome.message}
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomCompletionProps) {
   const plan = pickPlan(room, members);
   const others = otherArtifacts(room, plan);
@@ -169,6 +227,7 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
         <dd className="text-[12.5px] text-room-text2">
           {delivered.text}
           {delivered.ref && <code className="block break-all font-mono text-[11px] text-room-text3">{delivered.ref}</code>}
+          {delivered.branches.length > 0 && <MemberBranches branches={delivered.branches} workspaceId={workspaceId} />}
         </dd>
       </dl>
 

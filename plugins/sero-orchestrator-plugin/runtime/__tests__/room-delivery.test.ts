@@ -295,6 +295,33 @@ describe('delivery that stays in the workspace', () => {
     expect(outcome.ok).toBe(false);
     expect((await store.readRoom('room-a'))?.delivery.deliveredAt).toBeNull();
   });
+
+  it('names the member branches that hold the work, on the record and in the chat result (#654)', async () => {
+    // Members edit in their own worktrees, so "delivered to the workspace files"
+    // is only true when nothing is left on a branch.
+    await seedRoom((record) => ({
+      ...workspaceRoom(record),
+      originSessionId: 'sess-9',
+      delivery: { ...workspaceRoom(record).delivery, originSessionId: 'sess-9' },
+    }));
+    const memberBranches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room-room-a-impl', commits: 2 },
+    ];
+
+    const outcome = await deliverRoomResult(
+      { host, store },
+      { roomId: 'room-a', finalResult: 'The greeting is fixed.', memberBranches },
+    );
+
+    expect(outcome).toMatchObject({ ok: true, problems: [] });
+    expect((await store.readRoom('room-a'))?.delivery.unmergedBranches).toEqual(memberBranches);
+    // The branch name is what the user needs to merge; the chat message that
+    // leaves it out is the false claim this fixes.
+    const sent = String(host.contextMessages[0].content);
+    expect(sent).toContain('orchestrator/room-room-a-impl');
+    expect(sent).toContain('2 commits');
+    expect(sent).toContain('not in your workspace files yet');
+  });
 });
 
 describe('external delivery', () => {

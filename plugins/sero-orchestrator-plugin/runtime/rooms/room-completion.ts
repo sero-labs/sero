@@ -2,7 +2,7 @@ import type { DeliveryReceipt } from '../../shared/delivery-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import { requirePersistentSessions } from './member-grant';
 import { timelineEvent, withMemberStatus, withRoomStatus } from './room-actions';
-import { deliverRoomResult } from './room-delivery';
+import { deliverRoomResult, WORKSPACE_DESTINATION } from './room-delivery';
 import type { RoomActionResult, RoomLifecycleContext } from './room-lifecycle';
 import type { RoomStore } from './room-store';
 
@@ -45,15 +45,32 @@ export async function settleRoomCompletion(ctx: RoomLifecycleContext, roomId: st
   const current = operations.get(roomId);
   if (current) return current;
   const operation = (async () => {
+    // Preserve and release first, so every member's uncommitted work is on its
+    // branch before the branches are read — one checkpoint per member, and the
+    // count cannot miss work that is still sitting in a checkout.
+    await releaseAuthority(ctx, roomId, completion.summary);
+    // What the record, the notice and the chat result have to name. A branch Git
+    // could not read is left out rather than reported as merged, because
+    // "merged" is the claim that puts the work in the user's files when it is
+    // not there (#654).
+    const memberBranches = await ctx.workspaces.unmergedBranches(roomId).catch((error: unknown) => {
+      ctx.host.log(`room ${roomId}: could not read the member branches: ${String(error)}`);
+      return [];
+    });
     const delivered = await deliverRoomResult({ host: ctx.host, store: ctx.store }, {
-      roomId, finalResult: completion.summary, receipt: completion.receipt,
+      roomId, finalResult: completion.summary, receipt: completion.receipt, memberBranches,
     });
     if (!delivered.ok && delivered.problems.length > 0) {
       ctx.host.notify('The Room finished, but its result was not delivered.', 'warning', {
         subtitle: record.definition.title, openApp: true,
       });
+    } else if (memberBranches.length > 0 && record.delivery.destination === WORKSPACE_DESTINATION) {
+      // The Delivered line is not the only place the user is told where their
+      // work went, so the finish notice names the branches too.
+      ctx.host.notify(memberBranchNotice(memberBranches.length), 'warning', {
+        subtitle: record.definition.title, openApp: true,
+      });
     }
-    await releaseAuthority(ctx, roomId, completion.summary);
     await ctx.store.updateRoom(roomId, (fresh) => fresh.runtime.status === 'completing'
       ? withRoomStatus({ ...fresh, runtime: { ...fresh.runtime, completion: undefined },
           members: fresh.members.map((member) => withMemberStatus(member, 'completed', completion.summary)),
@@ -62,6 +79,13 @@ export async function settleRoomCompletion(ctx: RoomLifecycleContext, roomId: st
   })().finally(() => operations.delete(roomId));
   operations.set(roomId, operation);
   return operation;
+}
+
+/** The finish notice, kept to the one sentence the desktop will not cut off. */
+function memberBranchNotice(count: number): string {
+  return count === 1
+    ? "The Room's work is on a member branch, not your workspace files."
+    : `The Room's work is on ${count} member branches, not your workspace files.`;
 }
 
 /** Close sessions and preserve work before revoking a finished Room's grant. */

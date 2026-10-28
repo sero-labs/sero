@@ -39,7 +39,7 @@
  * the same contract loop worktrees have always had.
  */
 
-import type { RoomMember } from '../../shared/room-types';
+import type { RoomMember, RoomUnmergedBranch } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
@@ -129,6 +129,15 @@ export interface RoomWorkspaces {
   releaseRoom(roomId: string, reason: string): Promise<ReleaseResult[]>;
   /** Conductor-only: collect member branches and report overlapping edits. */
   collectCommits(roomId: string, callerMemberId: string): Promise<CollectionResult>;
+  /**
+   * Member branches still holding commits the workspace does not have (#654).
+   *
+   * A Room whose members edit in their own worktrees leaves the work on their
+   * branches, and a delivery that claims the workspace files without naming
+   * them is telling the user their fix landed when it did not. Read before the
+   * result is delivered, so the record and the notice carry the branch names.
+   */
+  unmergedBranches(roomId: string): Promise<RoomUnmergedBranch[]>;
 }
 
 /**
@@ -352,6 +361,22 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     };
   }
 
+  /**
+   * Commits `branch` holds that the workspace HEAD does not, or null when Git
+   * could not answer. A branch name this cannot hand to a shell intact is
+   * unknown too — every branch here comes from `createWorktree`, so a name that
+   * fails the check is a defect, and guessing is worse than not naming it.
+   */
+  async function commitsAhead(branch: string): Promise<number | null> {
+    if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith('-')) return null;
+    const result = await host
+      .runCommand(`git rev-list --count 'refs/heads/${branch}' --not HEAD`, 15_000)
+      .catch(() => null);
+    if (!result || result.exitCode !== 0) return null;
+    const count = Number.parseInt(result.stdout.trim(), 10);
+    return Number.isFinite(count) && count >= 0 ? count : null;
+  }
+
   return {
     async prepare(roomId) {
       const record = await store.readRoom(roomId);
@@ -443,6 +468,26 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
         }),
       ]);
       return { ok: true, branches, conflicts, summary };
+    },
+
+    async unmergedBranches(roomId) {
+      const record = await store.readRoom(roomId);
+      if (!record) return [];
+      const ahead: RoomUnmergedBranch[] = [];
+      for (const member of record.members) {
+        const branch = member.worktreeBranch;
+        if (!branch) continue;
+        // Checkpoint first, for the same reason collection does: a member's
+        // uncommitted edits are still work the user was told had arrived, and
+        // they are only visible on the branch once they are committed.
+        if (member.worktreePath) await checkpoint(member, 'delivery');
+        const commits = await commitsAhead(branch);
+        // Null is Git unable to answer, never "merged": a branch whose state
+        // cannot be read is left out rather than reported as already in the files.
+        if (commits === null || commits === 0) continue;
+        ahead.push({ memberId: member.id, displayName: member.displayName, branch, commits });
+      }
+      return ahead;
     },
   };
 }

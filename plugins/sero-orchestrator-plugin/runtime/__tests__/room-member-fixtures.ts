@@ -157,6 +157,7 @@ export function roomFixture(envelope: OperatingEnvelope, members: BlueprintMembe
       deliveryRef: null,
       originReturnedAt: null,
       originReturnRef: null,
+      unmergedBranches: [],
     },
     archivedAt: null,
     revisions: [],

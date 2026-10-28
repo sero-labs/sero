@@ -86,6 +86,21 @@ describe('deliveredLine', () => {
     expect(line.text).toContain('Not delivered to workspace files');
     expect(line.ref).toBeNull();
   });
+
+  it('names the member branches when the work never reached the workspace files (#654)', () => {
+    const branches = [
+      { memberId: 'impl', displayName: 'Implementer', branch: 'orchestrator/room_1-impl', commits: 2 },
+    ];
+    const line = deliveredLine(room([], {
+      deliveredAt: '2026-09-16T22:13:07.440Z',
+      deliveryRef: 'workspace',
+      unmergedBranches: branches,
+    }));
+    // The destination is not the workspace files, and the row must not say it is.
+    expect(line.text).toContain('one member branch');
+    expect(line.text).toContain('not your workspace files');
+    expect(line.branches).toEqual(branches);
+  });
 });
 
 describe('otherArtifacts', () => {

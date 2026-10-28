@@ -8,7 +8,7 @@
  */
 
 import type { RoomArtifact } from '../../shared/room-message-types';
-import type { PersistedRoom, RoomMember } from '../../shared/room-types';
+import type { PersistedRoom, RoomMember, RoomUnmergedBranch } from '../../shared/room-types';
 import { formatDayTime } from './format';
 
 /**
@@ -48,15 +48,39 @@ export function resultLine(finalLine: string | null, plan: RoomArtifact | null):
 }
 
 /** Where the result went, in the one row that says it. */
-export function deliveredLine(room: PersistedRoom): { text: string; ref: string | null } {
-  const { deliveredAt, destination, deliveryRef } = room.delivery;
+export interface DeliveredLine {
+  text: string;
+  ref: string | null;
+  /**
+   * Member branches still holding the work, which the row has to show and offer
+   * to merge. A `workspace files` delivery with these is not the user's files,
+   * and saying so is the fix for the false claim (#654).
+   */
+  branches: RoomUnmergedBranch[];
+}
+
+export function deliveredLine(room: PersistedRoom): DeliveredLine {
+  const { deliveredAt, destination, deliveryRef, unmergedBranches } = room.delivery;
+  const branches = unmergedBranches ?? [];
   // The record holds the destination's id. The drawing reads "workspace files",
   // which is that id with its hyphens opened out.
   const where = destination.replace(/-/g, ' ');
   if (!deliveredAt) {
-    return { text: `Not delivered to ${where}. Nothing left Sero.`, ref: null };
+    return { text: `Not delivered to ${where}. Nothing left Sero.`, ref: null, branches: [] };
   }
-  return { text: `To ${where} · ${formatDayTime(deliveredAt)}`, ref: deliveryRef };
+  if (branches.length > 0) {
+    return {
+      text: `To ${branches.length === 1 ? 'one member branch' : `${branches.length} member branches`}, not your workspace files · ${formatDayTime(deliveredAt)}`,
+      ref: deliveryRef,
+      branches,
+    };
+  }
+  return { text: `To ${where} · ${formatDayTime(deliveredAt)}`, ref: deliveryRef, branches: [] };
+}
+
+/** "1 commit", "3 commits" — a count the user can weigh against the branch. */
+export function branchCommitLabel(commits: number): string {
+  return commits === 1 ? '1 commit' : `${commits} commits`;
 }
 
 /** A member as every Room surface names it: the full name, never a truncation. */

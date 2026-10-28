@@ -467,3 +467,43 @@ describe('collecting commits', () => {
     expect(host.checkpoints).toHaveLength(2);
   });
 });
+
+describe('member branches the workspace does not have', () => {
+  it('names the branches still ahead of the workspace and leaves the merged ones out', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    // API has two commits the workspace does not; UI's branch is already merged.
+    host.commandResults.push(
+      { stdout: '2\n', stderr: '', exitCode: 0 },
+      { stdout: '0\n', stderr: '', exitCode: 0 },
+    );
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead).toEqual([
+      {
+        memberId: 'api',
+        displayName: 'API',
+        branch: `orchestrator/room-${roomId}-api`,
+        commits: 2,
+      },
+    ]);
+    // Read from the workspace, so the answer is about the files the user has.
+    expect(host.commands).toContain(`git rev-list --count 'refs/heads/orchestrator/room-${roomId}-api' --not HEAD`);
+    // Uncommitted edits are made durable first, or the count would miss them.
+    expect(host.checkpoints).toHaveLength(2);
+  });
+
+  it('leaves out a branch Git could not read rather than calling it merged', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    host.commandResults.push(
+      { stdout: '', stderr: 'fatal: bad revision', exitCode: 128 },
+      { stdout: '1\n', stderr: '', exitCode: 0 },
+    );
+
+    const ahead = await workspaces.unmergedBranches(roomId);
+
+    expect(ahead.map((branch) => branch.memberId)).toEqual(['ui']);
+  });
+});
