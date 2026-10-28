@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -12,7 +12,7 @@ vi.mock('@electron/shared/media/image-resize', () => ({
   prepareToolImage: mocks.prepareToolImage,
 }));
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
+import { createHostRuntime } from '../../helpers/host-runtime';
 import { createRead } from '@electron/features/container/tools/tools-coding';
 
 function getTool<T extends { name: string }>(tools: T[], name: string): T {
@@ -24,9 +24,14 @@ function getTool<T extends { name: string }>(tools: T[], name: string): T {
 describe('image read tool resizing', () => {
   const originalSeroHome = process.env.SERO_HOME;
   const pngBytes = Buffer.from('89504e470d0a1a0a00000000ff01', 'hex');
+  let seroHome: string;
 
-  beforeEach(() => {
-    process.env.SERO_HOME = '/tmp/sero-home';
+  // A real Sero home: the production backend resolves its allowed roots from
+  // SERO_HOME, so the path has to exist.
+  beforeEach(async () => {
+    seroHome = await mkdtemp(path.join(os.tmpdir(), 'sero-home-read-image-'));
+    await mkdir(path.join(seroHome, 'agent'), { recursive: true });
+    process.env.SERO_HOME = seroHome;
     mocks.prepareToolImage.mockReset();
     mocks.prepareToolImage.mockReturnValue({
       data: 'resized-base64',
@@ -44,19 +49,21 @@ describe('image read tool resizing', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env.SERO_HOME = originalSeroHome;
     vi.restoreAllMocks();
+    await rm(seroHome, { recursive: true, force: true });
   });
 
-  it('applies Pi-style resize metadata to host read image attachments', async () => {
+  it('applies Pi-style resize metadata to a host read image attachment', async () => {
     const workspaceDir = await mkdtemp(path.join(os.tmpdir(), 'sero-host-read-image-'));
     const imagePath = path.join(workspaceDir, 'image.png');
     await writeFile(imagePath, pngBytes);
 
     try {
-      const tools = createHostCodingTools(workspaceDir);
-      const tool = getTool(tools, 'read');
+      // The production read tool, on the host runtime a host workspace actually
+      // gets. Nothing here stands in for the tool itself (#658).
+      const tool = getTool([createRead(createHostRuntime(workspaceDir), workspaceDir)], 'read');
       const result = await tool.execute('tool-host', { path: 'image.png' }, undefined, undefined, undefined as never);
 
       expect(mocks.prepareToolImage).toHaveBeenCalledWith(pngBytes.toString('base64'), 'image/png');

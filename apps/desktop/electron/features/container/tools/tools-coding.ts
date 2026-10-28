@@ -24,7 +24,11 @@ import {
   truncateHead,
 } from '../filesystem/truncate';
 import { canonicalizeHostPath } from '../filesystem/host-path';
-import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
+import {
+  RUNTIME_WORKSPACE_PATH,
+  toHostWorkspacePath,
+  toRuntimeIdentityMountPath,
+} from '@electron/features/workspace/runtime/runtime-paths';
 import { OutputCapture } from '@electron/features/tool-capture/capture';
 import { renderCaptureReport } from '@electron/features/tool-capture/report';
 import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
@@ -83,12 +87,36 @@ async function resolveContainerPathForGuard(
   targetPath: string,
   cwd: string,
 ): Promise<string> {
+  const visiblePath = guardVisiblePath(runtime, targetPath);
   const result = await runtime.exec({
-    command: buildResolveContainerPathCommand(targetPath),
+    command: buildResolveContainerPathCommand(visiblePath),
     cwd,
     timeoutMs: 10_000,
   });
-  return normalizeContainerGuardPath(result.stdout.trim() || targetPath);
+  return normalizeContainerGuardPath(result.stdout.trim() || visiblePath);
+}
+
+/**
+ * The path the machine running the resolver can actually see (#678).
+ *
+ * The resolver runs a shell command inside the runtime, but a host runtime
+ * executes it on the host with only the cwd translated — a `/workspace/...` path
+ * embedded in the command does not exist there, so the resolver would answer
+ * about nothing and the guard would let the path through. Host candidates are
+ * therefore translated before they are embedded; the resolver then answers with
+ * a host path, which is what the protected roots are expressed in.
+ */
+function guardVisiblePath(runtime: RuntimeBackend, targetPath: string): string {
+  if (runtime.backend !== 'host') return targetPath;
+  // Only a candidate that really is in the runtime namespace is translated. A
+  // native drive or UNC path, and a candidate relative to the cwd, are already
+  // paths the host can see — and `isRuntimeWorkspacePath` would claim them all,
+  // because it normalises a relative path into `/workspace` (which on Windows
+  // would turn `C:/repo/link` into `C:\repo\C:\repo\link`).
+  if (targetPath !== RUNTIME_WORKSPACE_PATH && !targetPath.startsWith(`${RUNTIME_WORKSPACE_PATH}/`)) {
+    return targetPath;
+  }
+  return toHostWorkspacePath(runtime.hostWorkspacePath, targetPath);
 }
 
 // ── Bash ────────────────────────────────────────────────────
@@ -369,6 +397,11 @@ export async function containerMutationKey(runtime: RuntimeBackend, canonicalPat
     // through host realpath and share the host file identity.
     return `host:${await canonicalizeHostPath(hostPath)}`;
   }
+  // A host backend resolves a guarded target to the real host path (#678), and
+  // that path is the file identity every runtime shares, so it keys exactly the
+  // way the same file reached through a container's workspace does above. Keying
+  // it as container-scoped would give one file two queues and lose edits.
+  if (runtime.backend === 'host') return `host:${await canonicalizeHostPath(canonicalPath)}`;
   return `container:${runtime.backend}:${runtime.workspaceId}:${canonicalPath}`;
 }
 

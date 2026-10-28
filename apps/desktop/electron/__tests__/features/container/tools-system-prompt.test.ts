@@ -10,7 +10,8 @@ import {
   type AgentSession,
 } from '@earendil-works/pi-coding-agent';
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
+import { createRuntimeTools } from '@electron/features/container/tools';
+import { createHostRuntime } from '../../helpers/host-runtime';
 import { activateCodemode, createSeroCodemodeExtension } from '@electron/features/codemode';
 import {
   seedFixtureAgentDir,
@@ -64,7 +65,7 @@ async function openSession(builtInTools: string[]): Promise<OpenSessionResult> {
     modelRuntime: runtime,
     model,
     tools: [...builtInTools, 'bash', 'read', 'write', 'edit', 'codemode'],
-    customTools: createHostCodingTools(workspace),
+    customTools: await createRuntimeTools(createHostRuntime(workspace), 'session-1', workspace),
     resourceLoader: loader,
   });
   // A real session switches `codemode` on; the prompt shape must match one.

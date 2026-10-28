@@ -1,26 +1,31 @@
 /**
- * Loads Sero's host file-tool factory inside the eval runtime.
+ * Loads Sero's production file tools for the eval runtime.
  *
- * The factory is plain TypeScript under `apps/desktop/electron`. The eval
- * tsconfig (`eval/tsconfig.json`, wired through `TSX_TSCONFIG_PATH`) resolves
- * the `@electron/*` imports. The import may arrive as CommonJS interop, so read
- * the factory from either the namespace or its `default` export.
+ * These are the tools an agent session actually gets — the same
+ * `createBash`/`createRead`/`createWrite`/`createEdit` factories that
+ * `createRuntimeTools` composes, on the production host runtime — so the
+ * `file-tools` eval measures the agent's real tool surface rather than a copy
+ * (#658). `createRuntimeTools` itself is not used here because it also builds
+ * the `sero-cli` and browser tools, which need the desktop app this harness runs
+ * without.
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-interface HostFactoryModule {
-  createHostCodingTools?: (basedir: string) => ToolDefinition[];
-  default?: { createHostCodingTools?: (basedir: string) => ToolDefinition[] };
-}
+import { HostBackend } from '../apps/desktop/electron/features/workspace/runtime/backends/host/host-backend';
+import {
+  createBash,
+  createEdit,
+  createRead,
+  createWrite,
+} from '../apps/desktop/electron/features/container/tools/tools-coding';
 
 export async function loadRuntimeHostTools(basedir: string): Promise<ToolDefinition[]> {
-  const module = (await import(
-    '../apps/desktop/electron/features/container/tools/tools-host'
-  )) as HostFactoryModule;
-  const factory = module.createHostCodingTools ?? module.default?.createHostCodingTools;
-  if (typeof factory !== 'function') {
-    throw new Error('Sero host file-tool factory is unavailable in the eval runtime.');
-  }
-  return factory(basedir);
+  const runtime = new HostBackend({ workspaceId: 'eval-workspace', hostWorkspacePath: basedir });
+  return [
+    createBash(runtime, basedir),
+    createRead(runtime, basedir),
+    createWrite(runtime, basedir),
+    createEdit(runtime, basedir),
+  ];
 }

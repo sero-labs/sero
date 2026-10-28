@@ -6,16 +6,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { createHostCodingTools } from '@electron/features/container/tools/tools-host';
-import { createEdit, createWrite } from '@electron/features/container/tools/tools-coding';
+import { containerMutationKey, createEdit, createWrite } from '@electron/features/container/tools/tools-coding';
+import { createHostRuntime } from '../../helpers/host-runtime';
 import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/capabilities';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
-
-function getTool(tools: ToolDefinition[], name: string): ToolDefinition {
-  const tool = tools.find((entry) => entry.name === name);
-  if (!tool) throw new Error(`Tool not found: ${name}`);
-  return tool;
-}
 
 async function runTool(tool: ToolDefinition, input: Record<string, unknown>) {
   return tool.execute('tool-call', input, undefined, undefined, undefined as never);
@@ -105,9 +99,9 @@ describe('host edit aliases', () => {
     await writeFile(path.join(workspace, 'a.txt'), 'one\ntwo\nthree\n', 'utf8');
     await symlink(path.join(workspace, 'a.txt'), path.join(workspace, 'link.txt'));
 
-    const first = getTool(createHostCodingTools(workspace), 'edit');
-    const second = getTool(createHostCodingTools(workspace), 'edit');
-    const third = getTool(createHostCodingTools(workspace), 'edit');
+    const first = createEdit(createHostRuntime(workspace), workspace);
+    const second = createEdit(createHostRuntime(workspace), workspace);
+    const third = createEdit(createHostRuntime(workspace), workspace);
 
     await Promise.all([
       runTool(first, { path: 'a.txt', oldText: 'one', newText: '1' }),
@@ -120,8 +114,7 @@ describe('host edit aliases', () => {
 
   it('fails a conflicting concurrent edit and keeps the first result', async () => {
     await writeFile(path.join(workspace, 'a.txt'), 'target line\nkeep\n', 'utf8');
-    const tools = createHostCodingTools(workspace);
-    const edit = getTool(tools, 'edit');
+    const edit = createEdit(createHostRuntime(workspace), workspace);
 
     const first = runTool(edit, { path: 'a.txt', oldText: 'target line', newText: 'replaced' });
     await first;
@@ -136,7 +129,7 @@ describe('host edit aliases', () => {
     await symlink(path.join(workspace, 'real'), path.join(workspace, 'alias'));
     await writeFile(path.join(workspace, 'real', 'a.txt'), 'one\n', 'utf8');
 
-    const edit = getTool(createHostCodingTools(workspace), 'edit');
+    const edit = createEdit(createHostRuntime(workspace), workspace);
     await runTool(edit, { path: 'alias/a.txt', oldText: 'one', newText: '1' });
 
     expect(await readFile(path.join(workspace, 'real', 'a.txt'), 'utf8')).toBe('1\n');
@@ -175,7 +168,7 @@ describe('container edit aliases and identity', () => {
   it('keeps the host and container tools on one queue for a shared mount', async () => {
     await writeFile(path.join(workspace, 'a.txt'), 'one\ntwo\n', 'utf8');
     const { runtime } = createFakeContainer(workspace);
-    const hostEdit = getTool(createHostCodingTools(workspace), 'edit');
+    const hostEdit = createEdit(createHostRuntime(workspace), workspace);
     const containerEdit = createEdit(runtime);
 
     await Promise.all([
@@ -184,6 +177,19 @@ describe('container edit aliases and identity', () => {
     ]);
 
     expect(await readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe('1\n2\n');
+  });
+
+  it('gives one backing file one mutation key across a host and a container (#678)', async () => {
+    // A host session resolves a guarded target to the real host path, while a
+    // live-mounted container names the same file under /workspace. Keyed
+    // differently, both queues would run at once and an edit would be lost.
+    await writeFile(path.join(workspace, 'a.txt'), 'one\n', 'utf8');
+    const { runtime } = createFakeContainer(workspace);
+    const hostKey = await containerMutationKey(createHostRuntime(workspace), path.join(workspace, 'a.txt'));
+    const containerKey = await containerMutationKey(runtime, '/workspace/a.txt');
+
+    expect(hostKey).toBe(`host:${await realpath(path.join(workspace, 'a.txt'))}`);
+    expect(hostKey).toBe(containerKey);
   });
 
   it('does not block separate container filesystems at identical paths', async () => {
@@ -245,7 +251,7 @@ describe('host and container parity', () => {
   async function bothEdits(files: string) {
     await writeFile(path.join(workspace, 'a.ts'), files, 'utf8');
     await writeFile(path.join(hostWorkspace, 'a.ts'), files, 'utf8');
-    const hostEdit = getTool(createHostCodingTools(workspace), 'edit');
+    const hostEdit = createEdit(createHostRuntime(workspace), workspace);
     const { runtime, raw } = createFakeContainer(hostWorkspace);
     const containerEdit = createEdit(runtime);
     return { hostEdit, containerEdit, raw };
