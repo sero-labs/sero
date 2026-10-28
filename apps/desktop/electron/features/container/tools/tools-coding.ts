@@ -25,7 +25,7 @@ import {
 } from '../filesystem/truncate';
 import { canonicalizeHostPath } from '../filesystem/host-path';
 import {
-  isRuntimeWorkspacePath,
+  RUNTIME_WORKSPACE_PATH,
   toHostWorkspacePath,
   toRuntimeIdentityMountPath,
 } from '@electron/features/workspace/runtime/runtime-paths';
@@ -108,7 +108,14 @@ async function resolveContainerPathForGuard(
  */
 function guardVisiblePath(runtime: RuntimeBackend, targetPath: string): string {
   if (runtime.backend !== 'host') return targetPath;
-  if (!isRuntimeWorkspacePath(targetPath)) return targetPath;
+  // Only a candidate that really is in the runtime namespace is translated. A
+  // native drive or UNC path, and a candidate relative to the cwd, are already
+  // paths the host can see — and `isRuntimeWorkspacePath` would claim them all,
+  // because it normalises a relative path into `/workspace` (which on Windows
+  // would turn `C:/repo/link` into `C:\repo\C:\repo\link`).
+  if (targetPath !== RUNTIME_WORKSPACE_PATH && !targetPath.startsWith(`${RUNTIME_WORKSPACE_PATH}/`)) {
+    return targetPath;
+  }
   return toHostWorkspacePath(runtime.hostWorkspacePath, targetPath);
 }
 
@@ -390,6 +397,11 @@ export async function containerMutationKey(runtime: RuntimeBackend, canonicalPat
     // through host realpath and share the host file identity.
     return `host:${await canonicalizeHostPath(hostPath)}`;
   }
+  // A host backend resolves a guarded target to the real host path (#678), and
+  // that path is the file identity every runtime shares, so it keys exactly the
+  // way the same file reached through a container's workspace does above. Keying
+  // it as container-scoped would give one file two queues and lose edits.
+  if (runtime.backend === 'host') return `host:${await canonicalizeHostPath(canonicalPath)}`;
   return `container:${runtime.backend}:${runtime.workspaceId}:${canonicalPath}`;
 }
 

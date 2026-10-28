@@ -6,7 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { createEdit, createWrite } from '@electron/features/container/tools/tools-coding';
+import { containerMutationKey, createEdit, createWrite } from '@electron/features/container/tools/tools-coding';
 import { createHostRuntime } from '../../helpers/host-runtime';
 import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/capabilities';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
@@ -177,6 +177,19 @@ describe('container edit aliases and identity', () => {
     ]);
 
     expect(await readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe('1\n2\n');
+  });
+
+  it('gives one backing file one mutation key across a host and a container (#678)', async () => {
+    // A host session resolves a guarded target to the real host path, while a
+    // live-mounted container names the same file under /workspace. Keyed
+    // differently, both queues would run at once and an edit would be lost.
+    await writeFile(path.join(workspace, 'a.txt'), 'one\n', 'utf8');
+    const { runtime } = createFakeContainer(workspace);
+    const hostKey = await containerMutationKey(createHostRuntime(workspace), path.join(workspace, 'a.txt'));
+    const containerKey = await containerMutationKey(runtime, '/workspace/a.txt');
+
+    expect(hostKey).toBe(`host:${await realpath(path.join(workspace, 'a.txt'))}`);
+    expect(hostKey).toBe(containerKey);
   });
 
   it('does not block separate container filesystems at identical paths', async () => {
