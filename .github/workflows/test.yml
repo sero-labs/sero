@@ -202,8 +202,8 @@ jobs:
           path: .turbo/runs/*.json
           if-no-files-found: ignore
 
-  tests:
-    name: Tests
+  tests-desktop:
+    name: Tests (desktop)
     needs: changes
     if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
@@ -227,11 +227,12 @@ jobs:
         run: |
           set -euo pipefail
           start=$SECONDS
+          # The suite that dominates the run: 122s of the 398s measured on one runner.
           # Each suite starts its own workers, so package-level concurrency can overload the CI runner.
           if [[ "$FULL_RUN" == "true" ]]; then
-            xvfb-run --auto-servernum pnpm turbo run test --concurrency=1 --summarize
+            xvfb-run --auto-servernum pnpm turbo run test --filter=@sero/desktop --concurrency=1 --summarize
           else
-            xvfb-run --auto-servernum pnpm turbo run test --affected --concurrency=1 --summarize
+            xvfb-run --auto-servernum pnpm turbo run test --affected --filter=@sero/desktop --concurrency=1 --summarize
           fi
           echo "Tests took $((SECONDS - start))s"
       # Outside turbo on purpose: the desktop test task does not depend on the
@@ -248,12 +249,100 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+
+  tests-heavy:
+    name: Tests (orchestrator, architect)
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 12.5.1, run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+      - name: Install dependencies
+        shell: bash
+        run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Tests
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          # The two next-largest suites: 74s and 47s.
+          # Each suite starts its own workers, so package-level concurrency can overload the CI runner.
+          if [[ "$FULL_RUN" == "true" ]]; then
+            xvfb-run --auto-servernum pnpm turbo run test --filter=@sero-ai/plugin-orchestrator --filter=@sero-ai/plugin-architect --concurrency=1 --summarize
+          else
+            xvfb-run --auto-servernum pnpm turbo run test --affected --filter=@sero-ai/plugin-orchestrator --filter=@sero-ai/plugin-architect --concurrency=1 --summarize
+          fi
+          echo "Tests took $((SECONDS - start))s"
+      - name: Advisory test report
+        if: always()
+        shell: bash
+        run: node scripts/test-advisory.mjs --format=github | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
+
+  tests-rest:
+    name: Tests (remaining packages)
+    needs: changes
+    if: needs.changes.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 12.5.1, run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with: { node-version: 22.19.0, cache: pnpm }
+      - name: Install dependencies
+        shell: bash
+        run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
+      - name: Tests
+        shell: bash
+        env:
+          FULL_RUN: ${{ needs.changes.outputs.full }}
+          TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
+          TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          # Everything else: ~155s together. Directory filters pick up new
+          # packages; a negated filter only subtracts from that union, so the
+          # inclusions have to be listed for the exclusions to mean anything.
+          # Each suite starts its own workers, so package-level concurrency can overload the CI runner.
+          if [[ "$FULL_RUN" == "true" ]]; then
+            xvfb-run --auto-servernum pnpm turbo run test '--filter=./apps/*' '--filter=./packages/*' '--filter=./plugins/*' '--filter=!@sero/desktop' '--filter=!@sero-ai/plugin-orchestrator' '--filter=!@sero-ai/plugin-architect' --concurrency=1 --summarize
+          else
+            xvfb-run --auto-servernum pnpm turbo run test --affected '--filter=./apps/*' '--filter=./packages/*' '--filter=./plugins/*' '--filter=!@sero/desktop' '--filter=!@sero-ai/plugin-orchestrator' '--filter=!@sero-ai/plugin-architect' --concurrency=1 --summarize
+          fi
+          echo "Tests took $((SECONDS - start))s"
+      - name: Advisory test report
+        if: always()
+        shell: bash
+        run: node scripts/test-advisory.mjs --format=github | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload Turbo run summaries
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: turbo-runs-${{ github.run_id }}-${{ github.job }}
           path: .turbo/runs/*.json
           if-no-files-found: ignore
 
   workflow-metrics:
     name: CI feedback metrics
-    needs: [changes, source-typecheck, test-typecheck, build, tests]
+    needs: [changes, source-typecheck, test-typecheck, build, tests-desktop, tests-heavy, tests-rest]
     if: always() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     steps:
@@ -268,7 +357,7 @@ jobs:
 
   pr-gate:
     name: PR Gate
-    needs: [changes, source-typecheck, test-typecheck, build, tests]
+    needs: [changes, source-typecheck, test-typecheck, build, tests-desktop, tests-heavy, tests-rest]
     if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-latest
     steps:
@@ -280,10 +369,12 @@ jobs:
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           REPOSITORY: ${{ github.repository }}
           SOURCE_TYPECHECK_RESULT: ${{ needs.source-typecheck.result }}
-          TESTS_RESULT: ${{ needs.tests.result }}
+          TESTS_DESKTOP_RESULT: ${{ needs.tests-desktop.result }}
+          TESTS_HEAVY_RESULT: ${{ needs.tests-heavy.result }}
+          TESTS_REST_RESULT: ${{ needs.tests-rest.result }}
           TEST_TYPECHECK_RESULT: ${{ needs.test-typecheck.result }}
         run: |
           if [[ "$CHANGES_RESULT" != "success" ]]; then exit 1; fi
           if [[ -n "$HEAD_REPOSITORY" && "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then echo 'External fork PR: compute-heavy checks skipped.'; exit 0; fi
-          for result in "$SOURCE_TYPECHECK_RESULT" "$TEST_TYPECHECK_RESULT" "$BUILD_RESULT" "$TESTS_RESULT"; do [[ "$result" == success ]] || exit 1; done
+          for result in "$SOURCE_TYPECHECK_RESULT" "$TEST_TYPECHECK_RESULT" "$BUILD_RESULT" "$TESTS_DESKTOP_RESULT" "$TESTS_HEAVY_RESULT" "$TESTS_REST_RESULT"; do [[ "$result" == success ]] || exit 1; done
           echo 'PR gate passed.'
