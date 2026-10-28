@@ -1,3 +1,5 @@
+import { costCapReached } from '../shared/budget';
+import { applySavedDecisionProposals } from './decision-proposals';
 import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/common';
 
 import { createSampleRepair } from './sample-repair';
@@ -174,6 +176,7 @@ export class ArchitectRuntime implements AppRuntime {
     const { records, held } = await reconcileProjects(store, this.host);
     if (held.length > 0) this.host.log(`held ${held.length} project(s) whose workspace is missing: ${held.join(', ')}`);
     for (const record of records) {
+      await applySavedDecisionProposals({ store, services, linked: { store, now: () => this.host.now(), retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) } }, record.id, this.host.now());
       // A blocked owner still needs updates from its existing work. Otherwise
       // a workflow resumed after restart can never clear the old failure.
       if (record.workspaceId) await watch.track(record);
@@ -194,7 +197,7 @@ export class ArchitectRuntime implements AppRuntime {
       if (unanswered.length > 0) {
         scheduler.request(fresh.id, { kind: 'directive', at: this.host.now(), items: unanswered.map((directive) => `directive ${directive.id} awaits a reply after restart`) });
       }
-      const answered = fresh.decisions.filter((decision) => decision.answer && decision.answer.answeredAt > lastWakeAt);
+      const answered = fresh.decisions.filter((decision) => decision.answer && (decision.answer.pendingOwner ?? (decision.answer.answeredAt > lastWakeAt)));
       // A replayed approval is not a new user action, so it does not wake a paused or stopped project.
       // The turn that saw it may have ended before `lastWakeAt` was stamped.
       const approvals = mayWakeForWork(fresh) ? fresh.history.filter((entry) => entry.at > lastWakeAt && entry.cause.includes('approved')) : [];
@@ -246,7 +249,7 @@ export class ArchitectRuntime implements AppRuntime {
     let record = await store.read(projectId);
     if (!record) return;
     const asked = wake.kind === 'directive' || wake.kind === 'decision';
-    const allowed = asked || mayWakeForWork(record);
+    const allowed = !costCapReached(record) && (asked || mayWakeForWork(record));
     if (!allowed) {
       this.host.log(`project ${projectId} is ${record.overlay}; ${wake.kind} wake dropped`);
       return;
@@ -270,6 +273,10 @@ export class ArchitectRuntime implements AppRuntime {
         this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    if (this.services) {
+      await applySavedDecisionProposals({ store, services: this.services, linked: { store, now: () => this.host.now(), retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) } }, projectId, this.host.now());
+      record = await store.read(projectId) ?? record;
+    }
     let tookWaitWake = false;
     if (wake.kind === 'wait') {
       // The wakes are taken once. They stay marked as awaiting their turn until
@@ -289,7 +296,7 @@ export class ArchitectRuntime implements AppRuntime {
       result = await sessions.runTurn(record, wake, async () => {
         started = true;
         if (tookWaitWake) await this.waits?.started(projectId);
-      }, tookWaitWake ? waitMayWake : asked ? undefined : mayWakeForWork);
+      }, tookWaitWake ? waitMayWake : asked ? (fresh) => !costCapReached(fresh) : mayWakeForWork);
     } finally {
       if (tookWaitWake && !started) await this.waits?.requeue(projectId);
     }

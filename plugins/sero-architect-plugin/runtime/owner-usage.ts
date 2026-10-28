@@ -1,3 +1,4 @@
+import { costCapReached } from '../shared/budget';
 /**
  * Reads the owner session's usage and charges it to the project. When a charge
  * takes the project over its cost cap, the running turn is stopped from here:
@@ -28,25 +29,16 @@ export interface OwnerUsageContext {
   wakeId?: string;
   model?: string | null;
   thinking?: string | null;
-  /** A directive or decision wake the user asked for: it may run on a project already at its cap. */
-  exemptFromCap: boolean;
   /** Called when a read finds a turn that began under the cap at or over it, whoever crossed it. May repeat. */
   overCap(): void;
-}
-
-function overCostCap(record: ProjectRecord): boolean {
-  return record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd;
 }
 
 /** One read at a time: a read asked for while another runs joins it. */
 export function createUsageReader(context: OwnerUsageContext): { read: () => Promise<void>; flush: () => Promise<void>; detach: () => void } {
   const { deps, api, handleId, projectId, usageSource, tokenMarks } = context;
   let usageRead: Promise<void> | undefined;
-  // An exempt wake may run on a project that is already at its cap, so it is stopped only if it
-  // began under the cap. Any other wake is always stopped, whatever the record said at preparation.
-  const startedUnderCap = !context.exemptFromCap || !overCostCap(context.turnRecord);
   const detach = deps.store.subscribe((record) => {
-    if (record.id === projectId && startedUnderCap && overCostCap(record)) context.overCap();
+    if (record.id === projectId && costCapReached(record)) context.overCap();
   });
   const read = (): Promise<void> => {
     usageRead ??= (async () => {
@@ -59,7 +51,7 @@ export function createUsageReader(context: OwnerUsageContext): { read: () => Pro
         const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
         delta = cost - next.session.sessionCostUsd;
         const charged = charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, deps.host.now());
-        crossedCap = startedUnderCap && overCostCap(charged);
+        crossedCap = costCapReached(charged);
         return charged;
       });
       if (crossedCap) context.overCap();

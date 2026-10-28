@@ -213,7 +213,7 @@ describe('owner session', () => {
       expect(result.status).toBe('aborted');
     });
 
-    it('stops an ordinary wake that began already over the cap, which only directive and decision wakes may do', async () => {
+    it('does not start an ordinary wake already over the cap', async () => {
       const host = await fakeHost();
       const store = await storeFor(host);
       const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
@@ -221,20 +221,21 @@ describe('owner session', () => {
       host.sessions.costUsd = 0.1;
       const abort = stoppable(host, async () => undefined);
       const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, wake);
-      expect(abort).toHaveBeenCalledOnce();
+      expect(host.sessions.prompts).toHaveLength(0);
       expect(result.status).toBe('aborted');
     });
 
-    it('lets a directive turn that began on an already-limited project run', async () => {
+    it.each(['directive', 'decision'] as const)('saves a %s wake on an exhausted cap without acknowledging or prompting', async (kind) => {
       const host = await fakeHost();
       const store = await storeFor(host);
       const record = buildingProject({ budget: { ...buildingProject().budget, capUsd: 1, spentUsd: 3 } });
       await store.write(record);
-      host.sessions.costUsd = 0.1;
-      const abort = stoppable(host, async () => undefined);
-      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, { kind: 'directive', at: T0, items: ['directive d1'] });
-      expect(abort).not.toHaveBeenCalled();
-      expect(result.status).toBe('completed');
+      const accepted = vi.fn();
+      const result = await new OwnerSessions({ host, store, outcomes: createTurnOutcomes() }).runTurn(record, { kind, at: T0, items: ['saved input'] }, accepted);
+      expect(host.sessions.prompts).toHaveLength(0);
+      expect(accepted).not.toHaveBeenCalled();
+      expect(result.record.session.lastWakeAt).toBe(record.session.lastWakeAt);
+      expect(result.status).toBe('aborted');
     });
   });
 

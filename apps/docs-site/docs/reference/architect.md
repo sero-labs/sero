@@ -124,6 +124,11 @@ retains failures and unconfirmed remote termination across restart. Late usage
 stays attributed to the work that started it. `delete` removes the record and
 the owner session's grant; files in the folder stay.
 
+At an exhausted cap, directives and decision answers are saved without a paid
+owner wake. Pending approved work waits too; raising the cap sufficiently
+replays saved input through the existing project record, including after restart.
+Cap approvals and Stop remain usable.
+
 ## Direct work
 
 The owner can do a milestone itself instead of dispatching it. The `work`

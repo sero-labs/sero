@@ -1,3 +1,4 @@
+import { costCapReached } from '../shared/budget';
 import { abortOwner } from './project-cancellation';
 import { activeRun } from '../shared/runs';
 import type { TokenCounters } from './project-usage';
@@ -264,6 +265,7 @@ export class OwnerSessions {
     /** Asked with the fresh record just before the prompt. False sends nothing. */
     mayStart?: (fresh: ProjectRecord) => boolean,
   ): Promise<OwnerTurnResult> {
+    if (costCapReached(record)) return { record, status: 'aborted', declared: null };
     let modelProblem: string | null = null;
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
@@ -319,7 +321,6 @@ export class OwnerSessions {
     const usage = createUsageReader({
       deps: this.deps, api, handleId, projectId: opened.id, usageSource, turnRecord, tokenMarks: this.tokenMarks,
       turnRunId, wakeId, model, thinking,
-      exemptFromCap: wake.kind === 'directive' || wake.kind === 'decision',
       // Over the cap mid-turn: stop it now. It ends as an interruption, never a completion.
       overCap: () => {
         if (finished || capAborted) return;
@@ -382,11 +383,8 @@ export class OwnerSessions {
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
         // Preparation took time: a pause or cap since the wake was admitted sends nothing.
-        if (mayStart) {
-          const fresh = await this.deps.store.read(opened.id);
-          if (fresh && !mayStart(fresh)) return 'aborted';
-          if (stopRequested()) return 'aborted';
-        }
+        const fresh = await this.deps.store.read(opened.id);
+        if (!fresh || costCapReached(fresh) || (mayStart && !mayStart(fresh)) || stopRequested()) return 'aborted';
         const { turnId } = await api.prompt(handleId, contract);
         await acknowledge();
         if (finished || stopRequested()) return 'aborted';
@@ -447,13 +445,17 @@ export class OwnerSessions {
     if (retry) this.overran.add(opened.id);
     else this.overran.delete(opened.id);
     const next = await this.deps.store.update(opened.id, (fresh) => {
+      if (!acknowledged && status === 'aborted') return fresh;
       let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
         : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };
+      if (status === 'completed') updated = { ...updated, decisions: updated.decisions.map((decision) =>
+        turnRecord.decisions.some((seen) => seen.id === decision.id && seen.answer && !seen.answer.pendingApply) && decision.answer
+          ? { ...decision, answer: { ...decision.answer, pendingOwner: false } } : decision) };
       if (status === 'error' && !retry) {
         const stopped = block(updated, now, failure);
         if (stopped.ok) updated = { ...stopped.record, stateLine: failure };
       }
-      updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
+      if (acknowledged) updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
       return updated;
     });
     return { record: next ?? opened, status, declared, ...(retry ? { retry } : {}) };

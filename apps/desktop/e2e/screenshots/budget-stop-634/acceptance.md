@@ -3,10 +3,11 @@
 Base: `71eba954be54f36762367db4956a80f5011a7ebb` on
 `fix/v1-634-owned-cancellation`.
 
-This is a bounded technical slice, not whole-issue acceptance. The product
-question about paid directive and decision wakes on an already exhausted cap
-is unanswered. Their existing exception and its test remain unchanged. Issue
-634 must stay open until that decision is implemented or explicitly retained.
+The approved policy is **save the reply and wait for a budget increase**.
+Directive and decision wakes no longer bypass a known exhausted cap. Saved
+input and approved effects remain in the project record until sufficient
+budget is available, including across restart. Final delta review and regular
+CI remain delivery gates; this evidence does not close issues 630 or 632.
 
 ## Behavior and evidence
 
@@ -21,7 +22,7 @@ is unanswered. Their existing exception and its test remain unchanged. Issue
   after cancellation. `project-usage.test.ts` covers a concurrent charge
   exhausting the cap and a cancelled child reporting additional usage.
   Existing owner-session tests cover owner charges, delegated charges, cap
-  reductions and the deliberately retained manual-wake exception.
+  reductions and the approved prohibition on paid directive/decision wakes at the cap.
 - Room planning receives an abort signal. Its usage is charged before member
   start; exhausted budget cancels the prepared Room while retaining its id.
   `dispatch-handle.test.ts` verifies no grant/member start follows that charge.
@@ -97,8 +98,8 @@ cancellation immediately; the handle still returns the prepared id for final
 accounting and cleanup observation. Startup rechecks the signal before grant
 installation and readiness. Scheduling checks it in the serialized turn-start
 write, and the first member carries it to a final check before the paid prompt.
-Both milestone and research Rooms use this handle. Workflow startup and the
-unanswered manual over-cap wake choice are unchanged.
+Both milestone and research Rooms use this handle. Workflow startup was unchanged
+by that correction. The subsequently approved cap policy is recorded below.
 
 Deterministic coverage delays workspace preparation for user Stop and grant
 approval for cap exhaustion. Both cases retain a cancelled Room and begin no
@@ -112,3 +113,50 @@ accidental unrelated local-variable insertion; it was removed. Final root
 typecheck passed all 29 tasks (`r1-typecheck-final.log`). Layout, whitespace and changed-source
 LOC checks pass; `room-coordinator.ts` remains exactly 500 lines. No additional
 published package API or version change is needed for this internal fix.
+
+
+## Approved saved-input policy
+
+The user chose: "Save the reply; wait for a budget increase".
+
+- Runtime admission and the final pre-prompt read reject all owner wakes at a
+  known exhausted cap, including directives and decisions. A wake that sends
+  no prompt does not advance the processed-input watermark.
+- Directives retain their existing unanswered state. Decision answers retain
+  `pendingOwner` until a completed turn has received them in its context.
+  Context includes every unread answer, including more than three saved
+  answers; restart replays only unprocessed input.
+- Accepted dispatch, Room-time and Workflow-budget effects wait on the
+  existing answer record through `pendingApply`. Budget recovery applies them
+  through existing controls, with single-flight protection and retained
+  failures. Cap and charter approvals remain usable without a paid wake.
+  Research-access answers save their effect and resume through pending-work
+  recovery when budget permits. Stop remains available.
+- Immediate action notices say the reply/answer is saved and waiting for a
+  budget increase. Guide and reference documentation describe that behavior.
+
+`budget-input-runtime.test.ts` saves a directive and five answers at the cap,
+restarts while capped, proves an insufficient increase starts no prompt,
+raises sufficiently, processes all input in one turn, and proves another
+restart does not repeat it. `projects-actions.test.ts` verifies an accepted
+paid dispatch remains saved and executes once after sufficient budget.
+Existing owner exception coverage now checks both directive and decision
+wakes send no prompt and acknowledge nothing at the cap.
+
+Focused policy checks: 92 tests passed initially, with one existing stall
+behavior failing because the first watermark guard also skipped error state.
+That guard was narrowed to unstarted aborted turns. The focused owner/context
+checks then passed all 74 tests (`policy-owner-context.log`); the runtime,
+project-control and wake suites had passed in `policy-focused.log`. Final root
+typecheck passed all 29 tasks (`policy-typecheck.log`). No full package,
+paid-provider, whole-app or process campaign was repeated. No React source or
+published package source changed in this policy slice. The R1 Room fix remains
+intact. Layout, whitespace and changed-source LOC checks pass.
+
+
+Final policy handoff checks: the saved-input/runtime and project controls passed
+55 tests (`policy-final-controls.log`). A targeted failed-effect test passed
+(`policy-failed-effect.log`): an approval whose child can no longer resume
+retains its failure detail and unread answer for owner processing, rather than
+hiding that answer indefinitely. Final root typecheck passed all 29 tasks
+(`policy-typecheck-final.log`). No runtime or full-package check was repeated.

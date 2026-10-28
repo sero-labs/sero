@@ -304,6 +304,10 @@ reaches the cap, Architect stops starting new work and requests cancellation
 of its owned work. Requests already in flight can add cost before cancellation
 takes effect. Raise the cap from the project page to continue.
 
+Replies and decision answers are saved while the cap is exhausted. They do not
+start another paid turn. Raise the cap above reported spend to process the saved
+input. Stop and the cap controls remain available.
+
 The cap limits the work Architect starts. It is not a ceiling on what a project
 can spend: cancellation may not stop an active provider request or remote
 process immediately. The project records the cancellation request and any

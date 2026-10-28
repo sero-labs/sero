@@ -211,7 +211,8 @@ export interface Decision {
   raisedAt: string;
   /** A forced escalation carries what it proposes, applied only when the user picks `apply`. */
   proposal: DecisionProposal | null;
-  answer: { optionId: string; note: string | null; answeredAt: string } | null;
+  /** Pending flags retain unprocessed input and approved effects across budget holds and restart. */
+  answer: { optionId: string; note: string | null; answeredAt: string; pendingApply?: boolean; pendingOwner?: boolean } | null;
 }
 
 export interface Directive {
