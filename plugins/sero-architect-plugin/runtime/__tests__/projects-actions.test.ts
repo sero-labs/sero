@@ -595,7 +595,7 @@ describe('project management', () => {
     expect(services.dispatch).not.toHaveBeenCalled();
     await store.write(buildingProject({ phase: 'release', decisions: [decision], milestones: [milestone('m1', { status: 'approved' })] }));
     await actions.answer('proj_1', 'dec_1', 'apply');
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }));
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }), expect.any(Function));
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_9', destination: 'chat-post' } });
   });
 

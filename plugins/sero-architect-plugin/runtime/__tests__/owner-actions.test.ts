@@ -50,7 +50,7 @@ describe('owner actions', () => {
     expect((await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm3', kind: 'room', prompt: 'Implement it' })).ok).toBe(false);
     expect((await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm3', kind: 'workflow', prompt: 'Implement it' })).ok).toBe(true);
     await vi.waitFor(() => expect(services.dispatch).toHaveBeenCalledOnce());
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ prompt: expect.stringContaining('openspec/changes/architect-change-1/') }));
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ prompt: expect.stringContaining('openspec/changes/architect-change-1/') }), expect.any(Function));
     expect(exec.mock.calls.filter(([, args]) => args.includes('validate')).length).toBeGreaterThan(0);
   });
 
@@ -271,6 +271,7 @@ describe('owner actions', () => {
         maxCostUsd: null,
         project: expect.objectContaining({ projectId: 'proj_1', runId: expect.stringContaining('proj_1') }),
       }),
+      expect.any(Function),
     );
     await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } }));
     expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
@@ -354,7 +355,7 @@ describe('owner actions', () => {
     const { actions, services } = await setup(buildingProject({ phase: 'release', milestones: [milestone('m1', { status: 'approved' })] }));
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Open the release PR', destination: 'pr' });
     expect(outcome.ok).toBe(true);
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ destination: 'pr' }));
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ destination: 'pr' }), expect.any(Function));
   });
 
   it('turns a run that would spend beyond the cap into a decision', async () => {
