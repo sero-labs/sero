@@ -50,7 +50,7 @@ jobs:
         with:
           version: 12.5.1
           run_install: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.19.0
           cache: pnpm
@@ -95,7 +95,7 @@ jobs:
         with:
           version: 12.5.1
           run_install: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.19.0
           cache: pnpm
@@ -143,7 +143,7 @@ jobs:
         with:
           version: 12.5.1
           run_install: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.19.0
           cache: pnpm
