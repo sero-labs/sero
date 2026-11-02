@@ -3,10 +3,10 @@
     "minimumReleaseAgeDays": 7
   },
   "browser": {
-    "chromiumRevision": "1234",
-    "chromiumVersion": "151.0.7922.34",
-    "ffmpegRevision": "1011",
-    "macFfmpegRevision": "1011"
+    "chromiumRevision": "1248",
+    "chromiumVersion": "156.0.8078.4",
+    "ffmpegRevision": "1013",
+    "macFfmpegRevision": "1013"
   },
   "npm": {
     "agent-browser": {
@@ -20,9 +20,9 @@
       ]
     },
     "playwright": {
-      "version": "1.62.1",
-      "releasedAt": "2026-07-30T16:38:49.134Z",
-      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
+      "version": "1.64.1",
+      "releasedAt": "2026-10-14T11:54:49.998Z",
+      "integrity": "sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==",
       "routineUpdates": "minor",
       "usedBy": [
         "browser-pack",
