@@ -25,10 +25,12 @@ const chromiumCandidates = {
   linux: [
     `chromium-${pins.chromiumRevision}/chrome-linux64/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux64/chrome-wrapper`,
+    `chromium-${pins.chromiumRevision}/chrome-linux-arm64/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome-wrapper`,
     'chromium/chrome-linux64/chrome',
     'chromium/chrome-linux64/chrome-wrapper',
+    'chromium/chrome-linux-arm64/chrome',
     'chromium/chrome-linux/chrome',
     'chromium/chrome-linux/chrome-wrapper',
   ],
