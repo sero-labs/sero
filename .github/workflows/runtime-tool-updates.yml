@@ -136,6 +136,9 @@ jobs:
           private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          # Playwright updates edit browser-pack-artifacts.yml, and GitHub
+          # rejects a workflow-file push without this.
+          permission-workflows: write
 
       - name: Check urgent-security input
         env:
