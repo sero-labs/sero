@@ -35,6 +35,7 @@ import { registerOrchestratorHandlers } from './integrations/orchestrator';
 import { registerGitHubHandlers } from './integrations/github';
 import { registerFeedbackHandlers } from './platform/ui/feedback';
 import { registerNetHandlers } from './platform/system/net';
+import { registerClipboardHandlers } from './platform/system/clipboard';
 import { registerSafeStorageHandlers } from './platform/auth/safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './platform/ui/user-feedback-questions';
 import { registerNotificationHandlers } from './notifications';
@@ -88,6 +89,7 @@ export function registerAllIpcHandlers(): void {
   registerGitHubHandlers();
   registerFeedbackHandlers();
   registerNetHandlers();
+  registerClipboardHandlers();
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
   registerNotificationHandlers();

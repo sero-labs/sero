@@ -1,4 +1,4 @@
-import { clipboard, ipcRenderer } from 'electron';
+import { ipcRenderer } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -82,14 +82,8 @@ export const gatewayBridge = {
 };
 
 export const clipboardBridge = {
-  writeText: async (text: string): Promise<boolean> => {
-    try {
-      clipboard.writeText(text);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  writeText: (text: string): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.clipboard.writeText, text),
 };
 
 export const feedbackBridge = {
