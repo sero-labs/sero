@@ -13,6 +13,7 @@ import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
 import { agentPluginIpcChannels, pluginIpcChannels } from './ipc-channels-plugins';
 import {
+  clipboardIpcChannels,
   feedbackIpcChannels,
   gatewayIpcChannels,
   githubIpcChannels,
@@ -365,6 +366,7 @@ export const IpcChannels = {
   },
   pluginConfig: pluginConfigIpcChannels,
   safeStorage: safeStorageIpcChannels,
+  clipboard: clipboardIpcChannels,
   feedback: feedbackIpcChannels,
   userFeedback: {
     /** Main → renderer push: a question or questionnaire is pending. */

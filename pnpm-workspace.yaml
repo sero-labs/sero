@@ -20,9 +20,9 @@ overrides:
   flat-cache: "<6.1.24"
   file-entry-cache: "<11.1.6"
   ecto: "<5.0.1"
-  # One copy of this native module: each copy needs its own Electron build.
-  # QMD (memory search) pins 12.10.0; the web plugin needs ^12.11.1.
-  better-sqlite3: "12.11.1"
+  # One copy of this native module across QMD (memory search) and the web
+  # plugin. 13 is Node-API, so one prebuilt binary covers every Electron ABI.
+  better-sqlite3: "13.0.3"
 
 # Every dependency build script needs a decision: true runs it, false skips it.
 # The false entries are the scripts pnpm 10 skipped before this list existed.

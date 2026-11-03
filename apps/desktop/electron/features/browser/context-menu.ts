@@ -71,7 +71,9 @@ export function showBrowserContextMenu(opts: ShowContextMenuOptions): void {
     });
     items.push({
       label: 'Copy Link Address',
-      click: () => clipboard.writeText(params.linkURL),
+      click: () => {
+        void clipboard.writeText(params.linkURL);
+      },
     });
   }
 
@@ -85,7 +87,9 @@ export function showBrowserContextMenu(opts: ShowContextMenuOptions): void {
     });
     items.push({
       label: 'Copy Image Address',
-      click: () => clipboard.writeText(params.srcURL),
+      click: () => {
+        void clipboard.writeText(params.srcURL);
+      },
     });
   }
 

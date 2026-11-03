@@ -33,6 +33,11 @@ export const safeStorageIpcChannels = {
   status: 'sero:safe-storage:status',
 } as const;
 
+export const clipboardIpcChannels = {
+  /** Write text to the system clipboard (main process only since Electron 44). */
+  writeText: 'sero:clipboard:write-text',
+} as const;
+
 export const feedbackIpcChannels = {
   /** Load all feedback entries from disk. */
   load: 'sero:feedback:load',

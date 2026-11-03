@@ -69,11 +69,15 @@ export function registerDoctorHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.doctor.copyReport,
-    (_event, report: DoctorReport, format: 'json' | 'plaintext' = 'json'): void => {
+    async (
+      _event,
+      report: DoctorReport,
+      format: 'json' | 'plaintext' = 'json',
+    ): Promise<void> => {
       const text = format === 'plaintext'
         ? renderPlaintext(report)
         : JSON.stringify(report, null, 2);
-      clipboard.writeText(text);
+      await clipboard.writeText(text);
     },
   );
 
