@@ -18,8 +18,8 @@ permissions:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
-  BROWSER_PACK_RELEASE: browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3
-  BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-08-24
+  BROWSER_PACK_RELEASE: browser-pack-2026-11-03-r1248-f1013-mf1013-agent-0.27.3
+  BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-11-03
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,7 +42,7 @@ jobs:
           fi
           gh release create "$BROWSER_PACK_RELEASE" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Sero Browser Pack 2026-08-24" \
+            --title "Sero Browser Pack 2026-11-03" \
             --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
             --prerelease
 
@@ -81,6 +81,11 @@ jobs:
       run:
         shell: bash
     steps:
+      # Archived OpenSpec evidence paths exceed Windows' 260-character limit.
+      - name: Allow long paths on Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
@@ -115,7 +120,7 @@ jobs:
           version: 12.5.1
           run_install: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.19.0
           cache: pnpm
@@ -126,7 +131,7 @@ jobs:
       - name: Build browser pack
         run: |
           pnpm --filter @sero/desktop browser-pack:build -- \
-            --metadata-out dist/browser-pack/2026-08-24
+            --metadata-out dist/browser-pack/2026-11-03
 
       - name: Verify expected files
         run: |
@@ -174,7 +179,7 @@ jobs:
           version: 12.5.1
           run_install: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22.19.0
           cache: pnpm
@@ -199,7 +204,7 @@ jobs:
       - name: Merge committed metadata
         run: |
           pnpm --filter @sero/desktop browser-pack:merge-metadata -- \
-            --sidecar-dir dist/browser-pack/2026-08-24
+            --sidecar-dir dist/browser-pack/2026-11-03
 
       - name: Verify published artifacts
         run: pnpm --filter @sero/desktop browser-pack:verify-published

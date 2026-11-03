@@ -11,6 +11,7 @@ import runtimePins from '../../../../runtime-tools/pins.json';
 const execFileAsync = promisify(execFile);
 const scriptPath = path.join(process.cwd(), 'scripts/browser-pack/smoke-browser-pack.mjs');
 const chromiumRoot = `chromium-${runtimePins.browser.chromiumRevision}`;
+const ffmpegRoot = `ffmpeg-${runtimePins.browser.ffmpegRevision}`;
 
 let tempRoot: string;
 
@@ -100,7 +101,7 @@ async function createLinuxPack({
   executablePackageBin: boolean;
 }) {
   await writeExecutable(chromiumPath, '#!/bin/sh\n');
-  await writeExecutable('ffmpeg-1011/ffmpeg-linux', '#!/bin/sh\n');
+  await writeExecutable(`${ffmpegRoot}/ffmpeg-linux`, '#!/bin/sh\n');
   await writeExecutable(
     'agent-browser/bin/agent-browser',
     '#!/usr/bin/env sh\nexec node "$(dirname "$0")/../node_modules/agent-browser/cli.js" "$@"\n',
@@ -113,7 +114,7 @@ async function createLinuxPack({
 async function createWindowsPack({ candidate, clean = true }: { candidate: string; clean?: boolean }) {
   if (clean) await fs.rm(tempRoot, { recursive: true, force: true });
   await writeFile(`${chromiumRoot}/chrome-win/chrome.exe`, '', 0o644);
-  await writeFile('ffmpeg-1011/ffmpeg-win64.exe', '', 0o644);
+  await writeFile(`${ffmpegRoot}/ffmpeg-win64.exe`, '', 0o644);
   await writeFile(candidate, '@echo off\r\nnode "%~dp0..\\node_modules\\agent-browser\\dist\\cli.js" %*\r\n', 0o644);
   await writeFile('agent-browser/node_modules/agent-browser/dist/cli.js', '', 0o644);
 }

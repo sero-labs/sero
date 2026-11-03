@@ -1,7 +1,7 @@
 import runtimePins from '../../runtime-tools/pins.json' with { type: 'json' };
 
-export const BROWSER_PACK_VERSION = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3';
-export const BROWSER_PACK_DATE = '2026-08-24';
+export const BROWSER_PACK_VERSION = 'browser-pack-2026-11-03-r1248-f1013-mf1013-agent-0.27.3';
+export const BROWSER_PACK_DATE = '2026-11-03';
 export const DEFAULT_BROWSER_PACK_URL_BASE = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
 export const pins = {
@@ -25,10 +25,12 @@ const chromiumCandidates = {
   linux: [
     `chromium-${pins.chromiumRevision}/chrome-linux64/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux64/chrome-wrapper`,
+    `chromium-${pins.chromiumRevision}/chrome-linux-arm64/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome`,
     `chromium-${pins.chromiumRevision}/chrome-linux/chrome-wrapper`,
     'chromium/chrome-linux64/chrome',
     'chromium/chrome-linux64/chrome-wrapper',
+    'chromium/chrome-linux-arm64/chrome',
     'chromium/chrome-linux/chrome',
     'chromium/chrome-linux/chrome-wrapper',
   ],
