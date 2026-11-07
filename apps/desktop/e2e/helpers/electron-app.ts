@@ -51,6 +51,13 @@ export interface LaunchOptions {
   mockRelaunch?: boolean;
   /** Extra Electron command-line switches, for example a device scale factor for documentation captures. */
   args?: string[];
+  /**
+   * Launch a packaged build instead of the development tree, so a release check
+   * runs the artifact a user installs. Point this at the executable `pnpm pack`
+   * produces under `release/`. When set, `desktopRoot` is not passed as an app
+   * path.
+   */
+  executablePath?: string;
 }
 
 /**
@@ -111,7 +118,8 @@ export async function launchSeroApp(
   let app: ElectronApplication;
   try {
     app = await electron.launch({
-      args: [desktopRoot, ...(options.args ?? [])],
+      ...(options.executablePath ? { executablePath: options.executablePath } : {}),
+      args: options.executablePath ? options.args ?? [] : [desktopRoot, ...(options.args ?? [])],
       cwd: desktopRoot,
       env,
     });

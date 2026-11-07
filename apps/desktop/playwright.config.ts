@@ -78,5 +78,11 @@ export default defineConfig({
       retries: 0,
       metadata: { layer: 'tools' },
     },
+    {
+      // Runs the artifact `pack` produces, so it is not part of the per-PR gate.
+      name: 'packaged',
+      testMatch: '**/*.packaged.spec.ts',
+      metadata: { layer: 'packaged' },
+    },
   ],
 });

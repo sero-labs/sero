@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "e2e": "pnpm run build && pnpm exec playwright test",
     "e2e:contract": "pnpm run build && pnpm exec playwright test --project=contract",
+    "e2e:packaged": "bash scripts/build-release.sh --target current --dir && pnpm exec playwright test --project=packaged",
     "e2e:workflow": "pnpm run build && pnpm exec playwright test --project=workflow",
     "e2e:agent": "pnpm run build && pnpm exec playwright test --project=agent --pass-with-no-tests",
     "e2e:tools": "pnpm run build && pnpm exec playwright test --project=tools",

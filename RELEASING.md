@@ -71,12 +71,20 @@ Treat a Windows result as newly-established evidence, not as a formality.
 
 ## 2. Release acceptance: the packaged journey
 
-- [ ] Issue #635 exists as a passing test: a **packaged** build installs, runs a
-      real task to a result, and survives a recovery path. Nothing else in the
-      gate list proves a shipped artifact works — the rest runs from a dev tree.
+- [x] A **packaged** build launches and runs one real task to a result.
+      `pnpm --filter @sero/desktop e2e:packaged` packs the app, then
+      `e2e/release-journey.packaged.spec.ts` asserts `isPackaged`, reports the
+      version, and runs a real `bash` task through the packaged runtime. Two
+      tests, ~8s once packed. Issue #635, first slice.
+- [ ] A **packaged** build survives force-termination during active work, a
+      pending decision and delivery, and preserves reachable results and honest
+      interrupted/unknown states on restart.
+- [ ] A **packaged** build upgrades from the latest beta with profiles,
+      sessions, memory, projects and plugin state intact, and a documented
+      tested recovery procedure.
 
-If #635 is not done, an RC validates a development build, not a release. Do not
-tag before this passes.
+Nothing else in the gate list proves a shipped artifact works — the rest runs
+from a development tree. Do not tag before the packaged items pass.
 
 ---
 
