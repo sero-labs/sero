@@ -1,9 +1,9 @@
 name: E2E Contract
 
+# Ad-hoc only. Run it by hand when a change needs the evidence; it is not
+# triggered by a pull request, a push, or a schedule.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '27 8 * * *'
 
 permissions:
   contents: read

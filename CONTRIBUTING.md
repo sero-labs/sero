@@ -147,6 +147,8 @@ During beta:
 - package versions inside the monorepo may still serve internal compatibility
   and packaging purposes, not a full independently published package train
 
+To cut a release, follow the [`RELEASING.md`](./RELEASING.md) runbook.
+
 ## Contributor license expectations
 
 By submitting a contribution, you agree that your contribution may be licensed
