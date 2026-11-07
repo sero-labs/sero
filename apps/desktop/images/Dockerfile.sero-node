@@ -33,7 +33,8 @@ RUN apt-get update -qq && \
       iproute2 \
       build-essential \
       python3 python3-venv python3-pip \
-      ripgrep fd-find unzip zip sqlite3 && \
+      ripgrep fd-find unzip zip sqlite3 \
+      ffmpeg && \
     ln -sf /usr/bin/fdfind /usr/local/bin/fd && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -92,18 +93,19 @@ RUN git config --global user.name "Sero" && \
     git config --global user.email "sero@local" && \
     git config --global init.defaultBranch main
 
-# agent-browser + Chromium/ffmpeg browser assets. Playwright expects a
+# agent-browser + Chromium browser assets. Playwright expects a
 # chromium_headless_shell path for default headless launch; replace the large
 # downloaded shell with a tiny symlink shim to the regular Chromium binary.
+# Recording uses Ubuntu's ffmpeg from the first layer: agent-browser encodes
+# with libvpx, which Playwright's ffmpeg build for linux-arm64 leaves out.
 RUN mkdir -p /ms-playwright && \
     ln -sf /opt/sero-runtime/node_modules/agent-browser/bin/agent-browser.js /usr/local/bin/agent-browser && \
-    node /opt/sero-runtime/node_modules/playwright/cli.js install --with-deps chromium ffmpeg && \
+    node /opt/sero-runtime/node_modules/playwright/cli.js install --with-deps chromium && \
     rm -rf /ms-playwright/firefox-* /ms-playwright/webkit-* /ms-playwright/chromium_headless_shell-* && \
     chromium_dir="$(find /ms-playwright -maxdepth 1 -type d -name 'chromium-*' -print -quit)" && \
     chromium_build="${chromium_dir##*-}" && \
     mkdir -p "/ms-playwright/chromium_headless_shell-${chromium_build}/chrome-linux" && \
     ln -sf "${chromium_dir}/chrome-linux/chrome" "/ms-playwright/chromium_headless_shell-${chromium_build}/chrome-linux/headless_shell" && \
-    ln -sf "$(find /ms-playwright -path '*/ffmpeg-linux' -type f -print -quit)" /usr/local/bin/ffmpeg && \
     chmod -R a+rX /ms-playwright && \
     npm cache clean --force && \
     rm -rf /root/.npm/_cacache /root/.npm/_npx /var/lib/apt/lists/*

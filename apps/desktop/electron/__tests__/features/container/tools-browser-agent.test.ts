@@ -513,7 +513,7 @@ describe('createAgentBrowser', () => {
     await ensureFfmpegAvailable(runtime, resolved.adapter);
 
     expect(exec.mock.calls[0][1]).toContain(`chromium-${generatedArtifacts.pins.chromiumRevision}/chrome-linux/chrome`);
-    expect(exec.mock.calls[1][1]).toContain(`ffmpeg-${generatedArtifacts.pins.ffmpegRevision}/ffmpeg-linux`);
+    expect(exec.mock.calls[1][1]).toContain('/usr/bin/ffmpeg');
   });
 
   it('uses native wait command for timeout waits', async () => {
