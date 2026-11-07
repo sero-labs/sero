@@ -46,14 +46,16 @@ const NESTED_SCRIPT = [
 
 /**
  * A script that keeps appending to a file, so a file that stops growing proves
- * the script stopped. The absolute path keeps the workspace root out of it.
+ * the script stopped. The path is relative to the session's working directory,
+ * which is the workspace root. A host absolute path does not survive the POSIX
+ * shell a Windows host runtime gives the bash tool, so the file landed nowhere
+ * and the test read zero ticks.
  */
 function tickingScript(): string {
-  const target = path.join(workspaceDir, TICKS_FILE);
   return [
     'let n = 0;',
     'while (true) {',
-    `  await tools.bash({ command: \`echo \${n} >> '${target}'\` });`,
+    `  await tools.bash({ command: \`echo \${n} >> ${TICKS_FILE}\` });`,
     '  n += 1;',
     '}',
     "return 'never reached';",
