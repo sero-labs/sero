@@ -116,8 +116,9 @@ test('runs the packaged artifact, not the development tree', async () => {
 });
 
 test('completes one real shell task through its own runtime', async () => {
-  // Pin the stub model on this session. Tier settings leave the session on the
-  // first real provider, which makes the run depend on a key it must not need.
+  // Pin the stub model on this session. A session resolves its saved default model
+  // before the LOW/MED/HIGH tiers, so seeding tiers alone leaves the run on a real
+  // provider and an API key it must not need.
   const session = await page.evaluate(async ({ workspaceId, provider, modelId }) => {
     const created = await window.sero.sessions.create(workspaceId);
     await window.sero.agent.open(created.id, created.path, workspaceId);
