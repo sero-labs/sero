@@ -50,8 +50,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build plugin Vite helpers
-        run: pnpm --filter @sero-ai/plugin-vite build
+      # The desktop build copies each plugin's `dist/ui`; it never builds it.
+      # `pnpm --filter @sero/desktop build` also skips the plugin builds that
+      # turbo declares ahead of it, so build them here or a panel loads with
+      # no plugin UI.
+      - name: Build the plugin UIs the app packages
+        run: |
+          pnpm --filter "./packages/*" --if-present build
+          pnpm --filter "./plugins/*" --if-present build
 
       - name: Run contract e2e
         if: runner.os != 'Linux'
