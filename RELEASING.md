@@ -54,6 +54,11 @@ proves it; an unchecked one says what is still missing.
 
       The first is a real site-specific defect; the docker ones are a container
       gap in cancellation and in git identity. None are test artefacts.
+
+      Apple Container has no CI target, but it runs locally (CLI 0.8.0, macOS
+      26.6.2, `sero-node:latest` present). Run it before tagging:
+
+      `SERO_E2E_RUNTIME=apple-container pnpm --filter @sero/desktop exec playwright test --project=tools`
 - [x] `Test` is green on `main` at the release commit — `9c8e0a4c7`, run
       `42394362780`.
       (`pnpm typecheck && pnpm build && pnpm test && pnpm e2e:contract` locally,
@@ -269,6 +274,23 @@ and #632 ship with their limits stated in the release notes.
 - [ ] #663 — **BLOCKS 1.0.** Apple Container: Git app and VCS status can report
       blank or stale repository state. Data-integrity class bug on a supported
       runtime.
+
+      **Partly fixed 2026-11-07** (`bf44b78e9`). A container session handed the git
+      bridge the runtime path `/workspace`, which matched no host path, so git ran
+      on the host there and reported no repository. It now maps the runtime path
+      back through non-host workspaces. Verified locally against Apple Container
+      (CLI 0.8.0, macOS 26.6.2, `sero-node:latest`): the `git_manager` blank-state
+      failure is gone from the ledger.
+
+      Still failing on that run, so the issue stays open:
+
+      - `sero vcs status` omits a just-written file, at subagent, workflow-worker
+        and codemode-subagent. `VcsOps.getStatus` runs `git status --porcelain`
+        fresh, so this is not a cache: the container's view of the change differs
+        from the host's.
+      - cancellation: `bash (cancels)` at all four sites and `codemode (cancels)`
+        at both, reporting "the long command was still running after the cancel".
+      - `automation_browser stop_recording`: `ffmpeg` failed.
 - [ ] #665 — real-model pass at the Room member and Architect owner sites.
 - [ ] #667 — macOS Room wake failure unconfirmed. Unconfirmed means unknown
       user-visible breakage.
