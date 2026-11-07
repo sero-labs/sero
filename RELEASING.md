@@ -22,17 +22,20 @@ proves it; an unchecked one says what is still missing.
 - [x] `E2E Contract` is green on all three runners (Ubuntu, macOS, Windows).
       Manual dispatch only. 87 passed on each, run `42377830666`.
       `gh workflow run e2e-contract.yml`
-- [ ] `E2E Agent` is green at `mode=full`. Not yet: `mode=cheap` fails on an MCP
-      bridge hang and on an empty model string in the output-optimizer spec.
-      Manual dispatch only.
+- [ ] `E2E Agent` is green at `mode=full`. Not yet: the CI job lacks `rg` and
+      `rtk`, which the managed toolchain provides and that job never installs, so
+      most of the suite cannot run there. Its serial mode means a first failure
+      hides the rest, which is why a "6 passed" run was really ~7 of ~73 tests.
+      Decided 2026-11-07: fix the environment, timeboxed, before relying on this
+      gate.
       `gh workflow run e2e-agent.yml -f mode=full`
 - [ ] `E2E Workflow` is green for the target runtime the release claims. Not run
       since 2026-09-26, and it still builds the app without the plugin UIs
       (§1 note below).
       `gh workflow run e2e-workflow.yml -f os=macos -f runtime=host`
-- [ ] `Tool Check` is green on every target the release supports. Not run. This
-      is the "every agent tool for real" gate (issue #626) and it also runs by
-      hand.
+- [ ] `Tool Check` is green on every target the release supports. Authorised
+      2026-11-07: run the paid real-model pass (recorded cost $0.009). This is the
+      "every agent tool for real" gate (issue #626) and it also runs by hand.
       `gh workflow run tool-check.yml -f target=all`
 - [x] `Test` is green on `main` at the release commit — `acaa06fb7`.
       (`pnpm typecheck && pnpm build && pnpm test && pnpm e2e:contract` locally,
@@ -78,10 +81,12 @@ Treat a Windows result as newly-established evidence, not as a formality.
       tests, ~8s once packed. Issue #635, first slice.
 - [ ] A **packaged** build survives force-termination during active work, a
       pending decision and delivery, and preserves reachable results and honest
-      interrupted/unknown states on restart.
-- [ ] A **packaged** build upgrades from the latest beta with profiles,
-      sessions, memory, projects and plugin state intact, and a documented
-      tested recovery procedure.
+      interrupted/unknown states on restart. Decided 2026-11-07: this ships as a
+      documented limit, and the release notes say so.
+- [ ] **BLOCKS 1.0** — a **packaged** build upgrades from the latest beta with
+      profiles, sessions, memory, projects and plugin state intact, and a
+      documented tested recovery procedure. This touches existing users' data,
+      so it is the one journey that cannot ship unproven.
 
 Nothing else in the gate list proves a shipped artifact works — the rest runs
 from a development tree. Do not tag before the packaged items pass.
@@ -99,11 +104,10 @@ The release script syncs only the root and `apps/desktop` versions
 - [x] `release:rc` scripts exist in `package.json` — added 2026-11-07 beside
       `release:beta` / `release:stable`: `release-it --preRelease=rc` and a dry
       variant.
-- [ ] Decide whether the published packages (`@sero-ai/app-runtime`,
-      `@sero-ai/common`, `@sero-ai/extension-runtime`, `@sero-ai/plugin-vite`,
-      `@sero-ai/ui`) move with 1.0 or stay on their independent train. They are
-      the plugin-author contract, so 1.0's stability claim depends on the answer.
-      Whatever you choose, bump each package you touched in the same PR.
+- [x] Decided 2026-11-07: the five published packages stay on their own 0.x
+      train. Their APIs are not stable, so claiming 1.0 would promise something
+      that is not true. Support scope states that plugin contracts are versioned
+      separately from the app. Bump each package you touch in the same PR.
 
 ```bash
 pnpm release:rc:dry        # inspect the changelog and bump first
@@ -163,9 +167,9 @@ xcrun stapler validate "$app_path"
 
 ### Windows and Linux
 
-- [ ] Decide explicitly whether 1.0 ships an **unsigned** Windows NSIS
-      installer. No Windows signing secret exists, so SmartScreen will warn
-      users. Signing, or documenting the warning, is a launch decision.
+- [x] Decided 2026-11-07: 1.0 ships the Windows NSIS installer **unsigned**, and
+      the install docs say so. No certificate is being acquired; revisit only if
+      a user or distributor needs it.
 - [ ] Note the Linux signing posture in the release notes (DEB and AppImage are
       unsigned; the AppImage is the update channel, the DEB is manual-install
       only).
@@ -174,15 +178,21 @@ xcrun stapler validate "$app_path"
 
 ## 5. Product copy and docs
 
-Public messaging still says beta in six places, and two of them contradict each
-other today: the homepage says **source-only** while the README says packaged
-installers are published.
+Decided 2026-11-07: **packaged installers are the product.** The homepage, README
+and docs lead with downloads; building from source is the developer path. That
+resolves today's contradiction, where the homepage says **source-only** while the
+README says packaged installers are published.
+
+Supported targets stay macOS Apple Silicon, Linux x64, Linux arm64 and Windows
+x64. Windows installers are unsigned (§4).
 
 - [ ] `README.md` — replace the "Beta status" section with the 1.0 support
       posture, and remove "plugin/runtime contracts may change during beta" or
       restate it accurately.
 - [ ] `apps/docs-site/docs/reference/support-scope.md` — same pass. This page is
-      the canonical support contract; keep the README consistent with it.
+      the canonical support contract; keep the README consistent with it. Decided
+      2026-11-07: keep the "internal plugin and runtime APIs may change" caveat,
+      consistent with the five published packages staying on 0.x.
 - [ ] `apps/docs-site/docs/reference/known-limitations.md` — confirm nothing
       there is only true during beta.
 - [ ] `apps/docs-site/docs/guide/overview.md:11` — "public beta desktop release".
@@ -210,11 +220,13 @@ installers are published.
 
 ## 6. Open scope to close
 
-From the `v1.0` label:
+From the `v1.0` label. Decided 2026-11-07: **only #663 blocks 1.0.** #665, #667
+and #632 ship with their limits stated in the release notes.
 
 - [ ] #635 — packaged v1.0 install-to-result and recovery journey (see §2).
-- [ ] #663 — Apple Container: Git app and VCS status can report blank or stale
-      repository state. Data-integrity class bug on a supported runtime.
+- [ ] #663 — **BLOCKS 1.0.** Apple Container: Git app and VCS status can report
+      blank or stale repository state. Data-integrity class bug on a supported
+      runtime.
 - [ ] #665 — real-model pass at the Room member and Architect owner sites.
 - [ ] #667 — macOS Room wake failure unconfirmed. Unconfirmed means unknown
       user-visible breakage.
@@ -233,9 +245,9 @@ From `openspec/changes/verify-agent-tools-for-real`:
 
 From the dependency backlog:
 
-- [ ] #506 — resolve the open Dependabot alerts. Every push to `main` currently
-      reports **149 vulnerabilities: 6 critical, 70 high**, which is a poor
-      posture for a 1.0 and a liability in the release notes.
+- [ ] #506 — decided 2026-11-07: triage the **6 critical** advisories before 1.0
+      and fix or explicitly accept each one. The high and moderate counts ship
+      with a stated number rather than a vague promise.
 
 ---
 
@@ -265,7 +277,9 @@ default.
       sample repository repair.
 - [ ] Confirm the updater reaches the expected channel: an installed
       `1.0.0-rc.N` offers `1.0.0` once it exists, and an installed `1.0.0` does
-      **not** offer a later prerelease (§3.2).
+      **not** offer a later prerelease (§3.2). Decided 2026-11-07: a 0.9 beta
+      install offers 1.0 and installs it through the normal restart-to-update
+      prompt.
 - [ ] Confirm the docs site deployed (`Deploy` workflow) and the support-scope
       page matches what shipped.
 - [ ] Close the `v1.0` labelled issues and archive the completed openspec
