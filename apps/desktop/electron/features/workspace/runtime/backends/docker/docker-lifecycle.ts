@@ -1,7 +1,5 @@
-import { execFile } from 'child_process';
 import { mkdirSync } from 'fs';
 import path from 'path';
-import { promisify } from 'util';
 import type { ContainerConfig, ContainerState } from '@electron/features/container/core/types';
 import { containerId, DEFAULT_CPUS, DEFAULT_IMAGE, DEFAULT_MEMORY_MB } from '@electron/features/container/core/types';
 import {
@@ -14,14 +12,10 @@ import {
   SERO_WORKSPACE_PATH_LABEL,
 } from '@electron/features/container/core/ownership';
 import { prepareWorkspaceLogPortal } from '@electron/features/container/core/log-access';
+import { readHostGitIdentity } from '@electron/features/container/core/host-git-identity';
 import { mountArgs, buildDockerMounts } from './docker-mounts';
 import { checkDocker, type DockerRunner } from './docker-cli';
 import { buildPreviewInternalPorts } from '../preview-port-pool';
-
-const execFileAsync = promisify(execFile);
-const GIT_IDENTITY_TTL_MS = 5 * 60 * 1000;
-let cachedGitIdentity: { name: string; email: string } | null = null;
-let cachedGitIdentityFetchedAt = 0;
 
 export interface DockerLifecycleOptions {
   config: ContainerConfig;
@@ -229,20 +223,4 @@ async function configureGitIdentity(workspaceId: string, run: DockerRunner): Pro
   await run(['exec', cid, 'git', 'config', '--global', 'push.autoSetupRemote', 'true'], { timeoutMs: 10_000 });
   if (identity.name) await run(['exec', cid, 'git', 'config', '--global', 'user.name', identity.name], { timeoutMs: 10_000 });
   if (identity.email) await run(['exec', cid, 'git', 'config', '--global', 'user.email', identity.email], { timeoutMs: 10_000 });
-}
-
-async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
-  if (cachedGitIdentity && Date.now() - cachedGitIdentityFetchedAt < GIT_IDENTITY_TTL_MS) return cachedGitIdentity;
-  cachedGitIdentity = { name: await readGitConfig('user.name'), email: await readGitConfig('user.email') };
-  cachedGitIdentityFetchedAt = Date.now();
-  return cachedGitIdentity;
-}
-
-async function readGitConfig(key: string): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync('git', ['config', '--global', key], { timeout: 5_000 });
-    return stdout.trim();
-  } catch {
-    return '';
-  }
 }
