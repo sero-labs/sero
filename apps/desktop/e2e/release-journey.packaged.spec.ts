@@ -28,34 +28,14 @@ import {
   type TempSeroHome,
 } from './helpers';
 import { seedWorkflowProfile } from './helpers/workflow';
+import { PACKAGED_SKIP_REASON, findPackagedApp } from './helpers/packaged-app';
 
-const DESKTOP_ROOT = path.resolve(__dirname, '..');
-const RELEASE_DIR = path.join(DESKTOP_ROOT, 'release');
 /** The task text that marks the probe session, so its plan answers only this run. */
 const TASK = 'release-journey';
 const EXPECTED = 'packaged-runtime-ok';
 
-/** The executable an unpacked build leaves behind, by platform. */
-function packagedCandidates(): string[] {
-  return [
-    path.join(RELEASE_DIR, 'mac-arm64', 'Sero.app', 'Contents', 'MacOS', 'Sero'),
-    path.join(RELEASE_DIR, 'mac', 'Sero.app', 'Contents', 'MacOS', 'Sero'),
-    path.join(RELEASE_DIR, 'linux-unpacked', 'sero'),
-    path.join(RELEASE_DIR, 'win-unpacked', 'Sero.exe'),
-  ];
-}
-
-function findPackagedApp(): string | null {
-  const override = process.env.SERO_E2E_PACKAGED_APP;
-  if (override) return fs.existsSync(override) ? override : null;
-  return packagedCandidates().find((candidate) => fs.existsSync(candidate)) ?? null;
-}
-
 const packagedApp = findPackagedApp();
-test.skip(
-  !packagedApp,
-  'No packaged app found. Run `pnpm --filter @sero/desktop pack`, or set SERO_E2E_PACKAGED_APP.',
-);
+test.skip(!packagedApp, PACKAGED_SKIP_REASON);
 
 test.describe.configure({ mode: 'serial' });
 
