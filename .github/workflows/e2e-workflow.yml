@@ -138,6 +138,10 @@ jobs:
       run:
         shell: bash
     steps:
+      # Archived OpenSpec evidence paths exceed Windows' 260-character limit.
+      - name: Allow long paths on Windows
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
         with:

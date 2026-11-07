@@ -92,6 +92,10 @@ jobs:
       run:
         shell: bash
     steps:
+      # Archived OpenSpec evidence paths exceed Windows' 260-character limit.
+      - name: Allow long paths on Windows
+        if: ${{ matrix.os == 'windows' }}
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v7.0.1
 
       - name: Install Linux display dependencies
