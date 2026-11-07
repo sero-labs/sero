@@ -18,6 +18,7 @@ import path from 'path';
 import { migrateExistingInstall } from '@electron/features/profile/migration';
 import {
   PROFILE_REGISTRY_PATH,
+  profileManager,
   readRegistryLoadSync,
   readRegistrySync,
 } from '@electron/features/profile/manager';
@@ -113,7 +114,12 @@ function repairActiveProfile(
 
 function resolveProfileHomeFromRegistry(): string {
   if (!process.env.SERO_HOME_OVERRIDE) {
-    migrateExistingInstall();
+    const migrated = migrateExistingInstall();
+    // The manager reads the registry once and caches it, and migration writes the
+    // registry after that read may already have happened. Without this, an
+    // upgraded install is on disk but invisible for the whole session, so the app
+    // shows first-run setup to a user who already has one.
+    if (migrated) profileManager.reload();
   }
 
   const registry = loadRegistryForStartup();
