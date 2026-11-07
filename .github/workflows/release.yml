@@ -167,13 +167,31 @@ jobs:
         if: ${{ matrix.os == 'macos' }}
         run: |
           set -euo pipefail
-          # electron-builder emits to mac/ (x64), mac-arm64/, or mac-universal/ depending on arch.
-          app_path="$(find apps/desktop/release -maxdepth 2 -type d -name 'Sero.app' -print -quit)"
+          # electron-builder emits to mac/ (x64), mac-arm64/, or
+          # mac-universal/ depending on arch.
+          app_path="$(find apps/desktop/release -maxdepth 2 \
+            -type d -name 'Sero.app' -print -quit)"
           if [[ -z "$app_path" ]]; then
             echo "::error::No Sero.app found under apps/desktop/release"
             exit 1
           fi
+          # `codesign --verify` also passes on the ad-hoc seal that
+          # after-pack.mjs applies when no certificate is configured. A release
+          # that fell back to it must fail here instead of shipping.
+          details="$(codesign -dv --verbose=4 "$app_path" 2>&1)"
+          if ! grep -q 'Developer ID Application' <<<"$details"; then
+            echo "::error::Sero.app is not Developer ID signed."
+            echo "$details"
+            exit 1
+          fi
+          if ! grep -q 'flags=.*runtime' <<<"$details"; then
+            echo "::error::Sero.app is not built with the hardened runtime."
+            echo "$details"
+            exit 1
+          fi
           codesign --verify --deep --strict --verbose=4 "$app_path"
+          spctl -a -t exec -vvv "$app_path"
+          xcrun stapler validate "$app_path"
 
       - name: Smoke test Linux Debian artifact
         if: ${{ matrix.os == 'linux' }}

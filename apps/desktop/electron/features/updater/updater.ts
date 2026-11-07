@@ -3,8 +3,8 @@
  *
  * Policy: silent background download (check on launch + every 6h), with a
  * renderer-driven "Restart to update" prompt once an update is downloaded.
- * `allowPrerelease` is on while Sero ships beta prereleases — flip it off when
- * cutting a stable channel.
+ * `allowPrerelease` follows the running version's own channel, so an RC takes
+ * RC updates and a stable build never installs a later prerelease.
  *
  * electron-updater needs a packaged app with an embedded `app-update.yml`
  * (generated from electron-builder's `publish` stanza). In dev there is none,
@@ -88,7 +88,9 @@ export function initUpdater(): void {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = true;
+  // A prerelease accepts prereleases, and a stable build does not, so the channel
+  // follows the version that is running rather than a constant to remember to flip.
+  autoUpdater.allowPrerelease = app.getVersion().includes('-');
 
   autoUpdater.on('checking-for-update', () => {
     broadcast({ state: 'checking', manual: manualCheck });

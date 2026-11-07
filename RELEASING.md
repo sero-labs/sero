@@ -88,9 +88,9 @@ The release script syncs only the root and `apps/desktop` versions
 (`scripts/sync-release-package-version.mjs`).
 
 - [ ] Decide the channel: `1.0.0-rc.N` (candidate) or `1.0.0` (stable).
-- [ ] `release:rc` scripts exist in `package.json`
-      (`release-it --preRelease=rc` plus a dry variant). They do not yet — add
-      them next to `release:beta` / `release:stable`.
+- [x] `release:rc` scripts exist in `package.json` — added 2026-11-07 beside
+      `release:beta` / `release:stable`: `release-it --preRelease=rc` and a dry
+      variant.
 - [ ] Decide whether the published packages (`@sero-ai/app-runtime`,
       `@sero-ai/common`, `@sero-ai/extension-runtime`, `@sero-ai/plugin-vite`,
       `@sero-ai/ui`) move with 1.0 or stay on their independent train. They are
@@ -108,11 +108,10 @@ pnpm release:rc            # tag and push v1.0.0-rc.1
 `autoUpdater.allowPrerelease = true`, with a comment saying to flip it off for a
 stable channel.
 
-- [ ] Replace the hardcoded `true` with a value derived from
-      `app.getVersion()`'s prerelease tag, so an RC accepts RC updates and a
-      stable build does not silently install a later prerelease. Do this
-      **before** the RC, because fixing it at stable is a code change during a
-      release window.
+- [x] `allowPrerelease` now follows the running version's own channel:
+      `autoUpdater.allowPrerelease = app.getVersion().includes('-')`. An RC takes
+      RC updates and a stable build cannot silently install a later prerelease,
+      so nothing needs flipping at stable.
 
 ### 3.3 Externally published artifacts
 
@@ -136,14 +135,10 @@ All five Apple secrets are configured in the repository (`CSC_LINK`,
 and `apps/desktop/scripts/build-release.sh:366-386` signs with Developer ID and
 notarizes when the set is complete.
 
-The gap is that nothing **fails** a release where signing silently fell back to
-the ad-hoc path in `apps/desktop/scripts/after-pack.mjs`. The existing
-`codesign --verify --deep --strict` step in `release.yml` passes on an ad-hoc
-bundle too.
-
-- [ ] Add a hard assertion to the macOS job in `release.yml` that fails unless
-      the artifact is Developer ID signed, hardened runtime is on, Gatekeeper
-      accepts it, and the notarization ticket is stapled:
+The gap was that nothing **failed** a release where signing silently fell back
+to the ad-hoc path in `apps/desktop/scripts/after-pack.mjs`, because
+`codesign --verify --deep --strict` passes on an ad-hoc bundle too. The job now
+asserts the release identity directly:
 
 ```bash
 codesign -dv --verbose=4 "$app_path" 2>&1 | grep -q "Developer ID Application"
@@ -151,6 +146,9 @@ codesign -d --verbose=2 "$app_path" 2>&1 | grep -q "flags=.*runtime"
 spctl -a -t exec -vvv "$app_path"
 xcrun stapler validate "$app_path"
 ```
+
+- [x] Those four assertions are in the macOS job in `release.yml`, so an
+      unsigned or un-notarized artifact fails the release instead of shipping.
 
 - [ ] Confirm the RC artifact carries a valid ticket by installing it on a clean
       Mac profile and launching it with Gatekeeper active.
