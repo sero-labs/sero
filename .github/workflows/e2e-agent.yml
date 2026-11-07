@@ -59,6 +59,10 @@ env:
   SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
   SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || '' }}
   SERO_E2E_PREBUILT_PLUGINS: 1
+  # RTK is managed-only and never resolved from PATH. The output-optimizer
+  # spec asserts the `git status` rewrite, so provision it instead of letting
+  # the spec fail on its absence.
+  SERO_E2E_FORCE_MANAGED_TOOLS: rtk
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
