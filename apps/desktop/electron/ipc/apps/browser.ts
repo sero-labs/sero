@@ -104,7 +104,8 @@ export function registerBrowserHandlers(): void {
   ipcMain.handle(
     IpcChannels.browser.navigate,
     (_e, tabId: string, url: string, workspaceId: string) => {
-      browserViewManager.navigate(tabId, url, workspaceId);
+      // The panel does not wait for the load; `sero browser navigate` does.
+      void browserViewManager.navigate(tabId, url, workspaceId);
     },
   );
 

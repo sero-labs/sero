@@ -48,7 +48,7 @@ describe('browser CLI', () => {
     expect(appControlMocks.showBrowserPanel).not.toHaveBeenCalled();
     expect(browserMocks.navigate).toHaveBeenCalledWith('tab-1', 'https://example.com', 'ws-1');
     expect(browserMocks.openTabForHost).not.toHaveBeenCalled();
-    expect(result).toEqual({ output: 'Navigating active tab tab-1 → https://example.com', exitCode: 0 });
+    expect(result).toEqual({ output: 'Navigated active tab tab-1 → https://example.com', exitCode: 0 });
   });
 
   it('shows the Browser panel without opening the Web app', async () => {

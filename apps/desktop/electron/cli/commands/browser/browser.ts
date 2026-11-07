@@ -127,8 +127,8 @@ const BROWSER_SUBCOMMANDS: CliSubcommands = {
       if (!tabId) return fail(`Unsupported browser URL: ${url}. Use http(s) URLs only.`);
       return ok(`Opened tab ${tabId} in workspace "${ctx.workspaceId}" → ${url}`);
     }
-    browserViewManager.navigate(active, url, ctx.workspaceId);
-    return ok(`Navigating active tab ${active} → ${url}`);
+    await browserViewManager.navigate(active, url, ctx.workspaceId);
+    return ok(`Navigated active tab ${active} → ${url}`);
   },
   close: async (rest, ctx) => {
     const { positionals } = parseFlags(rest);
@@ -170,8 +170,8 @@ const BROWSER_SUBCOMMANDS: CliSubcommands = {
     } catch {
       return fail(`Not a valid URL: ${url}`);
     }
-    browserViewManager.navigate(tabId, url, ctx.workspaceId);
-    return ok(`Navigating tab ${tabId} → ${url}`);
+    await browserViewManager.navigate(tabId, url, ctx.workspaceId);
+    return ok(`Navigated tab ${tabId} → ${url}`);
   },
   'get-text': async (rest, ctx) => {
     const { flags } = parseFlags(rest);

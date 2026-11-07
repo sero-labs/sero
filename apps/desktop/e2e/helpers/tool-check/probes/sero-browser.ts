@@ -43,7 +43,7 @@ export const seroBrowserProbe: ToolProbe = {
     {
       action: 'navigate',
       params: (ctx) => ({ argv: ['navigate', String(ctx.state.tab), `${ctx.fixtures.pageServerUrl}/stuck.html`] }),
-      expect: (result, ctx) => expectText(result, `Navigating tab ${String(ctx.state.tab)}`),
+      expect: (result, ctx) => expectText(result, `Navigated tab ${String(ctx.state.tab)}`),
     },
     {
       // The tab now shows the new page.

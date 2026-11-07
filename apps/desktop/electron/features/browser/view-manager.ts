@@ -179,7 +179,12 @@ export class BrowserViewManager {
     view.setBounds(shown ? bounds : { ...HIDDEN_BOUNDS });
   }
 
-  navigate(tabId: string, url: string, workspaceId: string): void {
+  /**
+   * Resolves once the load settles, so a caller can report a page that is
+   * actually there. Returning before the load committed made the next command
+   * read the previous page.
+   */
+  async navigate(tabId: string, url: string, workspaceId: string): Promise<void> {
     if (!this.ownsTab(tabId, workspaceId, 'navigate')) return;
     const safeUrl = normalizeBrowserUrl(url);
     if (!safeUrl) {
@@ -188,7 +193,7 @@ export class BrowserViewManager {
     }
     const view = this.views.get(tabId);
     if (!view) return;
-    void view.webContents.loadURL(safeUrl).catch(() => {
+    await view.webContents.loadURL(safeUrl).catch(() => {
       // surfaced via did-fail-load
     });
   }
