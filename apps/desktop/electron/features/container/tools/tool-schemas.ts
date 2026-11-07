@@ -210,9 +210,19 @@ export const BrowserParams = Type.Object({
 
 // ── Shared helpers ──────────────────────────────────────────
 
-/** Resolve a potentially relative path against the workspace root (or a custom basedir). */
+/** A Windows drive root or a UNC share. */
+const WINDOWS_ABSOLUTE_PATH = /^[A-Za-z]:[\\/]|^\\\\/;
+
+/**
+ * Resolve a potentially relative path against the workspace root (or a custom basedir).
+ *
+ * A host runtime hands the tools real host paths, so a Windows absolute path is
+ * already resolved. Treating it as relative prefixed the workspace root onto it
+ * (`/workspace/C:\...`) and every read of a host path outside the workspace,
+ * such as the shared Pi docs, was refused as outside the workspace.
+ */
 export function resolveContainerPath(p: string, basedir: string = WORKSPACE_DIR): string {
-  return p.startsWith('/') ? p : `${basedir}/${p}`;
+  return p.startsWith('/') || WINDOWS_ABSOLUTE_PATH.test(p) ? p : `${basedir}/${p}`;
 }
 
 /** Shell-escape single quotes in a path. */
