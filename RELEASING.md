@@ -16,31 +16,56 @@ Related: [`CHANGELOG.md`](./CHANGELOG.md), [`apps/docs-site/docs/reference/suppo
 A release is only as trustworthy as the last full run of its gates. Run these by
 hand on the commit you intend to tag, and record the run IDs in the release PR.
 
-- [ ] `E2E Contract` is green on all three runners (Ubuntu, macOS, Windows).
-      Manual dispatch only.
+Status as of 2026-11-07, `acaa06fb7` on `main`. A checked item names the run that
+proves it; an unchecked one says what is still missing.
+
+- [x] `E2E Contract` is green on all three runners (Ubuntu, macOS, Windows).
+      Manual dispatch only. 87 passed on each, run `42377830666`.
       `gh workflow run e2e-contract.yml`
-- [ ] `E2E Agent` is green at `mode=full`.
+- [ ] `E2E Agent` is green at `mode=full`. Not yet: `mode=cheap` fails on an MCP
+      bridge hang and on an empty model string in the output-optimizer spec.
       Manual dispatch only.
       `gh workflow run e2e-agent.yml -f mode=full`
-- [ ] `E2E Workflow` is green for the target runtime the release claims.
+- [ ] `E2E Workflow` is green for the target runtime the release claims. Not run
+      since 2026-09-26, and it still builds the app without the plugin UIs
+      (§1 note below).
       `gh workflow run e2e-workflow.yml -f os=macos -f runtime=host`
-- [ ] `Tool Check` is green on every target the release supports. This is the
-      "every agent tool for real" gate (issue #626) and it also runs by hand.
+- [ ] `Tool Check` is green on every target the release supports. Not run. This
+      is the "every agent tool for real" gate (issue #626) and it also runs by
+      hand.
       `gh workflow run tool-check.yml -f target=all`
-- [ ] `Test` is green on `main` at the release commit
+- [x] `Test` is green on `main` at the release commit — `acaa06fb7`.
       (`pnpm typecheck && pnpm build && pnpm test && pnpm e2e:contract` locally,
       or the CI job of the same name).
-- [ ] `React Doctor` has no new findings on the release commit.
-- [ ] No open `v1.0` labelled issue that names user-visible breakage.
+- [ ] `React Doctor` has no new findings on the release commit. Not checked.
+- [ ] No open `v1.0` labelled issue that names user-visible breakage. Five are
+      open: #632, #635, #663, #665, #667.
       `gh issue list --label v1.0 --state open`
 
-### Historical context worth knowing
+### What the first green contract run cost
 
-Both `E2E Contract` and `E2E Agent` were nightly until they were moved to manual
-dispatch, after ten consecutive scheduled failures from 2026-10-28. The Windows
-contract job had also been failing at `actions/checkout` before any test ran, so
-Windows had no contract coverage at all during that window. Treat a Windows
-contract result as newly-established evidence, not as a formality.
+`E2E Contract` had failed on every scheduled night from 2026-10-28, and both
+suites are now manual dispatch only rather than nightly. The Windows job had
+never run a single test: it died at `actions/checkout`, because archived OpenSpec
+evidence paths reach 277 characters against Windows' 260-character limit. That
+had also left the **Windows release build** unable to check out since
+`d0b8b7106` (2026-10-19), which no gate reported.
+
+Fixing the checkout turned "three failures" into five distinct defects, four of
+them previously invisible:
+
+- the long-path checkout itself, and the Windows release build it blocked
+- `pnpm --filter @sero/desktop build` produced an app with **no plugin UIs**.
+  The desktop build only copies each plugin's `dist/ui`, and `dist/` is
+  gitignored, so every e2e workflow was testing empty plugin panels. Only turbo
+  knows the plugin builds come first.
+- `resolveContainerPath` treated only a leading `/` as absolute, so a Windows
+  path became `/workspace/C:\...` and was refused as outside the workspace.
+  Every read of a host path outside the workspace broke on Windows.
+- a consent card whose click reported success while the card sat for its full
+  120s timeout, which is a denial.
+
+Treat a Windows result as newly-established evidence, not as a formality.
 
 ---
 
@@ -199,6 +224,12 @@ From `openspec/changes/verify-agent-tools-for-real`:
 - [ ] 9.1 — `tool-check.yml` verified from a manual dispatch on all four
       targets (`linux-host`, `linux-docker`, `macos-host`, `windows-host`).
 - [ ] 9.3 — the testing-evals documentation above.
+
+From the dependency backlog:
+
+- [ ] #506 — resolve the open Dependabot alerts. Every push to `main` currently
+      reports **149 vulnerabilities: 6 critical, 70 high**, which is a poor
+      posture for a 1.0 and a liability in the release notes.
 
 ---
 
