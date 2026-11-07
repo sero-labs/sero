@@ -91,14 +91,18 @@ Treat a Windows result as newly-established evidence, not as a formality.
       **Adoption fixed 2026-11-07.** `e2e/upgrade-journey.packaged.spec.ts` seeds a
       real pre-1.0 install (`<root>/agent/`, no `profiles.json`) and confirms the
       packaged app adopts it, opens the Default profile instead of first-run
-      setup, and keeps memory and app state. That failed because `ProfileManager`
-      caches the registry from its constructor and nothing reloaded it, so the
-      registry migration wrote was invisible for the whole session. `env` now
-      calls `reload()` when migration wrote one.
+      setup, and keeps memory, app state and a session recorded before the
+      upgrade. Adoption failed because `ProfileManager` caches the registry from
+      its constructor and nothing reloaded it, so the registry migration wrote was
+      invisible for the whole session. `env` now calls `reload()` when migration
+      wrote one.
 
-      Still unproven on this journey: **sessions**, **projects** and the
-      documented recovery procedure end to end. Session history retention in
-      particular needs a seeded 0.9 session file.
+      The session fixture is synthesized from the shape a real 0.9 profile uses
+      (`agent/sessions/<ts>_<id>.jsonl`, a `session` header then typed records),
+      so the test does not depend on anyone's home directory.
+
+      Still unproven on this journey: **projects**, and the recovery procedure
+      written down end to end.
 
 Nothing else in the gate list proves a shipped artifact works — the rest runs
 from a development tree. Do not tag before the packaged items pass.

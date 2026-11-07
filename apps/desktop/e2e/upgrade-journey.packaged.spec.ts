@@ -22,6 +22,28 @@ test.skip(!packagedApp, PACKAGED_SKIP_REASON);
 const MEMORY_IDENTITY = '# Identity\n\n- **Name:** Sero\n';
 const MEMORY_USER = '# User\n\n- **Role:** Developer\n';
 const APP_STATE = JSON.stringify({ visited: true, note: 'pre-1.0 state' }, null, 2);
+/** A session file in the shape a 0.9 install wrote: a JSONL header, then records. */
+const SESSION_ID = '01a19c41-26c6-71c5-8239-566c0504af5d';
+const SESSION_NAME = 'Pre-1.0 session';
+const SESSION_TEXT = 'hello from the old install';
+const SESSION_FILE = `2026-01-02T10-00-00-000Z_${SESSION_ID}.jsonl`;
+const WORKSPACE_DIR_NAME = 'old-workspace';
+
+/** The record stream for one pre-upgrade session, newest last. */
+function legacySessionRecords(workspaceDir: string): string {
+  const at = '2026-01-02T10:00:00.000Z';
+  return [
+    { type: 'session', version: 3, id: SESSION_ID, timestamp: at, cwd: workspaceDir },
+    { type: 'session_info', id: 'info-0001', parentId: SESSION_ID, timestamp: at, name: SESSION_NAME },
+    {
+      type: 'message',
+      id: 'msg-0001',
+      parentId: 'info-0001',
+      timestamp: at,
+      message: { role: 'user', content: [{ type: 'text', text: SESSION_TEXT }], timestamp: at },
+    },
+  ].map((record) => JSON.stringify(record)).join('\n') + '\n';
+}
 
 /** What a profile registry looks like, as far as this test reads it. */
 interface RegistryFile {
@@ -49,6 +71,11 @@ function seedPreProfileInstall(): void {
   fs.writeFileSync(path.join(root, 'workspaces', 'global', 'USER.md'), MEMORY_USER);
   fs.mkdirSync(path.join(root, 'apps', 'orchestrator'), { recursive: true });
   fs.writeFileSync(path.join(root, 'apps', 'orchestrator', 'state.json'), APP_STATE);
+  // A session the old install recorded, in its own directory.
+  const workspaceDir = path.join(home.path, WORKSPACE_DIR_NAME);
+  fs.mkdirSync(workspaceDir, { recursive: true });
+  fs.mkdirSync(path.join(root, 'agent', 'sessions'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'agent', 'sessions', SESSION_FILE), legacySessionRecords(workspaceDir));
 }
 
 test.beforeAll(async () => {
@@ -106,4 +133,13 @@ test('keeps memory and app state from the old install', async () => {
   expect(fs.readFileSync(path.join(root, 'workspaces', 'global', 'IDENTITY.md'), 'utf8')).toBe(MEMORY_IDENTITY);
   expect(fs.readFileSync(path.join(root, 'workspaces', 'global', 'USER.md'), 'utf8')).toBe(MEMORY_USER);
   expect(fs.readFileSync(path.join(root, 'apps', 'orchestrator', 'state.json'), 'utf8')).toBe(APP_STATE);
+});
+
+test('keeps a session recorded before the upgrade', async () => {
+  const sessions = await page.evaluate(() => window.sero.sessions.list());
+  const found = sessions.find((session) => session.id === SESSION_ID);
+  expect(found, `seeded session missing; listed: ${JSON.stringify(sessions.map((s) => s.id))}`).toBeDefined();
+  expect(found?.name).toBe(SESSION_NAME);
+  // The record stream parsed, so the history came across rather than just the file.
+  expect(found?.messageCount).toBeGreaterThan(0);
 });
