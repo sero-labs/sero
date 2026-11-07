@@ -58,6 +58,9 @@ export const EXISTS_ONLY_TOOLS = [
   'graphify_path', 'graphify_explain', 'graphify_status', 'graphify_index', 'graphify_configure',
   'mcp_manager', 'output_optimizer', 'question', 'questionnaire', 'interview', 'web_search', 'fetch_content',
   'get_search_content', 'code_search', 'web_bookmark', 'create_agent', 'memory', 'scratchpad',
+  // Pi's deferred-tool finder. A member session that defers tools is given it, and
+  // what it returns depends on what Pi deferred, so only its presence is asserted.
+  'tool_search',
 ];
 
 /**

@@ -8,10 +8,9 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Page } from '@playwright/test';
 import { pageOf, waitUntil } from '../files';
 import type { StepContext, ToolCallResult } from '../types';
-import { ALLOW } from './rooms-support';
+import { AllowCards } from '../../allow-cards';
 
 export interface CriterionFile { id: string; text: string; userStated: boolean }
 
@@ -129,48 +128,9 @@ export function captured(text: string, pattern: RegExp, what: string): string {
 // -- The host's Allow cards ----------------------------------------------------
 
 /**
- * Presses every Allow card the host shows while the story runs: the start
- * approval, and any grant a dispatched Workflow or Room asks for. It waits on
- * the page and never polls, and it counts the cards it answered so a step can
- * prove its card showed.
+ * The standing answer to the host's Allow cards while the story runs: the start
+ * approval, and any grant a dispatched Workflow or Room asks for.
  */
-export class AllowCards {
-  private stopped = true;
-  private stopSignal: Promise<void> = Promise.resolve();
-  private stop: () => void = () => undefined;
-  count = 0;
-
-  start(page: Page): void {
-    this.stopped = false;
-    this.count = 0;
-    this.stopSignal = new Promise((resolve) => { this.stop = resolve; });
-    void this.run(page);
-  }
-
-  end(): void {
-    this.stopped = true;
-    this.stop();
-  }
-
-  private async run(page: Page): Promise<void> {
-    const button = page.getByRole('button', { name: ALLOW }).first();
-    while (!this.stopped) {
-      const shown = await Promise.race([
-        button.waitFor({ state: 'visible', timeout: 0 }).then(() => true, () => false),
-        this.stopSignal.then(() => false),
-      ]);
-      if (!shown || this.stopped) return;
-      const pressed = await button.click({ timeout: 10_000 }).then(() => true, () => false);
-      if (pressed) this.count += 1;
-      // The card goes away once answered. Waiting for that keeps one card from counting twice.
-      await Promise.race([
-        button.waitFor({ state: 'hidden', timeout: 60_000 }).catch(() => undefined),
-        this.stopSignal,
-      ]);
-    }
-  }
-}
-
 export const allowCards = new AllowCards();
 
 // -- Calls and results ---------------------------------------------------------
@@ -224,7 +184,7 @@ export async function roomStatus(project: ProjectFile, roomId: string): Promise<
 }
 
 /** Waits for the project's Room to reach a status. */
-export function waitForRoomStatus(ctx: StepContext, project: ProjectFile, roomId: string, status: string): Promise<true> {
+export function waitForRoomStatus(project: ProjectFile, roomId: string, status: string): Promise<true> {
   return waitUntil(path.join(project.folder, '.sero', 'apps', 'orchestrator'), `Room ${roomId} to be ${status}`,
     async () => (await roomStatus(project, roomId)) === status ? true as const : null, 120_000);
 }

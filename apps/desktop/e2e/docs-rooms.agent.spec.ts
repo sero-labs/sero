@@ -424,7 +424,7 @@ test('a live Meridian Room is captured from empty list to pull request', async (
   // does, by pressing the button, so the consent surface is exercised.
   const allow = page.getByRole('button', { name: 'Allow' }).first();
   await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: 60_000 });
-  await allow.click({ timeout: 10_000 }).catch(() => undefined);
+  await allow.click({ timeout: 10_000 });
 
   const room = () => roomFile(roomId!) ?? {};
   const taken = new Set<string>();

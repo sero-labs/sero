@@ -13,7 +13,7 @@ import type { StepContext } from '../types';
 
 async function roomIs(ctx: StepContext, status: string): Promise<void> {
   const project = await requireProject(ctx);
-  await waitForRoomStatus(ctx, project, saved(ctx, 'roomId'), status);
+  await waitForRoomStatus(project, saved(ctx, 'roomId'), status);
 }
 
 export const roomStory: StoryEntry[] = [

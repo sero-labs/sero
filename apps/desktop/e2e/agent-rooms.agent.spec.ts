@@ -288,10 +288,12 @@ async function allowAgentSessions(name: string, timeoutMs = 30_000): Promise<voi
   const allow = page.getByRole('button', { name: 'Allow' }).first();
   await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: timeoutMs });
   await shot(`${name}-02b-approval.png`);
-  // Somebody watching the run can press it first. The Room's own status is what
-  // decides whether it started; this click only has to not be the reason it
-  // did not.
-  await allow.click({ timeout: 10_000 }).catch(() => undefined);
+  // Somebody watching the run can press it first, and an already-answered card
+  // detaches. Anything else is a real failure: swallowing it here made a card
+  // that never got answered look like a slow run instead of a broken one.
+  await allow.click({ timeout: 10_000 }).catch((error: unknown) => {
+    if (!/detached|not visible|element is not attached/i.test(String(error))) throw error;
+  });
 }
 
 /**
@@ -603,7 +605,10 @@ test.describe('the Room evaluation gate', () => {
       restarted = true;
       await openRooms();
       // A replacement member opens a session after the restart; answer the host if it asks.
-      await allowAgentSessions('amend-after-restart', 60_000).catch(() => undefined);
+      // A card that never appears is expected here; a click that fails is not, so log it.
+      await allowAgentSessions('amend-after-restart', 60_000).catch((error: unknown) => {
+        console.log(`[rooms] no replacement-member grant card: ${String(error)}`);
+      });
       await expect
         .poll(() => amendments(roomId).every((change) => change.state !== 'pending') ? 'settled' : 'pending', { timeout: 600_000, intervals: [5_000] })
         .toBe('settled');
@@ -619,7 +624,9 @@ test.describe('the Room evaluation gate', () => {
     const approvals: { id: string; outcome: unknown }[] = [];
     for (const change of held) {
       const approving = approveHeld(roomId, change.id);
-      await allowAgentSessions('amend-approve', 60_000).catch(() => undefined);
+      await allowAgentSessions('amend-approve', 60_000).catch((error: unknown) => {
+        console.log(`[rooms] no approval grant card: ${String(error)}`);
+      });
       const outcome = await approving;
       approvals.push({ id: change.id, outcome });
       console.log(`[rooms] approving held change ${change.id}: ${JSON.stringify(outcome)}`);

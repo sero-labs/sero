@@ -8,6 +8,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { ALLOW } from '../../allow-cards';
 import { pageOf, waitUntil } from '../files';
 import type { StepContext } from '../types';
 
@@ -114,9 +115,6 @@ const presses = new Map<string, Promise<string>>();
  * card does not return until it is answered, so a step starts this in its
  * `setup` without waiting, and collects the result in its `expect`.
  */
-/** The Allow choice: a plain question card numbers it ("1. Allow"), a contextual one does not. */
-export const ALLOW = /^(\d+\. )?Allow$/;
-
 export function startAllowPress(ctx: StepContext, key: string, timeoutMs = 90_000): void {
   presses.set(key, pageOf(ctx).getByRole('button', { name: ALLOW }).first()
     .click({ timeout: timeoutMs }).then(() => 'pressed', (error: unknown) => String(error)));

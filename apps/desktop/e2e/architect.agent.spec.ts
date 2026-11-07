@@ -115,7 +115,7 @@ async function allowOwnerSession(name: string): Promise<void> {
   const allow = page.getByRole('button', { name: 'Allow' }).first();
   await expect(allow, 'the host never asked to allow the owner session').toBeVisible({ timeout: 60_000 });
   await shot(`${name}-grant.png`);
-  await allow.click({ timeout: 10_000 }).catch(() => undefined);
+  await allow.click({ timeout: 10_000 });
 }
 
 test.describe.configure({ mode: 'serial' });

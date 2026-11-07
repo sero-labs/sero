@@ -17,6 +17,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import {
+  AllowCards,
   DEFECT_KINDS,
   PROBE_EDIT_FILE,
   PROBE_FILE,
@@ -311,14 +312,21 @@ test.describe.serial('chat session', () => {
 
 test.describe.serial('subagent session', () => {
   test('a chat starts a subagent, and every tool and command it is shown can be called', async () => {
-    const session = [...stub.sessions.values()].find((candidate) => candidate.key.includes(SUBAGENT_TASK));
-    if (!session?.done) throw new Error('The chat probe did not start a finished subagent session.');
+    // The child can finish after the chat probe's `subagent` call returns, so wait
+    // for it instead of reading the stub once.
+    const subagentSession = () => [...stub.sessions.values()].find((candidate) => candidate.key.includes(SUBAGENT_TASK));
+    await expect.poll(() => subagentSession()?.done ?? false, { timeout: 120_000, intervals: [1_000] }).toBe(true);
+    const session = subagentSession()!;
     recordSize('subagent', session);
     expectOnePiDocsPointer(session);
 
     expect(defects(session)).toEqual([]);
     // With no allowlist, a subagent reaches plugin tools as commands, as a chat does.
-    expect([...session.tools].sort()).toEqual([...SUBAGENT_TOOLS, ...(RUNTIME === 'host' ? [] : ['automation_browser'])].sort());
+    // `automation_browser` is a runtime tool, so it follows the workspace runtime:
+    // every container has one, and host has one once a browser pack is ready.
+    const browserPack = await page.evaluate(() => window.sero.workspace.getBrowserPackStatus());
+    const runtimeTools = RUNTIME !== 'host' || browserPack.state === 'ready' ? ['automation_browser'] : [];
+    expect([...session.tools].sort()).toEqual([...SUBAGENT_TOOLS, ...runtimeTools].sort());
     for (const name of ['web_search', 'git_manager', 'graphify_query', 'mcp_manager']) expect(session.commands, name).toContain(name);
     for (const name of GOAL_AND_ROOMS) {
       expect(session.tools, name).not.toContain(name);
@@ -347,6 +355,8 @@ const NOT_FOR_MEMBERS = ['goal', 'goals', 'goal_complete', 'goal_blocked', 'goal
 
 test.describe.serial('member session (Architect owner)', () => {
   test('every tool and command the owner is shown can be called', async () => {
+    // Its bounded waits add up past the default timeout: the grant card, then the session.
+    test.setTimeout(240_000);
     const folder = path.join(home.path, 'architect-projects', `probe-${Date.now()}`);
     const created = await architect<{ ok: boolean; text: string; projectId?: string }>('create', { idea: 'A tiny probe project.', folder });
     expect(created.ok, created.text).toBe(true);
@@ -354,15 +364,18 @@ test.describe.serial('member session (Architect owner)', () => {
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, PROBE_FILE), 'probe\n');
     fs.writeFileSync(path.join(folder, PROBE_EDIT_FILE), 'alpha\n');
-    // Resume asks for the owner session's grant and waits for the answer, so the call and the click overlap.
-    const resuming = architect<{ ok: boolean; text: string }>('resume', created.projectId);
-    const allow = page.getByRole('button', { name: 'Allow' }).first();
-    await expect(allow, 'the host never asked to allow the owner session').toBeVisible({ timeout: 60_000 });
-    await allow.click({ timeout: 10_000 });
-    const resumed = await resuming;
-    expect(resumed.ok, resumed.text).toBe(true);
-
-    await expect.poll(() => sessionWhere(ARCHITECT_CONTRACT)?.done ?? false, { timeout: 120_000, intervals: [1_000] }).toBe(true);
+    // Resume asks for the owner session's grant and does not return until it is
+    // answered, so the call runs while the cards are pressed.
+    const cards = new AllowCards();
+    cards.start(page);
+    try {
+      const resumed = await architect<{ ok: boolean; text: string }>('resume', created.projectId);
+      expect(resumed.ok, resumed.text).toBe(true);
+      await expect.poll(() => sessionWhere(ARCHITECT_CONTRACT)?.done ?? false, { timeout: 120_000, intervals: [1_000] }).toBe(true);
+      expect(cards.count, 'the host never asked to allow the owner session').toBeGreaterThan(0);
+    } finally {
+      cards.end();
+    }
     const session = sessionWhere(ARCHITECT_CONTRACT)!;
     recordSize('member', session);
     expectOnePiDocsPointer(session);
@@ -390,19 +403,30 @@ test.describe.serial('member session (Room)', () => {
     const panel = page.locator('[data-app="orchestrator"]').first();
     await page.evaluate(() => window.__appControl?.openApp('orchestrator'));
     await expect(panel).toBeVisible({ timeout: 20_000 });
-    await panel.locator('nav').getByRole('button', { name: /^Rooms(?: \d+)?$/ }).click();
+    // The Orchestrator nav is rendered by the plugin's federated UI, so it can
+    // lag the panel shell. Wait for the tab separately so a missing nav names
+    // itself instead of surfacing as a click timeout.
+    const roomsTab = panel.locator('nav').getByRole('button', { name: /^Rooms(?: \d+)?$/ });
+    await expect(roomsTab, 'the Orchestrator nav never offered Rooms').toBeVisible({ timeout: 60_000 });
+    await roomsTab.click();
     // An empty panel offers "Start a Room", and one with Rooms offers "New".
     await panel.getByRole('button', { name: /^(New|Start a Room)$/ }).click();
     await panel.getByPlaceholder(/session-fixation/).fill(ROOM_BRIEF);
     await panel.getByRole('button', { name: 'Design the team' }).click();
     await expect(panel.getByRole('button', { name: 'Start room' })).toBeVisible({ timeout: 120_000 });
-    await panel.getByRole('button', { name: 'Start room' }).click();
-    const allow = page.getByRole('button', { name: 'Allow' }).first();
-    await expect(allow, 'the host never asked to allow agent sessions').toBeVisible({ timeout: 30_000 });
-    await allow.click({ timeout: 10_000 });
-
+    // The start raises one grant card, and a single click can report success
+    // while the card stays up and expires into a denial. The watcher presses
+    // until the card is gone, and counts presses so a missing card still fails.
+    const cards = new AllowCards();
+    cards.start(page);
     const member = () => [...stub.sessions.values()].find((candidate) => candidate.key.includes(ROOM_MANDATE));
-    await expect.poll(() => member()?.done ?? false, { timeout: 120_000, intervals: [1_000] }).toBe(true);
+    try {
+      await panel.getByRole('button', { name: 'Start room' }).click();
+      await expect.poll(() => member()?.done ?? false, { timeout: 120_000, intervals: [1_000] }).toBe(true);
+      expect(cards.count, 'the host never asked to allow agent sessions').toBeGreaterThan(0);
+    } finally {
+      cards.end();
+    }
     const session = member()!;
     recordSize('room-member', session);
 

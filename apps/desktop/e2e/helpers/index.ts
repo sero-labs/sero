@@ -1,4 +1,5 @@
 export { closeSeroApp, launchSeroApp, getWindowTitle, isWindowVisible } from './electron-app';
+export { AllowCards } from './allow-cards';
 export type { LaunchOptions } from './electron-app';
 export { layout, sidebar, chat, vcs, workspace, fileTree } from './selectors';
 export { collapseShellPanels } from './workflow';

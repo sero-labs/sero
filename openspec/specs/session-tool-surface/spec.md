@@ -81,6 +81,19 @@ A subagent or workflow step session that has `sero-cli` and no tool allowlist SH
 - **WHEN** a chat starts a subagent whose agent definition names no tools
 - **THEN** its direct tools are the core file, search, shell and code tools plus `sero-cli`, and plugin tools such as `web_search` and `git_manager` are Sero CLI commands
 
+A runtime tool follows the workspace runtime, not the session kind: a subagent or
+member session has `automation_browser` when the runtime provides one, which is
+every container runtime and host once a browser pack is ready. Chat is the
+exception and reaches it as a Sero CLI command only.
+
+#### Scenario: Browser tool follows the runtime
+- **WHEN** a chat starts a subagent in a host workspace with a ready browser pack
+- **THEN** `automation_browser` is a direct tool in that subagent session
+
+#### Scenario: Browser tool absent without a runtime that provides one
+- **WHEN** a chat starts a subagent in a host workspace with no browser pack
+- **THEN** `automation_browser` is not a direct tool in that subagent session
+
 #### Scenario: Subagent with an allowlist
 - **WHEN** a subagent's allowlist names `web_search`
 - **THEN** `web_search` is a direct tool in that session
