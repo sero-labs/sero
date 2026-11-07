@@ -16,11 +16,11 @@ Related: [`CHANGELOG.md`](./CHANGELOG.md), [`apps/docs-site/docs/reference/suppo
 A release is only as trustworthy as the last full run of its gates. Run these by
 hand on the commit you intend to tag, and record the run IDs in the release PR.
 
-Status as of 2026-11-07, `acaa06fb7` on `main`. A checked item names the run that
+Status as of 2026-11-07, `9c8e0a4c7` on `main`. A checked item names the run that
 proves it; an unchecked one says what is still missing.
 
 - [x] `E2E Contract` is green on all three runners (Ubuntu, macOS, Windows).
-      Manual dispatch only. 87 passed on each, run `42377830666`.
+      Manual dispatch only. 87 passed on each, run `42394433361`.
       `gh workflow run e2e-contract.yml`
 - [ ] `E2E Agent` is green at `mode=full`. Not yet: the CI job lacks `rg` and
       `rtk`, which the managed toolchain provides and that job never installs, so
@@ -37,10 +37,27 @@ proves it; an unchecked one says what is still missing.
       2026-11-07: run the paid real-model pass (recorded cost $0.009). This is the
       "every agent tool for real" gate (issue #626) and it also runs by hand.
       `gh workflow run tool-check.yml -f target=all`
-- [x] `Test` is green on `main` at the release commit — `acaa06fb7`.
+
+      **Ran 2026-11-07 on `9c8e0a4c7`: all four targets failed**, and the causes are
+      environment, not broken tools:
+
+      - `git_manager commit`, `sero git checkpoint`, `sero vcs checkpoint` —
+        "Author identity unknown". The job never sets `GIT_AUTHOR_NAME` /
+        `GIT_AUTHOR_EMAIL`, which the contract suite does for its sessions.
+      - `automation_browser stop_recording` — `ffmpeg` failed in the recording path.
+      - `sero browser list` — the listing does not mention the expected page.
+      - `bash (cancels)` and `codemode (cancels)` — the cancellation checks.
+
+      Provision git identity and ffmpeg for the job first, then re-run and triage
+      whatever genuinely remains.
+- [x] `Test` is green on `main` at the release commit — `9c8e0a4c7`, run
+      `42394362780`.
       (`pnpm typecheck && pnpm build && pnpm test && pnpm e2e:contract` locally,
       or the CI job of the same name).
-- [ ] `React Doctor` has no new findings on the release commit. Not checked.
+- [x] `React Doctor` has no new findings on the release commit — checked
+      2026-11-07 on `9c8e0a4c7`: **0 findings in any file changed today.** The
+      repo baseline is 396 findings across 205 files (58 errors, 338 warnings),
+      all pre-existing; the gate is about new ones.
 - [ ] No open `v1.0` labelled issue that names user-visible breakage. Five are
       open: #632, #635, #663, #665, #667.
       `gh issue list --label v1.0 --state open`
