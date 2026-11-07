@@ -50,10 +50,12 @@ const REAL_HOME_ROOT = process.env.SERO_E2E_ACTIVE_PROFILE_ROOT ?? path.join(os.
 const gate = REAL_HOME ? { skip: false as const, reason: '' } : requireLlmReady();
 /** The disposable path needs the shared e2e credentials and their model. */
 const llmConfig: LlmConfig | null = REAL_HOME ? null : getLlmConfig();
-const MODEL_PROVIDER = process.env.SERO_E2E_LLM_PROVIDER
-  ?? (REAL_HOME ? 'openai-codex' : llmConfig?.provider ?? 'openrouter');
-const MODEL_ID = process.env.SERO_E2E_LLM_MODEL
-  ?? (REAL_HOME ? 'gpt-5.6-luna' : llmConfig?.modelId ?? '');
+// A dispatch that names neither leaves them empty rather than unset, and an
+// empty value has to fall through to the shared config, as `getLlmConfig` does.
+const MODEL_PROVIDER = process.env.SERO_E2E_LLM_PROVIDER?.trim()
+  || (REAL_HOME ? 'openai-codex' : llmConfig?.provider ?? 'openrouter');
+const MODEL_ID = process.env.SERO_E2E_LLM_MODEL?.trim()
+  || (REAL_HOME ? 'gpt-5.6-luna' : llmConfig?.modelId ?? '');
 const THINKING_LEVEL = 'high' as const;
 const TURN_TIMEOUT_MS = 240_000;
 
