@@ -53,7 +53,8 @@ proves it; an unchecked one says what is still missing.
         reach inside the container.
 
       The first is a real site-specific defect; the docker ones are a container
-      gap in cancellation and in git identity. None are test artefacts.
+      gap in cancellation and in git identity. None are test artefacts. Detailed
+      evidence, sites and runtimes for every outstanding item: **#689**.
 
       Apple Container has no CI target, but it runs locally (CLI 0.8.0, macOS
       26.6.2, `sero-node:latest` present). Run it before tagging:
