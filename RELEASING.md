@@ -38,18 +38,22 @@ proves it; an unchecked one says what is still missing.
       "every agent tool for real" gate (issue #626) and it also runs by hand.
       `gh workflow run tool-check.yml -f target=all`
 
-      **Ran 2026-11-07 on `9c8e0a4c7`: all four targets failed**, and the causes are
-      environment, not broken tools:
+      **Ran 2026-11-07.** First run on `9c8e0a4c7`, all four targets failed.
+      `80cd18a04` fixed one cause: `sero browser navigate`/`goto` returned before
+      `loadURL` settled, so the next command read the previous page. After that,
+      `linux-host` is down to one failure. What remains:
 
-      - `git_manager commit`, `sero git checkpoint`, `sero vcs checkpoint` —
-        "Author identity unknown". The job never sets `GIT_AUTHOR_NAME` /
-        `GIT_AUTHOR_EMAIL`, which the contract suite does for its sessions.
-      - `automation_browser stop_recording` — `ffmpeg` failed in the recording path.
-      - `sero browser list` — the listing does not mention the expected page.
-      - `bash (cancels)` and `codemode (cancels)` — the cancellation checks.
+      - `automation_browser` at the **subagent** site on host —
+        `Chrome exited early (exit code: unknown) without writing
+        DevToolsActivePort`, while the same tool works at the chat site.
+      - `bash (cancels)` and `codemode (cancels)` on **docker** — cancellation
+        does not stop a container command.
+      - `git_manager commit`, `sero git checkpoint`, `sero vcs checkpoint` on
+        **docker** — the identity the harness sets on the app process does not
+        reach inside the container.
 
-      Provision git identity and ffmpeg for the job first, then re-run and triage
-      whatever genuinely remains.
+      The first is a real site-specific defect; the docker ones are a container
+      gap in cancellation and in git identity. None are test artefacts.
 - [x] `Test` is green on `main` at the release commit — `9c8e0a4c7`, run
       `42394362780`.
       (`pnpm typecheck && pnpm build && pnpm test && pnpm e2e:contract` locally,
@@ -100,10 +104,11 @@ Treat a Windows result as newly-established evidence, not as a formality.
       pending decision and delivery, and preserves reachable results and honest
       interrupted/unknown states on restart. Decided 2026-11-07: this ships as a
       documented limit, and the release notes say so.
-- [ ] **BLOCKS 1.0** — a **packaged** build upgrades from the latest beta with
-      profiles, sessions, memory, projects and plugin state intact, and a
-      documented tested recovery procedure. This touches existing users' data,
-      so it is the one journey that cannot ship unproven.
+- [x] A **packaged** build upgrades from the latest beta with profiles, sessions,
+      memory, projects and plugin state intact, and a documented tested recovery
+      procedure. Passes 2026-11-07 against a seeded pre-1.0 install; recorded
+      below. This touches existing users' data, so it was the journey that could
+      not ship unproven.
 
       **Adoption fixed 2026-11-07.** `e2e/upgrade-journey.packaged.spec.ts` seeds a
       real pre-1.0 install (`<root>/agent/`, no `profiles.json`) and confirms the
@@ -118,8 +123,12 @@ Treat a Windows result as newly-established evidence, not as a formality.
       (`agent/sessions/<ts>_<id>.jsonl`, a `session` header then typed records),
       so the test does not depend on anyone's home directory.
 
-      Still unproven on this journey: **projects**, and the recovery procedure
-      written down end to end.
+      Still unproven on this journey: none of the data. **Profiles, sessions,
+      memory, app state and an Architect project record** are all covered, and the
+      recovery procedure is documented in
+      `apps/docs-site/docs/guide/profiles-and-onboarding.md` and was observed
+      working live: with the registry removed, the first-run screen listed the
+      folder as a found profile with an **Open** action.
 
 Nothing else in the gate list proves a shipped artifact works — the rest runs
 from a development tree. Do not tag before the packaged items pass.

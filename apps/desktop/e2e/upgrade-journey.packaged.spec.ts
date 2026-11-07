@@ -28,6 +28,9 @@ const SESSION_NAME = 'Pre-1.0 session';
 const SESSION_TEXT = 'hello from the old install';
 const SESSION_FILE = `2026-01-02T10-00-00-000Z_${SESSION_ID}.jsonl`;
 const WORKSPACE_DIR_NAME = 'old-workspace';
+/** An Architect project record: app data a user would be upset to lose. */
+const PROJECT_ID = 'proj-pre-1-0';
+const PROJECT_RECORD = `${JSON.stringify({ version: 1, title: 'Pre-1.0 project' }, null, 2)}\n`;
 
 /** The record stream for one pre-upgrade session, newest last. */
 function legacySessionRecords(workspaceDir: string): string {
@@ -71,6 +74,8 @@ function seedPreProfileInstall(): void {
   fs.writeFileSync(path.join(root, 'workspaces', 'global', 'USER.md'), MEMORY_USER);
   fs.mkdirSync(path.join(root, 'apps', 'orchestrator'), { recursive: true });
   fs.writeFileSync(path.join(root, 'apps', 'orchestrator', 'state.json'), APP_STATE);
+  fs.mkdirSync(path.join(root, 'apps', 'architect', 'projects'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'apps', 'architect', 'projects', `${PROJECT_ID}.json`), PROJECT_RECORD);
   // A session the old install recorded, in its own directory.
   const workspaceDir = path.join(home.path, WORKSPACE_DIR_NAME);
   fs.mkdirSync(workspaceDir, { recursive: true });
@@ -133,6 +138,10 @@ test('keeps memory and app state from the old install', async () => {
   expect(fs.readFileSync(path.join(root, 'workspaces', 'global', 'IDENTITY.md'), 'utf8')).toBe(MEMORY_IDENTITY);
   expect(fs.readFileSync(path.join(root, 'workspaces', 'global', 'USER.md'), 'utf8')).toBe(MEMORY_USER);
   expect(fs.readFileSync(path.join(root, 'apps', 'orchestrator', 'state.json'), 'utf8')).toBe(APP_STATE);
+  // Projects are app data too. This asserts the record survives the upgrade
+  // untouched; that the Architect UI then lists it is not asserted here.
+  expect(fs.readFileSync(path.join(root, 'apps', 'architect', 'projects', `${PROJECT_ID}.json`), 'utf8'))
+    .toBe(PROJECT_RECORD);
 });
 
 test('keeps a session recorded before the upgrade', async () => {
