@@ -62,7 +62,7 @@ export const navLinks = [
 ];
 
 export const hero = {
-	eyebrow: "Sero · source beta · local-first",
+	eyebrow: "Sero · local-first · packaged for macOS, Linux and Windows",
 	headline: "Build the agent only you need.",
 	sub: site.description,
 	support:
@@ -239,7 +239,7 @@ export const cta = {
 };
 
 export const footer = {
-	tagline: "source beta · macOS · Linux · Windows · local-first",
+	tagline: "1.0 · macOS · Linux · Windows · local-first",
 	bottomLeft: "",
 	bottomRight: "© sero",
 	links: [

@@ -76,26 +76,27 @@ Public links:
 - Website: <https://sero-ai.dev/>
 - Docs: <https://docs.sero-ai.dev/>
 
-## Beta status
+## Release status
 
-Sero is available as a public beta desktop release for macOS Apple Silicon,
-Linux x64/arm64, and Windows x64. Download the packaged installer for your
-platform from [GitHub Releases](https://github.com/sero-labs/sero/releases), or
-build from source if you are developing Sero.
+Sero 1.0 is a desktop release for macOS Apple Silicon, Linux x64/arm64, and
+Windows x64. Download the installer for your platform from
+[GitHub Releases](https://github.com/sero-labs/sero/releases), or build from
+source if you are developing Sero.
 
 Current release posture:
 
 - **Supported packaged targets:** macOS Apple Silicon, Linux x64/arm64, and Windows x64
 - **Unsupported targets:** macOS Intel/x64 and Windows arm64
-- **Distribution:** packaged beta installers are published through GitHub Releases; developers and contributors can still build from source
-- **Runtime options:** Host by default on supported targets, plus explicit Apple Container or Docker/Podman where supported
-- **Stability:** plugin/runtime contracts may change during beta
-- **Updates/support:** updates are manual unless release notes say otherwise; support is best effort
+- **Distribution:** packaged installers are published through GitHub Releases; developers and contributors can still build from source
+- **Workspace runtimes:** Host by default on every supported target. Apple Container and Docker/Podman are available and still experimental in 1.0, so treat their results as less certain than Host
+- **Stability:** the app is stable enough to use daily; the plugin and runtime APIs are still evolving, and the five published npm packages stay on 0.x
+- **Updates:** installs check for updates at startup and every six hours, download in the background, and ask you to restart
+- **Windows:** the installer is unsigned, so Windows shows a SmartScreen warning you have to accept
+- **Support:** best effort through GitHub Issues, with no response-time commitment
 
-Sero does **not** currently promise stable internal APIs, a support SLA,
-auto-update for every beta release, or full feature parity without containers.
-Platform and runtime capabilities vary by OS. For the current beta support
-contract, see [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
+Sero does **not** promise stable internal APIs, a support SLA, or identical
+capabilities on every platform and runtime. For the support contract, see
+[`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Why Sero?
 
@@ -120,7 +121,7 @@ an attempt to bring those pieces into one coherent desktop shell.
 
 ## Screenshots
 
-Captured from the current beta on macOS Apple Silicon.
+Captured from a packaged build on macOS Apple Silicon.
 
 **Desktop shell overview**
 
@@ -139,14 +140,14 @@ Captured from the current beta on macOS Apple Silicon.
 
 ## Quick start
 
-### Install the beta
+### Install Sero
 
-Most users should download the current packaged beta installer for their
-platform from [GitHub Releases](https://github.com/sero-labs/sero/releases).
+Most users should download the installer for their platform from
+[GitHub Releases](https://github.com/sero-labs/sero/releases).
 Use Support Scope for exact supported targets and artifact types; GitHub
 Releases has the current filenames.
 
-For the exact beta support contract, see
+For the exact support contract, see
 [`Support Scope`](./apps/docs-site/docs/reference/support-scope.md).
 
 ### Run from source for development
@@ -216,11 +217,11 @@ git pull
 pnpm test:ci
 ```
 
-Beta release:
+Release candidate:
 
 ```bash
-pnpm release:beta:dry # preview only
-pnpm release:beta     # update, commit, tag, and push
+pnpm release:rc:dry # preview only
+pnpm release:rc     # update, commit, tag, and push
 ```
 
 Stable release:
@@ -230,17 +231,16 @@ pnpm release:stable:dry # preview only
 pnpm release:stable     # update, commit, tag, and push
 ```
 
-Examples from current tag `v0.1.1-beta`:
-
-- `pnpm release:beta` creates a beta tag such as `v0.1.2-beta.0`.
-- `pnpm release:stable` creates the stable tag `v0.1.1`.
+- `pnpm release:rc` creates a candidate tag such as `v1.0.0-rc.1`.
+- `pnpm release:stable` creates the stable tag.
+- `pnpm release:beta` stays available for the older beta tags.
 
 Notes:
 
 - `pnpm install` runs native-module repair hooks for `node-pty` and
   `better-sqlite3`.
 - `pnpm test` currently runs the desktop Vitest suite.
-- `pnpm test:ci` mirrors the beta PR gate: typecheck, build, desktop tests, and
+- `pnpm test:ci` mirrors the PR gate: typecheck, build, desktop tests, and
   desktop CI e2e.
 - Explicit Host mode is available where supported for reduced-capability
   non-container workflows; see Support Scope for platform details.
@@ -289,8 +289,8 @@ Sero supports built-in and external plugins. A plugin can provide:
 **External plugin disclaimer:** the current external plugins are beta-era experiments.
 They exist to prove out the plugin system, Pi tool bridging, Module Federation
 loading, and local development workflow. Treat them as experiments, not
-production-quality apps. More realistic real-world apps are planned as the beta
-hardens.
+production-quality apps. More realistic real-world apps are planned as the
+plugin contract hardens.
 
 See the [Plugin Quickstart](./apps/docs-site/docs/reference/plugin-quickstart.md)
 and [Plugins reference](./apps/docs-site/docs/reference/plugins.md) for
@@ -308,7 +308,7 @@ Please review:
 ## Contributing
 
 Contributions, issues, docs improvements, and plugin experiments are welcome,
-with the caveat that Sero is still beta software.
+with the caveat that the plugin and runtime APIs are still evolving.
 
 Please read:
 

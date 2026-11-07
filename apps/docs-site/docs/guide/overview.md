@@ -8,8 +8,9 @@ Add your instructions, memory, skills, and plugins. The agent keeps useful
 context and gains new capabilities as you add them. That is what we mean by
 "grow your own Agent."
 
-Sero is available as a public beta desktop release. It runs on your computer,
-not in a hosted cloud IDE. Sero is built on the open-source Pi coding agent.
+Sero is a packaged desktop release for macOS, Linux and Windows. It runs on your
+computer, not in a hosted cloud IDE. Sero is built on the open-source Pi coding
+agent.
 
 ## Make it yours
 

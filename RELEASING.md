@@ -234,29 +234,37 @@ README says packaged installers are published.
 Supported targets stay macOS Apple Silicon, Linux x64, Linux arm64 and Windows
 x64. Windows installers are unsigned (§4).
 
-- [ ] `README.md` — replace the "Beta status" section with the 1.0 support
-      posture, and remove "plugin/runtime contracts may change during beta" or
-      restate it accurately.
-- [ ] `apps/docs-site/docs/reference/support-scope.md` — same pass. This page is
-      the canonical support contract; keep the README consistent with it. Decided
-      2026-11-07: keep the "internal plugin and runtime APIs may change" caveat,
-      consistent with the five published packages staying on 0.x.
-- [ ] `apps/docs-site/docs/reference/known-limitations.md` — confirm nothing
-      there is only true during beta.
-- [ ] `apps/docs-site/docs/guide/overview.md:11` — "public beta desktop release".
-- [ ] `apps/homepage/src/content/copy.ts:65,242` — `"Sero · source beta · local-first"`.
-- [ ] `apps/homepage/src/components/TopBar.astro:15` — `[ download beta ↓ ]`.
-- [ ] `apps/homepage/src/components/Beta.astro` — `honest_beta`, and the
-      "Source-only OSS beta" line. Resolve the source-only contradiction
-      regardless of the version number.
-- [ ] `CONTRIBUTING.md` §"Release and versioning notes" — "During beta" bullets
-      need a 1.0 equivalent.
+Decided 2026-11-07: **container runtimes are experimental in 1.0.** Host is the
+default and the runtime the evidence covers. This is what makes the open
+container defects in #689 post-release work instead of 1.0 blockers.
+
+- [x] `README.md` — "Beta status" is now "Release status", with the 1.0 posture:
+      runtime options, updated stability wording, automatic updates, the Windows
+      SmartScreen note, and best-effort support. The stale beta examples and the
+      "still beta software" caveat are fixed too.
+- [x] `apps/docs-site/docs/reference/support-scope.md` — the runtime table now
+      marks Apple Container and Docker as **experimental**, says why, and the
+      signing paragraph states the real macOS, Windows and Linux posture.
+      Decided 2026-11-07: the "internal plugin and runtime APIs may change" caveat
+      stays, consistent with the five published packages staying on 0.x.
+- [x] `apps/docs-site/docs/reference/known-limitations.md` — the runtime section
+      now says container runtimes are experimental and names what is unreliable.
+- [x] `apps/docs-site/docs/guide/overview.md` — "packaged desktop release".
+- [x] `apps/homepage/src/content/copy.ts` — hero eyebrow and footer tagline no
+      longer say "source beta".
+- [x] `apps/homepage/src/components/TopBar.astro` — the call to action is
+      `[ download ↓ ]`.
+- [x] `apps/homepage/src/components/Beta.astro` → `Release.astro` — the section
+      says `honest_release`, shows `sero/1.0`, and no longer claims "source-only".
+- [x] `CONTRIBUTING.md` — the support-scope section and the release notes
+      describe 1.0 and the `rc` channel instead of beta.
 
 ### Docs that must exist before stable
 
-- [ ] An **upgrade guide** for 0.9-beta → 1.0 covering what
-      `migrateExistingInstall()` and `migrateLegacyProfileUserData()` do to an
-      existing profile, and what a user should back up first.
+- [x] An **upgrade guide** for 0.9 → 1.0 in
+      `apps/docs-site/docs/guide/profiles-and-onboarding.md` §"Upgrading from
+      0.9": what happens to an existing profile, what carries over, what to back
+      up first, and that going back to 0.9 is unsupported.
 - [ ] Issue #526 — docs for Agent Board and Web Remote. `remote-control.md` is a
       large guide shipping with stale references.
 - [ ] `apps/docs-site/docs/reference/testing-evals.md` documents the tool-check
