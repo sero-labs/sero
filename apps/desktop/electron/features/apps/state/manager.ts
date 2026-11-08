@@ -51,6 +51,25 @@ interface WatcherEntry {
 type ChangeListener = (filePath: string, data: unknown, etag: string | null) => void;
 
 /** Content etag: hash of the raw file text. `null` means the file is absent. */
+/**
+ * Windows fails a rename with EPERM/EBUSY while another handle still has the
+ * target open — a reader, the search indexer, antivirus. Retrying briefly
+ * covers that window; everywhere else the first attempt wins.
+ */
+async function renameWithRetry(source: string, target: string, attempts = 5): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await fs.rename(source, target);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const retryable = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+      if (!retryable || attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 20));
+    }
+  }
+}
+
 function computeEtag(raw: string): string {
   return createHash('sha1').update(raw).digest('hex');
 }
@@ -177,7 +196,7 @@ export class AppStateManager {
     const json = JSON.stringify(data, null, 2);
 
     await fs.writeFile(tmpPath, json, 'utf8');
-    await fs.rename(tmpPath, filePath);
+    await renameWithRetry(tmpPath, filePath);
     return computeEtag(json);
   }
 
