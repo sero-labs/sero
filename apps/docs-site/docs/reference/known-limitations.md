@@ -27,6 +27,11 @@ container runtime when you need container isolation, networking, or provided
 tools. Existing containers do not receive image changes automatically. Recreate
 an affected workspace container after its image changes.
 
+Container runtimes are experimental in 1.0. Cancelling a command started in a
+container does not always stop it, and the git state a container workspace
+reports can lag the files on your computer. Prefer Host unless you need the
+isolation. See [Support Scope](/reference/support-scope).
+
 Sero-managed Host tools live under `~/.sero-ui/toolchains/<manifest-version>/`.
 Sero does not install native compiler stacks such as Xcode Command Line Tools,
 Linux `build-essential`, or the Windows SDK. Install required system tools or

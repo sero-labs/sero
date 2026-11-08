@@ -10,9 +10,9 @@
   },
   "npm": {
     "agent-browser": {
-      "version": "0.27.3",
-      "releasedAt": "2026-06-12T23:22:02.092Z",
-      "integrity": "sha512-isQ1xWoYOnfR8BigYRlYmkFOrqw71tKEmUEMmFJGStQFOyCrLSsKoOAZEu8TjPZdmjD1nPQ/hLLYlxTwdHnA0Q==",
+      "version": "0.41.2",
+      "releasedAt": "2026-11-03T23:50:15.167Z",
+      "integrity": "sha512-/agCKB5rw1EEK8SKWo4zid7a5kOwlclqALC0P3c69buJvKdhrl/dJkKdfLqGGaiNIbWzRdqqT0PxZVkwVEf2fg==",
       "routineUpdates": "patch",
       "usedBy": [
         "browser-pack",
@@ -93,5 +93,11 @@
       "reason": "The official Ubuntu snapshot service is not reachable from the supported local container builder. These packages still come from signed current repositories and are not covered by the seven-day wait."
     }
   ],
-  "securityOverrides": []
+  "securityOverrides": [
+    {
+      "tool": "agent-browser",
+      "version": "0.41.2",
+      "reason": "Operator-requested early pin of agent-browser 0.41.2 for record --fps support; no npm advisory affects agent-browser."
+    }
+  ]
 }

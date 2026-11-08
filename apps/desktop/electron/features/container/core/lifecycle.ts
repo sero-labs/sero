@@ -28,39 +28,9 @@ import {
 } from './ownership';
 import { getContainerAvailability } from './availability';
 import { prepareWorkspaceLogPortal } from './log-access';
+import { readHostGitIdentity } from './host-git-identity';
 
 const execFileAsync = promisify(execFile);
-
-/* ── Host git identity ────────────────────────────────────── */
-
-/**
- * Read the host's global git user.name / user.email.
- * Cached with a 5-minute TTL so mid-session config changes are eventually picked up.
- */
-const GIT_IDENTITY_TTL_MS = 5 * 60 * 1000;
-let _hostGitIdentity: { name: string; email: string } | null = null;
-let _hostGitIdentityFetchedAt = 0;
-
-async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
-  if (_hostGitIdentity && (Date.now() - _hostGitIdentityFetchedAt) < GIT_IDENTITY_TTL_MS) {
-    return _hostGitIdentity;
-  }
-
-  let name = '';
-  let email = '';
-  try {
-    const n = await execFileAsync('git', ['config', '--global', 'user.name'], { timeout: 5_000 });
-    name = n.stdout.trim();
-  } catch { /* not configured */ }
-  try {
-    const e = await execFileAsync('git', ['config', '--global', 'user.email'], { timeout: 5_000 });
-    email = e.stdout.trim();
-  } catch { /* not configured */ }
-
-  _hostGitIdentity = { name, email };
-  _hostGitIdentityFetchedAt = Date.now();
-  return _hostGitIdentity;
-}
 
 /* ── System management ────────────────────────────────────── */
 

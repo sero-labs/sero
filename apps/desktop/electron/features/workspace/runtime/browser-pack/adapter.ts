@@ -28,7 +28,11 @@ export function createBrowserRuntimeAdapter(options: BrowserRuntimeAdapterOption
     ...agentBrowserCandidates.map((candidate) => path.dirname(candidate)),
     ...ffmpegCandidates.map((candidate) => path.dirname(candidate)),
   ]);
-  const tempDir = options.tempRoot ?? browserPackTempRoot(manifest.version);
+  // Chromium makes its singleton socket in a new folder under the temp folder.
+  // A Unix socket path is limited to about 104 bytes, and the pack folder is
+  // already longer than that on Linux, so Chromium exits at once there.
+  // Outside Windows it keeps the system's short temp folder.
+  const tempDir = options.tempRoot ?? (platform === 'win32' ? browserPackTempRoot(manifest.version) : os.tmpdir());
   return {
     browsersPath,
     chromiumExecutableCandidates,
@@ -39,7 +43,7 @@ export function createBrowserRuntimeAdapter(options: BrowserRuntimeAdapterOption
     env: {
       PLAYWRIGHT_BROWSERS_PATH: browsersPath,
       SERO_BROWSER_PACK_PATH: browsersPath,
-      TMPDIR: platform === 'win32' ? tempDir : tempDir,
+      TMPDIR: tempDir,
       TEMP: tempDir,
       TMP: tempDir,
     },

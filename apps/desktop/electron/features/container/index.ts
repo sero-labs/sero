@@ -38,6 +38,7 @@ import { ensureImage } from './core/image';
 import { PortScanner } from './network/port-forward';
 import { ContainerHttpProxy } from './network/http-proxy';
 import { runStreamingExec } from '@electron/features/workspace/runtime/streaming-exec';
+import { runCancellableInContainer } from '@electron/features/workspace/runtime/container-exec-cancel';
 import type { RuntimeExecOutputSink } from '@electron/features/workspace/runtime/types';
 import { DevServerRegistry } from './registries/dev-server-registry';
 import { LOG_PORTAL_SENTINEL_PATH, prepareWorkspaceLogPortal } from './core/log-access';
@@ -244,9 +245,19 @@ export class ContainerManager {
     const args = this.buildExecArgs(workspaceId, command, cwd, options);
     const timeout = timeoutMs ?? 120_000;
 
-    if (options?.outputSink) {
-      const outcome = await runStreamingExec({ program: CONTAINER_BIN, args, timeoutMs: timeout, sink: options.outputSink, signal: options.signal });
-      return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
+    const sink = options?.outputSink;
+    if (sink) {
+      return runCancellableInContainer({
+        command,
+        innerShell: '-c',
+        signal: options.signal,
+        killInside: (script) => this.exec(workspaceId, script, undefined, 10_000),
+        run: async (script) => {
+          const execArgs = this.buildExecArgs(workspaceId, script, cwd, options);
+          const outcome = await runStreamingExec({ program: CONTAINER_BIN, args: execArgs, timeoutMs: timeout, sink, signal: options.signal });
+          return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
+        },
+      });
     }
 
     try {

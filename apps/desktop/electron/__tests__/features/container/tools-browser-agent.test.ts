@@ -250,6 +250,64 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
   });
 
+  it('passes the frame rate and cursor overlay to record start', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"fps":60,"cursor":true,"started":true}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute(
+      'tc-fps-cursor',
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 60, cursor: true },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    expect(exec.mock.calls[3][1]).toContain("'record' 'start' '/workspace/capture.webm' '--fps' '60' '--cursor'");
+    expect((result.content[0] as { type: string; text: string }).text).not.toContain('predates agent-browser 0.41');
+  });
+
+  it('reports the controls a pre-0.41 pack silently ignores', async () => {
+    const { tool } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"path":"/workspace/capture.webm","started":true}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute(
+      'tc-fps-legacy-pack',
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 60 },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    const text = (result.content[0] as { type: string; text: string }).text;
+    expect(text).toContain('ignored fps and recorded at its fixed 10 fps');
+    expect(text).toContain('Update the browser pack');
+  });
+
+  it('rejects a frame rate outside the recorded range', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute(
+      'tc-fps-invalid',
+      { action: 'start_recording', fps: 90 },
+      undefined,
+      undefined,
+      undefined as never,
+    )).rejects.toThrow('fps must be a whole number from 1 to 60.');
+    expect(exec.mock.calls.some((call) => String(call[1]).includes("'record'"))).toBe(false);
+  });
+
   it('auto-stops recordings after the 120s safety limit', async () => {
     vi.useFakeTimers();
     const { tool, exec } = await createToolWithExec([
@@ -295,7 +353,7 @@ describe('createAgentBrowser', () => {
 
     const result = await tool.execute(
       'tc-restart-recording',
-      { action: 'start_recording', save_path: '/workspace/capture.webm' },
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 30 },
       undefined,
       undefined,
       undefined as never,
@@ -303,7 +361,7 @@ describe('createAgentBrowser', () => {
 
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording restarted');
     expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
-    expect(exec.mock.calls[4][1]).toContain("'record' 'restart'");
+    expect(exec.mock.calls[4][1]).toContain("'record' 'restart' '/workspace/capture.webm' '--fps' '30'");
   });
 
   it('reports missing ffmpeg instead of installing Playwright globally', async () => {
@@ -513,7 +571,7 @@ describe('createAgentBrowser', () => {
     await ensureFfmpegAvailable(runtime, resolved.adapter);
 
     expect(exec.mock.calls[0][1]).toContain(`chromium-${generatedArtifacts.pins.chromiumRevision}/chrome-linux/chrome`);
-    expect(exec.mock.calls[1][1]).toContain(`ffmpeg-${generatedArtifacts.pins.ffmpegRevision}/ffmpeg-linux`);
+    expect(exec.mock.calls[1][1]).toContain('/usr/bin/ffmpeg');
   });
 
   it('uses native wait command for timeout waits', async () => {

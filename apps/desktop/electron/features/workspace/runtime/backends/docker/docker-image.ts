@@ -36,7 +36,9 @@ const TOOLCHAIN_CHECK = [
   'test -d /ms-playwright',
   'test -r /ms-playwright',
   'find /ms-playwright -path "*/chrome-linux*/chrome" -type f -perm -111 -print -quit | grep -q .',
-  'find /ms-playwright -path "*/ffmpeg-linux" -type f -perm -111 -print -quit | grep -q .',
+  // agent-browser records with libvpx; an older image linked an ffmpeg without it.
+  // The name is the second column; "libvpx" alone also starts libvpx-vp9's description.
+  'ffmpeg -hide_banner -encoders 2>/dev/null | grep -qE "^ [^ ]+ libvpx "',
 ].join(' && ');
 
 export async function ensureDockerImage(options: DockerImageOptions = {}): Promise<DockerImageEnsureResult> {

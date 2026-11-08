@@ -16,10 +16,10 @@ the source for current artifact names. The release workflow can build all four
 supported targets, but a release can contain only the targets that its publisher
 selected.
 
-The build configuration supports Apple code signing when release credentials
-are available. It also permits an ad hoc signed macOS build when they are not.
-Check the release notes and your operating system before you rely on the signing
-or notarization state of a downloaded artifact.
+The macOS build is Developer ID signed and notarized, and the release workflow
+fails rather than publishing an artifact that silently fell back to an ad hoc
+signature. The Windows installer is unsigned for 1.0, so Windows shows a
+SmartScreen warning that you have to accept. Linux artifacts are unsigned.
 
 ## Updates
 
@@ -39,8 +39,14 @@ normal development workflow.
 | Runtime | macOS arm64 | Linux x64/arm64 | Windows x64 |
 | --- | --- | --- | --- |
 | Host (`host`) | Default | Default | Default |
-| Apple Container (`apple-container`) | Available | Not available | Not available |
-| Docker / Podman (`docker`) | Available | Available | Available |
+| Apple Container (`apple-container`) | Experimental | Not available | Not available |
+| Docker / Podman (`docker`) | Experimental | Experimental | Experimental |
+
+Container runtimes are **experimental in 1.0**. They work, and they are not yet
+verified to the same standard as Host: cancelling a command started in a
+container does not always stop it, and the git state a container workspace
+reports can lag the files on your computer. Prefer Host unless you need the
+isolation.
 
 Host runs commands in the workspace folder on your computer. Host browser
 automation requires an available browser pack and a successful Environment

@@ -2,14 +2,14 @@
 
 Thanks for your interest in Sero.
 
-Sero is currently a **public beta desktop release** for macOS Apple Silicon,
-Linux x64/arm64, and Windows x64. Developers and contributors can still build
-from source, and contributor guidance aims to keep that workflow honest,
-lightweight, and easy to follow while the project evolves quickly.
+Sero is a **desktop release** for macOS Apple Silicon, Linux x64/arm64, and
+Windows x64. Developers and contributors can still build from source, and
+contributor guidance aims to keep that workflow honest, lightweight, and easy to
+follow while the project evolves quickly.
 
 ## Support scope
 
-Public beta support is currently limited to:
+Public support is currently limited to:
 - GitHub Issues
 - Pull Requests
 
@@ -17,7 +17,7 @@ Please use issues for bug reports, regressions, feature requests, and setup
 questions. For security issues, follow [`SECURITY.md`](./SECURITY.md) instead
 of opening a public issue.
 
-For the canonical beta support matrix and triage expectations, see
+For the canonical support matrix and triage expectations, see
 [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
 
 ## Before you start
@@ -29,12 +29,12 @@ Please read these first:
 - [`apps/desktop/README.md`](./apps/desktop/README.md) - desktop-native recovery and host toolchains
 
 Important current constraints:
-- supported beta targets: **macOS Apple Silicon, Linux x64/arm64, and Windows x64**
+- supported targets: **macOS Apple Silicon, Linux x64/arm64, and Windows x64**
 - unsupported targets: **macOS Intel/x64 and Windows arm64**
-- default workspace runtime: **Host** on supported beta targets
-- explicit container runtimes: Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows
-- public distribution model: packaged beta installers from GitHub Releases, plus source builds for developers/contributors
-- beta limits: plugin/runtime APIs may change, support is best effort, and automatic updates are not guaranteed
+- default workspace runtime: **Host** on every supported target
+- explicit container runtimes: Apple Container on macOS arm64; Docker / Podman on macOS arm64, Linux, and Windows. Both are **experimental** in 1.0
+- public distribution model: packaged installers from GitHub Releases, plus source builds for developers and contributors
+- limits: plugin and runtime APIs may change, support is best effort, and the plugin experiment apps are not production software
 
 For the canonical current support contract and validated baseline, defer to
 [`apps/docs-site/docs/reference/support-scope.md`](./apps/docs-site/docs/reference/support-scope.md).
@@ -139,13 +139,14 @@ Good feature requests usually explain:
 
 ## Release and versioning notes
 
-During beta:
+For releases:
 - release notes are tracked in the repo-level [`CHANGELOG.md`](./CHANGELOG.md)
-- public beta tags use SemVer prerelease forms
+- a release candidate is tagged `1.0.0-rc.N`; a stable release is tagged `1.0.0`
 - releases are maintainer-run from `main`
-- exact installer filenames may change between beta releases; use GitHub Releases as the source of truth
+- exact installer filenames may change between releases; use GitHub Releases as the source of truth
 - package versions inside the monorepo may still serve internal compatibility
-  and packaging purposes, not a full independently published package train
+  and packaging purposes, not a full independently published package train.
+  The five published npm packages stay on 0.x while the plugin APIs evolve.
 
 To cut a release, follow the [`RELEASING.md`](./RELEASING.md) runbook.
 

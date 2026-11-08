@@ -124,7 +124,6 @@ async function resolveHostBrowserAutomationRuntime(workspaceId: string): Promise
 function createContainerBrowserRuntimeAdapter(backend: RuntimeBackendId): BrowserRuntimeAdapter {
   const browsersPath = '/ms-playwright';
   const chromiumRevision = generatedArtifacts.pins.chromiumRevision;
-  const ffmpegRevision = generatedArtifacts.pins.ffmpegRevision;
   const chromiumCandidates = [
     `${browsersPath}/chromium-${chromiumRevision}/chrome-linux64/chrome`,
     `${browsersPath}/chromium-${chromiumRevision}/chrome-linux-arm64/chrome`,
@@ -146,7 +145,8 @@ function createContainerBrowserRuntimeAdapter(backend: RuntimeBackendId): Browse
     chromiumExecutableCandidates: backend === 'apple-container'
       ? [`${browsersPath}/chromium-${chromiumRevision}/chrome-linux/chrome`, ...chromiumCandidates]
       : chromiumCandidates,
-    ffmpegCandidates: [`${browsersPath}/ffmpeg-${ffmpegRevision}/ffmpeg-linux`, `${browsersPath}/ffmpeg-*/ffmpeg-linux`, '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg'],
+    // The image installs Ubuntu's ffmpeg, which has the libvpx encoder agent-browser records with.
+    ffmpegCandidates: ['/usr/bin/ffmpeg'],
     agentBrowserCandidates: [],
     pathPrefixes: [],
     tempDir: '/tmp',

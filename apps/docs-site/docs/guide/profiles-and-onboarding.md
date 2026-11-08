@@ -108,6 +108,34 @@ Permanent deletion is offered only for a folder that a Sero record marks as
 Sero-managed. A recovered folder whose ownership no record proves is kept and is
 never offered for deletion.
 
+## Upgrading from 0.9
+
+A 0.9 install kept everything in one folder and had no profile registry. On the
+first launch of 1.0, Sero adopts that folder as a **Default** profile, marks it
+as already set up, and opens it, so you do not see the setup screen again.
+
+Nothing is copied or moved. Your profile stays in the folder it already
+occupied.
+
+What carries over unchanged:
+
+- the profile itself, and the folder it lives in
+- sessions and their history
+- memory files (`IDENTITY.md`, `USER.md`)
+- Architect projects and other app state
+- plugin state and settings
+
+Before you upgrade, copy the whole `~/.sero-ui` folder somewhere safe. Going
+back to 0.9 after 1.0 has written to that folder is not supported, and a copy is
+the only reliable way back.
+
+If the upgraded profile does not open, the recovery steps above apply: Sero
+lists profile folders it finds on this computer rather than making you start
+over.
+
+Container workspaces are experimental in 1.0. Host is the default and is the
+runtime the upgrade is verified against.
+
 ## Copying credentials and model preferences
 
 When you create a profile, Sero can copy credentials and model preferences from

@@ -3,6 +3,7 @@ import { buildWorkspaceContainerConfig } from '@electron/features/container/core
 import type { ContainerConfig } from '@electron/features/container/core/types';
 import { DEFAULT_IMAGE } from '@electron/features/container/core/types';
 import { getRuntimeCapabilities } from '../../capabilities';
+import { runCancellableInContainer } from '../../container-exec-cancel';
 import { RUNTIME_WORKSPACE_PATH, toRuntimeWorkspacePath } from '../../runtime-paths';
 import type {
   RuntimeBackend,
@@ -130,15 +131,19 @@ export class DockerBackend implements RuntimeBackend {
     else await this.ensureWithOptions({ isolated: input.isolated });
     const env = { ...(input.env ?? {}) };
     if (input.injectGitAuth && this.getGitAuthEnvVars) Object.assign(env, this.getGitAuthEnvVars());
-    const args = [
-      'exec', '-w', input.cwd ?? this.runtimeWorkspacePath,
-      ...runtimeEnvArgs(env),
-      dockerContainerName(this.workspaceId), 'sh', '-lc', input.command,
-    ];
-    if (input.outputSink) {
-      return streamDocker(args, { timeoutMs: input.timeoutMs ?? 120_000 }, input.outputSink, input.signal);
+    const name = dockerContainerName(this.workspaceId);
+    const args = ['exec', '-w', input.cwd ?? this.runtimeWorkspacePath, ...runtimeEnvArgs(env), name];
+    const sink = input.outputSink;
+    if (sink) {
+      return runCancellableInContainer({
+        command: input.command,
+        innerShell: '-lc',
+        signal: input.signal,
+        run: (script) => streamDocker([...args, 'sh', '-c', script], { timeoutMs: input.timeoutMs ?? 120_000 }, sink, input.signal),
+        killInside: (script) => this.run(['exec', name, 'sh', '-c', script], { timeoutMs: 10_000 }),
+      });
     }
-    return this.run(args, { timeoutMs: input.timeoutMs ?? 120_000 });
+    return this.run([...args, 'sh', '-lc', input.command], { timeoutMs: input.timeoutMs ?? 120_000 });
   }
 
   async execFile(input: RuntimeExecFileInput): Promise<RuntimeExecResult> {
