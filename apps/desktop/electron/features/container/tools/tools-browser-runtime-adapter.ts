@@ -51,17 +51,22 @@ export async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, adapt
   }
 }
 
-export async function ensureFfmpegAvailable(runtime: RuntimeBackend): Promise<void> {
-  // WebM recording wants the `libvpx` (VP8) encoder. Playwright's ffmpeg build
-  // carries only `libvpx-vp9`, and handing it to `record` kills the take with
-  // `ffmpeg write failed: Broken pipe`, so the encoder is checked up front.
-  const probe = await runtime.exec({
-    command: "command -v ffmpeg >/dev/null 2>&1 || exit 2; "
-      + "ffmpeg -hide_banner -encoders 2>/dev/null | awk '$2==\"libvpx\"{f=1} END{exit !f}' || exit 3",
-    timeoutMs: 10_000,
-  });
-  if (probe.exitCode === 0) return;
-  if (probe.exitCode === 3) {
+export async function ensureFfmpegAvailable(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter): Promise<void> {
+  const shellPlatform = hostShellPlatform(runtime);
+  // The pack ships its own ffmpeg, so it is probed the way the browser will
+  // find it: with the pack's folders first on PATH. Exit 2 means no ffmpeg,
+  // exit 3 means one without VP8 — Playwright's build is VP9-only and turning
+  // it into `record` input ends the take with `ffmpeg write failed: Broken
+  // pipe`, so the encoder is checked before anything starts recording.
+  const probe = withPathPrefix(
+    'command -v ffmpeg >/dev/null 2>&1 || exit 2; '
+    + "ffmpeg -hide_banner -encoders 2>/dev/null | awk '$2==\"libvpx\"{f=1} END{exit !f}' || exit 3",
+    adapter,
+    shellPlatform,
+  );
+  const result = await runtime.exec({ command: probe, timeoutMs: 10_000 });
+  if (result.exitCode === 0) return;
+  if (result.exitCode === 3) {
     throw new Error(
       'ffmpeg here cannot encode VP8, which automation browser recordings need. '
       + 'Install a full ffmpeg build (the Playwright one has VP9 only), or use a container runtime whose image ships one.',
@@ -82,7 +87,9 @@ export function agentBrowserCommand(
   const pathPrefixes = adapterPathPrefixes(adapter).map((entry) => toHostShellPath(entry, shellPlatform));
   if (pathPrefixes.length > 0) exports.push(`export PATH='${shellEscape(pathPrefixes.join(':'))}':"$PATH";`);
   const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
-  return `${exports.join(' ')} agent-browser ${commandArgs}`;
+  // Git Bash does not resolve a bare name to the pack's `.cmd` shim.
+  const binary = shellPlatform === 'win32' ? 'agent-browser.cmd' : 'agent-browser';
+  return `${exports.join(' ')} ${binary} ${commandArgs}`;
 }
 
 /** The browser writes the file itself, so a host workspace needs its real path, not `/workspace`. */

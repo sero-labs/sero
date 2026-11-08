@@ -605,8 +605,8 @@ describe('createAgentBrowser', () => {
       exec: (input: { command: string; timeoutMs?: number }) => exec('ws-1', input.command, undefined, input.timeoutMs),
     } as unknown as RuntimeBackend;
 
-    await resolveBrowserAutomationRuntime(runtime, 'ws-1');
-    await ensureFfmpegAvailable(runtime);
+    const resolved = await resolveBrowserAutomationRuntime(runtime, 'ws-1');
+    await ensureFfmpegAvailable(runtime, resolved.adapter);
 
     expect(exec.mock.calls[0][1]).toContain(`chromium-${generatedArtifacts.pins.chromiumRevision}/chrome-linux/chrome`);
     expect(exec.mock.calls[1][1]).toContain('command -v ffmpeg');
