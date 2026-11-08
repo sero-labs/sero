@@ -250,6 +250,42 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
   });
 
+  it('passes the frame rate and cursor overlay to record start', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"fps":60,"started":true}}', stderr: '', exitCode: 0 },
+    ]);
+
+    await tool.execute(
+      'tc-fps-cursor',
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 60, cursor: true },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    expect(exec.mock.calls[3][1]).toContain("'record' 'start' '/workspace/capture.webm' '--fps' '60' '--cursor'");
+  });
+
+  it('rejects a frame rate outside the recorded range', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute(
+      'tc-fps-invalid',
+      { action: 'start_recording', fps: 90 },
+      undefined,
+      undefined,
+      undefined as never,
+    )).rejects.toThrow('fps must be a whole number from 1 to 60.');
+    expect(exec.mock.calls.some((call) => String(call[1]).includes("'record'"))).toBe(false);
+  });
+
   it('auto-stops recordings after the 120s safety limit', async () => {
     vi.useFakeTimers();
     const { tool, exec } = await createToolWithExec([
@@ -295,7 +331,7 @@ describe('createAgentBrowser', () => {
 
     const result = await tool.execute(
       'tc-restart-recording',
-      { action: 'start_recording', save_path: '/workspace/capture.webm' },
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 30 },
       undefined,
       undefined,
       undefined as never,
@@ -303,7 +339,7 @@ describe('createAgentBrowser', () => {
 
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording restarted');
     expect(exec.mock.calls[3][1]).toContain("'record' 'start'");
-    expect(exec.mock.calls[4][1]).toContain("'record' 'restart'");
+    expect(exec.mock.calls[4][1]).toContain("'record' 'restart' '/workspace/capture.webm' '--fps' '30'");
   });
 
   it('reports missing ffmpeg instead of installing Playwright globally', async () => {
