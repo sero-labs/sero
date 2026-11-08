@@ -17,8 +17,8 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/mac-arm64.tar.gz",
-      "sha256": "f561118d72c778db0ab7065c4933aaa9578bf7ed31beb8b875db272cd5316109",
-      "sizeBytes": 333411997,
+      "sha256": "d83334c4a5a98731faaeca80279e5675b243df272c8573295d747a00792ca5ec",
+      "sizeBytes": 333411988,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "chromium-1248/chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
@@ -45,8 +45,8 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/linux-x64.tar.gz",
-      "sha256": "37c6d5419b64a60f98578d0c0601e7f3cbb9657a511563f8b23a082a2db6c60c",
-      "sizeBytes": 354440281,
+      "sha256": "8f421762cdbdee0a3fd44290f064daedb77d1dca567c3af9d4533eab0ce38790",
+      "sizeBytes": 354437839,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-linux64/chrome",
         "chromium-1248/chrome-linux64/chrome-wrapper",
@@ -74,8 +74,8 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/linux-arm64.tar.gz",
-      "sha256": "56ef6eacd4af2968856fd0ff09d29801d6c485915d035213ce1e67157d1adc6e",
-      "sizeBytes": 356605149,
+      "sha256": "e024bf29088d8df698ed3ee4ba17301db677e6f6d91f2062f2d7dc0695d8bce1",
+      "sizeBytes": 356606371,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-linux64/chrome",
         "chromium-1248/chrome-linux64/chrome-wrapper",
@@ -104,8 +104,8 @@
       "status": "built",
       "available": true,
       "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/win-x64.tar.gz",
-      "sha256": "b4edb496b2552cc200dcc519c16b5a540ca518bdd8aa92ed52c33fda6f443ffd",
-      "sizeBytes": 386191247,
+      "sha256": "03a4cf4dcb18e9563205c87cfe5afa1347dfcf8e0d0e31e96b89d259f8a44ae0",
+      "sizeBytes": 386190219,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-win/chrome.exe",
         "chromium-1248/chrome-win64/chrome.exe",
