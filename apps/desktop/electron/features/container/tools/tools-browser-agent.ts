@@ -102,11 +102,20 @@ async function runAgent(
   const env = options.defaultActionTimeoutMs !== undefined
     ? { AGENT_BROWSER_DEFAULT_TIMEOUT: options.defaultActionTimeoutMs }
     : undefined;
-  const result = await runtime.exec({
-    command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, [...args, '--json'], env),
-    timeoutMs: options.execTimeoutMs ?? 60_000,
-  });
-  const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
+  const command = sessionCommand(adapter, workspaceId, runtime.backend, executablePath, [...args, '--json'], env);
+  const timeoutMs = options.execTimeoutMs ?? 60_000;
+  const runOnce = async () => {
+    const result = await runtime.exec({ command, timeoutMs });
+    const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
+    return { result, parsed };
+  };
+  let { result, parsed } = await runOnce();
+  // "it may or may not have run, so it was not retried": retry that once here,
+  // which is what a single dropped daemon read needs. A page that is still
+  // stuck fails the retry too and falls through to the reset below.
+  if (DAEMON_UNREACHABLE.test(result.stderr) || DAEMON_UNREACHABLE.test(parsed.error ?? '')) {
+    ({ result, parsed } = await runOnce());
+  }
   const hung = COMMAND_TIMED_OUT.test(result.stderr)
     || DAEMON_UNREACHABLE.test(result.stderr)
     || /^CDP command timed out:/.test(parsed.error ?? '')
@@ -114,7 +123,7 @@ async function runAgent(
   if (hung && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
     await resetHungBrowserSession(runtime, workspaceId);
     throw new Error(
-      `The automation browser gave no answer in ${Math.round((options.execTimeoutMs ?? 60_000) / 1000)}s. `
+      `The automation browser gave no answer in ${Math.round(timeoutMs / 1000)}s. `
       + 'The page is probably busy in its own code, for example an endless loop, and a page in that state answers nothing. '
       + 'The browser was reset. Launch it again, and expect the same action to hang the page again until the page is fixed.',
     );
