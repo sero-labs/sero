@@ -220,10 +220,21 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Create metadata pull request token
+        if: ${{ inputs.commit_metadata == 'true' }}
+        id: metadata_token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.RUNTIME_UPDATER_CLIENT_ID }}
+          private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Open metadata update pull request
         if: ${{ inputs.commit_metadata == 'true' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          # github.token cannot open pull requests in this repository.
+          GH_TOKEN: ${{ steps.metadata_token.outputs.token }}
         run: |
           if git diff --quiet -- apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json; then
             echo "generated-artifacts.json is already up to date."
@@ -239,6 +250,7 @@ jobs:
           git push origin HEAD:"$branch"
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
+            --draft \
             --base "$GITHUB_REF_NAME" \
             --head "$branch" \
             --title "chore(desktop): publish browser pack metadata" \
