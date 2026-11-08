@@ -255,10 +255,10 @@ describe('createAgentBrowser', () => {
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
       ffmpegCacheResult,
       { stdout: '', stderr: '', exitCode: 0 },
-      { stdout: '{"success":true,"data":{"fps":60,"started":true}}', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"fps":60,"cursor":true,"started":true}}', stderr: '', exitCode: 0 },
     ]);
 
-    await tool.execute(
+    const result = await tool.execute(
       'tc-fps-cursor',
       { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 60, cursor: true },
       undefined,
@@ -267,6 +267,28 @@ describe('createAgentBrowser', () => {
     );
 
     expect(exec.mock.calls[3][1]).toContain("'record' 'start' '/workspace/capture.webm' '--fps' '60' '--cursor'");
+    expect((result.content[0] as { type: string; text: string }).text).not.toContain('predates agent-browser 0.41');
+  });
+
+  it('reports the controls a pre-0.41 pack silently ignores', async () => {
+    const { tool } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"path":"/workspace/capture.webm","started":true}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute(
+      'tc-fps-legacy-pack',
+      { action: 'start_recording', save_path: '/workspace/capture.webm', fps: 60 },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    const text = (result.content[0] as { type: string; text: string }).text;
+    expect(text).toContain('ignored fps and recorded at its fixed 10 fps');
+    expect(text).toContain('Update the browser pack');
   });
 
   it('rejects a frame rate outside the recorded range', async () => {

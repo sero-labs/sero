@@ -54,7 +54,7 @@ function flattenDataPayload(data: unknown): Partial<AgentBrowserJson> {
 
   const record = data as Record<string, unknown>;
   const flattened: Partial<AgentBrowserJson> = {};
-  const knownKeys = ['message', 'error', 'warning', 'title', 'url', 'text', 'output', 'snapshot', 'screenshot', 'path', 'running', 'result'] as const;
+  const knownKeys = ['message', 'error', 'warning', 'title', 'url', 'text', 'output', 'snapshot', 'screenshot', 'path', 'running', 'result', 'fps', 'cursor'] as const;
   for (const key of knownKeys) {
     const value = record[key];
     if (value !== undefined) flattened[key] = value as never;
@@ -209,6 +209,20 @@ function recordingArgs(params: Static<typeof BrowserParams>, targetPath: string,
   return args;
 }
 
+/**
+ * A pack older than agent-browser 0.41 accepts `--fps` and `--cursor` and
+ * silently ignores them, so a caller asking for 60 fps gets a 10 fps file
+ * unless the response says which controls the browser actually took.
+ */
+function ignoredRecordingControls(params: Static<typeof BrowserParams>, response: AgentBrowserJson): string | null {
+  const ignored = [
+    params.fps !== undefined && response.fps === undefined ? 'fps' : null,
+    params.cursor && response.cursor === undefined ? 'cursor' : null,
+  ].filter(Boolean);
+  if (ignored.length === 0) return null;
+  return `The installed browser pack predates agent-browser 0.41, so it ignored ${ignored.join(' and ')} and recorded at its fixed 10 fps. Update the browser pack to use these controls.`;
+}
+
 async function launchBrowser(
   runtime: RuntimeBackend,
   adapter: BrowserRuntimeAdapter,
@@ -303,7 +317,8 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
             await runAgent(runtime, adapter, workspaceId, executablePath, ['record', 'stop'], { execTimeoutMs: 60_000 });
           });
           record(true);
-          return { content: [{ type: 'text', text: `${formatBrowserText(response, `Recording started: ${targetPath}`)}\n${recordingLimitNote()}` }], details: undefined };
+          const ignored = ignoredRecordingControls(params, response);
+          return { content: [{ type: 'text', text: `${formatBrowserText(response, `Recording started: ${targetPath}`)}\n${recordingLimitNote()}${ignored ? `\n${ignored}` : ''}` }], details: undefined };
         }
 
         if (action === 'stop_recording') {

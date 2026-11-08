@@ -11,6 +11,8 @@ export interface AgentBrowserJson {
   screenshot?: string;
   path?: string;
   running?: boolean;
+  fps?: number;
+  cursor?: boolean;
   result?: unknown;
   refs?: Record<string, unknown>;
   data?: unknown;
