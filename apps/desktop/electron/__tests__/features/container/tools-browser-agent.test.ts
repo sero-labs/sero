@@ -196,6 +196,25 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[3][1]).toContain('.agent-browser/sero-ws-1-docker');
   });
 
+  it('stops a browser that reports a stuck page as a daemon read failure', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      {
+        stdout: '',
+        stderr: 'ERROR: Failed to read: Resource temporarily unavailable (os error 11) (the command reached the daemon but no response came back; it may or may not have run, so it was not retried)',
+        exitCode: 1,
+      },
+      { stdout: '', stderr: 'Command timed out after 5s.', exitCode: 124 },
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute('tc-daemon-read', { action: 'click', selector: '#hang' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(/was reset/);
+
+    expect(exec.mock.calls[2][1]).toContain("'eval' '1'");
+    expect(exec.mock.calls[3][1]).toContain('kill -9');
+  });
+
   it('leaves a browser alone when one command was slow and the session still answers', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
@@ -223,6 +242,22 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[2][1]).toContain("'close' '--json'");
     expect(exec.mock.calls[3][1]).toContain("'open' 'about:blank'");
     expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
+  });
+
+  it('keeps the page when the load event never arrives', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '{"success":false,"error":"Timed out after 25000ms waiting for load state \'load\'"}', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"result":{"title":"Tool check page","url":"http://192.168.64.1:60680/","readyState":"interactive"}}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute('tc-load-timeout', { action: 'navigate', url: 'http://192.168.64.1:60680/' }, undefined, undefined, undefined as never);
+    const text = (result.content[0] as { type: string; text: string }).text;
+
+    expect(text).toContain('Automation browser title: Tool check page');
+    expect(text).toContain('did not finish loading');
+    expect(text).not.toContain('session was reset');
+    expect(exec.mock.calls.some((call) => String(call[1]).includes("'close'"))).toBe(false);
   });
 
   it('creates the recording directory before record start', async () => {

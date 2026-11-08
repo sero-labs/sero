@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       commit_metadata:
-        description: Commit generated-artifacts.json back to the selected branch after verification
+        description: Commit generated-artifacts.json after verification
         required: false
         default: 'false'
         type: choice
@@ -36,14 +36,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$BROWSER_PACK_RELEASE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view "$BROWSER_PACK_RELEASE" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $BROWSER_PACK_RELEASE already exists."
             exit 0
           fi
+          notes="Pinned host browser automation packs for Sero."
+          notes="$notes Integrity is enforced by generated-artifacts.json"
+          notes="$notes SHA-256 metadata."
           gh release create "$BROWSER_PACK_RELEASE" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Sero Browser Pack 2026-11-08" \
-            --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
+            --notes "$notes" \
             --prerelease
 
   build:
@@ -95,19 +99,23 @@ jobs:
           echo "runner label: ${{ matrix.label }}"
           echo "uname -s: $(uname -s)"
           echo "uname -m: $(uname -m)"
+          host_os=$(uname -s)
+          host_arch=$(uname -m)
           case "${{ matrix.slug }}" in
             mac-arm64)
-              [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]] || exit 1
+              [[ "$host_os" == "Darwin" && "$host_arch" == "arm64" ]] || exit 1
               ;;
             linux-x64)
-              [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]] || exit 1
+              [[ "$host_os" == "Linux" && "$host_arch" == "x86_64" ]] || exit 1
               ;;
             linux-arm64)
-              [[ "$(uname -s)" == "Linux" && ( "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ) ]] || exit 1
+              [[ "$host_os" == "Linux" ]] || exit 1
+              [[ "$host_arch" == "aarch64" ]] || \
+                [[ "$host_arch" == "arm64" ]] || exit 1
               ;;
             win-x64)
-              case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) exit 1 ;; esac
-              [[ "$(uname -m)" == "x86_64" ]] || exit 1
+              case "$host_os" in MINGW*|MSYS*|CYGWIN*) ;; *) exit 1 ;; esac
+              [[ "$host_arch" == "x86_64" ]] || exit 1
               ;;
             *)
               echo "Unknown browser-pack target: ${{ matrix.slug }}"
@@ -137,7 +145,11 @@ jobs:
         run: |
           test -s "$BROWSER_PACK_DIR/${{ matrix.archive }}"
           test -s "$BROWSER_PACK_DIR/${{ matrix.receipt }}"
-          node -e "const fs=require('fs'); const receipt=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (receipt.slug !== '${{ matrix.slug }}') throw new Error('unexpected receipt slug: '+receipt.slug);" "$BROWSER_PACK_DIR/${{ matrix.receipt }}"
+          node -e "const fs=require('fs'); const argv=process.argv; \
+            const receipt=JSON.parse(fs.readFileSync(argv[1], 'utf8')); \
+            if (receipt.slug !== '${{ matrix.slug }}') \
+              throw new Error('unexpected slug: '+receipt.slug);" \
+            "$BROWSER_PACK_DIR/${{ matrix.receipt }}"
 
       - name: Upload release assets
         env:
@@ -192,7 +204,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$BROWSER_PACK_DIR"
-          for receipt in mac-arm64.json linux-x64.json linux-arm64.json win-x64.json; do
+          for receipt in \
+            mac-arm64.json linux-x64.json linux-arm64.json win-x64.json; do
             gh release download "$BROWSER_PACK_RELEASE" \
               --repo "$GITHUB_REPOSITORY" \
               --pattern "$receipt" \
@@ -216,14 +229,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: browser-pack-generated-artifacts
-          path: apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
+          path: apps/desktop/electron/**/generated-artifacts.json
           if-no-files-found: error
           retention-days: 30
 
       - name: Create metadata pull request token
         if: ${{ inputs.commit_metadata == 'true' }}
         id: metadata_token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@64ab729 # v3.3.0
+        # full commit: 64ab729a6294000f5aa4a4bc0b73d1f32bc45510
         with:
           client-id: ${{ secrets.RUNTIME_UPDATER_CLIENT_ID }}
           private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}
@@ -236,32 +250,36 @@ jobs:
           # github.token cannot open pull requests in this repository.
           GH_TOKEN: ${{ steps.metadata_token.outputs.token }}
         run: |
-          if git diff --quiet -- apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json; then
+          if git diff --quiet; then
             echo "generated-artifacts.json is already up to date."
             exit 0
           fi
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bot_email="41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "$bot_email"
           branch="chore/browser-pack-metadata-${GITHUB_RUN_ID}"
           git checkout -b "$branch"
-          git add apps/desktop/electron/features/workspace/runtime/browser-pack/generated-artifacts.json
+          git add -u
           git commit -m "chore(desktop): publish browser pack metadata"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          token_url="https://x-access-token:${GH_TOKEN}@github.com/"
+          git remote set-url origin "${token_url}${GITHUB_REPOSITORY}.git"
           git push origin HEAD:"$branch"
+          body="Browser-pack metadata for the assets published by this run."
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
             --base "$GITHUB_REF_NAME" \
             --head "$branch" \
             --title "chore(desktop): publish browser pack metadata" \
-            --body "Updates generated browser-pack metadata after publishing verified release assets from workflow run ${GITHUB_RUN_ID}."
+            --body "$body"
 
       - name: Summary
         run: |
           {
             echo "## Browser-pack artifacts"
             echo
-            echo "Release assets uploaded and verified for macOS arm64, Linux x64, Linux arm64, and Windows x64."
+            echo "Release assets uploaded and verified for macOS arm64, Linux"
+            echo "x64, Linux arm64, and Windows x64."
             echo
             echo "Generated metadata artifact: browser-pack-generated-artifacts"
             if [[ "${{ inputs.commit_metadata }}" == "true" ]]; then
@@ -269,6 +287,7 @@ jobs:
               echo "Metadata commit requested: yes"
             else
               echo
-              echo "Metadata commit requested: no. Download the workflow artifact and commit generated-artifacts.json manually if needed."
+              echo "Metadata commit requested: no. Download the workflow"
+              echo "artifact and commit generated-artifacts.json manually."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -31,6 +31,12 @@ export function sessionCommand(
 export const COMMAND_TIMED_OUT = /^Command timed out after/;
 
 /**
+ * A page stuck in its own code blocks the daemon, and 0.41 reports that as a
+ * read failure rather than a timeout: the command may or may not have run.
+ */
+export const DAEMON_UNREACHABLE = /Failed to read: Resource temporarily unavailable|no response came back/i;
+
+/**
  * Stop a browser session whose daemon no longer answers.
  *
  * A page stuck in its own code blocks the daemon, and then `close` and `open`
