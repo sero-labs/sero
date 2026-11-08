@@ -1,5 +1,3 @@
-import path from 'path';
-
 import generatedArtifacts from '@electron/features/workspace/runtime/browser-pack/generated-artifacts.json';
 import { createBrowserRuntimeAdapter, firstExistingCandidate } from '@electron/features/workspace/runtime/browser-pack/adapter';
 import { browserPackStatus, ensureBrowserPackForAgent } from '@electron/features/workspace/runtime/install-actions';
@@ -38,22 +36,38 @@ export async function resolveBrowserAutomationRuntime(runtime: RuntimeBackend, w
 }
 
 export async function ensureAgentBrowserAvailable(runtime: RuntimeBackend, adapter?: BrowserRuntimeAdapter): Promise<void> {
-  const hasBinary = await runtime.exec({ command: withPathPrefix('command -v agent-browser', adapter, hostShellPlatform(runtime)), timeoutMs: 5_000 });
+  // The command is launched with the pack's own bin folder first on PATH, so
+  // those files count even where `command -v` does not resolve a `.cmd` shim.
+  const shellPlatform = hostShellPlatform(runtime);
+  const candidateChecks = (adapter?.agentBrowserCandidates ?? [])
+    .map((candidate) => `[ -f ${shellPath(candidate, shellPlatform)} ]`)
+    .join(' || ');
+  const command = candidateChecks
+    ? `command -v agent-browser >/dev/null 2>&1 || ${candidateChecks}`
+    : 'command -v agent-browser >/dev/null 2>&1';
+  const hasBinary = await runtime.exec({ command: withPathPrefix(command, adapter, shellPlatform), timeoutMs: 5_000 });
   if (hasBinary.exitCode !== 0) {
     throw new Error('agent-browser CLI is not available in this runtime. Use a Sero runtime image with browser automation support.');
   }
 }
 
-export async function ensureFfmpegAvailable(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter): Promise<void> {
-  const shellPlatform = hostShellPlatform(runtime);
-  const candidateChecks = adapter.ffmpegCandidates.map((candidate) => `[ -x ${shellPath(candidate, shellPlatform)} ]`).join(' || ');
-  const command = candidateChecks
-    ? `command -v ffmpeg >/dev/null 2>&1 || ${candidateChecks}`
-    : 'command -v ffmpeg >/dev/null 2>&1';
-  const existing = await runtime.exec({ command, timeoutMs: 10_000 });
-  if (existing.exitCode !== 0) {
-    throw new Error('ffmpeg is not available for automation browser recording. Install the host browser pack or use a container runtime with browser automation support.');
+export async function ensureFfmpegAvailable(runtime: RuntimeBackend): Promise<void> {
+  // WebM recording wants the `libvpx` (VP8) encoder. Playwright's ffmpeg build
+  // carries only `libvpx-vp9`, and handing it to `record` kills the take with
+  // `ffmpeg write failed: Broken pipe`, so the encoder is checked up front.
+  const probe = await runtime.exec({
+    command: "command -v ffmpeg >/dev/null 2>&1 || exit 2; "
+      + "ffmpeg -hide_banner -encoders 2>/dev/null | awk '$2==\"libvpx\"{f=1} END{exit !f}' || exit 3",
+    timeoutMs: 10_000,
+  });
+  if (probe.exitCode === 0) return;
+  if (probe.exitCode === 3) {
+    throw new Error(
+      'ffmpeg here cannot encode VP8, which automation browser recordings need. '
+      + 'Install a full ffmpeg build (the Playwright one has VP9 only), or use a container runtime whose image ships one.',
+    );
   }
+  throw new Error('ffmpeg is not available for automation browser recording. Install ffmpeg, or use a container runtime whose image ships it.');
 }
 
 export function agentBrowserCommand(
@@ -65,7 +79,7 @@ export function agentBrowserCommand(
   const exports = Object.entries({ ...adapter.env, ...env })
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `export ${key}='${shellEscape(String(value))}';`);
-  const pathPrefixes = adapterPathPrefixes(adapter, shellPlatform).map((entry) => toHostShellPath(entry, shellPlatform));
+  const pathPrefixes = adapterPathPrefixes(adapter).map((entry) => toHostShellPath(entry, shellPlatform));
   if (pathPrefixes.length > 0) exports.push(`export PATH='${shellEscape(pathPrefixes.join(':'))}':"$PATH";`);
   const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
   return `${exports.join(' ')} agent-browser ${commandArgs}`;
@@ -182,7 +196,7 @@ function shellGlobPath(candidate: string, shellPlatform?: NodeJS.Platform): stri
 }
 
 function withPathPrefix(command: string, adapter: BrowserRuntimeAdapter | undefined, shellPlatform?: NodeJS.Platform): string {
-  const pathPrefixes = adapter ? adapterPathPrefixes(adapter, shellPlatform).map((entry) => toHostShellPath(entry, shellPlatform)) : [];
+  const pathPrefixes = adapter ? adapterPathPrefixes(adapter).map((entry) => toHostShellPath(entry, shellPlatform)) : [];
   return pathPrefixes.length > 0 ? `export PATH='${shellEscape(pathPrefixes.join(':'))}':"$PATH"; ${command}` : command;
 }
 
@@ -198,13 +212,14 @@ export function toHostShellPath(candidate: string, shellPlatform?: NodeJS.Platfo
   return `/${driveMatch[1].toLowerCase()}/${driveMatch[2]}`;
 }
 
-function adapterPathPrefixes(adapter: BrowserRuntimeAdapter, shellPlatform?: NodeJS.Platform): string[] {
-  const firstFfmpegPrefix = adapter.ffmpegCandidates[0] ? candidateDirname(adapter.ffmpegCandidates[0], shellPlatform) : null;
-  return uniquePaths([...adapter.pathPrefixes, firstFfmpegPrefix]);
-}
-
-function candidateDirname(candidate: string, shellPlatform?: NodeJS.Platform): string {
-  return shellPlatform === 'win32' ? path.win32.dirname(candidate) : path.dirname(candidate);
+/**
+ * Only the pack's own bin folder belongs on PATH. Recordings are encoded by
+ * agent-browser itself since 0.41, and the pack ships Playwright's ffmpeg,
+ * which is a VP9-only build: leaving it first on PATH handed `record` a
+ * command it cannot run (`ffmpeg write failed: Broken pipe`).
+ */
+function adapterPathPrefixes(adapter: BrowserRuntimeAdapter): string[] {
+  return uniquePaths(adapter.pathPrefixes);
 }
 
 function uniquePaths(paths: Array<string | null>): string[] {

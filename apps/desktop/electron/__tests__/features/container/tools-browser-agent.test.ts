@@ -104,7 +104,7 @@ describe('createAgentBrowser', () => {
       chromiumExecutableCandidates: ['/fixed/toolchains/2026.05.16/browser/chromium/chrome'],
       ffmpegCandidates: ['/fixed/toolchains/2026.05.16/browser/ffmpeg/ffmpeg'],
       agentBrowserCandidates: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin/agent-browser'],
-      pathPrefixes: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin', '/fixed/toolchains/2026.05.16/browser/ffmpeg'],
+      pathPrefixes: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin'],
       tempDir: '/fixed/toolchains/2026.05.16/browser/tmp',
       env: { PLAYWRIGHT_BROWSERS_PATH: '/fixed/toolchains/2026.05.16/browser' },
     };
@@ -113,9 +113,10 @@ describe('createAgentBrowser', () => {
 
     await tool.execute('tc-host-installed', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[0][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"; command -v agent-browser");
+    expect(exec.mock.calls[0][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin':\"$PATH\"; command -v agent-browser");
+    expect(exec.mock.calls[0][1]).not.toContain('/browser/ffmpeg');
     expect(exec.mock.calls[1][1]).toContain("export PLAYWRIGHT_BROWSERS_PATH='/fixed/toolchains/2026.05.16/browser'");
-    expect(exec.mock.calls[1][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"");
+    expect(exec.mock.calls[1][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin':\"$PATH\"");
     expect(exec.mock.calls[1][1].indexOf('/agent-browser/bin')).toBeLessThan(exec.mock.calls[1][1].indexOf(':\"$PATH\"'));
     expect(exec.mock.calls[1][1]).toContain("'--executable-path' '/fixed/toolchains/2026.05.16/browser/chromium/chrome'");
     expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
@@ -135,7 +136,10 @@ describe('createAgentBrowser', () => {
     const command = agentBrowserCommand(hostAdapter, ['open', 'about:blank'], undefined, 'win32');
 
     expect(toHostShellPath('C:\\Users\\me\\repo', 'win32')).toBe('/c/Users/me/repo');
-    expect(command).toContain("export PATH='/c/Users/me/.sero-ui/toolchains/browser-pack/browser/agent-browser/bin:/c/Users/me/.sero-ui/toolchains/browser-pack/browser/ffmpeg':\"$PATH\";");
+    expect(command).toContain("export PATH='/c/Users/me/.sero-ui/toolchains/browser-pack/browser/agent-browser/bin':\"$PATH\";");
+    // The pack's Playwright ffmpeg is VP9-only, so it stays off the PATH and
+    // recording uses a system ffmpeg the precondition check can verify.
+    expect(command).not.toContain('browser/ffmpeg');
     expect(command).toContain("export PLAYWRIGHT_BROWSERS_PATH='C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser'");
   });
 
@@ -146,7 +150,7 @@ describe('createAgentBrowser', () => {
 
     await expect(tool.execute('tc-install', { action: 'launch' }, undefined, undefined, undefined as never)).rejects.toThrow('agent-browser CLI is not available');
 
-    expect(exec.mock.calls[0][1]).toBe('command -v agent-browser');
+    expect(exec.mock.calls[0][1]).toContain('command -v agent-browser');
     expect(exec.mock.calls.some((call) => String(call[1]).includes('npm install -g agent-browser'))).toBe(false);
   });
 
@@ -602,11 +606,12 @@ describe('createAgentBrowser', () => {
       exec: (input: { command: string; timeoutMs?: number }) => exec('ws-1', input.command, undefined, input.timeoutMs),
     } as unknown as RuntimeBackend;
 
-    const resolved = await resolveBrowserAutomationRuntime(runtime, 'ws-1');
-    await ensureFfmpegAvailable(runtime, resolved.adapter);
+    await resolveBrowserAutomationRuntime(runtime, 'ws-1');
+    await ensureFfmpegAvailable(runtime);
 
     expect(exec.mock.calls[0][1]).toContain(`chromium-${generatedArtifacts.pins.chromiumRevision}/chrome-linux/chrome`);
-    expect(exec.mock.calls[1][1]).toContain('/usr/bin/ffmpeg');
+    expect(exec.mock.calls[1][1]).toContain('command -v ffmpeg');
+    expect(exec.mock.calls[1][1]).toContain('libvpx');
   });
 
   it('uses native wait command for timeout waits', async () => {

@@ -24,10 +24,11 @@ export function createBrowserRuntimeAdapter(options: BrowserRuntimeAdapterOption
   const chromiumExecutableCandidates = selection.artifact.chromiumExecutableCandidates.map((candidate) => path.join(browsersPath, candidate));
   const ffmpegCandidates = selection.artifact.ffmpegCandidates.map((candidate) => path.join(browsersPath, candidate));
   const agentBrowserCandidates = selection.artifact.agentBrowserCandidates.map((candidate) => path.join(browsersPath, candidate));
-  const pathPrefixes = uniquePaths([
-    ...agentBrowserCandidates.map((candidate) => path.dirname(candidate)),
-    ...ffmpegCandidates.map((candidate) => path.dirname(candidate)),
-  ]);
+  // Only the agent-browser shim goes on PATH. The pack ships Playwright's
+  // ffmpeg, which is a VP9-only build: first on PATH it turns every WebM
+  // recording into `ffmpeg write failed: Broken pipe`. Recording now resolves
+  // ffmpeg from the system, where the precondition check can verify VP8.
+  const pathPrefixes = uniquePaths(agentBrowserCandidates.map((candidate) => path.dirname(candidate)));
   // Chromium makes its singleton socket in a new folder under the temp folder.
   // A Unix socket path is limited to about 104 bytes, and the pack folder is
   // already longer than that on Linux, so Chromium exits at once there.

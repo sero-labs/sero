@@ -289,7 +289,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
         const adapter = automationRuntime.adapter;
 
         if (action === 'start_recording') {
-          await ensureFfmpegAvailable(runtime, adapter);
+          await ensureFfmpegAvailable(runtime);
           const targetPath = params.save_path ?? defaultRecordingPath(runtime);
           const targetDir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '';
           if (targetDir) await runtime.createDirectory({ path: targetDir, recursive: true });
@@ -302,7 +302,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
             response = await runAgent(runtime, adapter, workspaceId, executablePath, recordingArgs(params, targetPath, 'restart'), { execTimeoutMs: 20_000 });
           }
           armRecordingAutoStop(workspaceId, targetPath, async () => {
-            await ensureFfmpegAvailable(runtime, adapter);
+            await ensureFfmpegAvailable(runtime);
             await runAgent(runtime, adapter, workspaceId, executablePath, ['record', 'stop'], { execTimeoutMs: 60_000 });
           });
           record(true);
@@ -311,7 +311,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
         }
 
         if (action === 'stop_recording') {
-          await ensureFfmpegAvailable(runtime, adapter);
+          await ensureFfmpegAvailable(runtime);
           const response = await runAgent(runtime, adapter, workspaceId, executablePath, ['record', 'stop'], { execTimeoutMs: 60_000 });
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, 'Automation browser recording stopped.') }], details: undefined };
