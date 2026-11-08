@@ -1,12 +1,12 @@
 {
-  "version": "browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2",
+  "version": "browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2",
   "generatedAt": "2026-11-08T00:00:00.000Z",
   "pins": {
     "playwrightVersion": "1.64.1",
     "chromiumRevision": "1248",
     "chromiumVersion": "156.0.8078.4",
-    "ffmpegRevision": "1013",
-    "macFfmpegRevision": "1013",
+    "ffmpegRevision": "6.1.1",
+    "macFfmpegRevision": "6.1.1",
     "agentBrowserVersion": "0.41.2"
   },
   "artifacts": {
@@ -16,9 +16,9 @@
       "slug": "mac-arm64",
       "status": "built",
       "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/mac-arm64.tar.gz",
-      "sha256": "d83334c4a5a98731faaeca80279e5675b243df272c8573295d747a00792ca5ec",
-      "sizeBytes": 333411988,
+      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2/mac-arm64.tar.gz",
+      "sha256": "99840dac802ac3ac3fd5681a4a1f57ba5a2150a8e56015ec4e6094277e704f38",
+      "sizeBytes": 352696082,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         "chromium-1248/chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
@@ -28,11 +28,7 @@
         "chromium/chrome-mac/Chromium.app/Contents/MacOS/Google Chrome for Testing"
       ],
       "ffmpegCandidates": [
-        "ffmpeg-1013/ffmpeg-mac",
-        "ffmpeg-1013/ffmpeg-mac-arm64",
-        "ffmpeg-1013/ffmpeg-mac-arm64",
-        "ffmpeg/ffmpeg-mac-arm64",
-        "ffmpeg/ffmpeg-mac"
+        "ffmpeg-6.1.1/ffmpeg"
       ],
       "agentBrowserCandidates": [
         "agent-browser/bin/agent-browser"
@@ -44,9 +40,9 @@
       "slug": "linux-x64",
       "status": "built",
       "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/linux-x64.tar.gz",
-      "sha256": "8f421762cdbdee0a3fd44290f064daedb77d1dca567c3af9d4533eab0ce38790",
-      "sizeBytes": 354437839,
+      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2/linux-x64.tar.gz",
+      "sha256": "58536742850a9938f0c46df5a359ff0646822009b170a7df408e007820d1ffb9",
+      "sizeBytes": 383935378,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-linux64/chrome",
         "chromium-1248/chrome-linux64/chrome-wrapper",
@@ -60,8 +56,7 @@
         "chromium/chrome-linux/chrome-wrapper"
       ],
       "ffmpegCandidates": [
-        "ffmpeg-1013/ffmpeg-linux",
-        "ffmpeg/ffmpeg-linux"
+        "ffmpeg-6.1.1/ffmpeg"
       ],
       "agentBrowserCandidates": [
         "agent-browser/bin/agent-browser"
@@ -73,9 +68,9 @@
       "slug": "linux-arm64",
       "status": "built",
       "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/linux-arm64.tar.gz",
-      "sha256": "e024bf29088d8df698ed3ee4ba17301db677e6f6d91f2062f2d7dc0695d8bce1",
-      "sizeBytes": 356606371,
+      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2/linux-arm64.tar.gz",
+      "sha256": "b2342c63772086ea629b2d4ede47fb625eec26ef806e964cd7bf9f37e6755c9a",
+      "sizeBytes": 382249728,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-linux64/chrome",
         "chromium-1248/chrome-linux64/chrome-wrapper",
@@ -89,9 +84,7 @@
         "chromium/chrome-linux/chrome-wrapper"
       ],
       "ffmpegCandidates": [
-        "ffmpeg-1013/ffmpeg-linux",
-        "ffmpeg/ffmpeg-linux-arm64",
-        "ffmpeg/ffmpeg-linux"
+        "ffmpeg-6.1.1/ffmpeg"
       ],
       "agentBrowserCandidates": [
         "agent-browser/bin/agent-browser"
@@ -103,9 +96,9 @@
       "slug": "win-x64",
       "status": "built",
       "available": true,
-      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2/win-x64.tar.gz",
-      "sha256": "03a4cf4dcb18e9563205c87cfe5afa1347dfcf8e0d0e31e96b89d259f8a44ae0",
-      "sizeBytes": 386190219,
+      "url": "https://github.com/sero-labs/sero/releases/download/browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2/win-x64.tar.gz",
+      "sha256": "9cd69b6038515cf7b88e4e0f9091912b048d4a68a50dd6ff446bc61e212c896e",
+      "sizeBytes": 415904493,
       "chromiumExecutableCandidates": [
         "chromium-1248/chrome-win/chrome.exe",
         "chromium-1248/chrome-win64/chrome.exe",
@@ -113,9 +106,7 @@
         "chromium/chrome-win64/chrome.exe"
       ],
       "ffmpegCandidates": [
-        "ffmpeg-1013/ffmpeg-win64.exe",
-        "ffmpeg/ffmpeg-win64.exe",
-        "ffmpeg/ffmpeg.exe"
+        "ffmpeg-6.1.1/ffmpeg.exe"
       ],
       "agentBrowserCandidates": [
         "agent-browser/bin/agent-browser.cmd",
@@ -135,9 +126,7 @@
         "chromium/chrome-win64/chrome.exe"
       ],
       "ffmpegCandidates": [
-        "ffmpeg-1013/ffmpeg-win64.exe",
-        "ffmpeg/ffmpeg-win64.exe",
-        "ffmpeg/ffmpeg.exe"
+        "ffmpeg-6.1.1/ffmpeg.exe"
       ],
       "agentBrowserCandidates": [
         "agent-browser/bin/agent-browser.cmd",
