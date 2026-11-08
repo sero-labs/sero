@@ -18,7 +18,8 @@ permissions:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
-  BROWSER_PACK_RELEASE: browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2
+  BROWSER_PACK_RELEASE: >-
+    browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2
   BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-11-08
 
 concurrency:
@@ -236,8 +237,8 @@ jobs:
       - name: Create metadata pull request token
         if: ${{ inputs.commit_metadata == 'true' }}
         id: metadata_token
-        uses: actions/create-github-app-token@64ab729 # v3.3.0
-        # full commit: 64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        # Long line on purpose: Actions rejects a shortened commit SHA.
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.RUNTIME_UPDATER_CLIENT_ID }}
           private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}

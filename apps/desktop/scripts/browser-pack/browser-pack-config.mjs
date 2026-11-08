@@ -1,6 +1,6 @@
 import runtimePins from '../../runtime-tools/pins.json' with { type: 'json' };
 
-export const BROWSER_PACK_VERSION = 'browser-pack-2026-11-08-r1248-f1013-mf1013-agent-0.41.2';
+export const BROWSER_PACK_VERSION = 'browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2';
 export const BROWSER_PACK_DATE = '2026-11-08';
 export const DEFAULT_BROWSER_PACK_URL_BASE = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
@@ -12,6 +12,14 @@ export const pins = {
   macFfmpegRevision: runtimePins.browser.macFfmpegRevision,
   agentBrowserVersion: runtimePins.npm['agent-browser'].version,
 };
+
+/**
+ * The pack ships its own ffmpeg because agent-browser shells out to it, and
+ * Playwright's build carries only `libvpx-vp9`: every VP8 WebM take died with
+ * `ffmpeg write failed: Broken pipe`. These are the ffmpeg-static release
+ * assets, pinned by URL and SHA-256, and they carry VP8 and H.264.
+ */
+export const ffmpegAssets = runtimePins.browser.ffmpegAssets;
 
 const chromiumCandidates = {
   darwin: [
@@ -43,17 +51,12 @@ const chromiumCandidates = {
 };
 
 const ffmpegCandidates = {
-  'darwin-arm64': [
-    `ffmpeg-${pins.ffmpegRevision}/ffmpeg-mac`,
-    `ffmpeg-${pins.macFfmpegRevision}/ffmpeg-mac-arm64`,
-    `ffmpeg-${pins.ffmpegRevision}/ffmpeg-mac-arm64`,
-    'ffmpeg/ffmpeg-mac-arm64',
-    'ffmpeg/ffmpeg-mac',
-  ],
-  'linux-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-linux`, 'ffmpeg/ffmpeg-linux'],
-  'linux-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-linux`, 'ffmpeg/ffmpeg-linux-arm64', 'ffmpeg/ffmpeg-linux'],
-  'win32-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-win64.exe`, 'ffmpeg/ffmpeg-win64.exe', 'ffmpeg/ffmpeg.exe'],
-  'win32-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg-win64.exe`, 'ffmpeg/ffmpeg-win64.exe', 'ffmpeg/ffmpeg.exe'],
+  'darwin-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg`],
+  'darwin-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg`],
+  'linux-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg`],
+  'linux-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg`],
+  'win32-x64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg.exe`],
+  'win32-arm64': [`ffmpeg-${pins.ffmpegRevision}/ffmpeg.exe`],
 };
 
 const agentBrowserCandidates = {
