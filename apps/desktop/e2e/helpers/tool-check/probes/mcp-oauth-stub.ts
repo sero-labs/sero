@@ -74,10 +74,20 @@ async function listen(upstream: URL): Promise<OAuthStub> {
         }
         const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !HOP_HEADERS.includes(name)));
         const forwarded = http.request(upstream, { method: req.method, headers: { ...headers, 'content-length': body.length } }, (reply) => {
+          // The client can hang up mid-response; writing after that is what
+          // surfaced as "Cannot write headers after they are sent to the client".
+          reply.on('error', () => res.destroy());
+          if (res.headersSent) {
+            res.destroy();
+            return;
+          }
           res.writeHead(reply.statusCode ?? 502, reply.headers);
           reply.pipe(res);
         });
-        forwarded.on('error', () => res.writeHead(502).end());
+        forwarded.on('error', () => {
+          if (res.headersSent) res.destroy();
+          else res.writeHead(502).end();
+        });
         forwarded.end(body);
         return;
       }
