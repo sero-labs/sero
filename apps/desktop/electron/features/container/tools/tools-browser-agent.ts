@@ -21,7 +21,7 @@ import {
 } from './tools-browser-agent-helpers';
 import { BrowserParams } from './tool-schemas';
 import { clickByText, textSelectorValue } from './tools-browser-agent-text';
-import { browserSessionAnswers, COMMAND_TIMED_OUT, resetHungBrowserSession, sessionCommand } from './tools-browser-agent-session';
+import { browserSessionAnswers, COMMAND_TIMED_OUT, DAEMON_UNREACHABLE, resetHungBrowserSession, sessionCommand } from './tools-browser-agent-session';
 import { openBrowserUrl, waitForLoadState, type PageCommands } from './tools-browser-agent-navigation';
 import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
@@ -107,8 +107,11 @@ async function runAgent(
     timeoutMs: options.execTimeoutMs ?? 60_000,
   });
   const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
-  const timedOut = COMMAND_TIMED_OUT.test(result.stderr) || /^CDP command timed out:/.test(parsed.error ?? '');
-  if (timedOut && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+  const hung = COMMAND_TIMED_OUT.test(result.stderr)
+    || DAEMON_UNREACHABLE.test(result.stderr)
+    || /^CDP command timed out:/.test(parsed.error ?? '')
+    || DAEMON_UNREACHABLE.test(parsed.error ?? '');
+  if (hung && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
     await resetHungBrowserSession(runtime, workspaceId);
     throw new Error(
       `The automation browser gave no answer in ${Math.round((options.execTimeoutMs ?? 60_000) / 1000)}s. `

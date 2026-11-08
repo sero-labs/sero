@@ -196,6 +196,25 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[3][1]).toContain('.agent-browser/sero-ws-1-docker');
   });
 
+  it('stops a browser that reports a stuck page as a daemon read failure', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      {
+        stdout: '',
+        stderr: 'ERROR: Failed to read: Resource temporarily unavailable (os error 11) (the command reached the daemon but no response came back; it may or may not have run, so it was not retried)',
+        exitCode: 1,
+      },
+      { stdout: '', stderr: 'Command timed out after 5s.', exitCode: 124 },
+      { stdout: '', stderr: '', exitCode: 0 },
+    ]);
+
+    await expect(tool.execute('tc-daemon-read', { action: 'click', selector: '#hang' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(/was reset/);
+
+    expect(exec.mock.calls[2][1]).toContain("'eval' '1'");
+    expect(exec.mock.calls[3][1]).toContain('kill -9');
+  });
+
   it('leaves a browser alone when one command was slow and the session still answers', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
