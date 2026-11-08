@@ -96,10 +96,12 @@ RUN git config --global user.name "Sero" && \
 # agent-browser + Chromium browser assets. Playwright expects a
 # chromium_headless_shell path for default headless launch; replace the large
 # downloaded shell with a tiny symlink shim to the regular Chromium binary.
-# Recording uses Ubuntu's ffmpeg from the first layer: agent-browser encodes
-# with libvpx, which Playwright's ffmpeg build for linux-arm64 leaves out.
+# agent-browser runs its own per-platform binary and chmods it when the file is
+# not executable. The workspace container runs as the host user, which cannot
+# chmod a root-owned file, so the bit is set here or every launch fails EPERM.
 RUN mkdir -p /ms-playwright && \
     ln -sf /opt/sero-runtime/node_modules/agent-browser/bin/agent-browser.js /usr/local/bin/agent-browser && \
+    chmod a+x /opt/sero-runtime/node_modules/agent-browser/bin/agent-browser* && \
     node /opt/sero-runtime/node_modules/playwright/cli.js install --with-deps chromium && \
     rm -rf /ms-playwright/firefox-* /ms-playwright/webkit-* /ms-playwright/chromium_headless_shell-* && \
     chromium_dir="$(find /ms-playwright -maxdepth 1 -type d -name 'chromium-*' -print -quit)" && \
