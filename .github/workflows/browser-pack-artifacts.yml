@@ -237,8 +237,8 @@ jobs:
       - name: Create metadata pull request token
         if: ${{ inputs.commit_metadata == 'true' }}
         id: metadata_token
-        uses: actions/create-github-app-token@64ab729 # v3.3.0
-        # full commit: 64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        # Long line on purpose: Actions rejects a shortened commit SHA.
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.RUNTIME_UPDATER_CLIENT_ID }}
           private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}
