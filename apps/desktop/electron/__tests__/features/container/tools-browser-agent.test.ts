@@ -104,7 +104,7 @@ describe('createAgentBrowser', () => {
       chromiumExecutableCandidates: ['/fixed/toolchains/2026.05.16/browser/chromium/chrome'],
       ffmpegCandidates: ['/fixed/toolchains/2026.05.16/browser/ffmpeg/ffmpeg'],
       agentBrowserCandidates: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin/agent-browser'],
-      pathPrefixes: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin'],
+      pathPrefixes: ['/fixed/toolchains/2026.05.16/browser/agent-browser/bin', '/fixed/toolchains/2026.05.16/browser/ffmpeg'],
       tempDir: '/fixed/toolchains/2026.05.16/browser/tmp',
       env: { PLAYWRIGHT_BROWSERS_PATH: '/fixed/toolchains/2026.05.16/browser' },
     };
@@ -113,10 +113,9 @@ describe('createAgentBrowser', () => {
 
     await tool.execute('tc-host-installed', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[0][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin':\"$PATH\"; command -v agent-browser");
-    expect(exec.mock.calls[0][1]).not.toContain('/browser/ffmpeg');
+    expect(exec.mock.calls[0][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"; command -v agent-browser");
     expect(exec.mock.calls[1][1]).toContain("export PLAYWRIGHT_BROWSERS_PATH='/fixed/toolchains/2026.05.16/browser'");
-    expect(exec.mock.calls[1][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin':\"$PATH\"");
+    expect(exec.mock.calls[1][1]).toContain("export PATH='/fixed/toolchains/2026.05.16/browser/agent-browser/bin:/fixed/toolchains/2026.05.16/browser/ffmpeg':\"$PATH\"");
     expect(exec.mock.calls[1][1].indexOf('/agent-browser/bin')).toBeLessThan(exec.mock.calls[1][1].indexOf(':\"$PATH\"'));
     expect(exec.mock.calls[1][1]).toContain("'--executable-path' '/fixed/toolchains/2026.05.16/browser/chromium/chrome'");
     expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
@@ -128,7 +127,7 @@ describe('createAgentBrowser', () => {
       chromiumExecutableCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\chromium\\chrome.exe'],
       ffmpegCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\ffmpeg\\ffmpeg.exe'],
       agentBrowserCandidates: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\agent-browser\\bin\\agent-browser.cmd'],
-      pathPrefixes: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\agent-browser\\bin'],
+      pathPrefixes: ['C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\agent-browser\\bin', 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\ffmpeg'],
       tempDir: 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser\\tmp',
       env: { PLAYWRIGHT_BROWSERS_PATH: 'C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser' },
     };
@@ -136,10 +135,7 @@ describe('createAgentBrowser', () => {
     const command = agentBrowserCommand(hostAdapter, ['open', 'about:blank'], undefined, 'win32');
 
     expect(toHostShellPath('C:\\Users\\me\\repo', 'win32')).toBe('/c/Users/me/repo');
-    expect(command).toContain("export PATH='/c/Users/me/.sero-ui/toolchains/browser-pack/browser/agent-browser/bin':\"$PATH\";");
-    // The pack's Playwright ffmpeg is VP9-only, so it stays off the PATH and
-    // recording uses a system ffmpeg the precondition check can verify.
-    expect(command).not.toContain('browser/ffmpeg');
+    expect(command).toContain("export PATH='/c/Users/me/.sero-ui/toolchains/browser-pack/browser/agent-browser/bin:/c/Users/me/.sero-ui/toolchains/browser-pack/browser/ffmpeg':\"$PATH\";");
     expect(command).toContain("export PLAYWRIGHT_BROWSERS_PATH='C:\\Users\\me\\.sero-ui\\toolchains\\browser-pack\\browser'");
   });
 

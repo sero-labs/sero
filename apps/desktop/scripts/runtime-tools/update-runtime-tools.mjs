@@ -376,13 +376,13 @@ async function updatePlaywrightBrowserPins(pins) {
     run('npm', ['ci', '--ignore-scripts', '--workspaces=false'], runtimeToolsRoot);
     const browsers = await readJson(path.join(runtimeToolsRoot, 'node_modules/playwright-core/browsers.json'));
     const chromium = browsers.browsers.find(({ name }) => name === 'chromium');
-    const ffmpeg = browsers.browsers.find(({ name }) => name === 'ffmpeg');
-    if (!chromium || !ffmpeg) throw new Error('Playwright browser metadata is incomplete');
+    if (!chromium) throw new Error('Playwright browser metadata is incomplete');
+    // The ffmpeg pins belong to the static build the pack ships, not to
+    // Playwright's VP9-only one, so only Chromium is refreshed here.
     pins.browser = {
+      ...pins.browser,
       chromiumRevision: chromium.revision,
       chromiumVersion: chromium.browserVersion,
-      ffmpegRevision: ffmpeg.revision,
-      macFfmpegRevision: macArm64FfmpegRevision(ffmpeg),
     };
   } finally {
     await fs.rm(path.join(runtimeToolsRoot, 'node_modules'), { recursive: true, force: true });

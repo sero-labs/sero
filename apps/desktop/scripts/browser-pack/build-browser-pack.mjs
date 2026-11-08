@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -12,6 +13,7 @@ import {
   DEFAULT_BROWSER_PACK_URL_BASE,
   artifactUrl,
   artifacts,
+  ffmpegAssets,
   findArtifact,
   pins,
 } from './browser-pack-config.mjs';
@@ -62,8 +64,11 @@ async function main() {
 
   const lockedToolsRoot = path.join(workRoot, 'locked-tools');
   await installLockedRuntimeTools(lockedToolsRoot);
+  // Chromium comes from Playwright; its ffmpeg is a VP9-only build, so the
+  // recordings use the pinned ffmpeg below instead.
   installPlaywrightBrowsers(packRoot, lockedToolsRoot);
   await removePlaywrightInstallLinks(packRoot);
+  await installStaticFfmpeg(packRoot, target);
   await installAgentBrowser(packRoot, target.platform, lockedToolsRoot);
   await validateAgentBrowserShims({ packRoot, artifact: target });
   await validateBrowserPack({ packRoot, artifact: target });
@@ -129,9 +134,33 @@ async function installLockedRuntimeTools(lockedToolsRoot) {
 }
 
 function installPlaywrightBrowsers(packRoot, lockedToolsRoot) {
-  run(process.execPath, [path.join(lockedToolsRoot, 'node_modules/playwright/cli.js'), 'install', 'chromium', 'ffmpeg'], {
+  run(process.execPath, [path.join(lockedToolsRoot, 'node_modules/playwright/cli.js'), 'install', 'chromium'], {
     env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: packRoot },
   });
+}
+
+/**
+ * agent-browser shells out to `ffmpeg` for WebM recording, and needs the
+ * `libvpx` (VP8) encoder that Playwright's build leaves out.
+ */
+async function installStaticFfmpeg(packRoot, target) {
+  const asset = ffmpegAssets[`${target.platform}-${target.arch}`];
+  if (!asset) {
+    console.log(`No pinned ffmpeg for ${target.platform}-${target.arch}; the platform reports it on install.`);
+    return;
+  }
+  const dir = path.join(packRoot, `ffmpeg-${pins.ffmpegRevision}`);
+  await fs.mkdir(dir, { recursive: true });
+  const response = await fetch(asset.url);
+  if (!response.ok) throw new Error(`ffmpeg download failed: ${response.status} ${asset.url}`);
+  const archive = Buffer.from(await response.arrayBuffer());
+  const actual = createHash('sha256').update(archive).digest('hex');
+  if (actual !== asset.sha256) throw new Error(`ffmpeg checksum mismatch: expected ${asset.sha256}, got ${actual}`);
+  const binary = gunzipSync(archive);
+  const binaryPath = path.join(dir, target.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+  await fs.writeFile(binaryPath, binary);
+  chmodSync(binaryPath, 0o755);
+  console.log(`ffmpeg ${pins.ffmpegRevision}: ${binaryPath}`);
 }
 
 async function removePlaywrightInstallLinks(packRoot) {
