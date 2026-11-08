@@ -225,6 +225,22 @@ describe('createAgentBrowser', () => {
     expect((result.content[0] as { text: string }).text).toContain('Navigation to https://example.com failed');
   });
 
+  it('keeps the page when the load event never arrives', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '{"success":false,"error":"Timed out after 25000ms waiting for load state \'load\'"}', stderr: '', exitCode: 0 },
+      { stdout: '{"success":true,"data":{"result":{"title":"Tool check page","url":"http://192.168.64.1:60680/","readyState":"interactive"}}}', stderr: '', exitCode: 0 },
+    ]);
+
+    const result = await tool.execute('tc-load-timeout', { action: 'navigate', url: 'http://192.168.64.1:60680/' }, undefined, undefined, undefined as never);
+    const text = (result.content[0] as { type: string; text: string }).text;
+
+    expect(text).toContain('Automation browser title: Tool check page');
+    expect(text).toContain('did not finish loading');
+    expect(text).not.toContain('session was reset');
+    expect(exec.mock.calls.some((call) => String(call[1]).includes("'close'"))).toBe(false);
+  });
+
   it('creates the recording directory before record start', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },

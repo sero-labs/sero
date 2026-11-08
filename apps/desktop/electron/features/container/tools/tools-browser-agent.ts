@@ -4,7 +4,6 @@ import type { AgentToolResult, AgentToolUpdateCallback } from '@earendil-works/p
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import type { BrowserRuntimeAdapter } from '@electron/features/workspace/runtime/browser-pack/types';
 import {
-  agentBrowserCommand,
   defaultRecordingPath,
   screenshotPath,
   ensureAgentBrowserAvailable,
@@ -23,6 +22,7 @@ import {
 import { BrowserParams } from './tool-schemas';
 import { clickByText, textSelectorValue } from './tools-browser-agent-text';
 import { browserSessionAnswers, COMMAND_TIMED_OUT, resetHungBrowserSession, sessionCommand } from './tools-browser-agent-session';
+import { openBrowserUrl, waitForLoadState, type PageCommands } from './tools-browser-agent-navigation';
 import type { AgentBrowserJson, AgentCommandOptions } from './tools-browser-agent-types';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
@@ -89,11 +89,6 @@ function runtimeDirname(filePath: string): string {
 
 async function closeBrowserSessionQuietly(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter, workspaceId: string, executablePath: string | null): Promise<void> {
   await runtime.exec({ command: sessionCommand(adapter, workspaceId, runtime.backend, executablePath, ['close', '--json']), timeoutMs: 10_000 }).catch(() => undefined);
-}
-
-function isNavigationError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /Page\.navigate|Navigation failed|ERR_|net::|timed out/i.test(message);
 }
 
 async function runAgent(
@@ -172,26 +167,16 @@ async function assertViewportClickPoint(
   );
 }
 
-async function openBrowserUrl(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter, workspaceId: string, executablePath: string | null, targetUrl: string): Promise<AgentBrowserJson> {
-  try {
-    return await runAgent(runtime, adapter, workspaceId, executablePath, ['open', targetUrl]);
-  } catch (error) {
-    if (!isNavigationError(error)) throw error;
-    await closeBrowserSessionQuietly(runtime, adapter, workspaceId, executablePath);
-    await runAgent(runtime, adapter, workspaceId, executablePath, ['open', 'about:blank']).catch(() => undefined);
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, warning: `Navigation to ${targetUrl} failed and the browser session was reset: ${message}`, url: 'about:blank' };
-  }
-}
-
-/**
- * The wait after a page is opened. `open` returns once the page has loaded, and
- * the browser's own `--load load` then waits for an event that has already
- * passed: measured at 25s on every call. The page's ready state is asked for
- * instead. `networkidle` has no such fault.
- */
-function loadWaitArgs(waitUntil: string): string[] {
-  return waitUntil === 'load' ? ['wait', '--fn', 'document.readyState === "complete"'] : ['wait', '--load', waitUntil];
+/** The one command surface the navigation module drives, bound to this session. */
+function pageCommands(runtime: RuntimeBackend, adapter: BrowserRuntimeAdapter, workspaceId: string, executablePath: string | null): PageCommands {
+  const run = (args: string[], options?: AgentCommandOptions): Promise<AgentBrowserJson> => (
+    runAgent(runtime, adapter, workspaceId, executablePath, args, options)
+  );
+  return {
+    run,
+    evaluate: (expression, options) => runEval(runtime, adapter, workspaceId, executablePath, expression, options),
+    closeSession: () => closeBrowserSessionQuietly(runtime, adapter, workspaceId, executablePath),
+  };
 }
 
 const RECORDING_MAX_FPS = 60;
@@ -228,6 +213,7 @@ async function launchBrowser(
   adapter: BrowserRuntimeAdapter,
   workspaceId: string,
   executablePath: string | null,
+  page: PageCommands,
   params: Static<typeof BrowserParams>,
 ): Promise<AgentBrowserJson> {
   const targetUrl = params.url ?? 'about:blank';
@@ -235,15 +221,15 @@ async function launchBrowser(
   const hasViewport = viewport?.width !== undefined || viewport?.height !== undefined;
   let response: AgentBrowserJson;
   if (hasViewport) {
-    response = await openBrowserUrl(runtime, adapter, workspaceId, executablePath, 'about:blank');
+    response = await openBrowserUrl(page, 'about:blank');
     await runAgent(runtime, adapter, workspaceId, executablePath, ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)], { execTimeoutMs: 20_000 });
-    if (targetUrl !== 'about:blank') response = await openBrowserUrl(runtime, adapter, workspaceId, executablePath, targetUrl);
+    if (targetUrl !== 'about:blank') response = await openBrowserUrl(page, targetUrl);
   } else {
-    response = await openBrowserUrl(runtime, adapter, workspaceId, executablePath, targetUrl);
+    response = await openBrowserUrl(page, targetUrl);
   }
   const waitUntil = params.wait_until ?? 'domcontentloaded';
   if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded' && response.success !== false) {
-    await runAgent(runtime, adapter, workspaceId, executablePath, loadWaitArgs(waitUntil), { execTimeoutMs: 30_000 });
+    await waitForLoadState(page, waitUntil);
   }
   return response;
 }
@@ -336,7 +322,7 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
         }
 
         if (action === 'launch') {
-          const response = await launchBrowser(runtime, adapter, workspaceId, executablePath, params);
+          const response = await launchBrowser(runtime, adapter, workspaceId, executablePath, pageCommands(runtime, adapter, workspaceId, executablePath), params);
           record(true);
           return {
             content: [{ type: 'text', text: formatBrowserText(response, params.url ? `Opened ${params.url} in the automation browser.` : 'Automation browser launched.') }],
@@ -346,10 +332,11 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
 
         if (action === 'navigate') {
           if (!params.url) throw new Error('url is required for navigate');
-          const response = await openBrowserUrl(runtime, adapter, workspaceId, executablePath, params.url);
+          const page = pageCommands(runtime, adapter, workspaceId, executablePath);
+          const response = await openBrowserUrl(page, params.url);
           const waitUntil = params.wait_until ?? 'domcontentloaded';
           if (waitUntil !== 'domcontentloaded' && response.success !== false) {
-            await runAgent(runtime, adapter, workspaceId, executablePath, loadWaitArgs(waitUntil), { execTimeoutMs: 30_000 });
+            await waitForLoadState(page, waitUntil);
           }
           record(true);
           return { content: [{ type: 'text', text: formatBrowserText(response, `Opened ${params.url}`) }], details: undefined };
