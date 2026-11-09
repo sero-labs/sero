@@ -18,7 +18,8 @@ updates:
     cooldown:
       default-days: 7
     # Every workspace update rewrites the shared root lockfile. Group routine
-    # updates, but handle major-version migrations explicitly outside Dependabot.
+    # updates, but handle major-version migrations explicitly outside
+    # Dependabot.
     open-pull-requests-limit: 2
     rebase-strategy: auto
     commit-message:
@@ -27,11 +28,14 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
-      # Module Federation's generated remoteEntry is a private contract with every
+      # Module Federation's generated remoteEntry is a private contract with
+      # every
       # plugin bundle, so moving the host alone strands installed plugins (they
-      # get a null React and are refused by the ABI guard). Upgrade the host, the
+      # get a null React and are refused by the ABI guard). Upgrade the host,
+      # the
       # in-repo plugins, and every external plugin together, bump
-      # SERO_PLUGIN_RUNTIME_ABI, and republish. See the public Plugins reference.
+      # SERO_PLUGIN_RUNTIME_ABI, and republish. See the public Plugins
+      # reference.
       - dependency-name: "@module-federation/*"
       # bun 1.4 changes the Bun.serve types that apps/agent-node uses, and
       # @pierre/diffs 1.5 changes the diff viewer generics in the git plugin.
@@ -53,6 +57,11 @@ updates:
         # end-to-end run instead of riding along with an astro patch.
         exclude-patterns:
           - "@earendil-works/*"
+          # 3.14.25 changes virtualizer behaviour: the ui package's
+          # conversation-virtual test stops rendering cached messages after a
+          # session switch. That is a user-visible chat regression, so the bump
+          # needs its own pull request and a fix, not a ride in this group.
+          - "@tanstack/react-virtual"
         update-types:
           - minor
           - patch
