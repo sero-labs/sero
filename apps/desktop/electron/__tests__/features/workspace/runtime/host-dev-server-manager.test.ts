@@ -120,6 +120,19 @@ describe('HostDevServerManager', () => {
     expect(await readdir(temporaryDirectories[0])).toEqual([]);
   });
 
+  it('opens the preview when the owner process cannot be fingerprinted', async () => {
+    // A sandbox without `ps`, or a launcher that wraps the app, leaves no
+    // identity. The recovery record only reaps orphans, so the preview opens.
+    const adapter = createProcessAdapter({ processIdentity: vi.fn(async () => null) });
+    const recovery = await createRecovery(adapter);
+    const manager = createManager({ processAdapter: adapter, recovery });
+
+    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+
+    expect(server.port).toBe(5173);
+    expect(await readdir(temporaryDirectories[0])).toEqual([]);
+  });
+
   it('reports a quick process exit instead of a recovery identity error', async () => {
     const adapter = createProcessAdapter({
       processIdentity: vi.fn(async (pid) => pid === process.pid ? 'app-start' : null),
