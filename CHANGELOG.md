@@ -6,6 +6,361 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [1.0.0-rc.0](https://github.com/sero-labs/sero/compare/v0.9.0-beta.0...v1.0.0-rc.0) (2026-11-09)
+
+### ⚠ BREAKING CHANGES
+
+* **agent:** `run_code` is removed. Scripts are JavaScript only and
+receive an image result as text. A script sets its own time limit with
+`timeout_ms`; Sero adds none, and cancelling the turn stops the script.
+* **live-agent-progress:** Explorer no longer offers an Orchestration view, and the
+main process no longer sends live subagent text to windows that do not ask for
+it. A plugin that shows live subagent text must call `watch(runId)` for each run
+it displays. The subagent start and end events and the snapshot are unchanged.
+
+@sero-ai/common 0.21.0, @sero-ai/app-runtime 0.7.0, @sero-ai/ui 0.8.0
+
+* fix(live-agent-progress): follow the run's own id, and let each wait keep its view
+
+Two defects found in review of #592.
+
+The run id was taken from the latest observation, not the first. The host
+reports a run's tracker id on the first record of a `runStructured` call;
+every later record is emitted by the subagent session and carries THAT
+session's id (`runner.ts:375`). Taking the latest id therefore stored an id the
+tracker does not know, so `watch()` was called with it, the host accepted the
+watch, and no live text ever arrived: the eye opened on an empty block for a
+Workflow step, a Workflow's one-answer calls, a direct Architect research run,
+and a Design Library generation and Librarian pass. Five sites had it:
+`usage-tracking.ts`, `executors/common.ts`, `project-usage.ts`,
+`librarian/run.ts` and `generation/run.ts`.
+
+`createRunIdCapture()` in `@sero-ai/common` now takes the first id, once, so
+the trap is handled in one place instead of five. The fake host emits the
+session record the real runner emits, so the suites catch a regression: with
+the old behaviour restored, ten tests fail.
+
+The app-runtime event subscription counted nothing. `subscriptions` held a Set
+per window, so two views of one app on the same topic shared a single key and
+the first to unmount stopped delivery for the others — which happens on a
+Workflow page, where the top bar and Refine plan both follow the running call
+and Refine plan unmounts when the Workflow completes. It is reference-counted
+per window and key now, and a test covers one holder releasing while another
+stays.
+
+The live-call notice held one call in a single slot and cleared it without an
+identity, so with two Workflows running one-answer calls at once the second
+overwrote the first and whichever finished first cleared the other's view.
+Notices are held in a map keyed by identity, an `ended` update names only its
+own call, and a view looks up its own Workflow or Room. A test covers two calls
+of the same kind where one ends.
+
+Docs: `explorer-workspace.md` and `subagents.md` no longer describe the
+Explorer Orchestration panel this change deletes, and point at where live
+progress now appears.
+
+* fix(live-agent-progress): keep two calls in one Workflow apart
+
+A notice was held under the Workflow's identity alone, so a Workflow that was
+reflecting while its stop condition was checked had both calls in one slot: the
+second overwrote the first, and either one ending deleted the slot, so a live
+view could disappear before its call finished. The key is the kind and the
+owner together now, and an `ended` update must name the kind, so it can only
+remove its own call.
+
+`clearLiveCall` takes the kind from the call it is clearing, which its caller
+already has, so no extra state is read. A test covers a reflection and a stop
+check running at once in one Workflow.
+
+Also trims `shared/types.ts` from exactly 500 lines to 496: two review tools
+disagreed about its length, and a file sitting on the limit has no room for the
+next edit.
+
+* docs(agents): record what a subagent needs before it is launched
+
+A review round was lost to reviewers that could not do the job they were given.
+Four of the five Sero agents in `~/.agents/` named a diagnostics tool that
+`pi-lens` does not register, and carried no native tool at all, so they could
+read neither Markdown nor a whole source file. The one agent that carried
+`read, bash` and the correct tool name was the one that worked.
+
+The preflight section now says what to check, and why:
+
+- a name in `tools` is an allowlist entry, not a loader: a named extension tool
+  also needs its provider loaded through `extensions`, `subagentOnlyExtensions`,
+  or a path-like `tools` entry;
+- a name that is not registered fails the step, and a step rejected that way
+  reports failed with exit code 1 even when the child ran and returned a correct
+  report — read the error before discarding the output;
+- foreground children never load ambient extensions, so an agent that names
+  extension tools cannot be smoke-tested in the foreground at all;
+- every agent needs a native fallback for the work it must do, so a missing
+  extension degrades the run instead of ending it; a read-only reviewer takes
+  `read, grep, find, ls` and not `bash`, matching the builtin `reviewer` role;
+- `inheritProjectContext: false` with `inheritSkills: false` strips `AGENTS.md`
+  and the skills catalogue, so the task must inline them;
+- agents are configuration, not fixtures: fit one, or create one for the job;
+- do not keep feeding a child that cannot fetch its own inputs — that is the
+  orchestrator doing the child's job and paying for both.
+
+Tool names come from `subagent({ action: "list", capabilities: true })`, never
+from an extension's prose or comments, which is what produced the wrong name.
+
+No agent definition is changed here; those live in `~/.agents/` and are fixed
+separately.
+
+* fix(live-agent-progress): read the run the UI actually has
+
+Three blockers from review of #592. All three are the same kind of mistake: a
+live view was wired to data the renderer never receives.
+
+The Workflow step's eye control read `loop.runs`. The persisted `loop.json` is
+deliberately written with its run history stripped (`stripLoopForPersist`:
+`runs: []`), and the UI watches exactly that file, so the list was always empty
+and every running step lost its live view. The active run has its own file,
+written as it changes (`loop-store.ts` writes `runs/<id>.json` on every commit),
+so the step is now handed that run: `LoopDetail` watches it and passes it down
+through `PlanPresentation` to `PlanView` and `StepCard`. `stepLiveView` takes it
+as a parameter instead of searching the loop. The same empty list fed
+`fanOutView`, which is now given the run too.
+
+A fan-out item had no attempt id while it ran. A wave settles its activations
+only after every item in it finished (`recordActivationAttempt`), so nothing
+joined a working item to its worker until the wave ended — the per-item live
+block had nothing to watch for the whole time the item worked. The id is now
+recorded when the attempt starts (`recordActivationAttemptStart`), which is what
+the live view joins on.
+
+The Design Library dropped the run id during normalization. Neither
+`normalizeJobRecord` nor `normalizeJobIndexEntry` preserved it, and the tile
+reads the normalized index, so a pending generation never offered its live view.
+Both keep a valid `runId` now.
+
+Tests: the engine test asserts an item's attempt id is on its activation while
+the item still runs — it fails without the fix. The step-card test now builds its
+fixture the way production does, with `runs` stripped, so it proves the view no
+longer depends on the empty list. The index test covers the run id surviving
+normalization, and an absent or malformed one being omitted rather than invented.
+
+Note for the next reader: the fake host does NOT strip `loop.runs`, which is why
+the suite passed while production's views showed nothing. Fixtures that exercise
+renderer data must mirror `stripLoopForPersist`.
+
+* fix(plugins): import the live block by subpath
+
+The repository layout check bans a bare `@sero-ai/ui` import in a plugin UI, and
+CI failed on it in the four files that gained the live block. They now import
+`@sero-ai/ui/components/live-agent/live-block`, the same subpath form the other
+plugin components already use. Verified with the check CI runs:
+`node scripts/check-repository-layout.mjs`.
+
+* chore: updated agents.md
+
+* fix(react-doctor): clear the eight findings this branch opened
+
+Six were real, and two are shapes the rules themselves describe as false
+positives. The score goes 77 -> 82.
+
+Real:
+
+- `use-live-call.ts` — the identity test moves into `matchesIdentity`, so the
+  hook is a loop and a return. The rule fires above 15 on either metric, and
+  cognitive complexity was 16.
+- `StepCard.tsx` — cyclomatic 24 / cognitive 16 (18/16 after the first pass).
+  The class string, the badge tone, the step's own live run and the fan-out
+  items it can watch are now named helpers rather than nested ternaries in the
+  body. Cyclomatic is 12 and cognitive is under the limit, so the rule clears.
+- `fan-out-summary.ts` — a Set for the attempt ids looked up inside `find`,
+  instead of scanning the array per attempt.
+- `use-room-children.ts` — the effect now reads the joined `parentKey` rather
+  than capturing `parentSessionIds`, so its dependencies match what it reads:
+  a caller rebuilds that array every render.
+- `live-block.tsx` — the fallback start time is a lazy `useState` initializer,
+  computed once, instead of `useRef(Date.now())` rebuilding and discarding a
+  value on every render.
+- `LiveCallPopover.tsx` — the pop-up is a non-modal `<dialog>`, declared open,
+  so it keeps the anchored position the row needs and gains the dialog
+  semantics instead of being told about them by hand.
+
+False positives, waived in `doctor.config.jsonc` beside the other narrow
+waivers, each scoped to one file and one rule:
+
+- `effect-needs-cleanup` on `use-room-children.ts`. The rule finds the
+  `bridge.watch` registration but not its release: the returned cleanup calls
+  `unsubscribe()`, and `bridge.unwatch(id)` for every id in `watched`. The
+  rule's own guidance suppresses this shape — a registration made from an
+  observer callback whose returned teardown stops the whole thing.
+- `advanced-event-handler-refs` on `use-app-runtime-events.ts`. It reads
+  `bridge.subscribe(appId, workspaceId, topic)` as a registration whose handler
+  is `workspaceId`. That argument names the workspace; the handler is already
+  in `handlerRef` and read as `handlerRef.current(...)`, which is the fix the
+  rule asks for.
+
+The four complexity findings that remain are on lines this branch never touched
+(ExplorerWorkspace, SingleToolCall, RoomDetail, SkillDraftControl), so they are
+not this branch's to change.
+* **memory:** daily logs, session transcripts, consolidation, the
+memory_search tool, the memory blocks toggle and onboarding step 3 are
+removed. Subagents, Architect, Rooms and app agents get no memory.
+
+* docs(openspec): mark session-open timing task done
+
+* fix(memory): address review round 1 on the memory rework
+
+- Profile reads fail on any error other than a missing file, so an
+  unreadable USER.md is never reported as empty.
+- The tidy-up removes an entry only when its named file is really gone
+  (ENOENT) and its folder resolves inside the workspace.
+- Unpin refuses an older entry that has no search terms; restore
+  refuses a pinned entry when the pinned set is full.
+- The close-entry check runs inside the write queue, so two sessions
+  cannot save the same fact at once.
+- The shared index: release waits for an open in progress, a failed
+  open is tried again, and search stays on keywords while entries are
+  embedded or when embedding reports errors.
+- Closing a chat twice sends one session_shutdown; a reopen waits for
+  the close. Quit closes sessions before the runtimes they use.
+- Web plugin: clearing history in one workspace no longer removes
+  another workspace's stored results.
+- Eval: stop a timed-out turn before cleanup, count a duplicate save
+  as noise; the metrics report shows read errors.
+
+* fix(memory): show a refused memory save as a failed row; state the quit time limit in the spec
+
+* fix(memory): address review round 2 on the memory rework
+
+- Tidy-up: walk the evidence path from the workspace root with lstat,
+  so a broken link is never evidence that a file is gone.
+- Search stays on keywords while a memory write runs and for a
+  collection whose last index update failed, so a new entry without a
+  vector is not missed.
+- A refused memory save is its own failed row, never hidden in a
+  collapsed tool group.
+- Web plugin: stored results belong to their workspace; a history
+  clear removes only that workspace's results, and no workspace reads
+  another's.
+- Test two sessions saving the same fact at the same time.
+
+* docs(evals): document the memory evals and the memory metrics report
+
+* build(deps): use one better-sqlite3 copy for QMD and the web plugin
+
+QMD pins better-sqlite3 12.10.0 and the web plugin needs ^12.11.1, so
+the install held two copies, and each needs its own Electron build. An
+override puts the whole repo on 12.11.1, so the rebuild script goes
+back to checking one copy. The lockfile change beyond removing 12.10.0
+is pnpm relabelling peer suffixes after the override change; no other
+package version changes.
+
+* fix(memory): keep sorted entries searchable
+
+* fix: stabilize memory startup and onboarding
+
+Remove stale bundled extension paths and correct memory help guidance. Keep profile onboarding aligned with converted memory files, surface model errors, and fix the model picker inside dialogs.
+
+* fix(memory): address the fresh review of the memory rework
+
+- subagent: send session_shutdown only after session_start was sent
+- tidy-up: an unsorted entry the model has seen waits for the 7-day run
+- tidy-up: check Git before the model call; invalid output counts as a run
+- tidy-up: scan merged text; a merge frees its own pinned slots
+- git guard: with no git binary, a folder without .git is safe
+- bash guard: allow `git rm --cached`; match the memory folder as a path
+- preflight: accept the recorded MEMORY.md backup, like the plugin
+- sero-cli batch: pass on memoryRefused so a refusal is never hidden
+- recall: never wait for the index before a turn
+- close check: two shared terms on keywords, not one
+- resource reload: apply the saved context overrides again
+
+* refactor(chat): split ChatMessageItem into one component per message type
+
+* test(agent-node): release a test runner when its run starts, not after a fixed timer
+
+* test(web): keep background state writes out of the session lifecycle test
+
+### Features
+
+* **admin:** list every skill source on the Skills page ([#587](https://github.com/sero-labs/sero/issues/587)) ([037a566](https://github.com/sero-labs/sero/commit/037a566ccc065c560894dffe994551656077ec63))
+* **agent:** adopt Pi's native Code Mode ([#618](https://github.com/sero-labs/sero/issues/618)) ([e11e2a2](https://github.com/sero-labs/sero/commit/e11e2a2d6bd64c2e35d53199b5831193f4edf6e5)), closes [#611](https://github.com/sero-labs/sero/issues/611) [#611](https://github.com/sero-labs/sero/issues/611) [#609](https://github.com/sero-labs/sero/issues/609)
+* Architect and Orchestrator autonomy (direct work, tool discovery, Room amendments, durable waits) ([#624](https://github.com/sero-labs/sero/issues/624)) ([d4d15db](https://github.com/sero-labs/sero/commit/d4d15db60f8691074c79570055f158354b7afc6a)), closes [#620](https://github.com/sero-labs/sero/issues/620)
+* **architect:** Architect OpenSpec mode POC ([#573](https://github.com/sero-labs/sero/issues/573)) ([1dfd697](https://github.com/sero-labs/sero/commit/1dfd6975220d53f453a1b6c32b6d4edc1e49e536)), closes [#597](https://github.com/sero-labs/sero/issues/597) [#598](https://github.com/sero-labs/sero/issues/598) [#600](https://github.com/sero-labs/sero/issues/600) [#600](https://github.com/sero-labs/sero/issues/600)
+* **architect:** show reviewable recorded results ([#671](https://github.com/sero-labs/sero/issues/671)) ([f62f86d](https://github.com/sero-labs/sero/commit/f62f86db926cc31f0d5aa3ed49345c239f057814))
+* **architect:** the project page is one board for decisions ([#627](https://github.com/sero-labs/sero/issues/627)) ([0abf85a](https://github.com/sero-labs/sero/commit/0abf85a7edd1c469eeec4b94b63050301a0c020d))
+* **browser:** let automation recordings set frame rate and cursor ([3402cd0](https://github.com/sero-labs/sero/commit/3402cd080a681c040ac99e77ca68716e1f1a1c6b))
+* **browser:** ship a real ffmpeg in the browser pack ([d393697](https://github.com/sero-labs/sero/commit/d3936974eafd5d326280dfa791457901af6f1e1e))
+* **live-agent-progress:** subagent feedback improvements ([#592](https://github.com/sero-labs/sero/issues/592)) ([dea25de](https://github.com/sero-labs/sero/commit/dea25ded900c46a7301cf900dc30d310e5ee23c6)), closes [#581](https://github.com/sero-labs/sero/issues/581)
+* **memory:** rework memory plugin around curated chat memory ([#575](https://github.com/sero-labs/sero/issues/575)) ([a6b3a17](https://github.com/sero-labs/sero/commit/a6b3a17e9af3b0427cbef814cb67d2dc90360f87)), closes [#570](https://github.com/sero-labs/sero/issues/570) [#570](https://github.com/sero-labs/sero/issues/570)
+* **onboarding:** offer a disposable sample repair ([#672](https://github.com/sero-labs/sero/issues/672)) ([587cc7e](https://github.com/sero-labs/sero/commit/587cc7e3bcae981a28b1299fa81ca335e012d9e2))
+* **release:** add the RC channel and enforce release signing ([d996e0f](https://github.com/sero-labs/sero/commit/d996e0f6db717685ed460ffa4986c1f31e3736f9))
+* **session-tools:** rationalise the tools and prompt each session kind starts with ([#584](https://github.com/sero-labs/sero/issues/584)) ([4240197](https://github.com/sero-labs/sero/commit/42401970d4e853f8be6973a5574cd9397dccb4f8))
+
+### Bug Fixes
+
+* **agent:** keep undo, fork, cancel and model state correct across a session reopen ([#614](https://github.com/sero-labs/sero/issues/614)) ([d78e442](https://github.com/sero-labs/sero/commit/d78e4423ae1a2d7a9fd78fba4eb70fd9a5640aae))
+* **apps:** retry a state rename that Windows refuses ([bd250e3](https://github.com/sero-labs/sero/commit/bd250e311ca9b877cb56c4065e173d4ecb9d86b8))
+* **architect:** a restart does not replay an approval as a wake on a paused project ([#646](https://github.com/sero-labs/sero/issues/646)) ([c970409](https://github.com/sero-labs/sero/commit/c97040989fc19c0c3de4c32583c4d99ab7a493fc)), closes [#641](https://github.com/sero-labs/sero/issues/641)
+* **architect:** cancel owned work and retain stop accounting ([#674](https://github.com/sero-labs/sero/issues/674)) ([66ecef1](https://github.com/sero-labs/sero/commit/66ecef19015dbaf4a075855d67957a3f460cbf82))
+* **architect:** capture previews headlessly and close a set-aside milestone ([#603](https://github.com/sero-labs/sero/issues/603)) ([2f80bf5](https://github.com/sero-labs/sero/commit/2f80bf53adb5dec5079b8284558adbfa57c5b4ba)), closes [#598](https://github.com/sero-labs/sero/issues/598)
+* **architect:** journal durable waits so run records report waiting time ([#648](https://github.com/sero-labs/sero/issues/648)) ([a702937](https://github.com/sero-labs/sero/commit/a70293744cd37a0e54304cea139c415cfd8af83b)), closes [#643](https://github.com/sero-labs/sero/issues/643)
+* **architect:** project board layout when its pane is narrow ([#653](https://github.com/sero-labs/sero/issues/653)) ([edc815c](https://github.com/sero-labs/sero/commit/edc815cc9d1d4dd9daea296b1751fb40c0b85756))
+* **architect:** Sero takes the evidence screenshot, and the model only judges it ([#649](https://github.com/sero-labs/sero/issues/649)) ([593c242](https://github.com/sero-labs/sero/commit/593c242ddb583d0912a994b4f3b84b42f372e6fc)), closes [#642](https://github.com/sero-labs/sero/issues/642)
+* **architect:** surface project requests and linked work ([#670](https://github.com/sero-labs/sero/issues/670)) ([9738eb2](https://github.com/sero-labs/sero/commit/9738eb268900fc0cc3733ec326b63a9ae2398ed1))
+* **browser:** find the pack's ffmpeg, and run the Windows shim by name ([20e04fb](https://github.com/sero-labs/sero/commit/20e04fb8d3802d8cb81b691b510cf4f7d56bc920))
+* **browser:** keep Chromium's temp folder short on macOS and Linux ([e51a6cc](https://github.com/sero-labs/sero/commit/e51a6ccd94c7b7d6ee4522dd2d93b50590e6e124)), closes [#689](https://github.com/sero-labs/sero/issues/689)
+* **browser:** record with an ffmpeg that can actually encode VP8 ([0aad43c](https://github.com/sero-labs/sero/commit/0aad43c4f47d2bd4a131c77c8d5d5b26981535d7))
+* **browser:** record with an ffmpeg that can actually encode VP8 ([#695](https://github.com/sero-labs/sero/issues/695)) ([1b9d67a](https://github.com/sero-labs/sero/commit/1b9d67a2ae18f9d375a3f236e92c5f2f20597a37))
+* **browser:** report recording controls an older pack ignores ([8a529d7](https://github.com/sero-labs/sero/commit/8a529d71680e999e60cfbaac94f7e3903f0baffc))
+* **browser:** reset when the daemon keeps failing after the retry ([3a6330e](https://github.com/sero-labs/sero/commit/3a6330e37601bba62e1fe236b68568320f220d93)), closes [#700](https://github.com/sero-labs/sero/issues/700)
+* **browser:** retry one dropped daemon read before resetting ([e5882db](https://github.com/sero-labs/sero/commit/e5882db5ec6f67d1b273e054c0963fe90f513efe))
+* **browser:** wait for the page before saying the tab navigated ([80cd18a](https://github.com/sero-labs/sero/commit/80cd18a0401191e826bb081968c72142c1491b56))
+* **ci:** allow long paths before a Windows checkout ([bbc5df1](https://github.com/sero-labs/sero/commit/bbc5df1c4436679909f55f1d11e23b168bcb7357))
+* **ci:** build the plugin UIs before the contract suite ([921e42c](https://github.com/sero-labs/sero/commit/921e42c8a4678e6f86c98ba3aff21aaf28e7e52e)), closes [sero/desktop#build](https://github.com/sero/desktop/issues/build)
+* **ci:** open the browser-pack metadata pull request with an app token ([9b06455](https://github.com/sero-labs/sero/commit/9b06455848832befb31b4a3f67149e184daf1d12))
+* **ci:** pin the metadata app token by full commit SHA ([a6c2da8](https://github.com/sero-labs/sero/commit/a6c2da8d8978500559f9be2a672fb758c8dd2d9f))
+* **ci:** raise the Node floor to 22.23.4 for Astro 7.4 ([e1de21c](https://github.com/sero-labs/sero/commit/e1de21c31fc65a668e10a69c0e09003d7cb32b23)), closes [#703](https://github.com/sero-labs/sero/issues/703)
+* **cli:** gate plugin prompt hints on the session's CLI surface ([#590](https://github.com/sero-labs/sero/issues/590)) ([f26f18a](https://github.com/sero-labs/sero/commit/f26f18ab3baa20a58140e632f00037dc966a9ccf)), closes [#582](https://github.com/sero-labs/sero/issues/582)
+* **container:** copy the git identity from GIT_AUTHOR_* into containers ([624edd2](https://github.com/sero-labs/sero/commit/624edd236c46cd15d5f1f0886af92fd6acff73a2)), closes [#689](https://github.com/sero-labs/sero/issues/689)
+* **design-library:** settings reads and writes see queued settings changes ([#586](https://github.com/sero-labs/sero/issues/586)) ([c8d2dd3](https://github.com/sero-labs/sero/commit/c8d2dd381e29a18d93379d2c5270d07acf68c678))
+* **desktop:** a built-in or inline tool names no plugin package ([#652](https://github.com/sero-labs/sero/issues/652)) ([487e600](https://github.com/sero-labs/sero/commit/487e60069913601b66b92a0e802f1f2f986675e7)), closes [#627](https://github.com/sero-labs/sero/issues/627) [#637](https://github.com/sero-labs/sero/issues/637)
+* **desktop:** classify git commands by their subcommand, not their global options ([#656](https://github.com/sero-labs/sero/issues/656)) ([0919c7e](https://github.com/sero-labs/sero/commit/0919c7eab7b196f40499aab3e6d74720c24a588c)), closes [#625](https://github.com/sero-labs/sero/issues/625)
+* **desktop:** only count git where it runs as a command ([92bfa01](https://github.com/sero-labs/sero/commit/92bfa01421b07df461e981604e476e460792265e))
+* **desktop:** repair tool-check recording and Room fixtures ([#669](https://github.com/sero-labs/sero/issues/669)) ([0167883](https://github.com/sero-labs/sero/commit/0167883af29dcaaaa43e5a1c4619f5c8769ad6b0))
+* **e2e:** let an empty model env fall through to the shared config ([570d8a3](https://github.com/sero-labs/sero/commit/570d8a3be7d7469413da3b2ebae79b3d7fdf17af))
+* **e2e:** provision RTK and scope the routing check to the full tier ([4704648](https://github.com/sero-labs/sero/commit/4704648d99aa217e42eb90636a3778101482b362))
+* **e2e:** stop the OAuth stub writing after its response started ([1c27c79](https://github.com/sero-labs/sero/commit/1c27c79398b5d9a524cf8f63dfd7771ebefdd3f1))
+* **explorer:** skip dev server preview tabs in file tree reveal ([#604](https://github.com/sero-labs/sero/issues/604)) ([9dedc77](https://github.com/sero-labs/sero/commit/9dedc7781a9d2069bca7896be2c1fe4c3804a7ae)), closes [#599](https://github.com/sero-labs/sero/issues/599)
+* **git:** resolve a container session's runtime path to its workspace ([bf44b78](https://github.com/sero-labs/sero/commit/bf44b78e94e5a1bc0252c82c9e51f371a64de7e4))
+* **host:** do not prefix the workspace root onto a Windows path ([83df708](https://github.com/sero-labs/sero/commit/83df708e7383fb4c071fe482c391020d41878b20))
+* **host:** open the preview when the owner process cannot be fingerprinted ([#706](https://github.com/sero-labs/sero/issues/706)) ([db6d041](https://github.com/sero-labs/sero/commit/db6d041175c816590c473ea1e0606169c26fe094))
+* **image:** record automation browser video with Ubuntu's ffmpeg ([9c4d146](https://github.com/sero-labs/sero/commit/9c4d146a44f8d57de9d4c1c6cc4f1db9486f51cc)), closes [#689](https://github.com/sero-labs/sero/issues/689)
+* **onboarding:** keep defaults dialog open until continue ([#588](https://github.com/sero-labs/sero/issues/588)) ([4370901](https://github.com/sero-labs/sero/commit/437090163bfb66f6aef18ddd9dfff8ca16e4fd49))
+* **orchestrator:** keep the Goals UI bridge out of every model surface ([#655](https://github.com/sero-labs/sero/issues/655)) ([fa18210](https://github.com/sero-labs/sero/commit/fa18210c6e980d933da6d452f51ffce4922ca86e)), closes [#623](https://github.com/sero-labs/sero/issues/623)
+* **orchestrator:** verify delivery receipts before retrying writes ([#673](https://github.com/sero-labs/sero/issues/673)) ([71eba95](https://github.com/sero-labs/sero/commit/71eba954be54f36762367db4956a80f5011a7ebb))
+* **profile:** show an upgraded install instead of first-run setup ([8a2e7f3](https://github.com/sero-labs/sero/commit/8a2e7f3c956d2014b6caddc66a7fe558e279ce7b))
+* **rooms:** approving or declining a held change answers a Room paused for the user ([#647](https://github.com/sero-labs/sero/issues/647)) ([905892d](https://github.com/sero-labs/sero/commit/905892d77553844103872ee1b0975e898cd99c8d)), closes [#640](https://github.com/sero-labs/sero/issues/640)
+* **rooms:** name the member branches that hold a Room's work ([#676](https://github.com/sero-labs/sero/issues/676)) ([c66b983](https://github.com/sero-labs/sero/commit/c66b983c4eb6994dfa43f64928acb71e3d063974)), closes [#654](https://github.com/sero-labs/sero/issues/654)
+* **runtime:** stop a cancelled command inside its container ([2697e45](https://github.com/sero-labs/sero/commit/2697e45df003b1082e25ba328b1bc347d1a733d3)), closes [#689](https://github.com/sero-labs/sero/issues/689)
+* **subagent:** bound session setup by the run's time limit ([#601](https://github.com/sero-labs/sero/issues/601)) ([1d6030a](https://github.com/sero-labs/sero/commit/1d6030acde7366a8d4e2f62cdb74c9be00a74bd1)), closes [#597](https://github.com/sero-labs/sero/issues/597)
+
+### Documentation
+
+* **e2e:** correct why the packaged spec pins its model ([7d6d470](https://github.com/sero-labs/sero/commit/7d6d47044599790ccca5791c8116f696d9fe08c3))
+* explain Code Mode in the docs site ([#591](https://github.com/sero-labs/sero/issues/591)) ([72ad6fd](https://github.com/sero-labs/sero/commit/72ad6fdd9dcd660f49f19dd2303d38d96126fc22))
+* **openspec:** archive pi-1-upgrade-poc ([c0f52c9](https://github.com/sero-labs/sero/commit/c0f52c95cf96e3fd02d4d2b2143b31e7c8268864)), closes [#609](https://github.com/sero-labs/sero/issues/609)
+* **openspec:** archive seven completed changes and sync their specs ([0ab9284](https://github.com/sero-labs/sero/commit/0ab9284152da21a1c26f0640136530e64a41b4f0))
+* point the tool check gate at issue [#689](https://github.com/sero-labs/sero/issues/689) for the outstanding rows ([25b9fad](https://github.com/sero-labs/sero/commit/25b9fad3cad638b8a1fa3038e6109d665d8093de))
+* record the 1.0 launch decisions ([f5809c5](https://github.com/sero-labs/sero/commit/f5809c55b08f8b97c0c3f7b3b623cc87262c3dd9)), closes [#663](https://github.com/sero-labs/sero/issues/663) [#665](https://github.com/sero-labs/sero/issues/665) [#667](https://github.com/sero-labs/sero/issues/667) [#632](https://github.com/sero-labs/sero/issues/632)
+* record the Apple Container run and what it still shows ([27bb561](https://github.com/sero-labs/sero/commit/27bb561ac25f9e4f0492be71fa446ccc4da4b2c5))
+* record the failing pre-1.0 upgrade in the runbook ([2738422](https://github.com/sero-labs/sero/commit/2738422e66c60ab29a2efd1b0ccd7d74006c343c))
+* record the gate run on 9c8e0a4c7 ([46a0f25](https://github.com/sero-labs/sero/commit/46a0f25fbee75355bfc11e18546952e6bcfaff57))
+* record the verified gate state in the release runbook ([830c61f](https://github.com/sero-labs/sero/commit/830c61f5dc82181ac99673a97c81682b8c3a108d)), closes [#506](https://github.com/sero-labs/sero/issues/506)
+* state the 1.0 posture instead of the beta one ([2f06092](https://github.com/sero-labs/sero/commit/2f0609215b9f6caf8cf25a0f81505ef4bd5c0f64))
+* the upgrade journey passes; Tool Check narrowed to three defects ([f21a856](https://github.com/sero-labs/sero/commit/f21a856fab1ddd4bfb46e459d39c28ae0b06e2cd))
+
+### Refactoring
+
+* share questionnaire status and validate bridged CLI args ([#589](https://github.com/sero-labs/sero/issues/589)) ([68078ec](https://github.com/sero-labs/sero/commit/68078ec3eb40ab62f8ecfd4b47fd847c39bd796f))
+
 ## [0.9.0-beta.0](https://github.com/sero-labs/sero/compare/v0.8.0-beta.0...v0.9.0-beta.0) (2026-09-26)
 
 ### Features
