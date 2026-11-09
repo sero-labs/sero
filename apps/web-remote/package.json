@@ -40,6 +40,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "ws": "^8.22.0"
+    "ws": "^8.22.1"
   }
 }
