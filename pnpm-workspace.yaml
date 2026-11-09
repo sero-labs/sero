@@ -66,11 +66,11 @@ catalog:
   # Build tooling
   bun: "1.2.18"
   "@types/bun": "1.2.18"
-  tailwindcss: "4.3.3"
-  "@tailwindcss/vite": "4.3.3"
+  tailwindcss: "4.3.4"
+  "@tailwindcss/vite": "4.3.4"
   # Tailwind's browser build, inlined into Design Library previews (no network
   # inside the sandboxed frame, so the compiler has to travel with the page).
-  "@tailwindcss/browser": "4.3.3"
+  "@tailwindcss/browser": "4.3.4"
   # Used at runtime by the Design Library plugin to bundle a generated React
   # page into one self-contained document. Kept external in the plugin bundle.
   esbuild: "0.28.1"
