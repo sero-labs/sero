@@ -48,6 +48,11 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+        # The pi packages are the agent SDK this app runs on: a minor bump there
+        # changes agent behaviour, so it gets its own pull request and its own
+        # end-to-end run instead of riding along with an astro patch.
+        exclude-patterns:
+          - "@earendil-works/*"
         update-types:
           - minor
           - patch
