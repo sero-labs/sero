@@ -116,17 +116,23 @@ async function runAgent(
   if (DAEMON_UNREACHABLE.test(result.stderr) || DAEMON_UNREACHABLE.test(parsed.error ?? '')) {
     ({ result, parsed } = await runOnce());
   }
-  const hung = COMMAND_TIMED_OUT.test(result.stderr)
-    || DAEMON_UNREACHABLE.test(result.stderr)
-    || /^CDP command timed out:/.test(parsed.error ?? '')
-    || DAEMON_UNREACHABLE.test(parsed.error ?? '');
-  if (hung && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+  const resetAndReport = async (): Promise<never> => {
     await resetHungBrowserSession(runtime, workspaceId);
     throw new Error(
       `The automation browser gave no answer in ${Math.round(timeoutMs / 1000)}s. `
       + 'The page is probably busy in its own code, for example an endless loop, and a page in that state answers nothing. '
       + 'The browser was reset. Launch it again, and expect the same action to hang the page again until the page is fixed.',
     );
+  };
+  // A daemon that keeps failing the read after the retry is stuck behind the
+  // page: it can still answer a short probe while the command that hung the
+  // page never returns, so the probe is not consulted here.
+  if (DAEMON_UNREACHABLE.test(result.stderr) || DAEMON_UNREACHABLE.test(parsed.error ?? '')) {
+    await resetAndReport();
+  }
+  const timedOut = COMMAND_TIMED_OUT.test(result.stderr) || /^CDP command timed out:/.test(parsed.error ?? '');
+  if (timedOut && !(await browserSessionAnswers(runtime, adapter, workspaceId, executablePath))) {
+    await resetAndReport();
   }
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';

@@ -212,18 +212,17 @@ describe('createAgentBrowser', () => {
         stderr: 'ERROR: Failed to read: Resource temporarily unavailable (os error 11) (the command reached the daemon but no response came back; it may or may not have run, so it was not retried)',
         exitCode: 1,
       },
-      { stdout: '', stderr: 'Command timed out after 5s.', exitCode: 124 },
       { stdout: '', stderr: '', exitCode: 0 },
     ]);
 
     await expect(tool.execute('tc-daemon-read', { action: 'click', selector: '#hang' }, undefined, undefined, undefined as never))
       .rejects.toThrow(/was reset/);
 
-    // The first read failure is retried once, because it may not have run at all.
+    // The first read failure is retried once, because it may not have run at all,
+    // and a daemon still failing after that is treated as stuck behind the page.
     expect(exec.mock.calls[1][1]).toContain("'click' '#hang'");
     expect(exec.mock.calls[2][1]).toContain("'click' '#hang'");
-    expect(exec.mock.calls[3][1]).toContain("'eval' '1'");
-    expect(exec.mock.calls[4][1]).toContain('kill -9');
+    expect(exec.mock.calls[3][1]).toContain('kill -9');
   });
 
   it('retries a dropped daemon read once and keeps going when the page answers', async () => {
