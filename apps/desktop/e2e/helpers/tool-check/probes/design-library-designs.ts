@@ -15,6 +15,7 @@ import { installModelStub, removeModelStub } from './design-library-stub';
 import {
   invoke, libraryHome, poll, pollText, rand, readDesign, readStateFile, saved, waitForVariant,
 } from './design-library-support';
+import { setupTimeout } from '../timeout';
 
 const TOOL = 'design_library_designs';
 
@@ -79,7 +80,7 @@ export const designLibraryDesignsProbe: ToolProbe = {
           const variant = found?.variants[0];
           if (variant?.status === 'failed') throw new Error(`generation failed: ${JSON.stringify(variant)}`);
           return variant?.status === 'ready' && variant.revisions[0]?.builtFile ? found : null;
-        }, 90_000);
+        }, setupTimeout(90_000));
         ctx.state.variantId = design!.variants[0]!.id;
         ctx.state.firstRevision = design!.variants[0]!.revisions[0]!.id;
       },

@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { pageOf, waitUntil } from '../files';
+import { setupTimeout } from '../timeout';
 import type { StepContext, ToolCallResult } from '../types';
 
 export interface ToolOutput {
@@ -51,7 +52,7 @@ export function detailsOf<T>(output: ToolOutput): T {
  * reads again whenever a file in the plugin's profile folder changes. A read
  * that throws counts as not ready yet, and the last such error is reported.
  */
-export async function poll<T>(ctx: StepContext, what: string, read: () => Promise<T | null | undefined | false>, timeoutMs = 45_000): Promise<T> {
+export async function poll<T>(ctx: StepContext, what: string, read: () => Promise<T | null | undefined | false>, timeoutMs = setupTimeout(45_000)): Promise<T> {
   let lastError = '';
   try {
     return await waitUntil(await libraryHome(ctx), what, async () => {
@@ -85,7 +86,7 @@ export async function pollText(
   tool: string,
   params: Record<string, unknown>,
   test: (text: string) => boolean,
-  timeoutMs = 45_000,
+  timeoutMs = setupTimeout(45_000),
 ): Promise<string> {
   let seen = '';
   try {
