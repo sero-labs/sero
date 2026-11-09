@@ -43,6 +43,14 @@ updates:
       - dependency-name: "bun"
       - dependency-name: "@types/bun"
       - dependency-name: "@pierre/diffs"
+      # pi 1.5 replaces TypeBox with its own schema library, so the upgrade is
+      # a rewrite of every tool schema (88 files across the app and 14 plugins)
+      # rather than a version bump. Take it as its own change; until then the
+      # bot should not keep proposing it.
+      - dependency-name: "@earendil-works/pi-agent-core"
+      - dependency-name: "@earendil-works/pi-ai"
+      - dependency-name: "@earendil-works/pi-coding-agent"
+      - dependency-name: "@earendil-works/pi-tui"
     groups:
       security-updates:
         applies-to: security-updates
