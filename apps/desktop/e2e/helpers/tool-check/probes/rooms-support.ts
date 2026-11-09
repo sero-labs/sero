@@ -10,6 +10,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ALLOW } from '../../allow-cards';
 import { pageOf, waitUntil } from '../files';
+import { setupTimeout } from '../timeout';
 import type { StepContext } from '../types';
 
 export const ROOM_MODEL_NOTE = 'tc-room';
@@ -87,7 +88,7 @@ export function must(condition: unknown, message: string): asserts condition {
 }
 
 /** Waits for a committed effect, after the Room's split-file transaction finishes. */
-export function waitForRoom<T>(ctx: StepContext, what: string, read: () => Promise<T | undefined | null | false>, timeoutMs = 90_000): Promise<T> {
+export function waitForRoom<T>(ctx: StepContext, what: string, read: () => Promise<T | undefined | null | false>, timeoutMs = setupTimeout(90_000)): Promise<T> {
   return waitUntil(roomsDir(ctx), what, async () => {
     const result = await read();
     if (!result) return result;
@@ -115,7 +116,7 @@ const presses = new Map<string, Promise<string>>();
  * card does not return until it is answered, so a step starts this in its
  * `setup` without waiting, and collects the result in its `expect`.
  */
-export function startAllowPress(ctx: StepContext, key: string, timeoutMs = 90_000): void {
+export function startAllowPress(ctx: StepContext, key: string, timeoutMs = setupTimeout(90_000)): void {
   presses.set(key, pageOf(ctx).getByRole('button', { name: ALLOW }).first()
     .click({ timeout: timeoutMs }).then(() => 'pressed', (error: unknown) => String(error)));
 }

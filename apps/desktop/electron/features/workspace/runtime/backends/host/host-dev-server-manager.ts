@@ -114,9 +114,15 @@ export class HostDevServerManager {
     try {
       if (this.recovery) {
         if (!detectionPid) throw new Error('Dev server did not provide a process ID.');
+        // The record only exists to reap orphans after a crash. A host that
+        // cannot fingerprint its own process (a sandbox without `ps`, a wrapped
+        // launcher) still gets the preview; it only loses that clean-up.
         recoveryId = await this.recovery.track(uniqueNumbers([
           pid ?? detectionPid, detectionPid, ...await this.processAdapter.descendantPids(detectionPid),
-        ])) ?? undefined;
+        ])).catch((error: unknown) => {
+          console.error(`[host-dev-server] recovery tracking skipped: ${error instanceof Error ? error.message : String(error)}`);
+          return null;
+        }) ?? undefined;
       }
       const detected = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
       if (!detected) {

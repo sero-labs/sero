@@ -10,6 +10,7 @@ import {
   importReference, invoke, libraryHome, makePng, poll, rand, readDesign, readJsonFile,
   uploadImage, waitForAnalysis, type ImportedItem,
 } from './design-library-support';
+import { setupTimeout } from '../timeout';
 
 /** A reference analysed by the stub Librarian. */
 export async function analysedReference(ctx: StepContext, label: string): Promise<ImportedItem> {
@@ -87,7 +88,7 @@ export async function createReadyDesign(ctx: StepContext, options: { artwork?: n
     const variant = design?.variants[0];
     if (variant?.status === 'failed') throw new Error(`generation failed: ${JSON.stringify(variant)}`);
     return design && variant?.status === 'ready' && variant.revisions[0]?.builtFile ? design : null;
-  }, 90_000);
+  }, setupTimeout(90_000));
   const variant = ready.variants[0]!;
   return {
     designId,
