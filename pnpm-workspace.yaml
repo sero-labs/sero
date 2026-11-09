@@ -86,10 +86,10 @@ catalog:
   "@types/node": "^22.20.4"
 
   # Pi SDK
-  "@earendil-works/pi-agent-core": "1.0.2"
-  "@earendil-works/pi-ai": "1.0.2"
-  "@earendil-works/pi-coding-agent": "1.0.2"
-  "@earendil-works/pi-tui": "1.0.2"
+  "@earendil-works/pi-agent-core": "1.4.0"
+  "@earendil-works/pi-ai": "1.4.0"
+  "@earendil-works/pi-coding-agent": "1.4.0"
+  "@earendil-works/pi-tui": "1.4.0"
 
   # Zod is a peer of Pi SDK transitives: openai, @anthropic-ai/sdk,
   # and zod-to-json-schema.
