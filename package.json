@@ -10,7 +10,7 @@
     }
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "postinstall": "node scripts/rebuild-node-pty.mjs && node scripts/rebuild-better-sqlite3.mjs",

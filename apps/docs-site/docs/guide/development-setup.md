@@ -2,7 +2,7 @@
 
 ## Start from the repo root
 
-Install Git, Node.js 22.19.0 or newer, and any
+Install Git, Node.js 22.23.4 or newer, and any
 [pnpm 12 release](https://pnpm.io/installation). The root manifest is the
 authority for the supported versions. Corepack cannot run pnpm 12 yet, so
 install pnpm with another method from that page.
