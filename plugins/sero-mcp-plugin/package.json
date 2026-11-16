@@ -66,7 +66,7 @@
   "dependencies": {
     "@modelcontextprotocol/client": "^2.4.0",
     "@modelcontextprotocol/ext-apps": "^2.0.4",
-    "@modelcontextprotocol/ext-tasks": "0.2.2",
+    "@modelcontextprotocol/ext-tasks": "0.2.3",
     "typebox": "catalog:",
     "zod": "catalog:"
   },

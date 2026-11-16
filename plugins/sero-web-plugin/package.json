@@ -70,7 +70,7 @@
     "better-sqlite3": "^13.0.3",
     "linkedom": "^0.18.14",
     "p-limit": "^6.1.0",
-    "turndown": "^7.2.4",
+    "turndown": "^7.2.5",
     "unpdf": "^1.9.1"
   },
   "peerDependencies": {
