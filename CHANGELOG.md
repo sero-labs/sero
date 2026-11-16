@@ -6,6 +6,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [1.0.0](https://github.com/sero-labs/sero/compare/v1.0.0-rc.0...v1.0.0) (2026-11-16)
+
 ## [1.0.0-rc.0](https://github.com/sero-labs/sero/compare/v0.9.0-beta.0...v1.0.0-rc.0) (2026-11-09)
 
 ### ⚠ BREAKING CHANGES
