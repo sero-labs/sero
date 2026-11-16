@@ -57,6 +57,6 @@
     "promptfoo": "0.125.1",
     "release-it": "^20.2.1",
     "turbo": "^2.11.10",
-    "wrangler": "^4.152.0"
+    "wrangler": "^4.158.0"
   }
 }
