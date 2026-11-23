@@ -1,7 +1,7 @@
 import runtimePins from '../../runtime-tools/pins.json' with { type: 'json' };
 
-export const BROWSER_PACK_VERSION = 'browser-pack-2026-11-08-r1248-f6.1.1-mf6.1.1-agent-0.41.2';
-export const BROWSER_PACK_DATE = '2026-11-08';
+export const BROWSER_PACK_VERSION = 'browser-pack-2026-11-23-r1248-f6.1.1-mf6.1.1-agent-0.43.0';
+export const BROWSER_PACK_DATE = '2026-11-23';
 export const DEFAULT_BROWSER_PACK_URL_BASE = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
 export const pins = {
