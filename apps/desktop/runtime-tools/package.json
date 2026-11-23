@@ -6,6 +6,6 @@
     "agent-browser": "0.41.2",
     "npm": "12.2.1",
     "pnpm": "12.5.1",
-    "playwright": "1.64.1"
+    "playwright": "1.65.1"
   }
 }
