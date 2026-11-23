@@ -32,9 +32,9 @@
   },
   "npm": {
     "agent-browser": {
-      "version": "0.41.2",
-      "releasedAt": "2026-11-03T23:50:15.167Z",
-      "integrity": "sha512-/agCKB5rw1EEK8SKWo4zid7a5kOwlclqALC0P3c69buJvKdhrl/dJkKdfLqGGaiNIbWzRdqqT0PxZVkwVEf2fg==",
+      "version": "0.43.0",
+      "releasedAt": "2026-11-12T23:10:17.332Z",
+      "integrity": "sha512-TExwnZAW39fUBDJhUPrw8KKGmcjzBo7FxNqoP2/usHG1ODsjGI2jAWq3+Q6I5JYyBMjePFEsj8KGB68mALtglA==",
       "routineUpdates": "patch",
       "usedBy": [
         "browser-pack",
@@ -73,18 +73,18 @@
     }
   },
   "container": {
-    "golangImage": "golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b",
+    "golangImage": "golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea",
     "ubuntuImage": "ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
-    "nodeVersion": "24.22.2",
+    "nodeVersion": "26.13.1",
     "nodeSha256": {
-      "arm64": "eb187837a2230d4047161ac0be008584e16b46f726e9c9490ee35dc6b17d9ba8",
-      "x64": "48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75"
+      "arm64": "89e1853138db51e8b82d3e98ba9c0d3f2956a28e5e55ea1b7e12d25aae92d5dd",
+      "x64": "5c063e46bab0fbc1c17cc445d7ff129cbdcd0471be6ed83b6ab864f8143bc864"
     },
     "githubCliVersion": "2.92.0"
   },
   "containerPolicy": {
     "golang": {
-      "version": "1.26.3",
+      "version": "1.27.4",
       "variant": "bookworm",
       "routineUpdates": "patch"
     },
@@ -93,9 +93,9 @@
     }
   },
   "containerReleasedAt": {
-    "golangImage": "2026-05-20T01:15:02.000Z",
+    "golangImage": "2026-11-10T18:34:06.05757Z",
     "ubuntuImage": "2026-08-10T00:00:00.000Z",
-    "nodeVersion": "2026-10-27T23:59:59.999Z",
+    "nodeVersion": "2026-11-10T23:59:59.999Z",
     "githubCliVersion": "2026-04-28T11:42:05.000Z"
   },
   "hostTools": {
