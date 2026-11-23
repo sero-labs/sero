@@ -21,7 +21,7 @@
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.3",
     "@streamdown/mermaid": "^1.0.3",
-    "lucide-react": "^1.70.0",
+    "lucide-react": "^1.73.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "streamdown": "catalog:",
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@playwright/test": "1.65.0",
+    "@playwright/test": "1.65.1",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -40,6 +40,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "ws": "^8.22.2"
+    "ws": "^8.23.0"
   }
 }
