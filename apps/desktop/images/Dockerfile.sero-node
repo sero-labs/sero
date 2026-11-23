@@ -1,4 +1,4 @@
-FROM golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b AS gh-builder
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS gh-builder
 
 ARG GH_VERSION=2.92.0
 RUN CGO_ENABLED=0 GOBIN=/out /usr/local/go/bin/go install github.com/cli/cli/v2/cmd/gh@v${GH_VERSION}
@@ -6,9 +6,9 @@ RUN CGO_ENABLED=0 GOBIN=/out /usr/local/go/bin/go install github.com/cli/cli/v2/
 FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517
 
 ARG SERO_NODE_VERSION=dev
-ARG NODE_VERSION=24.22.2
-ARG NODE_SHA256_ARM64=eb187837a2230d4047161ac0be008584e16b46f726e9c9490ee35dc6b17d9ba8
-ARG NODE_SHA256_X64=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75
+ARG NODE_VERSION=24.22.3
+ARG NODE_SHA256_ARM64=6e51a2ada00f0011cc266f65d98922b403d7ad88f809ca2aa615a5fe1ce6e86c
+ARG NODE_SHA256_X64=4f2b175a6d53a5c617a80dba2676238a0688cef28c6da4eba35c7d844e66fcfb
 # RTK is pinned here and in the host toolchain manifest. The two declarations
 # must stay equal; electron/features/workspace/runtime/toolchains/image-pin.ts
 # is the check.

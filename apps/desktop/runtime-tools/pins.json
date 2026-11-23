@@ -3,8 +3,8 @@
     "minimumReleaseAgeDays": 7
   },
   "browser": {
-    "chromiumRevision": "1248",
-    "chromiumVersion": "156.0.8078.4",
+    "chromiumRevision": "1255",
+    "chromiumVersion": "159.0.8154.6",
     "ffmpegRevision": "6.1.1",
     "macFfmpegRevision": "6.1.1",
     "ffmpegAssets": {
@@ -42,9 +42,9 @@
       ]
     },
     "playwright": {
-      "version": "1.64.1",
-      "releasedAt": "2026-10-14T11:54:49.998Z",
-      "integrity": "sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==",
+      "version": "1.65.1",
+      "releasedAt": "2026-11-13T21:15:10.738Z",
+      "integrity": "sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==",
       "routineUpdates": "minor",
       "usedBy": [
         "browser-pack",
@@ -73,18 +73,18 @@
     }
   },
   "container": {
-    "golangImage": "golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b",
+    "golangImage": "golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0",
     "ubuntuImage": "ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
-    "nodeVersion": "24.22.2",
+    "nodeVersion": "24.22.3",
     "nodeSha256": {
-      "arm64": "eb187837a2230d4047161ac0be008584e16b46f726e9c9490ee35dc6b17d9ba8",
-      "x64": "48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75"
+      "arm64": "6e51a2ada00f0011cc266f65d98922b403d7ad88f809ca2aa615a5fe1ce6e86c",
+      "x64": "4f2b175a6d53a5c617a80dba2676238a0688cef28c6da4eba35c7d844e66fcfb"
     },
     "githubCliVersion": "2.92.0"
   },
   "containerPolicy": {
     "golang": {
-      "version": "1.26.3",
+      "version": "1.26.11",
       "variant": "bookworm",
       "routineUpdates": "patch"
     },
@@ -93,9 +93,9 @@
     }
   },
   "containerReleasedAt": {
-    "golangImage": "2026-05-20T01:15:02.000Z",
+    "golangImage": "2026-11-10T18:33:18.545407Z",
     "ubuntuImage": "2026-08-10T00:00:00.000Z",
-    "nodeVersion": "2026-10-27T23:59:59.999Z",
+    "nodeVersion": "2026-11-10T23:59:59.999Z",
     "githubCliVersion": "2026-04-28T11:42:05.000Z"
   },
   "hostTools": {
